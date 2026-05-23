@@ -844,13 +844,90 @@
 
     /* ══ PERFORMANCE MODE ══ */
     [data-perf="eco"] .orb, [data-perf="eco"] #grainCanvas { display:none!important; }
-    [data-perf="eco"] .tile, [data-perf="eco"] .glass, [data-perf="eco"] .glass-subtle,
-    [data-perf="eco"] .glass-aero, [data-perf="eco"] .player-dock,
-    [data-perf="eco"] .picker-modal, [data-perf="eco"] .ctx-menu {
+    /* Nuclear eco: kill every GPU-expensive property on every element */
+    [data-perf="eco"] * {
       backdrop-filter: none!important; -webkit-backdrop-filter: none!important;
+      will-change: auto!important;
+      animation: none!important;
+      transition: none!important;
     }
-    [data-perf="eco"] * { animation-duration: 0.001ms!important; }
-    [data-perf="eco"] .tile { transform: none!important; }
+    [data-perf="eco"] .tile { transform: none!important; transform-style: flat!important; }
+
+    /* ════════════════════════════════════════
+       ECO EXTREME — flat / corporate / zero-GPU
+       Single solid colors. No magic. This just
+       launches apps and plays music.
+    ════════════════════════════════════════ */
+
+    /* Single consistent bg — no TOD color variation in eco */
+    [data-theme="dark"][data-perf="eco"]  { --bg: #0d0d14; }
+    [data-theme="light"][data-perf="eco"] { --bg: #e8edf4; }
+
+    /* Override every design token to solid/opaque values — dark */
+    [data-theme="dark"][data-perf="eco"] {
+      --tile-bg:        #1a1a26;  --tile-bg-h:      #222238;
+      --tile-border:    #2e2e44;  --tile-border-h:  #3c3c56;
+      --tile-inner-t:   transparent; --tile-inner-b: transparent;
+      --tile-shadow:    transparent; --tile-glow:    transparent;
+      --hover-sheen:    transparent;
+      --glass-fill:     #131320;  --glass-fill-h:   #1c1c2e;
+      --glass-border:   #282840;  --glass-border-h: #363658;
+      --glass-inner-t:  transparent; --glass-inner-b: transparent;
+      --glass-shadow:   transparent; --glass-shine:  transparent;
+      --dock-bg:        #0e0e1a;  --dock-border:    #252540;
+      --dock-shine:     transparent; --dock-shadow:  transparent;
+      --grain-opacity:  0;
+    }
+    /* Override every design token to solid/opaque values — light */
+    [data-theme="light"][data-perf="eco"] {
+      --tile-bg:        #d8e0ee;  --tile-bg-h:      #cdd6e8;
+      --tile-border:    #b4bdd4;  --tile-border-h:  #9aa4c4;
+      --tile-inner-t:   transparent; --tile-inner-b: transparent;
+      --tile-shadow:    transparent; --tile-glow:    transparent;
+      --hover-sheen:    transparent;
+      --glass-fill:     #e4eaf6;  --glass-fill-h:   #dce4f4;
+      --glass-border:   #b8c0d8;  --glass-border-h: #9aa5c4;
+      --glass-inner-t:  transparent; --glass-inner-b: transparent;
+      --glass-shadow:   transparent; --glass-shine:  transparent;
+      --dock-bg:        #dce4f0;  --dock-border:    #b8c4d8;
+      --dock-shine:     transparent; --dock-shadow:  transparent;
+      --grain-opacity:  0;
+    }
+
+    /* Force solid tile backgrounds (tile has a multi-layer gradient we must override) */
+    [data-theme="dark"][data-perf="eco"]  .tile {
+      background: #1a1a26 !important;
+      border-color: #2e2e44 !important; border-top-color: #2e2e44 !important;
+    }
+    [data-theme="light"][data-perf="eco"] .tile {
+      background: #d8e0ee !important;
+      border-color: #b4bdd4 !important; border-top-color: #b4bdd4 !important;
+    }
+
+    /* Force single-color glass panels (strip gradient layers) */
+    [data-perf="eco"] .glass,
+    [data-perf="eco"] .glass-subtle,
+    [data-perf="eco"] .glass-aero { background: var(--glass-fill) !important; }
+
+    /* Kill tile glossy ::after highlight and any ::before decorations */
+    [data-perf="eco"] .tile::after,
+    [data-perf="eco"] .tile::before { display: none !important; }
+
+    /* Kill every shadow and glow — no depth at all */
+    [data-perf="eco"] * {
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+
+    /* Kill filter effects everywhere (preserve .logo light-mode invert) */
+    [data-perf="eco"] *:not(.logo) { filter: none !important; }
+
+    /* Nuke all purely decorative child elements */
+    [data-perf="eco"] .tile-sheen,
+    [data-perf="eco"] .tile-edge,
+    [data-perf="eco"] .art-sheen,
+    [data-perf="eco"] .bg-overlay,
+    [data-perf="eco"] .fs-bg { display: none !important; }
 
     /* image bg mode */
     [data-perf="image"] .orb, [data-perf="image"] #grainCanvas { display:none!important; }
@@ -4115,6 +4192,14 @@
 
 <script>
 // ══════════════════════════════════════════
+//  ECO LOOP REGISTRY
+//  Loops register a restart fn here when they
+//  stop themselves in eco mode. applyPerf()
+//  drains this array when leaving eco.
+// ══════════════════════════════════════════
+const _ecoRestarters = [];
+
+// ══════════════════════════════════════════
 //  GRAIN
 // ══════════════════════════════════════════
 const grainCanvas = document.getElementById('grainCanvas');
@@ -4143,9 +4228,9 @@ function generateGrain() {
 }
 
 function drawGrain() {
-  if (document.documentElement.getAttribute('data-perf') === 'eco' || grainCanvas.style.display === 'none') {
-    requestAnimationFrame(drawGrain);
-    return;
+  if (document.documentElement.getAttribute('data-perf') === 'eco') {
+    _ecoRestarters.push(() => requestAnimationFrame(drawGrain));
+    return; // loop dies here; applyPerf will restart it
   }
   if (grainBuf) {
     grainOffX += (targetOffX-grainOffX)*0.055;
@@ -5244,6 +5329,8 @@ function applyPerf(m) {
   if (m === 'image') { icon.className='ti ti-photo';     btn.classList.add('active');    btn.title='Perf: Image BG'; }
   localStorage.setItem(PERF_KEY, m);
   updateBgOverlay();
+  // Restart any loops that killed themselves in eco mode
+  if (m !== 'eco') { const fns = _ecoRestarters.splice(0); fns.forEach(fn => fn()); }
 }
 applyPerf(perfMode);
 document.getElementById('perfToggle').addEventListener('click', () => { SFX.play('click');
@@ -8815,13 +8902,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   document.addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; hidden = false; });
   document.addEventListener('mouseleave', () => { hidden = true; });
 
-  (function tick() {
+  function spotTick() {
+    if (document.documentElement.getAttribute('data-perf') === 'eco') {
+      _ecoRestarters.push(() => requestAnimationFrame(spotTick));
+      return; // loop dies; applyPerf restarts
+    }
     lx += (cx - lx) * 0.072;
     ly += (cy - ly) * 0.072;
     spot.style.transform = `translate(calc(${lx}px - 50%), calc(${ly}px - 50%))`;
     spot.style.opacity = hidden ? '0' : '1';
-    requestAnimationFrame(tick);
-  })();
+    requestAnimationFrame(spotTick);
+  }
+  requestAnimationFrame(spotTick);
 
   // Re-check perf toggle changes
   const observer = new MutationObserver(() => {
@@ -8848,13 +8940,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     my = (e.clientY / window.innerHeight - 0.5) * 2;
   });
 
-  (function tick() {
+  function orbTick() {
+    if (document.documentElement.getAttribute('data-perf') === 'eco') {
+      _ecoRestarters.push(() => requestAnimationFrame(orbTick));
+      return; // loop dies; applyPerf restarts
+    }
     ox += (mx - ox) * 0.022;
     oy += (my - oy) * 0.022;
     orb1.style.transform = `translate(${ox * -11}px, ${oy * -8}px)`;
     orb2.style.transform = `translate(${ox * 8}px, ${oy * 6}px)`;
-    requestAnimationFrame(tick);
-  })();
+    requestAnimationFrame(orbTick);
+  }
+  requestAnimationFrame(orbTick);
 })();
 
 
@@ -9089,13 +9186,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   document.addEventListener('mousedown', () => document.body.classList.add('cur-press'));
   document.addEventListener('mouseup',   () => document.body.classList.remove('cur-press'));
 
-  (function tick() {
+  function curTick() {
+    if (isEco()) {
+      _ecoRestarters.push(() => requestAnimationFrame(curTick));
+      return; // loop dies; applyPerf restarts
+    }
     rx += (cx - rx) * 0.13;
     ry += (cy - ry) * 0.13;
     dot.style.transform  = `translate(calc(${cx}px - 50%), calc(${cy}px - 50%))`;
     ring.style.transform = `translate(calc(${rx}px - 50%), calc(${ry}px - 50%))`;
-    requestAnimationFrame(tick);
-  })();
+    requestAnimationFrame(curTick);
+  }
+  requestAnimationFrame(curTick);
 })();
 
 
@@ -9146,11 +9248,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function draw() {
     const tod  = document.documentElement.getAttribute('data-tod');
     const perf = document.documentElement.getAttribute('data-perf');
-    const on   = perf !== 'eco' && ACTIVE_TODS.has(tod);
 
+    if (perf === 'eco') {
+      ctx.clearRect(0, 0, W, H);
+      _ecoRestarters.push(() => requestAnimationFrame(draw));
+      return; // loop dies; applyPerf restarts
+    }
+
+    const on = ACTIVE_TODS.has(tod);
     pmx += (tmx - pmx) * 0.016;
     pmy += (tmy - pmy) * 0.016;
-
     ctx.clearRect(0, 0, W, H);
 
     if (!on) { requestAnimationFrame(draw); return; }
@@ -9226,14 +9333,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   });
   document.addEventListener('mouseleave', () => { tx = 0; ty = 0; });
 
-  (function tick() {
+  function dashTick() {
+    if (document.documentElement.getAttribute('data-perf') === 'eco') {
+      dash.style.transform = ''; // reset tilt
+      _ecoRestarters.push(() => requestAnimationFrame(dashTick));
+      return; // loop dies; applyPerf restarts
+    }
     lx += (tx - lx) * EASE;
     ly += (ty - ly) * EASE;
     dash.style.transform = (Math.abs(lx) > 0.004 || Math.abs(ly) > 0.004)
       ? `perspective(1600px) rotateX(${lx.toFixed(3)}deg) rotateY(${ly.toFixed(3)}deg)`
       : '';
-    requestAnimationFrame(tick);
-  })();
+    requestAnimationFrame(dashTick);
+  }
+  requestAnimationFrame(dashTick);
 })();
 
 
