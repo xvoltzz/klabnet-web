@@ -622,20 +622,17 @@
     }
     .fs-player.open { display:flex; animation:fsIn 0.3s ease both; }
     @keyframes fsIn { from{opacity:0} to{opacity:1} }
-    /* Blurring a viewport-filling layer rasterizes the filter at full
-       screen resolution — on a 4K/8K display (and further multiplied by
-       the zoom bump on the high-res breakpoints above) that's a huge
-       surface for the GPU to blur, and it shows up as visible banding/
-       tiling artifacts. Instead, blur a quarter-area copy (half width,
-       half height) and scale the whole thing up — the result looks
-       identical since blur is low-frequency anyway, but computes on a
-       fraction of the pixels at any resolution. */
+    /* The cover-art source is requested at a size matched to the actual
+       screen (see the JS that sets background-image) — that's the fix for
+       the visible blocky/tiled artifacts on high-res displays, which came
+       from stretching a fixed, too-small source across a much bigger
+       screen. transform:scale below is just a small overscan so the blur's
+       own edge falloff doesn't peek in at the viewport edge. */
     .fs-bg {
-      position:absolute; top:50%; left:50%; z-index:0;
-      width:50%; height:50%;
+      position:absolute; inset:0; z-index:0;
       background-size:cover; background-position:center;
-      filter:blur(40px) saturate(160%) brightness(0.45);
-      transform: translate(-50%, -50%) scale(2.6);
+      filter:blur(70px) saturate(160%) brightness(0.45);
+      transform: scale(1.15);
     }
     .fs-content { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:1.8rem; width:100%; max-width:480px; transition: padding 0.4s ease, max-width 0.4s ease; }
     .fs-art-tilt-wrap {
@@ -1867,6 +1864,7 @@
       transition: color 0.15s, background 0.15s; flex-shrink: 0; display: none;
       align-items: center; justify-content: center;
     }
+    .picker-sort-btn.shown { display: inline-flex; }
     .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--glass-fill-h); }
 
     .picker-search {
@@ -3401,10 +3399,13 @@ function updateFSUI(song) {
   } else { fsAlbumEl.textContent = song.album || ''; }
 
   const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=800&${subsonicParams()}`;
-  // Background is stretched across the whole viewport (up to 4K+), so it
-  // needs a much larger source than the 240px foreground art — otherwise
-  // the blur can't hide the upscaling blockiness on big/high-res screens.
-  const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=1600&${subsonicParams()}`;
+  // Background is stretched across the whole viewport, so it needs a source
+  // sized to the actual screen — a fixed size (this used to be a flat 1600)
+  // is fine on a 1080p laptop but visibly blocky once stretched across a
+  // 4K/5K/8K display. Scale the request with the real viewport and DPR,
+  // capped so a stray 8K + browser zoom combo doesn't request something wild.
+  const bgSize = Math.min(3200, Math.round(Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1)));
+  const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=${bgSize}&${subsonicParams()}`;
 
   // Crossfade FS background — preload before swap
   const next = _fsBgActive === 'A' ? 'B' : 'A';
@@ -5844,11 +5845,11 @@ function applySort(items, tab) {
 
 function showSortBtn(tab) {
   const btn = document.getElementById('pickerSortBtn');
-  if (btn) btn.style.display = SORT_OPTIONS[tab] ? 'inline-flex' : 'none';
+  if (btn) btn.classList.toggle('shown', !!SORT_OPTIONS[tab]);
 }
 function hideSortBtn() {
   const btn = document.getElementById('pickerSortBtn');
-  if (btn) btn.style.display = 'none';
+  if (btn) btn.classList.remove('shown');
   document.getElementById('sortMenu')?.classList.remove('visible');
 }
 
