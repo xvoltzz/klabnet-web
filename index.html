@@ -216,12 +216,16 @@
 
     .dash {
       max-width: var(--content-w); margin: 0 auto;
-      /* Bottom padding just needs to clear the floating player dock, not a
-         full screen's worth — the dock no longer lives in normal flow. */
-      padding: 4rem 3.5rem 7rem;
+      padding: 4rem 3.5rem 1.75rem;
       position: relative; z-index: 2;
       transition: max-width 0.2s ease;
     }
+    /* Extra bottom clearance for the floating player dock — only added once
+       JS confirms the page already needs to scroll, so a short page (few
+       tiles) never grows scrollable just to make room for a fixed-position
+       dock that isn't in normal flow anyway. See the clearance script near
+       the end of the document. */
+    .dash.dash-clearance { padding-bottom: 7rem; }
 
     /* ══ HEADER ══ */
     .header {
@@ -1828,6 +1832,14 @@
     }
     .picker-close:hover { color: var(--text); background: var(--glass-fill-h); }
 
+    .picker-sort-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dimmer); font-size: 15px; padding: 2px 4px; border-radius: 6px;
+      transition: color 0.15s, background 0.15s; flex-shrink: 0; display: none;
+      align-items: center; justify-content: center;
+    }
+    .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--glass-fill-h); }
+
     .picker-search {
       display: flex; align-items: center; gap: 0.6rem;
       padding: 0.6rem 1rem; border-radius: 8px;
@@ -2107,6 +2119,8 @@
   </div>
 </div>
 
+<div class="ctx-menu" id="sortMenu" style="min-width:170px;"></div>
+
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-label" id="ctxTitle">Service</div>
   <div class="ctx-item" id="ctxOpen"><i class="ti ti-external-link"></i> Open</div>
@@ -2302,7 +2316,11 @@
         <div class="settings-row">
           <div><div class="settings-row-label">SFX Volume</div></div>
           <div class="s-slider-wrap">
-            <input type="range" class="s-slider" id="sfxVolumeSlider" min="0" max="100" value="70" />
+            <div class="slider-wrap" id="sfxVolumeSlider" style="width:76px;">
+              <div class="slider-track"></div>
+              <div class="slider-fill" id="sfxVolumeFill" style="width:70%"></div>
+              <div class="slider-dot" id="sfxVolumeDot" style="left:70%"></div>
+            </div>
             <span class="s-slider-val" id="sfxVolumeVal">70%</span>
           </div>
         </div>
@@ -2355,6 +2373,7 @@
     <div class="picker-search">
       <i class="ti ti-search"></i>
       <input type="text" id="pickerSearch" placeholder="search songs, artists..." autocomplete="off" />
+      <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
     </div>
     <div class="picker-tabs">
       <button class="picker-tab active" data-tab="random">Random</button>
@@ -2946,12 +2965,19 @@ const pickerList     = document.getElementById('pickerList');
 const pickerSearchEl = document.getElementById('pickerSearch');
 let _restorePickerAfterPanel = false;
 
+// Once the picker has loaded something, reopening it (without switching tabs)
+// just shows the same content again — same tab, same scroll position — rather
+// than refetching and snapping back to the top.
+let _pickerLoaded = false;
+
 function openPicker() {
   ensurePlDelegate();
   pickerBackdrop.classList.add('open');
+  if (_pickerLoaded) return;
   if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
   else pickerSearchEl.value = pickerQuery;
   loadPickerTab(pickerTab);
+  _pickerLoaded = true;
 }
 // Open picker and immediately navigate to a view without loading the default tab first
 function openPickerTo(fn) {
@@ -2964,6 +2990,7 @@ function openPickerTo(fn) {
 
 function closePicker() {
   pickerBackdrop.classList.remove('open');
+  document.getElementById('sortMenu')?.classList.remove('visible');
 }
 
 function openMusicPanelPreservingPicker(openFn) {
@@ -3119,7 +3146,7 @@ function renderSongItem(song, container) {
   item.querySelector('[data-play]').addEventListener('click', async e => {
     e.stopPropagation();
     playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
-    await playSong(song); closePicker();
+    await playSong(song);
   });
   item.querySelector('[data-login]').addEventListener('click', e => {
     e.stopPropagation();
@@ -3128,7 +3155,7 @@ function renderSongItem(song, container) {
   });
   item.addEventListener('click', async () => {
     playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
-    await playSong(song); closePicker();
+    await playSong(song);
   });
   container.appendChild(item);
 }
@@ -3383,21 +3410,26 @@ loadPickerTab = async function(tab) {
   return _origLoadPickerTab(tab);
 };
 
+let _albumsCache = null;
 async function loadAlbums() {
   pickerList.innerHTML = '<div class="picker-empty">loading albums...</div>';
   try {
-    const allAlbums = [];
-    let offset = 0;
-    const pageSize = 500;
-    while (true) {
-      const res = await fetch(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`);
-      const data = await res.json();
-      const page = data['subsonic-response']?.albumList?.album || [];
-      allAlbums.push(...page);
-      if (page.length < pageSize) break; // no more pages
-      offset += pageSize;
+    if (!_albumsCache) {
+      const allAlbums = [];
+      let offset = 0;
+      const pageSize = 500;
+      while (true) {
+        const res = await fetch(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`);
+        const data = await res.json();
+        const page = data['subsonic-response']?.albumList?.album || [];
+        allAlbums.push(...page);
+        if (page.length < pageSize) break; // no more pages
+        offset += pageSize;
+      }
+      _albumsCache = allAlbums;
     }
-    renderAlbumList(allAlbums);
+    renderAlbumList(applySort(_albumsCache, 'albums'));
+    showSortBtn('albums');
   } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
 }
 
@@ -3488,7 +3520,7 @@ function renderAlbumList(albums, appendMode) {
       e.stopPropagation();
       const t = await fetchTracks(); if (!t.length) return;
       queue = t.slice(1); updateQueueBadge();
-      await playSong(t[0]); closePicker();
+      await playSong(t[0]);
       showToast('Playing "' + album.name + '"');
     });
 
@@ -3662,7 +3694,7 @@ async function loadArtistView(artist) {
         e.stopPropagation();
         const t = await getTracks(); if (!t.length) return;
         queue = t.slice(1); updateQueueBadge();
-        await playSong(t[0]); closePicker(); showToast(`Playing "${album.name}"`);
+        await playSong(t[0]); showToast(`Playing "${album.name}"`);
       });
       item.querySelector('[title="Queue album"]').addEventListener('click', async e => {
         e.stopPropagation();
@@ -3712,7 +3744,7 @@ function renderQueueList() {
     });
     item.addEventListener('click', async () => {
       const s = queue.splice(idx, 1)[0];
-      updateQueueBadge(); await playSong(s); closePicker();
+      updateQueueBadge(); await playSong(s);
     });
     pickerList.appendChild(item);
   });
@@ -4134,13 +4166,15 @@ loadPickerTab = async function(tab) {
       pickerList.innerHTML = '<div class="picker-empty">no favorites yet — hit the heart on any song</div>';
       return;
     }
+    const sorted = applySort(favs, 'favorites');
     pickerList.innerHTML = '';
     const lbl = document.createElement('div');
     lbl.className = 'picker-section-label';
-    lbl.textContent = 'Favorites (' + favs.length + ')';
+    lbl.textContent = 'Favorites (' + sorted.length + ')';
     pickerList.appendChild(lbl);
-    pickerSongs = favs;
-    favs.forEach(song => renderSongItem(song, pickerList));
+    pickerSongs = sorted;
+    sorted.forEach(song => renderSongItem(song, pickerList));
+    showSortBtn('favorites');
     return;
   }
   return _origLoadPickerTab2(tab);
@@ -5210,13 +5244,10 @@ function openSettings() {
     if (el) el.classList.toggle('on', !!_settings[key]);
   });
 
-  const volSlider = document.getElementById('sfxVolumeSlider');
-  const volVal    = document.getElementById('sfxVolumeVal');
-  if (volSlider && volVal) {
-    const pct = Math.round((_settings.sfxVolume ?? 0.7) * 100);
-    volSlider.value = pct;
-    volVal.textContent = pct + '%';
-  }
+  const volVal = document.getElementById('sfxVolumeVal');
+  const pct    = _settings.sfxVolume ?? 0.7;
+  sfxVolumeSlider.setPct(pct);
+  if (volVal) volVal.textContent = Math.round(pct * 100) + '%';
 
   document.getElementById('settingsBackdrop').classList.add('open');
   SFX && SFX.play('open');
@@ -5244,14 +5275,18 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
 });
 
 // SFX volume slider
-document.getElementById('sfxVolumeSlider').addEventListener('input', function() {
-  const v = parseInt(this.value) / 100;
-  _settings.sfxVolume = v;
-  document.getElementById('sfxVolumeVal').textContent = this.value + '%';
-  saveSettings();
-  SFX.setVolume(v);
-  if (v > 0) SFX.play('hover');
-});
+const sfxVolumeSlider = makeSlider(
+  document.getElementById('sfxVolumeSlider'),
+  document.getElementById('sfxVolumeFill'),
+  document.getElementById('sfxVolumeDot'),
+  pct => {
+    _settings.sfxVolume = pct;
+    document.getElementById('sfxVolumeVal').textContent = Math.round(pct * 100) + '%';
+    saveSettings();
+    SFX.setVolume(pct);
+    if (pct > 0) SFX.play('hover');
+  }
+);
 
 // Reset prefs
 document.getElementById('clearPrefsRow').addEventListener('click', async () => { SFX.play('error');
@@ -5279,14 +5314,16 @@ document.getElementById('settingsBackdrop').addEventListener('click', e => {
 // ══════════════════════════════════════════
 //  GENRES BROWSER
 // ══════════════════════════════════════════
+let _genresCache = null;
 async function loadGenres() {
   pickerList.innerHTML = '<div class="picker-empty">loading genres...</div>';
   try {
-    const res  = await fetch(`${ND_URL}/rest/getGenres?${subsonicParams()}`);
-    const data = await res.json();
-    const genres = (data['subsonic-response']?.genres?.genre || [])
-      .filter(g => g.songCount > 0)
-      .sort((a, b) => b.songCount - a.songCount);
+    if (!_genresCache) {
+      const res  = await fetch(`${ND_URL}/rest/getGenres?${subsonicParams()}`);
+      const data = await res.json();
+      _genresCache = (data['subsonic-response']?.genres?.genre || []).filter(g => g.songCount > 0);
+    }
+    const genres = applySort(_genresCache, 'genres');
 
     if (!genres.length) { pickerList.innerHTML = '<div class="picker-empty">no genres found</div>'; return; }
 
@@ -5295,6 +5332,7 @@ async function loadGenres() {
     hdr.className = 'picker-section-label';
     hdr.textContent = `Genres (${genres.length})`;
     pickerList.appendChild(hdr);
+    showSortBtn('genres');
 
     genres.forEach(genre => {
       const item = document.createElement('div');
@@ -5310,6 +5348,7 @@ async function loadGenres() {
         </div>`;
 
       const play = async () => {
+        hideSortBtn();
         pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
         try {
           const r = await fetch(`${ND_URL}/rest/getSongsByGenre?genre=${encodeURIComponent(genre.value)}&count=50&${subsonicParams()}`);
@@ -5412,7 +5451,8 @@ function renderPlaylistList() {
     return;
   }
 
-  pls.forEach(pl => {
+  showSortBtn('playlists');
+  applySort(pls, 'playlists').forEach(pl => {
     const item = document.createElement('div');
     item.className = 'pl-item';
     item.innerHTML = `
@@ -5431,7 +5471,7 @@ function renderPlaylistList() {
       e.stopPropagation();
       if (!pl.songs.length) { showToast('playlist is empty'); return; }
       queue = pl.songs.slice(1); updateQueueBadge();
-      await playSong(pl.songs[0]); closePicker();
+      await playSong(pl.songs[0]);
       showToast(`Playing "${pl.name}"`); SFX && SFX.play('play');
     });
 
@@ -5455,6 +5495,7 @@ function renderPlaylistList() {
 }
 
 function loadPlaylistView(pl) {
+  hideSortBtn();
   pickerList.innerHTML = '';
   const back = document.createElement('button');
   back.className = 'picker-back';
@@ -5542,10 +5583,18 @@ function ensurePlDelegate() {
 // ══════════════════════════════════════════
 const _origLoadPickerTabNew = loadPickerTab;
 
-// ── Songs browser (infinite scroll via IntersectionObserver) ──
-let _songsOffset = 0;
+// ── Songs browser ──
+// Default ("library order") stays the original fast path: fetch one page,
+// render it, fetch more as the user scrolls near the bottom — a library of
+// thousands of songs never has to load in full just to open the tab.
+// Picking an actual sort order is an explicit, opt-in trade: it fetches the
+// whole library once (caching it) so the sort is global, then renders the
+// sorted result in the same chunk-by-chunk way so a low-power device still
+// only ever has a page's worth of DOM nodes at a time.
 const _SONGS_PER_PAGE = 100;
+let _songsOffset = 0;
 let _songsObserver = null;
+let _songsCache = null;
 
 async function _fetchSongsPage(offset) {
   const res  = await fetch(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`);
@@ -5554,29 +5603,46 @@ async function _fetchSongsPage(offset) {
 }
 
 async function loadAllSongs() {
-  _songsOffset = 0;
   if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
   pickerList.innerHTML = '<div class="picker-empty">loading songs...</div>';
+  showSortBtn('songs');
+  try {
+    if (getSort('songs') === 'default') {
+      await loadSongsIncremental();
+    } else {
+      if (!_songsCache) {
+        const all = [];
+        let offset = 0;
+        while (true) {
+          const page = await _fetchSongsPage(offset);
+          all.push(...page);
+          if (page.length < _SONGS_PER_PAGE) break;
+          offset += _SONGS_PER_PAGE;
+        }
+        _songsCache = all;
+      }
+      renderSongsTabSorted();
+    }
+  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load songs</div>'; }
+}
 
-  const songs = await _fetchSongsPage(0);
+// Fast path — one page at a time, straight from the network, in server order.
+async function loadSongsIncremental() {
+  _songsOffset = 0;
   pickerList.innerHTML = '';
-
   const lbl = document.createElement('div');
   lbl.className = 'picker-section-label';
   lbl.id = '_songsLbl';
   lbl.textContent = 'All Songs';
   pickerList.appendChild(lbl);
 
-  pickerSongs = [...songs];
-  songs.forEach(s => renderSongItem(s, pickerList));
-  _songsOffset = songs.length;
+  const first = await _fetchSongsPage(0);
+  pickerSongs = [...first];
+  first.forEach(s => renderSongItem(s, pickerList));
+  _songsOffset = first.length;
 
-  if (songs.length < _SONGS_PER_PAGE) {
-    lbl.textContent = `All Songs (${_songsOffset})`;
-    return;
-  }
+  if (first.length < _SONGS_PER_PAGE) { lbl.textContent = `All Songs (${_songsOffset})`; return; }
 
-  // Sentinel for infinite scroll
   const sentinel = document.createElement('div');
   sentinel.style.cssText = 'height:1px;';
   pickerList.appendChild(sentinel);
@@ -5597,12 +5663,154 @@ async function loadAllSongs() {
   _songsObserver.observe(sentinel);
 }
 
+// Sorted path — the whole (cached) library, rendered in chunks as the user scrolls.
+function renderSongsTabSorted() {
+  if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
+  const sorted = applySort(_songsCache || [], 'songs');
+  pickerSongs = sorted;
+  pickerList.innerHTML = '';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'picker-section-label';
+  lbl.id = '_songsLbl';
+  lbl.textContent = `All Songs (${sorted.length})`;
+  pickerList.appendChild(lbl);
+
+  const sentinel = document.createElement('div');
+  sentinel.style.cssText = 'height:1px;';
+  let rendered = 0;
+
+  const renderChunk = () => {
+    const next = sorted.slice(rendered, rendered + _SONGS_PER_PAGE);
+    next.forEach(s => renderSongItem(s, pickerList));
+    rendered += next.length;
+    if (rendered >= sorted.length) { if (sentinel.isConnected) sentinel.remove(); return; }
+    pickerList.appendChild(sentinel);
+    _songsObserver.observe(sentinel);
+  };
+
+  _songsObserver = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    _songsObserver.unobserve(sentinel);
+    sentinel.remove();
+    renderChunk();
+  }, { root: pickerList, rootMargin: '80px' });
+
+  renderChunk();
+}
+
 loadPickerTab = async function(tab) {
   if (tab === 'songs')     { pickerTab = tab; await loadAllSongs(); return; }
   if (tab === 'genres')    { pickerTab = tab; await loadGenres(); return; }
   if (tab === 'playlists') { pickerTab = tab; renderPlaylistList(); return; }
   return _origLoadPickerTabNew(tab);
 };
+
+// Hide the sort control by default on every tab switch — whichever branch
+// above actually renders a sortable list turns it back on for itself.
+const _origLoadPickerTabSort = loadPickerTab;
+loadPickerTab = async function(tab) {
+  hideSortBtn();
+  return _origLoadPickerTabSort(tab);
+};
+
+// ══════════════════════════════════════════
+//  PICKER SORTING
+// ══════════════════════════════════════════
+const SORT_KEY = 'klabnet_picker_sort';
+const SORT_OPTIONS = {
+  songs:     [['default','Library Order'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)'], ['album-asc','Album (A–Z)']],
+  favorites: [['added-desc','Recently Added'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)']],
+  albums:    [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['artist-asc','Artist (A–Z)'], ['year-desc','Year (Newest)'], ['year-asc','Year (Oldest)']],
+  playlists: [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['created-desc','Recently Created']],
+  genres:    [['name-asc','Name (A–Z)'], ['count-desc','Most Songs']],
+};
+
+let _pickerSortState = {};
+try { _pickerSortState = JSON.parse(localStorage.getItem(SORT_KEY) || '{}'); } catch(e) { _pickerSortState = {}; }
+
+function getSort(tab) {
+  const opts = SORT_OPTIONS[tab];
+  if (!opts) return null;
+  return _pickerSortState[tab] || opts[0][0];
+}
+function setSort(tab, val) {
+  _pickerSortState[tab] = val;
+  localStorage.setItem(SORT_KEY, JSON.stringify(_pickerSortState));
+}
+
+function applySort(items, tab) {
+  const key = getSort(tab);
+  const arr = items.slice();
+  const cmp = (a, b) => String(a).localeCompare(String(b));
+  // Genres store their label in `value`, not `name`.
+  const nameOf = x => tab === 'genres' ? x.value : x.name;
+  switch (key) {
+    case 'title-desc':   return arr.sort((a, b) => cmp(b.title, a.title));
+    case 'artist-asc':   return arr.sort((a, b) => cmp(a.artist, b.artist));
+    case 'album-asc':    return arr.sort((a, b) => cmp(a.album, b.album));
+    case 'added-desc':   return arr; // songs/favorites are already stored newest-first
+    case 'name-desc':    return arr.sort((a, b) => cmp(nameOf(b), nameOf(a)));
+    case 'year-desc':    return arr.sort((a, b) => (b.year||0) - (a.year||0));
+    case 'year-asc':     return arr.sort((a, b) => (a.year||0) - (b.year||0));
+    case 'created-desc': return arr.sort((a, b) => new Date(b.created||0) - new Date(a.created||0));
+    case 'count-desc':   return arr.sort((a, b) => (b.songCount||0) - (a.songCount||0));
+    case 'title-asc':    return arr.sort((a, b) => cmp(a.title, b.title));
+    case 'name-asc':     return arr.sort((a, b) => cmp(nameOf(a), nameOf(b)));
+    default:
+      return arr;
+  }
+}
+
+function showSortBtn(tab) {
+  const btn = document.getElementById('pickerSortBtn');
+  if (btn) btn.style.display = SORT_OPTIONS[tab] ? 'inline-flex' : 'none';
+}
+function hideSortBtn() {
+  const btn = document.getElementById('pickerSortBtn');
+  if (btn) btn.style.display = 'none';
+  document.getElementById('sortMenu')?.classList.remove('visible');
+}
+
+function rerenderSortedTab() {
+  if (pickerTab === 'songs')          loadAllSongs();
+  else if (pickerTab === 'albums')    renderAlbumList(applySort(_albumsCache || [], 'albums'));
+  else if (pickerTab === 'favorites') loadPickerTab('favorites');
+  else if (pickerTab === 'playlists') renderPlaylistList();
+  else if (pickerTab === 'genres')    loadGenres();
+}
+
+document.getElementById('pickerSortBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  const menu = document.getElementById('sortMenu');
+  const opts = SORT_OPTIONS[pickerTab];
+  if (!opts) return;
+  if (menu.classList.contains('visible')) { menu.classList.remove('visible'); return; }
+  const current = getSort(pickerTab);
+  menu.innerHTML = '<div class="ctx-label">Sort by</div>' + opts.map(([key, label]) =>
+    `<div class="ctx-item" data-sort-key="${key}"><i class="ti ${key === current ? 'ti-check' : ''}" style="width:15px;"></i> ${label}</div>`
+  ).join('');
+  menu.querySelectorAll('[data-sort-key]').forEach(el => {
+    el.addEventListener('click', () => {
+      setSort(pickerTab, el.dataset.sortKey);
+      menu.classList.remove('visible');
+      SFX && SFX.play('click');
+      rerenderSortedTab();
+      showSortBtn(pickerTab);
+    });
+  });
+  const r = e.currentTarget.getBoundingClientRect();
+  menu.style.top = (r.bottom + 6) + 'px';
+  menu.style.right = (window.innerWidth - r.right) + 'px';
+  menu.style.left = 'auto';
+  menu.classList.add('visible');
+});
+document.addEventListener('click', e => {
+  const menu = document.getElementById('sortMenu');
+  if (menu && menu.classList.contains('visible') && !menu.contains(e.target) && e.target.id !== 'pickerSortBtn') {
+    menu.classList.remove('visible');
+  }
+});
 
 // ══════════════════════════════════════════
 //  BOOT — load settings
@@ -5662,7 +5870,7 @@ async function loadAlbumView(albumId, albumName, backFn) {
     hdr.querySelector('#_avPlayAll').addEventListener('click', async () => {
       if (!songs.length) return;
       queue = songs.slice(1); updateQueueBadge();
-      await playSong(songs[0]); closePicker();
+      await playSong(songs[0]);
       showToast(`Playing "${info.name}"`);
     });
     hdr.querySelector('#_avQueueAll').addEventListener('click', () => {
@@ -6784,6 +6992,40 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
 })();
 
+// ══════════════════════════════════════════
+//  MAIN PAGE SCROLL CLEARANCE
+//  The floating player dock needs the page to leave room below the last
+//  section so content doesn't end up hidden behind it — but that clearance
+//  should only exist when the page is already tall enough to scroll.
+//  Otherwise a dashboard with just a few tiles ends up scrollable into
+//  empty space for no reason.
+// ══════════════════════════════════════════
+(function() {
+  const dash = document.querySelector('.dash');
+  if (!dash) return;
+  let pending = false;
+  function update() {
+    pending = false;
+    dash.classList.remove('dash-clearance');
+    const needsScroll = document.documentElement.scrollHeight > window.innerHeight;
+    dash.classList.toggle('dash-clearance', needsScroll);
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(update);
+  }
+  // Any content change inside .dash (tiles added/removed, edit mode, etc.)
+  // — ignore our own class toggle on .dash so this can't trigger itself.
+  new MutationObserver(muts => {
+    if (muts.some(m => !(m.target === dash && m.attributeName === 'class'))) schedule();
+  }).observe(dash, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+  // body class changes (edit-mode, etc.) can also affect .dash's height via CSS
+  new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  schedule();
+})();
 
 </script>
 
