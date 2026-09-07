@@ -17,10 +17,10 @@
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     html { font-size: 19px; }
 
-    /* Humanist sans for the player + buttons — the terminal mono everywhere
-       else is deliberate, but on dense control labels it reads as "generated
-       code" rather than a designed UI. The klabnet wordmark (.prompt-text)
-       stays JetBrains Mono on purpose. */
+    /* Humanist sans everywhere — reads as a designed UI rather than
+       "generated code" on dense control labels. The klabnet wordmark
+       (.prompt-text) is the one deliberate exception and stays JetBrains
+       Mono, the terminal font the rest of the site used to default to. */
     :root { --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
     /* ══ LARGE / HIGH-RES DISPLAYS ══
@@ -118,7 +118,7 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       min-height: 100vh;
       overflow-x: hidden;
       position: relative;
@@ -304,7 +304,7 @@
     }
 
     .prompt-prefix {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       font-size: 0.7rem;
       font-weight: 400;
       letter-spacing: 0.15em;
@@ -374,7 +374,7 @@
     .sec-label {
       font-size: 9px; letter-spacing: 0.32em; color: var(--text-dimmer);
       text-transform: uppercase; white-space: nowrap;
-      font-family: 'JetBrains Mono', monospace; font-weight: 500;
+      font-family: var(--font-ui); font-weight: 500;
     }
     .sec-line {
       flex: 1; height: 1px;
@@ -419,7 +419,7 @@
       font-size: 10.5px; letter-spacing: 0.07em; color: var(--tile-label);
       text-transform: uppercase; text-align: left;
       transition: color 0.2s; position: relative; z-index: 4;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .tile:hover .tile-name { color: var(--tile-label-h); }
@@ -622,11 +622,20 @@
     }
     .fs-player.open { display:flex; animation:fsIn 0.3s ease both; }
     @keyframes fsIn { from{opacity:0} to{opacity:1} }
+    /* Blurring a viewport-filling layer rasterizes the filter at full
+       screen resolution — on a 4K/8K display (and further multiplied by
+       the zoom bump on the high-res breakpoints above) that's a huge
+       surface for the GPU to blur, and it shows up as visible banding/
+       tiling artifacts. Instead, blur a quarter-area copy (half width,
+       half height) and scale the whole thing up — the result looks
+       identical since blur is low-frequency anyway, but computes on a
+       fraction of the pixels at any resolution. */
     .fs-bg {
-      position:absolute; inset:0; z-index:0;
+      position:absolute; top:50%; left:50%; z-index:0;
+      width:50%; height:50%;
       background-size:cover; background-position:center;
-      filter:blur(90px) saturate(160%) brightness(0.45);
-      transform: scale(1.15);
+      filter:blur(40px) saturate(160%) brightness(0.45);
+      transform: translate(-50%, -50%) scale(2.6);
     }
     .fs-content { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:1.8rem; width:100%; max-width:480px; transition: padding 0.4s ease, max-width 0.4s ease; }
     .fs-art-tilt-wrap {
@@ -898,7 +907,7 @@
       border: 1px solid rgba(255,255,255,0.12);
       border-top-color: rgba(255,255,255,0.2);
       border-radius: 10px; padding: 0.65rem 0.9rem;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       font-size: 12px; color: var(--text); outline: none;
       transition: border-color 0.2s;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
@@ -1113,7 +1122,7 @@
     .pl-new-input {
       background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
       border-top-color: rgba(255,255,255,0.2); border-radius: 10px; padding: 0.6rem 0.9rem;
-      font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text);
+      font-family: var(--font-ui); font-size: 11px; color: var(--text);
       outline: none; width: 100%; transition: border-color 0.2s;
     }
     .pl-new-input:focus { border-color: rgba(255,255,255,0.35); }
@@ -1411,7 +1420,7 @@
 
     /* Status */
     .lyrics-status {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
       color: rgba(255,252,248,0.3);
       text-align: center;
@@ -1502,7 +1511,7 @@
     .presence-empty {
       font-size: 9px; color: var(--text-faint);
       text-align: left; padding: 0.7rem 0.2rem;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       letter-spacing: 0.14em; text-transform: uppercase;
     }
 
@@ -1573,7 +1582,7 @@
     .ap-topbar-title {
       flex: 1; font-size: 10px; letter-spacing: 0.28em;
       color: var(--text-dimmer); text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       opacity: 0; transition: opacity 0.2s;
     }
@@ -1612,7 +1621,7 @@
     .ap-hero-meta { flex: 1; min-width: 0; }
     .ap-hero-kicker {
       font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase;
-      color: var(--text-faint); font-family: 'JetBrains Mono', monospace;
+      color: var(--text-faint); font-family: var(--font-ui);
       display: block; margin-bottom: 0.25rem;
     }
     .ap-hero-name {
@@ -1632,7 +1641,7 @@
     /* Section labels — matches picker-section-label */
     .ap-sec-label {
       font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dimmer); font-family: var(--font-ui);
       padding: 6px 0.8rem 4px; display: block; margin-top: 0.5rem;
     }
 
@@ -1701,7 +1710,7 @@
     .ap-track-num {
       width: 16px; text-align: right; flex-shrink: 0;
       font-size: 10px; color: var(--text-faint);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
     }
     .ap-track.ap-now .ap-track-num { color: rgba(var(--accent-rgb),0.8); }
     .ap-track-art {
@@ -1720,7 +1729,7 @@
     }
     .ap-track-dur {
       font-size: 9.5px; color: var(--text-faint);
-      font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+      font-family: var(--font-ui); flex-shrink: 0;
     }
     .ap-track-play {
       width: 26px; height: 26px; border-radius: 6px;
@@ -1765,7 +1774,7 @@
       border: 1px solid var(--glass-border);
       border-top-color: rgba(255,255,255,0.16);
       background: var(--glass-fill); color: var(--text-dim);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
       transition: all 0.15s;
     }
@@ -1776,7 +1785,7 @@
       display: flex; align-items: center; justify-content: center; gap: 0.65rem;
       padding: 4rem 2rem; font-size: 9px; letter-spacing: 0.2em;
       color: var(--text-faint); text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-ui);
     }
 
     /* bio fade must match the card background exactly */
@@ -1869,7 +1878,7 @@
     .picker-search i { color: var(--text-dimmer); font-size: 14px; flex-shrink: 0; }
     .picker-search input {
       background: none; border: none; outline: none;
-      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      font-family: var(--font-ui); font-size: 0.85rem;
       color: var(--text); flex: 1; caret-color: var(--text);
     }
     .picker-search input::placeholder { color: var(--text-dimmer); }
@@ -3308,7 +3317,7 @@ function showToast(msg) {
       position:fixed; bottom:6rem; left:50%; transform:translateX(-50%);
       background:rgba(10,10,20,0.92);
       border:1px solid rgba(255,255,255,0.12); border-radius:100px;
-      padding:8px 20px; font-family:'JetBrains Mono',monospace;
+      padding:8px 20px; font-family:var(--font-ui);
       font-size:10px; letter-spacing:0.15em; color:#e8e4dc;
       text-transform:uppercase; z-index:9999;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 20px rgba(0,0,0,0.5);
