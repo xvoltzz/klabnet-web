@@ -257,10 +257,16 @@
 
     /* Minecraft-style MOTD splash — a silly rotated tag hanging off the
        wordmark's top-right corner, like the title-screen splash text. */
-    .motd {
+    .motd-wrap {
       position: absolute;
       top: -0.85rem; left: 100%;
       margin-left: 0.4rem;
+      display: flex; align-items: flex-end; gap: 3px;
+      transform: rotate(-14deg);
+      transform-origin: left bottom;
+      perspective: 200px;
+    }
+    .motd {
       font-family: var(--font-ui);
       font-weight: 700;
       font-style: italic;
@@ -268,19 +274,40 @@
       white-space: nowrap;
       color: #ffff55;
       text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
-      transform: rotate(-14deg);
-      transform-origin: left bottom;
+      display: inline-block;
       animation: motdPulse 1.6s ease-in-out infinite;
-      pointer-events: none;
       user-select: none;
     }
     [data-theme="light"] .motd { color: #b8860b; text-shadow: 1px 1px 0 rgba(255,255,255,0.4); }
     @keyframes motdPulse {
-      0%, 100% { transform: rotate(-14deg) scale(1); }
-      50%      { transform: rotate(-14deg) scale(1.12); }
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.12); }
+    }
+    /* Manual reroll — the tag does a full silly cartwheel, text swapped at
+       the midpoint (when it's edge-on and invisible anyway) so the change
+       reads as the flip itself, not a pop. */
+    .motd.rerolling { animation: motdReroll 0.6s cubic-bezier(.36,1.6,.64,1) both; }
+    @keyframes motdReroll {
+      0%   { transform: scale(1) rotateY(0deg); }
+      45%  { transform: scale(1.3) rotateY(180deg); }
+      55%  { transform: scale(1.3) rotateY(180deg); }
+      100% { transform: scale(1) rotateY(360deg); }
+    }
+    .motd-refresh {
+      background: none; border: none; cursor: pointer; padding: 0;
+      color: #ffff55; opacity: 0.45; font-size: 0.6rem; line-height: 1;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .motd-refresh:hover { opacity: 0.9; }
+    [data-theme="light"] .motd-refresh { color: #b8860b; }
+    .motd-refresh.spinning { animation: motdRefreshSpin 0.6s cubic-bezier(.36,1.6,.64,1) both; }
+    @keyframes motdRefreshSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
     }
     @media (prefers-reduced-motion: reduce) {
       .motd { animation: none; }
+      .motd.rerolling, .motd-refresh.spinning { animation: none; }
     }
 
     .prompt-prefix {
@@ -2138,7 +2165,10 @@
         <div class="terminal-prompt">
           <span class="prompt-text" id="promptText"></span>
           <span class="prompt-cursor" id="promptCursor"></span>
-          <span class="motd" id="motd"></span>
+          <span class="motd-wrap" id="motdWrap">
+            <span class="motd" id="motd"></span>
+            <button class="motd-refresh" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
+          </span>
         </div>
         <div class="header-meta">
           <span class="user-badge" id="userBadge" style="font-size:9px;letter-spacing:0.14em;color:var(--text-faint);text-transform:uppercase;opacity:0;transition:opacity 0.4s;" title="Logged in user"></span>
@@ -2437,7 +2467,57 @@ const MOTD_PHRASES = [
   'like teams but awesome',
 ];
 const motdEl = document.getElementById('motd');
-if (motdEl) motdEl.textContent = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)];
+const motdRefreshBtn = document.getElementById('motdRefresh');
+let _motdCurrent = null;
+
+function pickMotd() {
+  if (MOTD_PHRASES.length < 2) return MOTD_PHRASES[0];
+  let next;
+  do { next = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)]; }
+  while (next === _motdCurrent);
+  return next;
+}
+
+function rerollMotd(auto) {
+  if (!motdEl) return;
+  _motdCurrent = pickMotd();
+  if (!auto) SFX && SFX.play('star');
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion) {
+    motdEl.textContent = _motdCurrent;
+    return;
+  }
+  // Swap the text at the flip's midpoint, when it's edge-on and invisible.
+  motdEl.classList.remove('rerolling');
+  void motdEl.offsetWidth; // restart the animation even if it's mid-flight
+  setTimeout(() => { motdEl.textContent = _motdCurrent; }, 300);
+  motdEl.classList.add('rerolling');
+  motdEl.addEventListener('animationend', () => motdEl.classList.remove('rerolling'), { once: true });
+  if (!auto && motdRefreshBtn) {
+    motdRefreshBtn.classList.remove('spinning');
+    void motdRefreshBtn.offsetWidth;
+    motdRefreshBtn.classList.add('spinning');
+    motdRefreshBtn.addEventListener('animationend', () => motdRefreshBtn.classList.remove('spinning'), { once: true });
+  }
+}
+
+if (motdEl) motdEl.textContent = _motdCurrent = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)];
+
+if (motdRefreshBtn) {
+  motdRefreshBtn.addEventListener('click', () => rerollMotd(false));
+}
+
+// Cycle to a new splash every so often so a long session gets to see more
+// than one — timing is deliberately a little irregular, not a metronome.
+function scheduleMotdCycle() {
+  const delay = 45000 + Math.random() * 30000; // 45–75s
+  setTimeout(() => {
+    rerollMotd(true);
+    scheduleMotdCycle();
+  }, delay);
+}
+scheduleMotdCycle();
 
 // ══════════════════════════════════════════
 //  THEME
