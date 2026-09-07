@@ -253,20 +253,18 @@
       align-items: baseline;
       gap: 0;
       line-height: 1;
+      perspective: 200px; /* gives the MOTD's reroll flip real 3D depth */
     }
 
     /* Minecraft-style MOTD splash — a silly rotated tag hanging off the
-       wordmark's top-right corner, like the title-screen splash text. */
-    .motd-wrap {
+       wordmark's top-right corner, like the title-screen splash text.
+       The refresh button lives in the header's icon row (not glued to this
+       tag) since its text length varies and the tag is tilted/pulsing —
+       anything docked right next to it ends up overlapped sooner or later. */
+    .motd {
       position: absolute;
       top: -0.85rem; left: 100%;
       margin-left: 0.4rem;
-      display: flex; align-items: flex-end; gap: 3px;
-      transform: rotate(-14deg);
-      transform-origin: left bottom;
-      perspective: 200px;
-    }
-    .motd {
       font-family: var(--font-ui);
       font-weight: 700;
       font-style: italic;
@@ -274,40 +272,35 @@
       white-space: nowrap;
       color: #ffff55;
       text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
-      display: inline-block;
+      transform: rotate(-14deg);
+      transform-origin: left bottom;
       animation: motdPulse 1.6s ease-in-out infinite;
+      pointer-events: none;
       user-select: none;
     }
     [data-theme="light"] .motd { color: #b8860b; text-shadow: 1px 1px 0 rgba(255,255,255,0.4); }
     @keyframes motdPulse {
-      0%, 100% { transform: scale(1); }
-      50%      { transform: scale(1.12); }
+      0%, 100% { transform: rotate(-14deg) scale(1); }
+      50%      { transform: rotate(-14deg) scale(1.12); }
     }
-    /* Manual reroll — the tag does a full silly cartwheel, text swapped at
-       the midpoint (when it's edge-on and invisible anyway) so the change
+    /* Manual/auto reroll — the tag does a full silly cartwheel, text swapped
+       at the midpoint (when it's edge-on and near-invisible) so the change
        reads as the flip itself, not a pop. */
     .motd.rerolling { animation: motdReroll 0.6s cubic-bezier(.36,1.6,.64,1) both; }
     @keyframes motdReroll {
-      0%   { transform: scale(1) rotateY(0deg); }
-      45%  { transform: scale(1.3) rotateY(180deg); }
-      55%  { transform: scale(1.3) rotateY(180deg); }
-      100% { transform: scale(1) rotateY(360deg); }
+      0%   { transform: rotate(-14deg) scale(1) rotateY(0deg); }
+      45%  { transform: rotate(-14deg) scale(1.3) rotateY(180deg); }
+      55%  { transform: rotate(-14deg) scale(1.3) rotateY(180deg); }
+      100% { transform: rotate(-14deg) scale(1) rotateY(360deg); }
     }
-    .motd-refresh {
-      background: none; border: none; cursor: pointer; padding: 0;
-      color: #ffff55; opacity: 0.45; font-size: 0.6rem; line-height: 1;
-      transition: opacity 0.15s, color 0.15s;
-    }
-    .motd-refresh:hover { opacity: 0.9; }
-    [data-theme="light"] .motd-refresh { color: #b8860b; }
-    .motd-refresh.spinning { animation: motdRefreshSpin 0.6s cubic-bezier(.36,1.6,.64,1) both; }
+    #motdRefresh.spinning i { animation: motdRefreshSpin 0.6s cubic-bezier(.36,1.6,.64,1) both; }
     @keyframes motdRefreshSpin {
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
     }
     @media (prefers-reduced-motion: reduce) {
       .motd { animation: none; }
-      .motd.rerolling, .motd-refresh.spinning { animation: none; }
+      .motd.rerolling, #motdRefresh.spinning i { animation: none; }
     }
 
     .prompt-prefix {
@@ -2165,10 +2158,7 @@
         <div class="terminal-prompt">
           <span class="prompt-text" id="promptText"></span>
           <span class="prompt-cursor" id="promptCursor"></span>
-          <span class="motd-wrap" id="motdWrap">
-            <span class="motd" id="motd"></span>
-            <button class="motd-refresh" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
-          </span>
+          <span class="motd" id="motd"></span>
         </div>
         <div class="header-meta">
           <span class="user-badge" id="userBadge" style="font-size:9px;letter-spacing:0.14em;color:var(--text-faint);text-transform:uppercase;opacity:0;transition:opacity 0.4s;" title="Logged in user"></span>
@@ -2176,6 +2166,7 @@
       </div>
     </div>
     <div class="header-right">
+      <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="editToggle" title="Edit layout"><i class="ti ti-layout-grid" id="editIcon"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
