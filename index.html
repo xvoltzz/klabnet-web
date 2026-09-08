@@ -412,11 +412,30 @@
         transparent 100%);
     }
 
-    /* Presence sits between the tab nav and whichever tab is active, on
-       every tab — slightly tighter than a normal .sec since it's always
-       taking up space rather than being one scroll-past widget among many. */
-    .sec-global-presence { margin-bottom: 1.8rem; }
+    /* Presence sits beside the active tab's content as a sticky right rail,
+       not above it — it's always-visible chrome (like the tab nav / player
+       dock) but shouldn't be the first thing you see under each tab. */
+    .dash-body { display: flex; align-items: flex-start; gap: 2.2rem; }
+    .dash-main { flex: 1; min-width: 0; }
+
+    .presence-rail {
+      width: 240px; flex-shrink: 0;
+      position: sticky; top: 1.5rem;
+      max-height: calc(100vh - 3rem); overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+    .sec-global-presence { margin-bottom: 0; }
     .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
+    .presence-rail .presence-grid { grid-template-columns: 1fr; }
+
+    @media (max-width: 880px) {
+      .dash-body { flex-direction: column; gap: 0; }
+      .presence-rail {
+        width: 100%; position: static; max-height: none; overflow: visible;
+        margin-top: 2.5rem;
+      }
+      .presence-rail .presence-grid { grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); }
+    }
 
     /* ══ TAB NAV — top-level Home/Social/Music/KLABCRAFT switcher ══ */
     .tab-nav {
@@ -2196,14 +2215,8 @@
     <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
   </nav>
 
-  <!-- Presence lives outside every tab-panel, same as the player dock — the
-       site is meant to always show who's around, not just on one tab. -->
-  <div class="sec sec-global-presence">
-    <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
-    <div class="presence-grid" id="presenceList">
-      <div class="presence-empty">no one else is listening</div>
-    </div>
-  </div>
+  <div class="dash-body">
+  <div class="dash-main">
 
   <div class="tab-panel" data-tab-panel="home">
   <div class="sec" data-sec="applications">
@@ -2257,6 +2270,21 @@
       </div>
     </div>
   </div>
+  </div>
+
+  </div>
+
+  <!-- Presence lives outside every tab-panel, same as the player dock — the
+       site is meant to always show who's around, not just on one tab. On
+       wide viewports it's a sticky right rail; on narrow ones (see media
+       query) it drops below the tab content as a horizontal strip instead. -->
+  <aside class="sec sec-global-presence presence-rail">
+    <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
+    <div class="presence-grid" id="presenceList">
+      <div class="presence-empty">no one else is listening</div>
+    </div>
+  </aside>
+
   </div>
 
     <div class="player-dock" id="playerDock">
