@@ -2606,6 +2606,22 @@ const motdEl = document.getElementById('motd');
 const motdRefreshBtn = document.getElementById('motdRefresh');
 let _motdCurrent = null;
 
+// Minecraft shrinks long splash text to keep it inside a fixed box; we do
+// the same by measuring the rendered width and scaling the font down until
+// it fits, instead of letting long quotes run off the edge of the screen.
+function fitMotdText(text) {
+  if (!motdEl) return;
+  const baseRem = 0.62;
+  motdEl.style.fontSize = baseRem + 'rem';
+  motdEl.textContent = text;
+  const maxWidth = Math.min(window.innerWidth * 0.5, 460);
+  const width = motdEl.scrollWidth;
+  if (width > maxWidth) {
+    const scale = Math.max(maxWidth / width, 0.32);
+    motdEl.style.fontSize = (baseRem * scale) + 'rem';
+  }
+}
+
 function pickMotd() {
   if (MOTD_PHRASES.length < 2) return MOTD_PHRASES[0];
   let next;
@@ -2621,13 +2637,13 @@ function rerollMotd(auto) {
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reducedMotion) {
-    motdEl.textContent = _motdCurrent;
+    fitMotdText(_motdCurrent);
     return;
   }
   // Swap the text at the flip's midpoint, when it's edge-on and invisible.
   motdEl.classList.remove('rerolling');
   void motdEl.offsetWidth; // restart the animation even if it's mid-flight
-  setTimeout(() => { motdEl.textContent = _motdCurrent; }, 300);
+  setTimeout(() => { fitMotdText(_motdCurrent); }, 300);
   motdEl.classList.add('rerolling');
   motdEl.addEventListener('animationend', () => motdEl.classList.remove('rerolling'), { once: true });
   if (!auto && motdRefreshBtn) {
@@ -2638,7 +2654,10 @@ function rerollMotd(auto) {
   }
 }
 
-if (motdEl) motdEl.textContent = _motdCurrent = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)];
+if (motdEl) {
+  _motdCurrent = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)];
+  fitMotdText(_motdCurrent);
+}
 
 if (motdRefreshBtn) {
   motdRefreshBtn.addEventListener('click', () => rerollMotd(false));
