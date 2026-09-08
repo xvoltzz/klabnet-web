@@ -6539,14 +6539,27 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           if (count[i] >= 3 && weight[i] > bestWeight) { bestWeight = weight[i]; bestIdx = i; }
         }
         let bestRgb = null;
-        if (bestIdx >= 0) {
+        if (bestIdx >= 0 && bestWeight > 0.15) {
           const avgR = sumR[bestIdx] / weight[bestIdx];
           const avgG = sumG[bestIdx] / weight[bestIdx];
           const avgB = sumB[bestIdx] / weight[bestIdx];
           const [h, s, l] = rgbToHsl(avgR, avgG, avgB);
           bestRgb = hslToRgb(h, Math.min(1, s * 1.22), Math.min(0.72, Math.max(0.46, l)));
+        } else {
+          // Monochrome/colorless art (a plain black or white square, e.g. Donda) —
+          // no hue bucket had enough saturated pixels to vote. Don't just leave
+          // whatever accent the previous track left behind; derive a neutral
+          // light/dark accent from the art's actual brightness instead.
+          let sumL = 0, n = 0;
+          for (let i = 0; i < px.length; i += 4) {
+            if (px[i+3] < 200) continue;
+            sumL += (px[i] + px[i+1] + px[i+2]) / 3;
+            n++;
+          }
+          const avgL = n ? sumL / n / 255 : 0.5;
+          bestRgb = avgL < 0.5 ? [230, 228, 222] : [46, 44, 40];
         }
-        if (bestRgb && bestWeight > 0.15) {
+        if (bestRgb) {
           tweenAccentRgb(bestRgb, 650);
           // The room "lights up" the instant we actually know the color —
           // not the instant playback starts, so the flash always lands in the right hue.
