@@ -412,6 +412,12 @@
         transparent 100%);
     }
 
+    /* Presence sits between the tab nav and whichever tab is active, on
+       every tab — slightly tighter than a normal .sec since it's always
+       taking up space rather than being one scroll-past widget among many. */
+    .sec-global-presence { margin-bottom: 1.8rem; }
+    .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
+
     /* ══ TAB NAV — top-level Home/Social/Music/KLABCRAFT switcher ══ */
     .tab-nav {
       display: flex; gap: 6px;
@@ -2190,6 +2196,15 @@
     <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
   </nav>
 
+  <!-- Presence lives outside every tab-panel, same as the player dock — the
+       site is meant to always show who's around, not just on one tab. -->
+  <div class="sec sec-global-presence">
+    <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
+    <div class="presence-grid" id="presenceList">
+      <div class="presence-empty">no one else is listening</div>
+    </div>
+  </div>
+
   <div class="tab-panel" data-tab-panel="home">
   <div class="sec" data-sec="applications">
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
@@ -2212,13 +2227,6 @@
 
       <div class="tile-wrap"><a class="tile" href="https://git.klab.gg" data-id="0" data-name="Gitea" data-url="https://git.klab.gg" target="_blank"><span class="tile-dot" id="dot-gitea"></span><i class="ti ti-git-branch"></i><span class="tile-name">Gitea</span></a>
       </div>
-    </div>
-  </div>
-
-  <div class="sec" data-sec="presence">
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// users</span><div class="sec-line"></div></div>
-    <div class="presence-grid" id="presenceList">
-      <div class="presence-empty">no one else is listening</div>
     </div>
   </div>
   </div>
