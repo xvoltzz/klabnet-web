@@ -204,9 +204,11 @@
 
     /* ══ HEADER ══ */
     .header {
+      position: relative;
       display: flex; align-items: flex-start; justify-content: space-between;
       margin-bottom: 4rem;
       animation: fadeUp 0.6s ease both;
+      perspective: 200px; /* gives the MOTD's reroll flip real 3D depth */
     }
 
     .header-left { display: flex; align-items: center; gap: 1.1rem; }
@@ -219,11 +221,7 @@
     [data-theme="dark"]  .logo { mix-blend-mode: screen;   filter: none; }
     [data-theme="light"] .logo { mix-blend-mode: multiply; filter: invert(1); }
 
-    .header-text {
-      position: relative;
-      display: flex; flex-direction: column; gap: 0.2rem;
-      perspective: 200px; /* gives the MOTD's reroll flip real 3D depth */
-    }
+    .header-text { display: flex; flex-direction: column; gap: 0.2rem; }
 
     /* TERMINAL PROMPT */
     .terminal-prompt {
@@ -235,8 +233,10 @@
     }
 
     /* Minecraft-style MOTD splash — a silly rotated tag hanging off the
-       bottom-right corner of the "powered by" / KLABNET wordmark block,
-       like the title-screen splash text. */
+       header's bottom-right corner, like the title-screen splash text.
+       It's positioned relative to the whole header (not the terminal
+       prompt text) so its width isn't limited by how long the typed
+       prompt happens to be. */
     .motd {
       position: absolute;
       bottom: -1.3rem; right: 0;
@@ -2221,7 +2221,6 @@
         <div class="header-meta">
           <span class="user-badge" id="userBadge" style="font-size:9px;letter-spacing:0.14em;color:var(--text-faint);text-transform:uppercase;opacity:0;transition:opacity 0.4s;" title="Logged in user"></span>
         </div>
-        <span class="motd" id="motd"></span>
       </div>
     </div>
     <div class="header-right">
@@ -2235,6 +2234,7 @@
         <span id="headerStatus">LOADING</span>
       </div>
     </div>
+    <span class="motd" id="motd"></span>
   </header>
 
   <div class="sec" data-sec="applications">
@@ -2599,22 +2599,22 @@ const MOTD_PHRASES = [
   "In jail on my birthday, I'd want to get raped"
 ];
 const motdEl = document.getElementById('motd');
-const motdHeaderTextEl = document.querySelector('.header-text');
+const motdHeaderEl = document.querySelector('.header');
 const motdRefreshBtn = document.getElementById('motdRefresh');
 let _motdCurrent = null;
 
 // Minecraft shrinks long splash text to keep it inside a fixed box; we do
 // the same by measuring the rendered width and scaling the font down until
 // it fits, instead of letting long quotes run off the edge of the screen.
-// The tag hangs off the bottom-right corner of the wordmark block itself,
-// so it's allowed to overhang that block a bit but stays tied to its size.
+// The tag hangs off the header's bottom-right corner, so it has the whole
+// header's width to work with rather than just half the viewport.
 function fitMotdText(text) {
   if (!motdEl) return;
   const baseRem = 0.62;
   motdEl.style.fontSize = baseRem + 'rem';
   motdEl.textContent = text;
-  const wordmarkWidth = motdHeaderTextEl ? motdHeaderTextEl.clientWidth : 160;
-  const maxWidth = Math.min(Math.max(wordmarkWidth * 1.4, 160), 420);
+  const headerWidth = motdHeaderEl ? motdHeaderEl.clientWidth : window.innerWidth;
+  const maxWidth = Math.min(headerWidth - 24, 640);
   const width = motdEl.scrollWidth;
   if (width > maxWidth) {
     const scale = Math.max(maxWidth / width, 0.32);
