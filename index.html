@@ -383,6 +383,12 @@
     }
     .tile:active { background: var(--tile-bg-h); }
 
+    .tile[disabled] {
+      opacity: 0.45; cursor: not-allowed;
+      font: inherit; width: 100%; text-align: left;
+    }
+    .tile[disabled]:hover { background: var(--tile-bg); border-color: var(--tile-border); }
+
     .tile i {
       font-size: 16px; color: var(--tile-icon);
       transition: color 0.2s;
@@ -2197,6 +2203,15 @@
       </div>
 
       <button class="tile-add-btn" id="addAppBtn"><i class="ti ti-plus"></i>add app</button>
+    </div>
+  </div>
+
+  <div class="sec" data-sec="klabcraft">
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><div class="sec-line"></div></div>
+    <div class="grid" id="klabcraftGrid">
+      <div class="tile-wrap">
+        <button class="tile" id="worldBackupBtn" disabled title="Coming soon"><i class="ti ti-cube"></i><span class="tile-name">Download World Backup</span></button>
+      </div>
     </div>
   </div>
 
