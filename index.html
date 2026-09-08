@@ -391,17 +391,52 @@
     .tile.tile-wide i { font-size: 17px; }
     .grass-icon-slot { display: flex; flex-shrink: 0; }
 
-    /* ══ KLAB SOCIAL — discord widget embed ══ */
+    /* ══ KLAB SOCIAL — discord widget (custom-rendered, themed) ══ */
     .social-embed-wrap {
-      display: inline-block; border-radius: 10px; overflow: hidden;
+      max-width: 340px; border-radius: 10px;
       border: 1px solid var(--tile-border); background: var(--tile-bg);
       box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+      padding: 0.9rem 1rem;
     }
-    .social-embed-wrap iframe { display: block; border: 0; max-width: 100%; }
     .social-note {
-      font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--text-faint); margin-top: 0.6rem;
+      font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-faint); margin-top: 0.6rem; max-width: 480px;
     }
+    .discord-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.7rem; padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--tile-border);
+    }
+    .discord-header-title {
+      font-size: 11px; letter-spacing: 0.06em; color: var(--text);
+      text-transform: uppercase; font-family: var(--font-ui);
+    }
+    .discord-header-count {
+      font-size: 8.5px; letter-spacing: 0.1em; color: var(--text-dimmer);
+      text-transform: uppercase; display: flex; align-items: center; gap: 4px;
+    }
+    .discord-header-count::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.6);
+    }
+    .discord-voice-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.6rem; }
+    .discord-voice-item {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10.5px; letter-spacing: 0.03em; color: var(--tile-label);
+      padding: 5px 6px; border-radius: 6px;
+    }
+    .discord-voice-item i { font-size: 13px; color: var(--tile-icon); }
+    .discord-member-avatar-wrap { position: relative; flex-shrink: 0; }
+    .discord-status-dot {
+      position: absolute; bottom: -1px; right: -1px;
+      width: 9px; height: 9px; border-radius: 50%;
+      border: 2px solid var(--tile-bg);
+    }
+    .discord-status-dot.online  { background: #4ade80; }
+    .discord-status-dot.idle    { background: #eab308; }
+    .discord-status-dot.dnd     { background: #f87171; }
+    .discord-status-dot.offline { background: #6b7280; }
+    .discord-join-wrap { margin-top: 0.7rem; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -2241,12 +2276,9 @@
   <div class="sec" data-sec="klabsocial" hidden>
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">beta</span><div class="sec-line"></div></div>
     <div class="social-embed-wrap">
-      <iframe src="https://discord.com/widget?id=1435469331336138895&theme=dark"
-        width="350" height="500" allowtransparency="true" frameborder="0"
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-        loading="lazy" title="KlabNet Discord"></iframe>
+      <div id="klabSocialBody"><div class="picker-empty">loading discord...</div></div>
     </div>
-    <div class="social-note">matrix bridge planned for later — hop in the discord for now</div>
+    <div class="social-note">discord's widget only exposes voice channels & online members — text channels aren't available this way. matrix bridge planned for full chat later.</div>
   </div>
 
     <div class="player-dock" id="playerDock">
@@ -5317,7 +5349,9 @@ function applySettings() {
     if (visible) sec.classList.add('in-view');
   };
   showSec('.sec[data-sec="klabcraft"]', _settings.experimentalEnabled && _settings.showKlabcraft);
-  showSec('.sec[data-sec="klabsocial"]', _settings.experimentalEnabled && _settings.showKlabSocial);
+  const klabSocialVisible = _settings.experimentalEnabled && _settings.showKlabSocial;
+  showSec('.sec[data-sec="klabsocial"]', klabSocialVisible);
+  if (klabSocialVisible) loadDiscordWidget();
 }
 
 function openSettings() {
@@ -5509,6 +5543,111 @@ function formatBackupSize(bytes) {
   refresh && refresh.addEventListener('click', () => { SFX && SFX.play('click'); loadBackups(); });
   backdrop.addEventListener('click', e => { if (e.target === backdrop) closeKlabcraftBrowser(); });
 })();
+
+// ══════════════════════════════════════════
+//  KLAB SOCIAL — discord widget (custom-rendered to match the site)
+//  Discord's widget API only ever exposes voice channels + online
+//  member presence — no text channels or messages. That's a platform
+//  limit, not something we can work around from the client. Real chat
+//  is still the planned matrix bridge.
+// ══════════════════════════════════════════
+const DISCORD_GUILD_ID = '1435469331336138895';
+let _discordLoaded = false;
+
+function renderDiscordWidget(body, data) {
+  body.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'discord-header';
+  const title = document.createElement('span');
+  title.className = 'discord-header-title';
+  title.textContent = data.name || 'discord';
+  const count = document.createElement('span');
+  count.className = 'discord-header-count';
+  count.textContent = (data.presence_count || 0) + ' online';
+  header.append(title, count);
+  body.appendChild(header);
+
+  if (Array.isArray(data.channels) && data.channels.length) {
+    const voiceList = document.createElement('div');
+    voiceList.className = 'discord-voice-list';
+    data.channels.forEach(ch => {
+      const row = document.createElement('div');
+      row.className = 'discord-voice-item';
+      const icon = document.createElement('i');
+      icon.className = 'ti ti-headphones';
+      const name = document.createElement('span');
+      name.textContent = ch.name;
+      row.append(icon, name);
+      voiceList.appendChild(row);
+    });
+    body.appendChild(voiceList);
+  }
+
+  const memberList = document.createElement('div');
+  memberList.className = 'picker-list';
+  (data.members || []).forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'picker-item';
+
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'discord-member-avatar-wrap';
+    if (m.avatar_url) {
+      const img = document.createElement('img');
+      img.className = 'picker-item-art';
+      img.src = m.avatar_url; img.alt = '';
+      avatarWrap.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'picker-item-art-ph';
+      ph.innerHTML = '<i class="ti ti-user"></i>';
+      avatarWrap.appendChild(ph);
+    }
+    const dot = document.createElement('span');
+    dot.className = 'discord-status-dot ' + (m.status || 'offline');
+    avatarWrap.appendChild(dot);
+
+    const info = document.createElement('div');
+    info.className = 'picker-item-info';
+    const uname = document.createElement('div');
+    uname.className = 'picker-item-title';
+    uname.textContent = m.username;
+    info.appendChild(uname);
+
+    row.append(avatarWrap, info);
+    memberList.appendChild(row);
+  });
+  body.appendChild(memberList);
+
+  if (data.instant_invite) {
+    const joinWrap = document.createElement('div');
+    joinWrap.className = 'tile-wrap tile-wrap-auto discord-join-wrap';
+    const join = document.createElement('a');
+    join.className = 'tile tile-wide';
+    join.href = data.instant_invite; join.target = '_blank'; join.rel = 'noopener';
+    join.innerHTML = '<i class="ti ti-brand-discord"></i>';
+    const label = document.createElement('span');
+    label.className = 'tile-name'; label.textContent = 'Join Discord';
+    join.appendChild(label);
+    joinWrap.appendChild(join);
+    body.appendChild(joinWrap);
+  }
+}
+
+async function loadDiscordWidget() {
+  if (_discordLoaded) return;
+  const body = document.getElementById('klabSocialBody');
+  if (!body) return;
+  _discordLoaded = true;
+  try {
+    const res = await fetchTimeout('https://discord.com/api/guilds/' + DISCORD_GUILD_ID + '/widget.json', {}, 8000);
+    if (!res.ok) throw new Error('unavailable');
+    renderDiscordWidget(body, await res.json());
+  } catch (e) {
+    _discordLoaded = false;
+    body.innerHTML = '<div class="picker-empty">discord widget unavailable right now</div>';
+  }
+}
 
 // ══════════════════════════════════════════
 //  GENRES BROWSER
