@@ -483,6 +483,10 @@
     }
     .tab-panel[data-tab-panel="music"] .ap-panel { display: none; }
     .tab-panel[data-tab-panel="music"] .ap-panel.open { display: block; }
+    /* The detail view replaces the browse view in place — it shouldn't just
+       stack below it as a second section you have to scroll past. panelOpen()/
+       panelClose() already toggle body.ap-open for this. */
+    body.ap-open .tab-panel[data-tab-panel="music"] .picker-backdrop { display: none; }
     .tab-panel[data-tab-panel="music"] .picker-modal,
     .tab-panel[data-tab-panel="music"] .ap-card {
       width: 100%; max-width: none; height: auto; max-height: none;
