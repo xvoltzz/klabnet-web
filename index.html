@@ -740,6 +740,14 @@
     }
     .ctrl-btn:hover { color: var(--text); background: var(--glass-fill-h); border-color: rgba(var(--accent-rgb),0.35); }
     .ctrl-btn:active { transform: scale(0.92); }
+    /* "You're already here" state — e.g. the dock's Music Manager button
+       while already on the Music tab, so clicking it repeatedly doesn't
+       read as broken/unresponsive. */
+    .ctrl-btn.active {
+      color: var(--text);
+      background: rgba(var(--accent-rgb),0.16);
+      border-color: rgba(var(--accent-rgb),0.35);
+    }
     .ctrl-btn.play-btn {
       width: 38px; height: 38px; font-size: 16px;
       background: rgba(var(--accent-rgb),0.16);
@@ -5006,7 +5014,7 @@ let _settings = {
   crossfade:     false,
   loginSong:     true,
   scrobble:      true,
-  experimentalEnabled: true,
+  experimentalEnabled: false,
   showKlabcraft: true,
   showKlabSocial: true,
 };
@@ -5073,6 +5081,15 @@ function setActiveTab(key) {
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') ensureMusicTabLoaded();
+  // The dock's "Music Manager" button now navigates instead of opening a
+  // modal — mark it visited so clicking it while already there doesn't
+  // read as unresponsive.
+  const btnPicker = document.getElementById('btnPicker');
+  if (btnPicker) {
+    const onMusic = key === 'music';
+    btnPicker.classList.toggle('active', onMusic);
+    btnPicker.title = onMusic ? "You're on the Music tab" : 'Music Manager';
+  }
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
