@@ -2322,7 +2322,6 @@
       <div class="ap-topbar">
         <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
         <span class="ap-topbar-title" id="apTopbarTitle"></span>
-        <button class="ap-close" id="apClose" title="Close"><i class="ti ti-x"></i></button>
       </div>
       <div class="ap-scroll" id="apScroll"></div>
     </div>
@@ -3208,6 +3207,15 @@ function ensureMusicTabLoaded() {
   _pickerLoaded = true;
 }
 function openPicker() {
+  const onMusic = document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active');
+  if (onMusic) {
+    // Already here — pressing the button again should feel like "go back"
+    // rather than doing nothing. If viewing an album/artist, step back to
+    // the browse list; otherwise there's genuinely nowhere else to go.
+    const apPanel = document.getElementById('apPanel');
+    if (apPanel?.classList.contains('open')) document.getElementById('apBack')?.click();
+    return;
+  }
   setActiveTab('music');
   ensureMusicTabLoaded();
 }
@@ -6803,7 +6811,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const scroll   = document.getElementById('apScroll');
   const titleEl  = document.getElementById('apTopbarTitle');
   const backBtn  = document.getElementById('apBack');
-  const closeBtn = document.getElementById('apClose');
   if (!panel) return;
 
   let _stack = [];
@@ -6845,7 +6852,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
   }
 
-  closeBtn.addEventListener('click', panelClose);
   backBtn.addEventListener('click', panelBack);
   // Click outside the card (on the backdrop) to close
   panel.addEventListener('click', e => { if (e.target === panel) panelClose(); });
