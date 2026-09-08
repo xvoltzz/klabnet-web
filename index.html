@@ -23,6 +23,15 @@
        Mono, the terminal font the rest of the site used to default to. */
     :root { --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
+    /* Semantic status colors — same in both themes (favorites/errors read as
+       red, online/success reads as green regardless of light or dark), so
+       these live on :root rather than duplicated per-theme like --warn-color. */
+    :root {
+      --danger-color: #f87171;
+      --danger-bg:    rgba(248,113,113,0.15);
+      --success-color: #4ade80;
+    }
+
     /* ══ LARGE / HIGH-RES DISPLAYS ══
        Everything on this site is sized for a normal desktop monitor, so on a
        4K screen at 100% OS scaling it renders tiny. `zoom` scales the whole
@@ -195,7 +204,7 @@
         inset 0 1px 0 var(--glass-inner-t),
         inset 0 -1px 0 var(--glass-inner-b),
         0 4px 24px var(--glass-shadow),
-        0 1px 4px rgba(0,0,0,0.2);
+        0 1px 4px var(--shadow-20);
       transition: background 0.4s, border-color 0.4s;
     }
 
@@ -374,14 +383,6 @@
       .toast-item { transition: opacity 0.15s ease; transform: none !important; }
     }
 
-    .theme-toggle {
-      width: 36px; height: 36px; min-width: 36px; min-height: 36px; border-radius: 50%; flex-shrink: 0; aspect-ratio: 1 / 1;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--text-dim); font-size: 16px;
-      transition: color 0.2s, background 0.2s; border: none; background: transparent;
-    }
-    .theme-toggle:hover { color: var(--text); background: var(--glass-fill-h); }
-
     .sys-badge {
       font-size: 10px; letter-spacing: 0.18em; color: var(--text-dim);
       padding: 6px 12px; text-transform: uppercase;
@@ -406,8 +407,8 @@
     .sec-line {
       flex: 1; height: 1px;
       background: linear-gradient(90deg,
-        rgba(var(--accent-rgb),0.25) 0%,
-        rgba(var(--accent-rgb),0.06) 50%,
+        rgba(var(--accent-rgb),0.2) 0%,
+        rgba(var(--accent-rgb),0.04) 60%,
         transparent 100%);
     }
 
@@ -471,14 +472,14 @@
     }
     .discord-header-count::before {
       content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.6);
+      background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6);
     }
     .discord-join-btn {
       display: inline-flex; align-items: center; gap: 5px;
       font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--tile-label); text-decoration: none;
       padding: 5px 11px; border-radius: 20px;
-      background: rgba(255,255,255,0.04); border: 1px solid var(--tile-border);
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       flex-shrink: 0;
     }
@@ -491,7 +492,7 @@
       display: flex; align-items: center; gap: 5px;
       font-size: 10px; letter-spacing: 0.03em; color: var(--tile-label);
       padding: 4px 10px; border-radius: 20px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--tile-border);
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
     }
     .discord-voice-item i { font-size: 12px; color: var(--tile-icon); }
     .discord-members-grid {
@@ -501,7 +502,7 @@
     .discord-member-card {
       display: flex; align-items: center; gap: 0.55rem;
       padding: 0.4rem 0.55rem; border-radius: 8px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--tile-border);
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
     }
     .discord-member-name {
       font-size: 10.5px; color: var(--tile-label); letter-spacing: 0.01em;
@@ -517,9 +518,9 @@
       width: 8px; height: 8px; border-radius: 50%;
       border: 2px solid var(--tile-bg);
     }
-    .discord-status-dot.online  { background: #4ade80; }
+    .discord-status-dot.online  { background: var(--success-color); }
     .discord-status-dot.idle    { background: #eab308; }
-    .discord-status-dot.dnd     { background: #f87171; }
+    .discord-status-dot.dnd     { background: var(--danger-color); }
     .discord-status-dot.offline { background: #6b7280; }
 
     .tile i {
@@ -544,8 +545,8 @@
       background: var(--glass-border);
       transition: background 0.4s, box-shadow 0.4s; z-index: 5;
     }
-    .tile-dot.up          { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.6); }
-    .tile-dot.down        { background: #f87171; box-shadow: 0 0 8px rgba(248,113,113,0.7); animation: blink 1.5s ease infinite; }
+    .tile-dot.up          { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+    .tile-dot.down        { background: var(--danger-color); box-shadow: 0 0 8px rgba(248,113,113,0.7); animation: blink 1.5s ease infinite; }
     .tile-dot.maintenance { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,0.7); animation: blink 2.5s ease infinite; }
 
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
@@ -707,10 +708,15 @@
 
     .player-link {
       font-size: 11px; color: var(--text-dimmer);
-      text-decoration: none; flex-shrink: 0;
-      transition: color 0.15s;
+      text-decoration: none; flex-shrink: 0; cursor: pointer;
+      transition: color 0.15s, opacity 0.15s;
     }
-    .player-link:hover { color: var(--text); }
+    .player-link:hover {
+      color: var(--text) !important;
+      text-decoration: underline;
+      text-decoration-color: rgba(var(--accent-rgb), 0.4);
+      text-underline-offset: 2px;
+    }
 
     /* hdr buttons - boxy, compact */
     .hdr-btn {
@@ -812,7 +818,7 @@
     .picker-section-label { font-size:8.5px; letter-spacing:0.22em; color:var(--text-dimmer); text-transform:uppercase; padding:6px 8px 4px; }
     .picker-back { background:none; border:none; cursor:pointer; color:var(--text-dimmer); font-size:11px; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; letter-spacing:0.1em; text-transform:uppercase; transition:color 0.15s,background 0.15s; margin-bottom:4px; flex-shrink:0; }
     .picker-back:hover { color:var(--text); background:var(--glass-fill-h); }
-    .picker-action.login-active { color:#4ade80; }
+    .picker-action.login-active { color: var(--success-color); }
 
     /* .ctrl-btn / .play-btn intentionally have no light-theme override —
        the base rules already tint via rgba(var(--accent-rgb),*), so the
@@ -969,12 +975,6 @@
     body.edit-mode .sec-drag-handle { display: flex; }
     .sec-drag-handle:hover { color: #fbbf24; background: rgba(251,191,36,0.1); }
 
-    /* hdr-btn active edit state */
-    .hdr-btn.edit-active {
-      color: #fbbf24 !important;
-      background: rgba(251,191,36,0.12) !important;
-      border: 1px solid rgba(251,191,36,0.25) !important;
-    }
 
     /* ══ APP MANAGEMENT ══ */
     .add-app-backdrop {
@@ -1049,7 +1049,7 @@
       font-size: 18px; padding: 0 4px; border-radius: 6px; transition: color 0.15s, background 0.15s;
     }
     .settings-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    .settings-body { overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent; }
+    .settings-body { overflow-y: auto; flex: 1; }
     .settings-section {
       margin-bottom: 1.4rem;
     }
@@ -1179,24 +1179,6 @@
     .tile i { transition: color 0.2s ease; }
     .tile:hover i { color: var(--tile-icon-h); }
 
-    /* Section label — colored accent line */
-    .sec-line {
-      height: 1px;
-      background: linear-gradient(90deg,
-        rgba(var(--accent-rgb),0.2) 0%,
-        rgba(var(--accent-rgb),0.04) 60%,
-        transparent 100%);
-    }
-
-    /* Glass — subtle colored tint via accent */
-    .glass {
-      background:
-        linear-gradient(145deg,
-          rgba(255,255,255,0.07) 0%,
-          rgba(255,255,255,0.02) 100%),
-        rgba(0,0,0,0);
-    }
-
     /* Status dots — colored pulse */
     .tile-dot { box-shadow: 0 0 0 0 rgba(var(--accent-rgb),0); }
     .tile-dot.up {
@@ -1224,10 +1206,6 @@
       border-top: 1px solid rgba(var(--accent-rgb),0.3) !important;
     }
 
-    /* Type badges — colored */
-    .type-badge.song  { color: var(--text-dimmer); border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); }
-    .type-badge.album { color: rgba(180,140,255,0.9); border-color: rgba(160,100,255,0.3); background: rgba(160,100,255,0.08); }
-
     /* hdr-btn active state — accent outline */
     .hdr-btn.edit-active {
       color: rgba(var(--accent-rgb),1) !important;
@@ -1235,17 +1213,6 @@
       border-color: rgba(var(--accent-rgb),0.5) !important;
     }
 
-    /* ── Player links (clickable title/artist) ── */
-    .player-link {
-      cursor: pointer;
-      transition: color 0.15s, opacity 0.15s;
-    }
-    .player-link:hover {
-      color: var(--text) !important;
-      text-decoration: underline;
-      text-decoration-color: rgba(var(--accent-rgb), 0.4);
-      text-underline-offset: 2px;
-    }
     .fs-link { color: inherit; }
 
     .player-time-wrap { display: flex; align-items: center; }
@@ -1452,7 +1419,7 @@
     .presence-card-online {
       position: absolute; bottom: 1px; right: 1px;
       width: 9px; height: 9px; border-radius: 50%;
-      background: #4ade80;
+      background: var(--success-color);
       border: 1.5px solid rgba(4,4,10,0.95);
       box-shadow: 0 0 6px rgba(74,222,128,0.6);
       animation: dotPulse 2.5s ease-out infinite;
@@ -1538,6 +1505,7 @@
       font-family: var(--font-ui);
       opacity: 0;
       transform: translateY(16px) scale(0.98);
+      transform-origin: 50% 60%;
       transition: opacity 0.24s ease, transform 0.24s ease;
     }
     .ap-panel.open .ap-card { opacity: 1; transform: none; }
@@ -1963,8 +1931,7 @@
     [data-theme="light"] .type-badge.song  { color: #a0560a; border-color: rgba(190,110,10,0.35); background: rgba(190,110,10,0.1); }
     [data-theme="light"] .type-badge.album { color: #8a3a18; border-color: rgba(150,70,30,0.35); background: rgba(150,70,30,0.1); }
     [data-theme="light"] .type-badge.soon  { color: #92700a; border-color: rgba(146,112,10,0.4); background: rgba(234,179,8,0.14); }
-    .picker-action.login-active { color: #4ade80; }
-    .picker-action.fav-active { color: #f87171; }
+    .picker-action.fav-active { color: var(--danger-color); }
 
     .picker-empty {
       font-size: 10px; letter-spacing: 0.15em; color: var(--text-dimmer);
@@ -1999,10 +1966,6 @@
     .ap-btn-queue:active,
     .ap-read-more:active {
       transform: translateY(1px) scale(0.97);
-    }
-
-    .ap-card {
-      transform-origin: 50% 60%;
     }
 
     .ap-hero::after {
@@ -2377,8 +2340,8 @@
           <div><div class="settings-row-label">Logged in as</div><div class="settings-row-sub" id="settingsUser">—</div></div>
         </div>
         <div class="settings-row" style="cursor:pointer;" id="clearPrefsRow">
-          <div><div class="settings-row-label" style="color:#f87171;">Reset All Preferences</div><div class="settings-row-sub">Clears local storage and server prefs</div></div>
-          <i class="ti ti-trash" style="color:#f87171;font-size:14px;"></i>
+          <div><div class="settings-row-label" style="color:var(--danger-color);">Reset All Preferences</div><div class="settings-row-sub">Clears local storage and server prefs</div></div>
+          <i class="ti ti-trash" style="color:var(--danger-color);font-size:14px;"></i>
         </div>
       </div>
 
@@ -2588,7 +2551,7 @@ function applyDot(id,status){
   el.className='tile-dot '+(isMaint(id)?'maintenance':status===1?'up':'down');
 }
 function updateHeader(allUp){
-  document.getElementById('headerDot').style.background=allUp?'#4ade80':'#f87171';
+  document.getElementById('headerDot').style.background=allUp?'var(--success-color)':'var(--danger-color)';
   document.getElementById('headerStatus').textContent=allUp?'ONLINE':'DEGRADED';
 }
 let lastBeats={};
@@ -2733,6 +2696,14 @@ function fetchTimeout(url, opts, ms) {
   return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
 }
 
+// Escape a string for safe interpolation into an innerHTML template —
+// used anywhere a song/artist/album/playlist name (Navidrome metadata or
+// direct user input, e.g. a typed playlist name) gets built into markup.
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 const VOLUME_KEY = 'klabnet_volume';
 let playerState = {
   playing: false,
@@ -2843,7 +2814,7 @@ function setPlayIcon(playing) {
 
 async function loadRandomSongs() {
   try {
-    const res  = await fetch(`${ND_URL}/rest/getRandomSongs?size=20&${subsonicParams()}`);
+    const res  = await fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=20&${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     const songs = data['subsonic-response']?.randomSongs?.song || [];
     playerState.playlist = songs;
@@ -2959,12 +2930,21 @@ function makeSlider(trackEl, fillEl, dotEl, onChange) {
     trackEl.classList.add('dragging');
     update(e);
     e.preventDefault();
+    // Only listen on the window while an actual drag is happening — this
+    // used to be a permanent listener per slider (5 sliders = 5 handlers
+    // firing on every mousemove anywhere on the page, for the whole
+    // session) instead of scoped to the drag itself.
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup',   end);
   }
   function move(e) { if (dragging) { update(e); e.preventDefault(); } }
-  function end() { dragging = false; trackEl.classList.remove('dragging'); }
-  trackEl.addEventListener('mousedown',  start);
-  window.addEventListener('mousemove',  move);
-  window.addEventListener('mouseup',    end);
+  function end() {
+    dragging = false;
+    trackEl.classList.remove('dragging');
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup',   end);
+  }
+  trackEl.addEventListener('mousedown', start);
   trackEl.addEventListener('wheel', e => {
     e.preventDefault();
     const r = trackEl.getBoundingClientRect();
@@ -2995,6 +2975,7 @@ const volSlider = makeSlider(
   document.getElementById('volFill'),
   document.getElementById('volDot'),
   pct => {
+    clearInterval(_loginFadeInterval);
     playerState.volume = pct;
     playerState.audio.volume = pct;
     localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
@@ -3020,6 +3001,7 @@ const fsVolSlider = makeSlider(
   document.getElementById('fsVolFill'),
   document.getElementById('fsVolDot'),
   pct => {
+    clearInterval(_loginFadeInterval);
     playerState.volume = pct;
     playerState.audio.volume = pct;
     volSlider.setPct(pct);
@@ -3049,6 +3031,11 @@ function clearLoginSong() {
 }
 
 // Play login song on load with fade-in
+// Tracked at module scope so a manual volume-slider drag during the fade
+// (see the volSlider/fsVolSlider callbacks below) can cancel it instead of
+// having the fade's next 40ms tick immediately stomp the user's change.
+let _loginFadeInterval = null;
+
 async function tryPlayLoginSong() {
   const song = getLoginSong();
   if (!song) return;
@@ -3056,10 +3043,11 @@ async function tryPlayLoginSong() {
   await playSong(song);
   // Fade in over 2s
   let vol = 0;
-  const fade = setInterval(() => {
+  clearInterval(_loginFadeInterval);
+  _loginFadeInterval = setInterval(() => {
     vol = Math.min(playerState.volume, vol + 0.02);
     playerState.audio.volume = vol;
-    if (vol >= playerState.volume) clearInterval(fade);
+    if (vol >= playerState.volume) clearInterval(_loginFadeInterval);
   }, 40);
 }
 
@@ -3111,7 +3099,7 @@ async function loadPickerTab(tab) {
   let songs = [];
   try {
     if (tab === 'random') {
-      const res  = await fetch(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`);
+      const res  = await fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`, {}, 8000);
       const data = await res.json();
       songs = data['subsonic-response']?.randomSongs?.song || [];
     } else if (tab === 'recent') {
@@ -3120,11 +3108,11 @@ async function loadPickerTab(tab) {
       if (songs.length === 0) {
         // Fallback to Navidrome recently played API
         try {
-          const res  = await fetch(`${ND_URL}/rest/getAlbumList2?type=recent&size=10&${subsonicParams()}`);
+          const res  = await fetchTimeout(`${ND_URL}/rest/getAlbumList2?type=recent&size=10&${subsonicParams()}`, {}, 8000);
           const data = await res.json();
           const albums = data['subsonic-response']?.albumList2?.album || [];
           for (const album of albums.slice(0, 6)) {
-            const r2 = await fetch(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`);
+            const r2 = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`, {}, 8000);
             const d2 = await r2.json();
             const tracks = d2['subsonic-response']?.album?.song || [];
             songs.push(...tracks.slice(0, 4));
@@ -3134,7 +3122,7 @@ async function loadPickerTab(tab) {
       }
     } else if (tab === 'search' && pickerQuery.trim()) {
       const q = encodeURIComponent(pickerQuery.trim());
-      const res  = await fetch(`${ND_URL}/rest/search3?query=${q}&songCount=25&artistCount=15&albumCount=15&${subsonicParams()}`);
+      const res  = await fetchTimeout(`${ND_URL}/rest/search3?query=${q}&songCount=25&artistCount=15&albumCount=15&${subsonicParams()}`, {}, 8000);
       const data = await res.json();
       const result = data['subsonic-response']?.searchResult3 || {};
       const foundArtists = result.artist || [];
@@ -3191,8 +3179,8 @@ function renderSongItem(song, container) {
   item.innerHTML = `
     <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="this.outerHTML='<div class=\'picker-item-art-ph\'><i class=\'ti ti-music\'></i></div>'" />
     <div class="picker-item-info">
-      <div class="picker-item-title">${song.title || 'Unknown'}</div>
-      <div class="picker-item-artist"><span class="picker-link" data-go-artist="${song.artistId||''}" data-artist-name="${song.artist||''}">${song.artist || 'Unknown Artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+song.albumId+'" data-album-name="'+song.album+'">'+song.album+'</span>' : ''}</div>
+      <div class="picker-item-title">${esc(song.title) || 'Unknown'}</div>
+      <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown Artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
     </div>
     <div class="picker-item-actions">
       <span class="type-badge song">song</span>
@@ -3486,13 +3474,26 @@ document.getElementById('fsNext').addEventListener('click', nextSong);
 
 // Sync FS progress bar with audio timeupdate
 if (playerState.audio) {
-  playerState.audio.addEventListener('timeupdate', () => {
+  const _fsPlayerEl   = document.getElementById('fsPlayer');
+  const _fsProgFillEl = document.getElementById('fsProgFill');
+  const _fsCurEl       = document.getElementById('fsCur');
+  const _fsDurEl       = document.getElementById('fsDur');
+  const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
+  window._syncFSProgress = function() {
     if (!playerState.audio.duration) return;
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
-    document.getElementById('fsProgFill').style.width = pct + '%';
-    document.getElementById('fsCur').textContent = formatTime(playerState.audio.currentTime);
-    document.getElementById('fsDur').textContent = formatTime(playerState.audio.duration);
-    document.getElementById('fsPlayIcon').className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
+    _fsProgFillEl.style.width = pct + '%';
+    _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
+    _fsDurEl.textContent = formatTime(playerState.audio.duration);
+    _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
+  };
+  playerState.audio.addEventListener('timeupdate', () => {
+    // This fires continuously during all playback — skip the work
+    // entirely when the fullscreen view isn't even visible. openFS()
+    // calls _syncFSProgress() once directly so the view isn't stale
+    // for the ~1 tick it'd otherwise take to catch up after opening.
+    if (!_fsPlayerEl.classList.contains('open')) return;
+    window._syncFSProgress();
   });
 }
 
@@ -3530,13 +3531,17 @@ async function loadAlbums() {
       const allAlbums = [];
       let offset = 0;
       const pageSize = 500;
-      while (true) {
-        const res = await fetch(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`);
+      // Capped so a misbehaving server (always returns a full page) can't
+      // hang this in an infinite fetch loop — 50 pages is 25,000 albums,
+      // well beyond any real library.
+      for (let page_i = 0; page_i < 50; page_i++) {
+        const res = await fetchTimeout(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`, {}, 8000);
         const data = await res.json();
         const page = data['subsonic-response']?.albumList?.album || [];
         allAlbums.push(...page);
         if (page.length < pageSize) break; // no more pages
         offset += pageSize;
+        if (page_i === 49) showToast('album list may be incomplete — hit the page limit');
       }
       _albumsCache = allAlbums;
     }
@@ -3548,7 +3553,7 @@ async function loadAlbums() {
 async function loadArtists() {
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
-    const res = await fetch(`${ND_URL}/rest/getArtists?${subsonicParams()}`);
+    const res = await fetchTimeout(`${ND_URL}/rest/getArtists?${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     renderArtistList(data['subsonic-response']?.artists?.index || []);
   } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
@@ -3582,9 +3587,9 @@ function renderAlbumList(albums, appendMode) {
     const info = document.createElement('div');
     info.className = 'picker-item-info';
     info.innerHTML =
-      '<div class="picker-item-title">' + (album.name || 'Unknown') + '</div>' +
-      '<div class="picker-item-artist">' + (album.artist || '') +
-        (album.year ? ' · ' + album.year : '') +
+      '<div class="picker-item-title">' + (esc(album.name) || 'Unknown') + '</div>' +
+      '<div class="picker-item-artist">' + esc(album.artist || '') +
+        (album.year ? ' · ' + esc(album.year) : '') +
         ' · ' + (album.songCount || 0) + ' tracks</div>';
 
     const acts = document.createElement('div');
@@ -3605,7 +3610,7 @@ function renderAlbumList(albums, appendMode) {
     item.append(ph, info, acts);
 
     const fetchTracks = async () => {
-      const r = await fetch(ND_URL + '/rest/getAlbum?id=' + album.id + '&' + subsonicParams());
+      const r = await fetchTimeout(ND_URL + '/rest/getAlbum?id=' + album.id + '&' + subsonicParams(), {}, 8000);
       const d = await r.json();
       return d['subsonic-response']?.album?.song || [];
     };
@@ -3643,7 +3648,7 @@ function renderArtistSearchResults(artists) {
     item.innerHTML = `
       <div class="picker-item-art-ph"><i class="ti ti-user-circle"></i></div>
       <div class="picker-item-info">
-        <div class="picker-item-title">${artistName}</div>
+        <div class="picker-item-title">${esc(artistName)}</div>
         <div class="picker-item-artist">${artist.albumCount || 0} albums</div>
       </div>
       <div class="picker-item-actions">
@@ -3666,8 +3671,8 @@ async function hydrateArtistThumb(item, artistId) {
   if (!ph || !artistId) return;
   try {
     const [infoRes, artistRes] = await Promise.allSettled([
-      fetch(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=1&${subsonicParams()}`).then(r => r.json()),
-      fetch(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`).then(r => r.json()),
+      fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=1&${subsonicParams()}`, {}, 8000).then(r => r.json()),
+      fetchTimeout(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`, {}, 8000).then(r => r.json()),
     ]);
     const info = infoRes.status === 'fulfilled'
       ? infoRes.value['subsonic-response']?.artistInfo2
@@ -3705,7 +3710,7 @@ function renderArtistList(indexes) {
       item.innerHTML = `
         <div class="picker-item-art-ph"><i class="ti ti-user-circle"></i></div>
         <div class="picker-item-info">
-          <div class="picker-item-title">${artist.name||'Unknown'}</div>
+          <div class="picker-item-title">${esc(artist.name)||'Unknown'}</div>
           <div class="picker-item-artist">${artist.albumCount||0} albums</div>
         </div>
         <div class="picker-item-actions">
@@ -3724,7 +3729,7 @@ async function loadArtistView(artist) {
   if (window.openArtistPage) { openMusicPanelPreservingPicker(() => window.openArtistPage(artist.id, artist.name)); return; }
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
-    const res = await fetch(`${ND_URL}/rest/getArtist?id=${artist.id}&${subsonicParams()}`);
+    const res = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${artist.id}&${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     const info = data['subsonic-response']?.artist;
     if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed</div>'; return; }
@@ -3742,7 +3747,7 @@ async function loadArtistView(artist) {
     // Artist header
     const hdr = document.createElement('div');
     hdr.style.cssText = 'display:flex;align-items:center;gap:1rem;padding:0.5rem 0.8rem 0.8rem;border-bottom:1px solid var(--glass-border);margin-bottom:0.4rem;';
-    hdr.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:var(--glass-fill);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;color:var(--text-dimmer);font-size:22px;flex-shrink:0;"><i class="ti ti-user-circle"></i></div><div><div style="font-size:1rem;font-weight:700;color:var(--text);letter-spacing:0.04em;">${info.name||'Unknown'}</div><div style="font-size:9px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;margin-top:2px;">${info.albumCount||0} albums</div></div>`;
+    hdr.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:var(--glass-fill);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;color:var(--text-dimmer);font-size:22px;flex-shrink:0;"><i class="ti ti-user-circle"></i></div><div><div style="font-size:1rem;font-weight:700;color:var(--text);letter-spacing:0.04em;">${esc(info.name)||'Unknown'}</div><div style="font-size:9px;letter-spacing:0.15em;color:var(--text-dimmer);text-transform:uppercase;margin-top:2px;">${info.albumCount||0} albums</div></div>`;
     pickerList.appendChild(hdr);
     // Albums
     const albums = info.album || [];
@@ -3753,7 +3758,6 @@ async function loadArtistView(artist) {
       const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=150&${subsonicParams()}`;
       const item = document.createElement('div');
       item.className = 'picker-item';
-      // Build DOM cleanly — no innerHTML escaping bugs
       const img = document.createElement('img');
       img.className = 'picker-item-art';
       img.src = artUrl;
@@ -3769,8 +3773,8 @@ async function loadArtistView(artist) {
       };
       const info = document.createElement('div');
       info.className = 'picker-item-info';
-      info.innerHTML = '<div class="picker-item-title">' + (album.name||'Unknown') + '</div>' +
-                       '<div class="picker-item-artist">' + (album.year||'') + ' · ' + (album.songCount||0) + ' tracks</div>';
+      info.innerHTML = '<div class="picker-item-title">' + (esc(album.name)||'Unknown') + '</div>' +
+                       '<div class="picker-item-artist">' + esc(album.year||'') + ' · ' + (album.songCount||0) + ' tracks</div>';
       const actions = document.createElement('div');
       actions.className = 'picker-item-actions';
       actions.innerHTML = '<span class="type-badge album">album</span>' +
@@ -3780,7 +3784,7 @@ async function loadArtistView(artist) {
       item.appendChild(info);
       item.appendChild(actions);
       const getTracks = async () => {
-        const r = await fetch(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`);
+        const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`, {}, 8000);
         const d = await r.json();
         return d['subsonic-response']?.album?.song || [];
       };
@@ -3811,7 +3815,7 @@ function renderQueueList() {
   const clearRow = document.createElement('div');
   clearRow.style.cssText = 'display:flex;justify-content:flex-end;padding:0 2px 6px;';
   const clearBtn = document.createElement('button');
-  clearBtn.style.cssText = "font-size:8.5px;letter-spacing:0.14em;text-transform:uppercase;padding:4px 12px;border-radius:100px;cursor:pointer;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:#f87171;transition:background 0.15s;";
+  clearBtn.style.cssText = "font-size:8.5px;letter-spacing:0.14em;text-transform:uppercase;padding:4px 12px;border-radius:100px;cursor:pointer;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--danger-color);transition:background 0.15s;";
   clearBtn.textContent = 'clear all';
   clearBtn.addEventListener('mouseenter', () => { clearBtn.style.background = 'rgba(248,113,113,0.22)'; });
   clearBtn.addEventListener('mouseleave', () => { clearBtn.style.background = 'rgba(248,113,113,0.1)'; });
@@ -3825,8 +3829,8 @@ function renderQueueList() {
     item.innerHTML = `
       <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="this.outerHTML='<div class=\'picker-item-art-ph\'><i class=\'ti ti-music\'></i></div>'" />
       <div class="picker-item-info" style="min-width:0;flex:1;">
-        <div class="picker-item-title">${song.title||'Unknown'}</div>
-        <div class="picker-item-artist">${song.artist||''} · ${song.album||''}</div>
+        <div class="picker-item-title">${esc(song.title)||'Unknown'}</div>
+        <div class="picker-item-artist">${esc(song.artist||'')} · ${esc(song.album||'')}</div>
       </div>
       <div class="picker-item-actions" style="flex-shrink:0;display:flex;align-items:center;gap:2px;">
         <span class="type-badge song" style="flex-shrink:0;">song</span>
@@ -3885,11 +3889,15 @@ const SFX = (() => {
   ['click','keydown','mousedown','pointerdown'].forEach(ev =>
     document.addEventListener(ev, unlock, { passive: true })
   );
-  // Also pre-create context on first mousemove so hover works immediately after click
-  document.addEventListener('mousemove', () => {
+  // Also pre-create context on first mousemove so hover works immediately after click.
+  // Self-removes once the context is confirmed running — no need to keep
+  // checking on every mousemove for the rest of the session after that.
+  function _resumeOnMove() {
     if (!ctx) return; // don't create until after first click
-    if (ctx.state === 'suspended') ctx.resume();
-  }, { passive: true });
+    if (ctx.state === 'suspended') { ctx.resume(); return; }
+    if (ctx.state === 'running') document.removeEventListener('mousemove', _resumeOnMove);
+  }
+  document.addEventListener('mousemove', _resumeOnMove, { passive: true });
 
   // Helpers ─────────────────────────────────────────────
   // tone: soft rounded sine through a gentle lowpass — PS3 XMB-style chime
@@ -4087,7 +4095,14 @@ closePicker = function() { SFX.play('close'); _origClosePicker(); };
 
 // FS open/close
 const _origOpenFS = openFS;
-openFS = function() { SFX.play('open'); _origOpenFS(); };
+openFS = function() {
+  SFX.play('open');
+  _origOpenFS();
+  // The timeupdate handler skips its work while FS is closed (perf — see
+  // where _syncFSProgress is defined), so give it one immediate sync here
+  // instead of leaving the view stale until the next tick.
+  if (window._syncFSProgress) window._syncFSProgress();
+};
 const _origCloseFS = closeFS;
 closeFS = function() { SFX.play('close'); _origCloseFS(); };
 
@@ -4287,7 +4302,7 @@ function updateFSFavBtn() {
   if (!icon || !btn || !song) return;
   const fav = isFavorite(song.id);
   icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
-  btn.style.color = fav ? '#f87171' : '';
+  btn.style.color = fav ? 'var(--danger-color)' : '';
   btn.style.opacity = fav ? '0.9' : '0.6';
 }
 
@@ -4300,11 +4315,25 @@ document.getElementById('fsFav').addEventListener('click', () => {
   SFX.play('star');
 });
 
+// Shared so the dock and FS shuffle buttons never fall out of sync with
+// each other — previously the FS button's own click handler only updated
+// itself, so toggling shuffle there left the dock icon stale.
+function syncShuffleBtns() {
+  const dockBtn = document.getElementById('dockShuffle');
+  const fsBtn   = document.getElementById('fsShuffle');
+  if (dockBtn) {
+    dockBtn.style.opacity = _shuffleOn ? '1' : '0.45';
+    dockBtn.style.color   = _shuffleOn ? 'rgba(var(--accent-rgb),1)' : '';
+  }
+  if (fsBtn) {
+    fsBtn.style.opacity = _shuffleOn ? '1' : '0.5';
+    fsBtn.style.color   = _shuffleOn ? 'rgba(var(--accent-rgb),1)' : '';
+  }
+}
+
 document.getElementById('fsShuffle').addEventListener('click', () => {
   _shuffleOn = !_shuffleOn;
-  const btn = document.getElementById('fsShuffle');
-  btn.style.opacity = _shuffleOn ? '1' : '0.5';
-  btn.style.color = _shuffleOn ? '#7ab8ff' : '';
+  syncShuffleBtns();
   SFX.play('click');
 });
 
@@ -4312,7 +4341,7 @@ document.getElementById('fsRepeat').addEventListener('click', () => {
   _repeatOn = !_repeatOn;
   const btn = document.getElementById('fsRepeat');
   btn.style.opacity = _repeatOn ? '1' : '0.5';
-  btn.style.color = _repeatOn ? '#7ab8ff' : '';
+  btn.style.color = _repeatOn ? 'rgba(var(--accent-rgb),1)' : '';
   SFX.play('click');
   if (_repeatOn) playerState.audio.loop = true;
   else playerState.audio.loop = false;
@@ -4350,7 +4379,7 @@ function updateDockFavBtn() {
   if (!song) { icon.className = 'ti ti-heart'; btn.style.opacity = '0.45'; btn.style.color = ''; return; }
   const fav = isFavorite(song.id);
   icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
-  btn.style.color  = fav ? '#f87171' : '';
+  btn.style.color  = fav ? 'var(--danger-color)' : '';
   btn.style.opacity = fav ? '0.9' : '0.45';
 }
 
@@ -4366,12 +4395,7 @@ document.getElementById('dockFav').addEventListener('click', () => {
 
 document.getElementById('dockShuffle').addEventListener('click', () => {
   _shuffleOn = !_shuffleOn;
-  const btn = document.getElementById('dockShuffle');
-  btn.style.opacity = _shuffleOn ? '1' : '0.45';
-  btn.style.color   = _shuffleOn ? '#7ab8ff' : '';
-  // also sync FS shuffle btn
-  const fsBtn = document.getElementById('fsShuffle');
-  if (fsBtn) { fsBtn.style.opacity = _shuffleOn ? '1' : '0.5'; fsBtn.style.color = _shuffleOn ? '#7ab8ff' : ''; }
+  syncShuffleBtns();
   SFX.play('click');
 });
 
@@ -4537,20 +4561,32 @@ function tileMouseDown(e) {
   e.preventDefault();
   const wrap = e.currentTarget;
   createGhost(wrap, e.clientX, e.clientY);
+  // Tile positions don't change mid-drag (the ghost is a fixed-position
+  // clone, the originals just dim), so measure every other tile's rect
+  // once here instead of re-querying the DOM and calling
+  // getBoundingClientRect() on every tile on every raw mousemove.
+  const grid = document.getElementById('appGrid');
+  const dropTargets = [...grid.querySelectorAll('.tile-wrap')]
+    .filter(w => w !== dragSrc)
+    .map(w => ({ el: w, rect: w.getBoundingClientRect() }));
+  let curHighlighted = null;
   const onMove = ev => {
     moveGhost(ev.clientX, ev.clientY);
     // Drop indicator
-    document.querySelectorAll('.tile-wrap.drop-before').forEach(el => el.classList.remove('drop-before'));
-    const grid = document.getElementById('appGrid');
-    const wraps = [...grid.querySelectorAll('.tile-wrap')].filter(w => w !== dragSrc);
-    for (const w of wraps) {
-      const r = w.getBoundingClientRect();
+    let next = null;
+    for (const { el, rect: r } of dropTargets) {
       if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
-        w.classList.add('drop-before'); break;
+        next = el; break;
       }
+    }
+    if (next !== curHighlighted) {
+      if (curHighlighted) curHighlighted.classList.remove('drop-before');
+      if (next) next.classList.add('drop-before');
+      curHighlighted = next;
     }
   };
   const onUp = ev => {
+    if (curHighlighted) curHighlighted.classList.remove('drop-before');
     dropGhost(ev.clientX, ev.clientY);
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup',   onUp);
@@ -4635,6 +4671,7 @@ const PREF_KEYS = {
   favorites:     'klabnet_favorites',
   play_history:  'klabnet_play_history',
   theme:         'klabnet_theme',
+  playlists:     'klabnet_playlists',
 };
 
 async function fetchMe() {
@@ -4726,6 +4763,7 @@ async function loadServerPrefs() {
     setIfPresent(PREF_KEYS.favorites,     prefs.favorites);
     setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
     setIfPresent(PREF_KEYS.theme,         prefs.theme);
+    setIfPresent(PREF_KEYS.playlists,     prefs.playlists);
 
   } catch(e) {
 
@@ -4744,6 +4782,7 @@ async function saveServerPrefs() {
     favorites:     parse(PREF_KEYS.favorites,     []),
     play_history:  parse(PREF_KEYS.play_history,  []),
     theme:         localStorage.getItem(PREF_KEYS.theme) || 'dark',
+    playlists:     parse(PREF_KEYS.playlists,     []),
   };
   try {
     await fetchTimeout('/api/prefs', {
@@ -5181,7 +5220,7 @@ async function loadGenres() {
   pickerList.innerHTML = '<div class="picker-empty">loading genres...</div>';
   try {
     if (!_genresCache) {
-      const res  = await fetch(`${ND_URL}/rest/getGenres?${subsonicParams()}`);
+      const res  = await fetchTimeout(`${ND_URL}/rest/getGenres?${subsonicParams()}`, {}, 8000);
       const data = await res.json();
       _genresCache = (data['subsonic-response']?.genres?.genre || []).filter(g => g.songCount > 0);
     }
@@ -5202,7 +5241,7 @@ async function loadGenres() {
       item.innerHTML = `
         <div class="picker-item-art-ph" style="font-size:20px;"><i class="ti ti-music-search"></i></div>
         <div class="picker-item-info" style="min-width:0;flex:1;">
-          <div class="picker-item-title">${genre.value}</div>
+          <div class="picker-item-title">${esc(genre.value)}</div>
           <div class="picker-item-artist">${genre.songCount} songs · ${genre.albumCount || 0} albums</div>
         </div>
         <div class="picker-item-actions" style="flex-shrink:0;">
@@ -5213,7 +5252,7 @@ async function loadGenres() {
         hideSortBtn();
         pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
         try {
-          const r = await fetch(`${ND_URL}/rest/getSongsByGenre?genre=${encodeURIComponent(genre.value)}&count=50&${subsonicParams()}`);
+          const r = await fetchTimeout(`${ND_URL}/rest/getSongsByGenre?genre=${encodeURIComponent(genre.value)}&count=50&${subsonicParams()}`, {}, 8000);
           const d = await r.json();
           const songs = d['subsonic-response']?.songsByGenre?.song || [];
           if (!songs.length) { pickerList.innerHTML = '<div class="picker-empty">no songs found</div>'; return; }
@@ -5320,13 +5359,13 @@ function renderPlaylistList() {
     item.innerHTML = `
       <div class="pl-icon"><i class="ti ti-playlist"></i></div>
       <div class="pl-info">
-        <div class="pl-name">${pl.name}</div>
+        <div class="pl-name">${esc(pl.name)}</div>
         <div class="pl-meta">${pl.songs.length} songs</div>
       </div>
       <div class="picker-item-actions" style="flex-shrink:0;display:flex;gap:2px;">
         <button class="picker-action" title="Play playlist"><i class="ti ti-player-play"></i></button>
         <button class="picker-action" title="Queue playlist"><i class="ti ti-playlist-add"></i></button>
-        <button class="picker-action" title="Delete playlist" style="color:#f87171;"><i class="ti ti-trash"></i></button>
+        <button class="picker-action" title="Delete playlist" style="color:var(--danger-color);"><i class="ti ti-trash"></i></button>
       </div>`;
 
     item.querySelector('[title="Play playlist"]').addEventListener('click', async e => {
@@ -5392,7 +5431,7 @@ function loadPlaylistView(pl) {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'picker-action';
     removeBtn.title = 'Remove from playlist';
-    removeBtn.innerHTML = '<i class="ti ti-x" style="color:#f87171;"></i>';
+    removeBtn.innerHTML = '<i class="ti ti-x" style="color:var(--danger-color);"></i>';
     removeBtn.addEventListener('click', e => {
       e.stopPropagation();
       // Get fresh playlist from storage (index may have shifted)
@@ -5459,7 +5498,7 @@ let _songsObserver = null;
 let _songsCache = null;
 
 async function _fetchSongsPage(offset) {
-  const res  = await fetch(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`);
+  const res  = await fetchTimeout(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`, {}, 8000);
   const data = await res.json();
   return data['subsonic-response']?.searchResult3?.song || [];
 }
@@ -5475,11 +5514,14 @@ async function loadAllSongs() {
       if (!_songsCache) {
         const all = [];
         let offset = 0;
-        while (true) {
+        // Capped for the same reason as loadAlbums() above — 200 pages is
+        // 20,000 songs, well beyond any real library.
+        for (let page_i = 0; page_i < 200; page_i++) {
           const page = await _fetchSongsPage(offset);
           all.push(...page);
           if (page.length < _SONGS_PER_PAGE) break;
           offset += _SONGS_PER_PAGE;
+          if (page_i === 199) showToast('song list may be incomplete — hit the page limit');
         }
         _songsCache = all;
       }
@@ -5684,7 +5726,7 @@ async function loadAlbumView(albumId, albumName, backFn) {
   if (window.openAlbumPage) { openMusicPanelPreservingPicker(() => window.openAlbumPage(albumId, albumName)); return; }
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
-    const res  = await fetch(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`);
+    const res  = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     const info = data['subsonic-response']?.album;
     if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; return; }
@@ -5918,6 +5960,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _activeIdx    = -1;
   let _rafId        = null;
   let _currentSongId = null;
+  let _lyricsToken  = 0;    // guards against a slow-loading fetch for a since-skipped track winning a race
 
   const scroll     = document.getElementById('lyricsScroll');
   const statusEl   = document.getElementById('lyricsStatus');
@@ -5948,7 +5991,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         artist_name: song.artist || '',
         album_name:  song.album  || '',
       });
-      const res  = await fetch(`https://lrclib.net/api/get?${params}`);
+      const res  = await fetchTimeout(`https://lrclib.net/api/get?${params}`, {}, 8000);
       if (!res.ok) return null;
       const data = await res.json();
       return data;
@@ -6036,7 +6079,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     st.textContent = 'searching...';
     scroll.appendChild(st);
 
+    const myLyricsToken = ++_lyricsToken;
     const data = await fetchLyrics(song);
+    if (myLyricsToken !== _lyricsToken) return; // a newer track change superseded this load
 
     if (data && data.syncedLyrics) {
       _syncedLines = parseLRC(data.syncedLyrics);
@@ -6114,11 +6159,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const list = document.getElementById('presenceList');
   if (!list) return;
 
-  function esc(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-      .replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
   // ── Render helpers ───────────────────────
   function cardHTML(username, song, artist, isMe, playing, songId) {
     const initial = (username||'?')[0].toUpperCase();
@@ -6138,6 +6178,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     '</div>';
   }
 
+  let _lastRenderedHTML = null;
   function renderList(others) {
     const me = window.KLAB_USER?.username;
     const mySong = playerState.currentSong;
@@ -6153,6 +6194,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
       });
     }
+    // Most 8s polls come back with nothing changed — skip the DOM
+    // teardown/rebuild entirely when the output is identical to last time.
+    if (html === _lastRenderedHTML) return;
+    _lastRenderedHTML = html;
     list.innerHTML = html;
   }
 
@@ -6426,6 +6471,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   sc.width = sc.height = 16;
   const sctx = sc.getContext('2d', { willReadFrequently: true });
   let _last = '';
+  let _sampleToken = 0; // guards against a slower, since-superseded sample() call winning a race
 
   function rgbToHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255;
@@ -6447,9 +6493,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function sample(src) {
     if (!src || src === _last) return;
     _last = src;
+    const mySampleToken = ++_sampleToken;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      if (mySampleToken !== _sampleToken) return; // a newer track change superseded this sample
       try {
         sctx.drawImage(img, 0, 0, 16, 16);
         const px = sctx.getImageData(0, 0, 16, 16).data;
@@ -6539,11 +6587,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
       .replace(/&gt;/g,'>').replace(/&quot;/g,'"').trim();
   }
-  function esc(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-      .replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
   function panelOpen() {
     panel.style.display = 'flex';
     // Double rAF: first frame applies display:flex, second triggers the opacity transition
@@ -6678,9 +6721,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       loading();
       try {
         const [artRes, infoRes, topRes] = await Promise.allSettled([
-          fetch(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`).then(r=>r.json()),
-          fetch(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=10&${subsonicParams()}`).then(r=>r.json()),
-          fetch(`${ND_URL}/rest/getTopSongs?artist=${encodeURIComponent(artistName)}&count=5&${subsonicParams()}`).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=10&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getTopSongs?artist=${encodeURIComponent(artistName)}&count=5&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
 
         const artist   = artRes.status  === 'fulfilled' ? artRes.value['subsonic-response']?.artist        : null;
@@ -6756,7 +6799,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
             chip.addEventListener('click', async () => {
               // Search catalog for this artist
               try {
-                const r = await fetch(`${ND_URL}/rest/search3?query=${encodeURIComponent(sim.name)}&artistCount=1&albumCount=0&songCount=0&${subsonicParams()}`);
+                const r = await fetchTimeout(`${ND_URL}/rest/search3?query=${encodeURIComponent(sim.name)}&artistCount=1&albumCount=0&songCount=0&${subsonicParams()}`, {}, 8000);
                 const d = await r.json();
                 const found = d['subsonic-response']?.searchResult3?.artist?.[0];
                 if (found) window.openArtistPage(found.id, found.name);
@@ -6794,8 +6837,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       loading();
       try {
         const [albRes, infoRes] = await Promise.allSettled([
-          fetch(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`).then(r=>r.json()),
-          fetch(`${ND_URL}/rest/getAlbumInfo2?id=${albumId}&${subsonicParams()}`).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getAlbumInfo2?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
 
         const album = albRes.status  === 'fulfilled' ? albRes.value['subsonic-response']?.album    : null;
