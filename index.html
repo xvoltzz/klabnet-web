@@ -718,11 +718,15 @@
       text-underline-offset: 2px;
     }
 
-    /* hdr buttons - boxy, compact */
+    /* hdr buttons - boxy, compact. Every one of these also carries the
+       .glass class in HTML for a visible resting-state pill — this rule
+       used to stomp that back to background:transparent/border:transparent,
+       so they were invisible until hovered. Only override sizing/layout
+       here and let .glass supply the fill/border. */
     .hdr-btn {
       width:28px; height:28px; min-width:28px; min-height:28px;
       border-radius:6px; display:flex; align-items:center; justify-content:center;
-      cursor:pointer; font-size:13px; border:1px solid transparent; background:transparent;
+      cursor:pointer; font-size:13px;
       flex-shrink:0; color:var(--text-dim); transition:color 0.2s, background 0.2s, border-color 0.2s;
       text-decoration:none;
     }
