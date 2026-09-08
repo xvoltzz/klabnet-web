@@ -320,7 +320,39 @@
       display: flex; align-items: center; gap: 0.9rem; margin-top: 2px;
     }
 
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-right { position: relative; display: flex; align-items: center; gap: 10px; }
+
+    /* ══ TOAST FLYOUT — stacked notifications hanging off the header
+       buttons' bottom-right corner, matching the ctx-menu/modal surfaces
+       rather than the old free-floating bottom-center pill. ══ */
+    .toast-flyout {
+      position: absolute; top: calc(100% + 0.7rem); right: 0;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+      z-index: 500; pointer-events: none;
+    }
+    .toast-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 20px; border-radius: 12px;
+      width: max-content; max-width: min(360px, calc(100vw - 3rem)); min-width: 200px;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border-h);
+      box-shadow: 0 10px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+      font-family: var(--font-ui);
+      font-size: 12.5px; letter-spacing: 0.02em; line-height: 1.4;
+      color: var(--text);
+      cursor: pointer; pointer-events: auto;
+      opacity: 0; transform: translateX(20px) scale(0.96);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .toast-item.visible { opacity: 1; transform: translateX(0) scale(1); }
+    .toast-item.leaving { opacity: 0; transform: translateX(20px) scale(0.96); }
+    .toast-item-icon {
+      font-size: 16px; color: rgba(var(--accent-rgb),1); flex-shrink: 0;
+    }
+    .toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
+    @media (prefers-reduced-motion: reduce) {
+      .toast-item { transition: opacity 0.15s ease; transform: none !important; }
+    }
 
     .theme-toggle {
       width: 36px; height: 36px; min-width: 36px; min-height: 36px; border-radius: 50%; flex-shrink: 0; aspect-ratio: 1 / 1;
@@ -2239,6 +2271,7 @@
         <span class="hb-dot" id="headerDot"></span>
         <span id="headerStatus">LOADING</span>
       </div>
+      <div class="toast-flyout" id="toastFlyout"></div>
     </div>
   </header>
 
@@ -3449,28 +3482,34 @@ document.getElementById('playerDock').addEventListener('contextmenu', e => {
   }
 });
 
-// ── Toast notification ──
+// ── Toast notification flyout — stacked cards hanging off the header
+//    buttons' bottom-right corner instead of a lone bottom-center pill ──
 function showToast(msg) {
-  let t = document.getElementById('klabToast');
-  if (!t) {
-    t = document.createElement('div');
-    t.id = 'klabToast';
-    t.style.cssText = `
-      position:fixed; bottom:6rem; left:50%; transform:translateX(-50%);
-      background:rgba(10,10,20,0.92);
-      border:1px solid rgba(255,255,255,0.12); border-radius:100px;
-      padding:8px 20px; font-family:var(--font-ui);
-      font-size:10px; letter-spacing:0.15em; color:#e8e4dc;
-      text-transform:uppercase; z-index:9999;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 20px rgba(0,0,0,0.5);
-      transition:opacity 0.3s;
-    `;
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  t.style.opacity = '1';
-  clearTimeout(t._hide);
-  t._hide = setTimeout(() => t.style.opacity = '0', 2500);
+  const host = document.getElementById('toastFlyout');
+  if (!host) return;
+
+  // Cap the stack so a burst of calls doesn't grow the column forever.
+  while (host.children.length >= 4) host.firstElementChild.remove();
+
+  const item = document.createElement('div');
+  item.className = 'toast-item';
+  item.innerHTML = '<i class="ti ti-bell toast-item-icon"></i><span class="toast-item-msg"></span>';
+  item.querySelector('.toast-item-msg').textContent = msg;
+  host.appendChild(item);
+  // Double rAF so the enter transition reliably fires on the frame after insertion.
+  requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
+
+  const dismiss = () => {
+    if (item._dismissed) return;
+    item._dismissed = true;
+    clearTimeout(item._hide);
+    item.classList.remove('visible');
+    item.classList.add('leaving');
+    item.addEventListener('transitionend', () => item.remove(), { once: true });
+    setTimeout(() => item.remove(), 400); // fallback if transitionend never fires
+  };
+  item.addEventListener('click', dismiss);
+  item._hide = setTimeout(dismiss, 3200);
 }
 
 // ══════════════════════════════════════════
