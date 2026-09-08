@@ -467,6 +467,33 @@
 
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+
+    /* The song picker and artist/album panel used to be global fixed-position
+       modals (.picker-backdrop, .ap-panel — see their base rules further
+       down). Embedded inline in the Music tab, they should read as normal
+       page content filling the column, not a centered dialog floating over
+       a dimmed backdrop — this scoped override neutralizes that chrome
+       without touching the modal rules themselves (still used for their
+       actual list/track rendering logic, untouched). */
+    .tab-panel[data-tab-panel="music"] .picker-backdrop,
+    .tab-panel[data-tab-panel="music"] .ap-panel {
+      position: static; inset: auto; z-index: auto;
+      background: none; padding: 0; display: block;
+      opacity: 1; pointer-events: auto; animation: none;
+    }
+    .tab-panel[data-tab-panel="music"] .ap-panel { display: none; }
+    .tab-panel[data-tab-panel="music"] .ap-panel.open { display: block; }
+    .tab-panel[data-tab-panel="music"] .picker-modal,
+    .tab-panel[data-tab-panel="music"] .ap-card {
+      width: 100%; max-width: none; height: auto; max-height: none;
+      border: none; background: none; box-shadow: none; padding: 0;
+      animation: none; opacity: 1; transform: none; transition: none;
+    }
+    /* .ap-card normally clips to its fixed modal height (its child .ap-scroll
+       does the scrolling) — with height:auto above there's no bound to clip
+       to, and any clipping here would just cut content off. */
+    .tab-panel[data-tab-panel="music"] .ap-card { overflow: visible; }
+    .tab-panel[data-tab-panel="music"] .ap-scroll { overflow-y: visible; }
     .music-tab-placeholder {
       font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer);
       padding: 2rem 0;
@@ -1840,12 +1867,6 @@
       display: none; align-items: center; justify-content: center;
       animation: backdropIn 0.22s ease both;
     }
-    .picker-backdrop.open { display: flex; }
-    .picker-backdrop.panel-suspended {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.22s ease;
-    }
     @keyframes backdropIn { from{opacity:0} to{opacity:1} }
 
     .picker-modal {
@@ -2255,9 +2276,44 @@
   </div>
 
   <div class="tab-panel" data-tab-panel="music">
-  <div class="sec" data-sec="music-placeholder">
-    <div class="sec-head"><span class="sec-label">// music</span><div class="sec-line"></div></div>
-    <div class="music-tab-placeholder">Full music page coming soon — use the player below for now.</div>
+  <div class="picker-backdrop" id="pickerBackdrop">
+    <div class="picker-modal">
+      <div class="picker-header">
+        <span class="picker-title">// song picker</span>
+      </div>
+      <div class="picker-search">
+        <i class="ti ti-search"></i>
+        <input type="text" id="pickerSearch" placeholder="search songs, artists..." autocomplete="off" />
+        <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i> Sort</button>
+      </div>
+      <div class="picker-tabs">
+        <button class="picker-tab active" data-tab="random">Random</button>
+        <button class="picker-tab" data-tab="recent">Recent</button>
+        <button class="picker-tab" data-tab="songs">Songs</button>
+        <button class="picker-tab" data-tab="albums">Albums</button>
+        <button class="picker-tab" data-tab="artists">Artists</button>
+        <button class="picker-tab" data-tab="genres">Genres</button>
+        <button class="picker-tab" data-tab="playlists">Playlists</button>
+        <button class="picker-tab" data-tab="favorites">Favorites <span id="favCount"></span></button>
+        <button class="picker-tab" data-tab="queue">Queue <span id="queueCount"></span></button>
+        <button class="picker-tab" data-tab="search">Search</button>
+      </div>
+      <div class="picker-list" id="pickerList">
+        <div class="picker-empty">loading tracks...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-panel" id="apPanel">
+    <div class="ap-card">
+      <div class="ap-bg" id="apBg"></div>
+      <div class="ap-topbar">
+        <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
+        <span class="ap-topbar-title" id="apTopbarTitle"></span>
+        <button class="ap-close" id="apClose" title="Close"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="ap-scroll" id="apScroll"></div>
+    </div>
   </div>
   </div>
 
@@ -2444,48 +2500,9 @@
   </div>
 </div>
 
-<!-- SONG PICKER MODAL -->
-<div class="picker-backdrop" id="pickerBackdrop">
-  <div class="picker-modal">
-    <div class="picker-header">
-      <span class="picker-title">// song picker</span>
-      <button class="picker-close" id="pickerClose"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="picker-search">
-      <i class="ti ti-search"></i>
-      <input type="text" id="pickerSearch" placeholder="search songs, artists..." autocomplete="off" />
-      <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i> Sort</button>
-    </div>
-    <div class="picker-tabs">
-      <button class="picker-tab active" data-tab="random">Random</button>
-      <button class="picker-tab" data-tab="recent">Recent</button>
-      <button class="picker-tab" data-tab="songs">Songs</button>
-      <button class="picker-tab" data-tab="albums">Albums</button>
-      <button class="picker-tab" data-tab="artists">Artists</button>
-      <button class="picker-tab" data-tab="genres">Genres</button>
-      <button class="picker-tab" data-tab="playlists">Playlists</button>
-      <button class="picker-tab" data-tab="favorites">Favorites <span id="favCount"></span></button>
-      <button class="picker-tab" data-tab="queue">Queue <span id="queueCount"></span></button>
-      <button class="picker-tab" data-tab="search">Search</button>
-    </div>
-    <div class="picker-list" id="pickerList">
-      <div class="picker-empty">loading tracks...</div>
-    </div>
-  </div>
-</div>
-
-<!-- ARTIST / ALBUM PAGE PANEL — must live before <script> so getElementById works -->
-<div class="ap-panel" id="apPanel">
-  <div class="ap-card">
-    <div class="ap-bg" id="apBg"></div>
-    <div class="ap-topbar">
-      <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
-      <span class="ap-topbar-title" id="apTopbarTitle"></span>
-      <button class="ap-close" id="apClose" title="Close"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="ap-scroll" id="apScroll"></div>
-  </div>
-</div>
+<!-- Song picker + artist/album panel now live inline in the Music tab-panel
+     (see .tab-panel[data-tab-panel="music"] above) instead of as global
+     modals here. -->
 
 <script>
 // ══════════════════════════════════════════
@@ -2853,7 +2870,7 @@ function updatePlayerUI(song) {
     tLink.className = 'player-link';
     tLink.textContent = song.title || 'Unknown';
     tLink.title = 'View album';
-    tLink.addEventListener('click', () => openMusicPanelPreservingPicker(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))));
+    tLink.addEventListener('click', () => goToMusicDetail(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))));
     titleEl.appendChild(tLink);
   } else {
     titleEl.textContent = song.title || 'Unknown';
@@ -2866,7 +2883,7 @@ function updatePlayerUI(song) {
     aLink.className = 'player-link';
     aLink.textContent = song.artist || 'Unknown Artist';
     aLink.title = 'View artist';
-    aLink.addEventListener('click', () => openMusicPanelPreservingPicker(() => loadArtistView({ id: song.artistId, name: song.artist })));
+    aLink.addEventListener('click', () => goToMusicDetail(() => loadArtistView({ id: song.artistId, name: song.artist })));
     artistEl.appendChild(aLink);
   } else {
     artistEl.textContent = song.artist || 'Unknown Artist';
@@ -3160,30 +3177,37 @@ let pickerDebounce = null;
 const pickerBackdrop = document.getElementById('pickerBackdrop');
 const pickerList     = document.getElementById('pickerList');
 const pickerSearchEl = document.getElementById('pickerSearch');
-let _restorePickerAfterPanel = false;
 
 // Once the picker has loaded something, reopening it (without switching tabs)
 // just shows the same content again — same tab, same scroll position — rather
 // than refetching and snapping back to the top.
 let _pickerLoaded = false;
 
-function openPicker() {
+// The picker now lives inline in the Music tab-panel instead of behind a
+// modal open/close toggle — "loaded" just means "has content ever been
+// fetched", triggered either by navigating there via openPicker() or by
+// landing on #music directly (see setActiveTab's music-tab hook).
+function ensureMusicTabLoaded() {
   ensurePlDelegate();
-  pickerBackdrop.classList.add('open');
   if (_pickerLoaded) return;
   if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
   else pickerSearchEl.value = pickerQuery;
   loadPickerTab(pickerTab);
   _pickerLoaded = true;
 }
+function openPicker() {
+  setActiveTab('music');
+  ensureMusicTabLoaded();
+}
 function closePicker() {
-  pickerBackdrop.classList.remove('open');
   document.getElementById('sortMenu')?.classList.remove('visible');
 }
 
-function openMusicPanelPreservingPicker(openFn) {
-  _restorePickerAfterPanel = pickerBackdrop.classList.contains('open');
-  if (_restorePickerAfterPanel) pickerBackdrop.classList.add('panel-suspended');
+// The artist/album detail view now lives inline in the Music tab-panel too,
+// as a sibling of the picker content — no separate overlay to suspend, so
+// this just needs to make sure you're on the Music tab before opening it.
+function goToMusicDetail(openFn) {
+  setActiveTab('music');
   openFn();
 }
 
@@ -3397,7 +3421,6 @@ document.getElementById('btnPicker').addEventListener('click', () => {
   if (ctx && ctx.state === 'suspended') { ctx.resume().then(() => openPicker()); }
   else openPicker();
 });
-document.getElementById('pickerClose').addEventListener('click', closePicker);
 pickerBackdrop.addEventListener('click', e => { if (e.target === pickerBackdrop) closePicker(); });
 
 // Right-click player to set login song from current
@@ -3500,7 +3523,7 @@ function updateFSUI(song) {
     const al = document.createElement('span');
     al.className = 'player-link fs-link';
     al.textContent = song.artist || 'Unknown Artist';
-    al.addEventListener('click', () => { closeFS(); openMusicPanelPreservingPicker(() => loadArtistView({ id: song.artistId, name: song.artist })); });
+    al.addEventListener('click', () => { closeFS(); goToMusicDetail(() => loadArtistView({ id: song.artistId, name: song.artist })); });
     fsArtistEl.appendChild(al);
   } else { fsArtistEl.textContent = song.artist || 'Unknown Artist'; }
 
@@ -3511,7 +3534,7 @@ function updateFSUI(song) {
     const bl = document.createElement('span');
     bl.className = 'player-link fs-link';
     bl.textContent = song.album || '';
-    bl.addEventListener('click', () => { closeFS(); openMusicPanelPreservingPicker(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))); });
+    bl.addEventListener('click', () => { closeFS(); goToMusicDetail(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))); });
     fsAlbumEl.appendChild(bl);
   } else { fsAlbumEl.textContent = song.album || ''; }
 
@@ -3821,7 +3844,7 @@ function renderArtistList(indexes) {
 }
 
 async function loadArtistView(artist) {
-  if (window.openArtistPage) { openMusicPanelPreservingPicker(() => window.openArtistPage(artist.id, artist.name)); return; }
+  if (window.openArtistPage) { goToMusicDetail(() => window.openArtistPage(artist.id, artist.name)); return; }
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
     const res = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${artist.id}&${subsonicParams()}`, {}, 8000);
@@ -5047,6 +5070,9 @@ function setActiveTab(key) {
   document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
   if (location.hash.slice(1) !== key) location.hash = key;
+  // Landing on Music directly (deep link, reload, or a nav-bar click — not
+  // just via openPicker()) still needs its content fetched the first time.
+  if (key === 'music' && typeof ensureMusicTabLoaded === 'function') ensureMusicTabLoaded();
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
@@ -5868,7 +5894,7 @@ applySettings();
 initTabs();
 // ── Album view ──────────────────────────────────────────
 async function loadAlbumView(albumId, albumName, backFn) {
-  if (window.openAlbumPage) { openMusicPanelPreservingPicker(() => window.openAlbumPage(albumId, albumName)); return; }
+  if (window.openAlbumPage) { goToMusicDetail(() => window.openAlbumPage(albumId, albumName)); return; }
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
     const res  = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000);
@@ -6039,8 +6065,10 @@ document.addEventListener('keydown', e => {
   } else if (e.code === 'KeyF' && document.getElementById('fsPlayer')?.classList.contains('open')) {
     closeFS();
   } else if (e.code === 'Escape') {
-    const picker = document.getElementById('pickerBackdrop');
-    if (picker?.classList.contains('open')) { closePicker(); return; }
+    // Picker no longer has an open/closed state to escape out of — it's
+    // just the Music tab's content. Album/artist detail view still does
+    // (handled by the ap-panel IIFE's own Escape listener), so only the
+    // fullscreen player needs handling here.
     const fs = document.getElementById('fsPlayer');
     if (fs?.classList.contains('open')) { closeFS(); return; }
   }
@@ -6518,22 +6546,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   document.addEventListener('mousedown', e => {
     if (e.button === 3 || e.button === 4) {
       e.preventDefault();
-      // If picker is open and has history, go back in picker
+      // If the artist/album detail view is open, step back to the browse list
       if (document.getElementById('apPanel')?.classList.contains('open')) {
         document.getElementById('apBack')?.click();
         return;
       }
-      const pickerOpen = document.getElementById('pickerBackdrop')?.classList.contains('open');
-      if (pickerOpen && _navStack.length) {
-        pickerGoBack();
-      } else if (pickerOpen) {
-        // No history — close picker
-        closePicker();
-        SFX && SFX.play('nav_back');
-      }
       // If fullscreen is open, close it
-      else if (document.getElementById('fsPlayer')?.classList.contains('open')) {
+      if (document.getElementById('fsPlayer')?.classList.contains('open')) {
         closeFS();
+      }
+      // Picker no longer has its own open/closed state (it's just the Music
+      // tab's content) — with nothing else to back out of, head to Home.
+      else if (document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active')) {
+        setActiveTab('home');
+        SFX && SFX.play('nav_back');
       }
       else {
         if (history.length > 1) history.back();
@@ -6771,30 +6797,22 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       .replace(/&gt;/g,'>').replace(/&quot;/g,'"').trim();
   }
   function panelOpen() {
-    panel.style.display = 'flex';
-    // Double rAF: first frame applies display:flex, second triggers the opacity transition
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      panel.classList.add('open');
-    }));
+    // Inline in the Music tab now — no fixed-position modal to fade in over
+    // content, so a plain class toggle is enough (see the scoped
+    // .tab-panel[data-tab-panel="music"] .ap-panel/.ap-panel.open CSS rules).
+    panel.classList.add('open');
     document.body.classList.add('ap-open');
     SFX && SFX.play('nav');
   }
   function panelClose() {
+    // No separate picker overlay to suspend/restore any more — the browse
+    // view is just the sibling content that's already sitting there,
+    // revealed the instant this detail view hides.
     panel.classList.remove('open');
     document.body.classList.remove('ap-open');
     _stack = [];
-    setTimeout(() => {
-      panel.style.display = '';
-      scroll.innerHTML = '';
-      bg.style.backgroundImage = '';
-      if (_restorePickerAfterPanel) {
-        pickerBackdrop.classList.remove('panel-suspended');
-        pickerBackdrop.classList.add('open');
-        _restorePickerAfterPanel = false;
-      } else {
-        pickerBackdrop.classList.remove('panel-suspended');
-      }
-    }, 320); // matches transition duration
+    scroll.innerHTML = '';
+    bg.style.backgroundImage = '';
   }
   function panelBack() {
     if (_stack.length > 1) {
