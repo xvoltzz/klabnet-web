@@ -393,20 +393,22 @@
 
     /* ══ KLAB SOCIAL — discord widget (custom-rendered, themed) ══ */
     .social-embed-wrap {
-      max-width: 340px; border-radius: 10px;
+      border-radius: 10px;
       border: 1px solid var(--tile-border); background: var(--tile-bg);
       box-shadow: 0 4px 18px rgba(0,0,0,0.25);
-      padding: 0.9rem 1rem;
+      padding: 0.9rem 1.1rem;
     }
     .social-note {
       font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--text-faint); margin-top: 0.6rem; max-width: 480px;
+      color: var(--text-faint); margin-top: 0.6rem;
     }
     .discord-header {
       display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.6rem;
       margin-bottom: 0.7rem; padding-bottom: 0.6rem;
       border-bottom: 1px solid var(--tile-border);
     }
+    .discord-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .discord-header-title {
       font-size: 11px; letter-spacing: 0.06em; color: var(--text);
       text-transform: uppercase; font-family: var(--font-ui);
@@ -419,24 +421,54 @@
       content: ''; width: 6px; height: 6px; border-radius: 50%;
       background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.6);
     }
-    .discord-voice-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.6rem; }
-    .discord-voice-item {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 10.5px; letter-spacing: 0.03em; color: var(--tile-label);
-      padding: 5px 6px; border-radius: 6px;
+    .discord-join-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--tile-label); text-decoration: none;
+      padding: 5px 11px; border-radius: 20px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--tile-border);
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      flex-shrink: 0;
     }
-    .discord-voice-item i { font-size: 13px; color: var(--tile-icon); }
-    .discord-member-avatar-wrap { position: relative; flex-shrink: 0; }
+    .discord-join-btn i { font-size: 13px; }
+    .discord-join-btn:hover {
+      background: var(--tile-bg-h); border-color: var(--tile-border-h); color: var(--tile-label-h);
+    }
+    .discord-voice-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.7rem; }
+    .discord-voice-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10px; letter-spacing: 0.03em; color: var(--tile-label);
+      padding: 4px 10px; border-radius: 20px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--tile-border);
+    }
+    .discord-voice-item i { font-size: 12px; color: var(--tile-icon); }
+    .discord-members-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr));
+      gap: 6px;
+    }
+    .discord-member-card {
+      display: flex; align-items: center; gap: 0.55rem;
+      padding: 0.4rem 0.55rem; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--tile-border);
+    }
+    .discord-member-name {
+      font-size: 10.5px; color: var(--tile-label); letter-spacing: 0.01em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .discord-member-avatar-wrap { position: relative; flex-shrink: 0; width: 26px; height: 26px; }
+    .discord-member-avatar-wrap img,
+    .discord-member-avatar-wrap .picker-item-art-ph {
+      width: 26px; height: 26px; border-radius: 50%;
+    }
     .discord-status-dot {
       position: absolute; bottom: -1px; right: -1px;
-      width: 9px; height: 9px; border-radius: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
       border: 2px solid var(--tile-bg);
     }
     .discord-status-dot.online  { background: #4ade80; }
     .discord-status-dot.idle    { background: #eab308; }
     .discord-status-dot.dnd     { background: #f87171; }
     .discord-status-dot.offline { background: #6b7280; }
-    .discord-join-wrap { margin-top: 0.7rem; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -5559,13 +5591,28 @@ function renderDiscordWidget(body, data) {
 
   const header = document.createElement('div');
   header.className = 'discord-header';
+
+  const left = document.createElement('div');
+  left.className = 'discord-header-left';
   const title = document.createElement('span');
   title.className = 'discord-header-title';
   title.textContent = data.name || 'discord';
   const count = document.createElement('span');
   count.className = 'discord-header-count';
   count.textContent = (data.presence_count || 0) + ' online';
-  header.append(title, count);
+  left.append(title, count);
+  header.appendChild(left);
+
+  if (data.instant_invite) {
+    const join = document.createElement('a');
+    join.className = 'discord-join-btn';
+    join.href = data.instant_invite; join.target = '_blank'; join.rel = 'noopener';
+    join.innerHTML = '<i class="ti ti-brand-discord"></i>';
+    const label = document.createElement('span');
+    label.textContent = 'Join';
+    join.appendChild(label);
+    header.appendChild(join);
+  }
   body.appendChild(header);
 
   if (Array.isArray(data.channels) && data.channels.length) {
@@ -5584,17 +5631,16 @@ function renderDiscordWidget(body, data) {
     body.appendChild(voiceList);
   }
 
-  const memberList = document.createElement('div');
-  memberList.className = 'picker-list';
+  const memberGrid = document.createElement('div');
+  memberGrid.className = 'discord-members-grid';
   (data.members || []).forEach(m => {
-    const row = document.createElement('div');
-    row.className = 'picker-item';
+    const card = document.createElement('div');
+    card.className = 'discord-member-card';
 
     const avatarWrap = document.createElement('div');
     avatarWrap.className = 'discord-member-avatar-wrap';
     if (m.avatar_url) {
       const img = document.createElement('img');
-      img.className = 'picker-item-art';
       img.src = m.avatar_url; img.alt = '';
       avatarWrap.appendChild(img);
     } else {
@@ -5607,31 +5653,14 @@ function renderDiscordWidget(body, data) {
     dot.className = 'discord-status-dot ' + (m.status || 'offline');
     avatarWrap.appendChild(dot);
 
-    const info = document.createElement('div');
-    info.className = 'picker-item-info';
-    const uname = document.createElement('div');
-    uname.className = 'picker-item-title';
+    const uname = document.createElement('span');
+    uname.className = 'discord-member-name';
     uname.textContent = m.username;
-    info.appendChild(uname);
 
-    row.append(avatarWrap, info);
-    memberList.appendChild(row);
+    card.append(avatarWrap, uname);
+    memberGrid.appendChild(card);
   });
-  body.appendChild(memberList);
-
-  if (data.instant_invite) {
-    const joinWrap = document.createElement('div');
-    joinWrap.className = 'tile-wrap tile-wrap-auto discord-join-wrap';
-    const join = document.createElement('a');
-    join.className = 'tile tile-wide';
-    join.href = data.instant_invite; join.target = '_blank'; join.rel = 'noopener';
-    join.innerHTML = '<i class="ti ti-brand-discord"></i>';
-    const label = document.createElement('span');
-    label.className = 'tile-name'; label.textContent = 'Join Discord';
-    join.appendChild(label);
-    joinWrap.appendChild(join);
-    body.appendChild(joinWrap);
-  }
+  body.appendChild(memberGrid);
 }
 
 async function loadDiscordWidget() {
