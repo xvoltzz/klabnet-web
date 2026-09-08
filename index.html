@@ -179,31 +179,6 @@
       transition: background 0.4s, border-color 0.4s;
     }
 
-    .glass-subtle {
-      background: var(--glass-fill);
-
-      border: 1px solid var(--glass-border);
-      box-shadow: inset 0 1px 0 var(--glass-inner-t), 0 2px 12px var(--glass-shadow);
-      transition: background 0.4s, border-color 0.4s;
-    }
-
-    /* FRUTIGER AERO glass highlight — glossy top edge */
-    .glass-aero {
-      background: linear-gradient(
-        180deg,
-        rgba(255,255,255,0.1) 0%,
-        rgba(255,255,255,0.03) 40%,
-        transparent 100%
-      ), var(--glass-fill);
-
-      border: 1px solid var(--glass-border);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.18),
-        inset 0 -1px 0 var(--glass-inner-b),
-        0 4px 32px var(--glass-shadow),
-        0 0 0 0.5px rgba(255,255,255,0.06);
-    }
-
     /* Shared content-width scale — drives both .dash and the player dock so
        they widen together (and stay correct under the `zoom` tiers above;
        a plain px cap on the dock alone was getting shrunk by `zoom`,
@@ -558,14 +533,12 @@
        once both caps are hit the extra space has nowhere to go and just
        sits empty — which is exactly what happened on wide/zoomed docks. */
     .player-progress { flex: 2 1 0 !important; min-width: 80px; width: 0; }
-    .player-progress-fill { display: none; }
 
     .player-vol {
       display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
     .player-vol i { font-size: 14px; color: var(--text-dimmer); }
     .vol-slider { width: 72px; background: none !important; }
-    .vol-fill { display: none; }
 
     /* Every control has a fixed minimum footprint, so once the window gets
        narrow enough the sum of those minimums exceeds the dock's own width
@@ -622,16 +595,23 @@
     }
     .fs-player.open { display:flex; animation:fsIn 0.3s ease both; }
     @keyframes fsIn { from{opacity:0} to{opacity:1} }
-    /* The cover-art source is requested at a size matched to the actual
-       screen (see the JS that sets background-image) — that's the fix for
-       the visible blocky/tiled artifacts on high-res displays, which came
-       from stretching a fixed, too-small source across a much bigger
-       screen. transform:scale below is just a small overscan so the blur's
-       own edge falloff doesn't peek in at the viewport edge. */
+    /* Two separate causes of "artifacting" on high-res displays, both
+       addressed:
+       1) The cover-art source is requested at a size matched to the actual
+          screen (see the JS that sets background-image) so a low-res
+          source doesn't show as blocky once stretched across a big panel.
+       2) A large blur radius applied to a viewport-filling layer is a huge
+          surface for the GPU to blur — worse still once the zoom bump on
+          the high-res breakpoints above inflates the effective pixel count
+          further — and that's a known source of visible banding/tiling on
+          some GPUs. Keeping the radius modest avoids relying on the GPU's
+          blur implementation staying artifact-free at very large sizes.
+       transform:scale is a small overscan so the blur's own edge falloff
+       doesn't peek in at the viewport edge. */
     .fs-bg {
       position:absolute; inset:0; z-index:0;
       background-size:cover; background-position:center;
-      filter:blur(70px) saturate(160%) brightness(0.45);
+      filter:blur(36px) saturate(160%) brightness(0.4);
       transform: scale(1.15);
     }
     .fs-content { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:1.8rem; width:100%; max-width:480px; transition: padding 0.4s ease, max-width 0.4s ease; }
@@ -692,9 +672,6 @@
     .picker-section-label { font-size:8.5px; letter-spacing:0.22em; color:var(--text-dimmer); text-transform:uppercase; padding:6px 8px 4px; }
     .picker-back { background:none; border:none; cursor:pointer; color:var(--text-dimmer); font-size:11px; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; letter-spacing:0.1em; text-transform:uppercase; transition:color 0.15s,background 0.15s; margin-bottom:4px; flex-shrink:0; }
     .picker-back:hover { color:var(--text); background:var(--glass-fill-h); }
-    .queue-badge { font-size:8px; letter-spacing:0.08em; color:#60a8ff; text-transform:uppercase; padding:2px 6px; border-radius:100px; border:1px solid rgba(96,168,255,0.3); background:rgba(96,168,255,0.06); white-space:nowrap; flex-shrink:0; }
-    .picker-item.in-queue { border-color:rgba(96,168,255,0.25); background:rgba(96,168,255,0.03); }
-    .picker-item.is-login { border-color:rgba(74,222,128,0.3); background:rgba(74,222,128,0.04); }
     .picker-action.login-active { color:#4ade80; }
 
     [data-theme="light"] .player-dock .ctrl-btn { color: #3a4a8a; }
@@ -995,12 +972,6 @@
     body.admin-user.edit-mode .tile-edit-ctrl .tile-edit-btn.edit-btn { display: flex; }
     .tile-edit-btn.edit-btn:hover { background: rgba(122,184,255,0.25); color: #7ab8ff; border-color: rgba(122,184,255,0.4); }
 
-    /* Tile edit modal reuses add-app styles, just needs a title change */
-    .edit-app-subtitle {
-      font-size: 8.5px; letter-spacing: 0.14em; color: var(--text-faint);
-      text-transform: uppercase; margin-top: -4px;
-    }
-
     /* Custom tile delete button (edit mode only) */
     .tile-custom-del {
       position: absolute; top: 6px; left: 6px; z-index: 10;
@@ -1093,16 +1064,10 @@
     }
     .s-toggle.on { background: rgba(var(--accent-rgb),0.5); border-color: rgba(var(--accent-rgb),0.6); }
     .s-toggle.on::after { transform: translateX(16px); }
-    /* Slider */
+    /* Slider — SFX volume uses the shared draggable slider-wrap component
+       (see makeSlider), not a native <input type=range>, so only the
+       wrap/value styling is needed here. */
     .s-slider-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: 120px; }
-    .s-slider {
-      flex: 1; -webkit-appearance: none; appearance: none; height: 3px;
-      border-radius: 2px; background: rgba(255,255,255,0.12); cursor: pointer; outline: none;
-    }
-    .s-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
-      background: rgb(var(--accent-rgb)); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-    }
     .s-slider-val { font-size: 9px; color: var(--text-dimmer); width: 28px; text-align: right; letter-spacing: 0.08em; }
 
     /* ══ PLAYLIST STYLES ══ */
@@ -1158,8 +1123,6 @@
     [data-theme="light"] .settings-row-label { color: #12172a; font-weight: 500; }
     [data-theme="light"] .settings-row-sub   { color: #5a6080; }
     [data-theme="light"] .settings-section-label { color: #6b7494; }
-    [data-theme="light"] .s-slider { background: rgba(60,80,160,0.15); }
-    [data-theme="light"] .s-slider::-webkit-slider-thumb { background: rgb(var(--accent-rgb)); box-shadow: 0 1px 4px rgba(var(--accent-rgb),0.4); }
     [data-theme="light"] .s-slider-val { color: #3a4060; }
     [data-theme="light"] .s-toggle { background: rgba(60,80,160,0.12); border-color: rgba(60,80,160,0.22); }
     [data-theme="light"] .s-toggle::after { background: #6070b0; }
@@ -1172,16 +1135,9 @@
     [data-theme="light"] .add-app-label  { color: #6b7494; }
     [data-theme="light"] .add-app-title  { color: #6b7494; }
     [data-theme="light"] .group-opt      { color: #3a4060; border-color: rgba(60,80,180,0.2); }
-    [data-theme="light"] .section-opt    { color: #3a4060; border-color: rgba(60,80,180,0.2); }
     [data-theme="light"] .icon-opt       { color: #6b7494; background: rgba(60,80,180,0.06); }
     [data-theme="light"] .icon-opt:hover { color: #12172a; background: rgba(60,80,180,0.14); }
     [data-theme="light"] .tile-group-badge { color: #7a5800; border-color: rgba(122,88,0,0.3); background: rgba(122,88,0,0.08); }
-    [data-theme="light"] .sec-admin-btn  { color: #4a5a8a; border-color: rgba(60,80,180,0.18); background: rgba(255,255,255,0.5); }
-    [data-theme="light"] .add-section-btn { color: #6b7494; border-color: rgba(60,80,180,0.18); }
-    [data-theme="light"] .add-section-btn:hover { color: #3a4060; border-color: rgba(60,80,180,0.3); }
-    [data-theme="light"] .widget-title    { color: #6b7494; }
-    [data-theme="light"] .notes-area      { color: #12172a; background: rgba(255,255,255,0.55); border-color: rgba(60,80,180,0.18); }
-    [data-theme="light"] .notes-count     { color: #8890a8; }
 
     /* ── Album expand panel ── */
 
@@ -1858,14 +1814,21 @@
     }
     .picker-close:hover { color: var(--text); background: var(--glass-fill-h); }
 
+    /* Deliberately NOT icon-only — an icon-webfont glyph that fails to load
+       (blocked CDN, stale cached font, ad-block rule) leaves a background:none
+       button completely invisible with no visual trace at all. A visible
+       pill + text label means the control is still there and usable even if
+       the icon glyph never shows up. */
     .picker-sort-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-dimmer); font-size: 15px; padding: 2px 4px; border-radius: 6px;
-      transition: color 0.15s, background 0.15s; flex-shrink: 0; display: none;
-      align-items: center; justify-content: center;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); cursor: pointer;
+      color: var(--text-dim); font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 5px 10px; border-radius: 100px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s; flex-shrink: 0; display: none;
+      align-items: center; justify-content: center; gap: 5px; font-family: var(--font-ui);
     }
     .picker-sort-btn.shown { display: inline-flex; }
-    .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--glass-fill-h); }
+    .picker-sort-btn i { font-size: 13px; }
+    .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--tile-bg-h); border-color: var(--tile-border-h); }
 
     .picker-search {
       display: flex; align-items: center; gap: 0.6rem;
@@ -2083,7 +2046,7 @@
 </head>
 <body>
 
-<div class="ambient-glow" id="ambientGlow"></div>
+<div class="ambient-glow"></div>
 
 <!-- EDIT MODE BANNER -->
 <div class="edit-banner" id="editBanner">
@@ -2099,9 +2062,9 @@
   <button class="fs-close" id="fsClose"><i class="ti ti-x"></i></button>
 
   <!-- Left: player controls -->
-  <div class="fs-content" id="fsContentEl">
-    <div class="fs-art-tilt-wrap" id="fsArtWrap"><div class="fs-art" id="fsArt" style="position:relative;"><i class="ti ti-music"></i></div></div>
-    <div class="fs-meta" id="fsMeta">
+  <div class="fs-content">
+    <div class="fs-art-tilt-wrap"><div class="fs-art" id="fsArt" style="position:relative;"><i class="ti ti-music"></i></div></div>
+    <div class="fs-meta">
       <div class="fs-title" id="fsTitle">Nothing playing</div>
       <div class="fs-artist" id="fsArtist"></div>
       <div class="fs-album" id="fsAlbum"></div>
@@ -2139,7 +2102,7 @@
   </div>
 
   <!-- Right: lyrics (hidden until toggled) -->
-  <div class="fs-lyrics-col" id="fsLyricsPanel">
+  <div class="fs-lyrics-col">
     <div class="lyrics-scroll" id="lyricsScroll">
       <div class="lyrics-status" id="lyricsStatus">loading...</div>
     </div>
@@ -2245,8 +2208,8 @@
   </div>
 
     <div class="player-dock" id="playerDock">
-      <div class="art-tilt-wrap" id="artTiltWrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
-        <i class="ti ti-music" id="playerArtIcon"></i>
+      <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
+        <i class="ti ti-music"></i>
       </div></div>
       <div class="player-main">
         <div class="player-toprow">
@@ -2401,7 +2364,7 @@
     <div class="picker-search">
       <i class="ti ti-search"></i>
       <input type="text" id="pickerSearch" placeholder="search songs, artists..." autocomplete="off" />
-      <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
+      <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i> Sort</button>
     </div>
     <div class="picker-tabs">
       <button class="picker-tab active" data-tab="random">Random</button>
@@ -3057,15 +3020,6 @@ function openPicker() {
   loadPickerTab(pickerTab);
   _pickerLoaded = true;
 }
-// Open picker and immediately navigate to a view without loading the default tab first
-function openPickerTo(fn) {
-  ensurePlDelegate();
-  pickerBackdrop.classList.add('open');
-  pickerSearchEl.value = ''; pickerQuery = '';
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
-  fn();
-}
-
 function closePicker() {
   pickerBackdrop.classList.remove('open');
   document.getElementById('sortMenu')?.classList.remove('visible');
@@ -3363,6 +3317,7 @@ document.getElementById('playerArtWrap').addEventListener('click', openFS);
 document.getElementById('fsPlayer').addEventListener('click', e => { if (e.target === document.getElementById('fsPlayer')) closeFS(); });
 
 let _fsBgActive = 'A'; // crossfade layer tracker
+let _fsBgToken = 0;    // guards against a stale, slow-loading image winning a race
 
 function updateFSUI(song) {
   if (!song) {
@@ -3407,7 +3362,13 @@ function updateFSUI(song) {
   const bgSize = Math.min(3200, Math.round(Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1)));
   const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=${bgSize}&${subsonicParams()}`;
 
-  // Crossfade FS background — preload before swap
+  // Crossfade FS background — preload before swap.
+  // Skipping tracks faster than the art can download (real risk off-LAN)
+  // used to leave multiple loads racing against the same layer, with
+  // whichever request happened to finish last winning regardless of
+  // whether it matched the song actually playing. A token guard makes
+  // only the most recent call's load allowed to apply.
+  const myFsBgToken = ++_fsBgToken;
   const next = _fsBgActive === 'A' ? 'B' : 'A';
   const cur  = _fsBgActive;
   const nextEl = document.getElementById('fsBg' + next);
@@ -3416,6 +3377,7 @@ function updateFSUI(song) {
   nextEl.style.backgroundImage = `url(${bgUrl})`;
   const _fsBgImg = new Image();
   _fsBgImg.onload = () => {
+    if (myFsBgToken !== _fsBgToken) return; // a newer track change superseded this load
     nextEl.style.opacity = '0.9';
     curEl.style.opacity  = '0';
     _fsBgActive = next;
@@ -3468,16 +3430,6 @@ function addToQueue(song) {
   updateQueueBadge();
   showToast(`"${song.title}" added to queue`);
 }
-function playNext() {
-  // Override nextSong to check queue first
-  if (queue.length) {
-    const next = queue.shift();
-    updateQueueBadge();
-    playSong(next);
-    return true;
-  }
-  return false;
-}
 
 // ══════════════════════════════════════════
 //  PICKER — EXTENDED TABS
@@ -3521,24 +3473,6 @@ async function loadArtists() {
     const data = await res.json();
     renderArtistList(data['subsonic-response']?.artists?.index || []);
   } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
-}
-
-// ── LAZY IMAGE LOADER ──
-const _imgObserver = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      const img = e.target;
-      if (img.dataset.src) {
-        img.src = img.dataset.src;
-        img.removeAttribute('data-src');
-        _imgObserver.unobserve(img);
-      }
-    }
-  });
-}, { rootMargin: '200px' });
-
-function lazyImg(src, cls, onerrorHtml) {
-  return `<img class="${cls}" data-src="${src}" src="" alt="" onerror="this.outerHTML='${onerrorHtml}'" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" />`;
 }
 
 function renderAlbumList(albums, appendMode) {
@@ -4619,7 +4553,6 @@ let _prefsSaveTimer = null;
 const PREF_KEYS = {
   tile_order:    'klabnet_tile_order',
   section_order: 'klabnet_section_order',
-  notes:         'klabnet_notes',
   login_song:    'klabnet_login_song',
   favorites:     'klabnet_favorites',
   play_history:  'klabnet_play_history',
@@ -4731,7 +4664,6 @@ async function loadServerPrefs() {
 
     setIfPresent(PREF_KEYS.tile_order,    prefs.tile_order);
     setIfPresent(PREF_KEYS.section_order, prefs.section_order);
-    setIfPresent(PREF_KEYS.notes,         prefs.notes);
     setIfPresent(PREF_KEYS.login_song,    prefs.login_song);
     setIfPresent(PREF_KEYS.favorites,     prefs.favorites);
     setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
@@ -4751,7 +4683,6 @@ async function saveServerPrefs() {
   const prefs = {
     tile_order:    parse(PREF_KEYS.tile_order,    []),
     section_order: parse(PREF_KEYS.section_order, []),
-    notes:         localStorage.getItem(PREF_KEYS.notes) || '',
     login_song:    parse(PREF_KEYS.login_song,    null),
     favorites:     parse(PREF_KEYS.favorites,     []),
     play_history:  parse(PREF_KEYS.play_history,  []),
@@ -4780,12 +4711,6 @@ const _origSaveTileOrder    = saveTileOrder;
 const _origSaveSectionOrder = saveSectionOrder;
 saveTileOrder    = function() { _origSaveTileOrder();    scheduleSave(); };
 saveSectionOrder = function() { _origSaveSectionOrder(); scheduleSave(); };
-
-// Hook notes autosave
-const _notesArea = document.getElementById('notesArea');
-if (_notesArea) {
-  _notesArea.addEventListener('input', scheduleSave);
-}
 
 // Hook theme, login song, favorites changes
 const _origApplyTheme = applyTheme;
@@ -4830,15 +4755,6 @@ document.addEventListener('visibilitychange', () => {
   // Re-apply theme with server values
   const savedTheme = localStorage.getItem(PREF_KEYS.theme);
   if (savedTheme) applyTheme(savedTheme);
-
-  // Load notes if present
-  const savedNotes = localStorage.getItem(PREF_KEYS.notes);
-  const notesEl = document.getElementById('notesArea');
-  if (notesEl && savedNotes) {
-    notesEl.value = savedNotes;
-    const nc = document.getElementById('notesCount');
-    if (nc) nc.textContent = savedNotes.length + ' chars';
-  }
 })();
 
 // ══════════════════════════════════════════
@@ -5509,7 +5425,7 @@ function renderPlaylistList() {
   // New playlist button
   const newRow = document.createElement('div');
   newRow.style.cssText = 'padding:0.5rem 0.2rem;display:flex;gap:8px;align-items:center;margin-bottom:4px;';
-  newRow.innerHTML = `<input class="pl-new-input" placeholder="New playlist name..." id="newPlInput" />
+  newRow.innerHTML = `<input class="pl-new-input" placeholder="New playlist name..." />
     <button class="picker-action" title="Create" style="flex-shrink:0;width:32px;height:32px;"><i class="ti ti-plus"></i></button>`;
   newRow.querySelector('[title="Create"]').addEventListener('click', () => {
     const name = newRow.querySelector('input').value.trim();
