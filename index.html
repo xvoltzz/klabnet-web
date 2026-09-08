@@ -37,9 +37,26 @@
     [data-theme="dark"] {
       --bg: #000000;
       --accent-rgb: 200,195,188;
+      /* Elevation shadows — pure black reads fine against a black page */
+      --shadow-20: rgba(0,0,0,0.2);
+      --shadow-25: rgba(0,0,0,0.25);
+      --shadow-30: rgba(0,0,0,0.3);
+      --shadow-35: rgba(0,0,0,0.35);
+      --shadow-40: rgba(0,0,0,0.4);
+      --shadow-50: rgba(0,0,0,0.5);
+      --shadow-55: rgba(0,0,0,0.55);
     }
     [data-theme="light"] {
-      --bg: #f6f1e6;
+      --bg: #f5f4f0;
+      /* Same shadow tiers, but soft and low-alpha — the same black shadow
+         used on a black page reads as a harsh smudge on a light one. */
+      --shadow-20: rgba(90,78,62,0.06);
+      --shadow-25: rgba(90,78,62,0.07);
+      --shadow-30: rgba(90,78,62,0.08);
+      --shadow-35: rgba(90,78,62,0.09);
+      --shadow-40: rgba(90,78,62,0.1);
+      --shadow-50: rgba(90,78,62,0.13);
+      --shadow-55: rgba(90,78,62,0.14);
     }
 
     /* SHARED GLASS TOKENS */
@@ -76,45 +93,46 @@
     }
 
     [data-theme="light"] {
-      /* ── Core text — warm charcoal-brown on warm paper, softer than the
-             old near-black navy on cool blue-white ── */
-      --text:           #332b22;
-      --text-dim:       #6b5d4c;
-      --text-dimmer:    #948674;
-      --text-faint:     #b0a390;
-      /* ── Accent fallback — warm honey gold, overridden live by album
-             art extraction when music plays ── */
-      --accent-rgb:     198,146,86;
+      /* ── Core text — soft neutral charcoal on a near-white page. Not
+             pushed warm/sepia on purpose — this is just the inverse of
+             dark mode, low-contrast enough to not feel harsh. ── */
+      --text:           #38342c;
+      --text-dim:       #6e6860;
+      --text-dimmer:    #9a948a;
+      --text-faint:     #b6b0a6;
+      /* ── Accent fallback — used only until album art extraction kicks
+             in and takes over (see tweenAccentRgb / _resetAccent) ── */
+      --accent-rgb:     192,150,96;
 
-      /* ── Glass surfaces — warm frosted cream with soft tan borders
-             instead of the old cool blue-tinted frost ── */
-      --glass-fill:     rgba(255,250,240,0.55);
-      --glass-fill-h:   rgba(255,250,240,0.75);
-      --glass-border:   rgba(150,120,80,0.22);
-      --glass-border-h: rgba(150,120,80,0.5);
-      --glass-shine:    rgba(255,252,244,0.95);
-      --glass-shadow:   rgba(140,105,60,0.12);
-      --glass-inner-t:  rgba(255,252,244,0.9);
-      --glass-inner-b:  rgba(140,105,60,0.06);
+      /* ── Glass surfaces — soft near-white frost, faint neutral borders
+             instead of the old saturated blue (or overly warm) tint ── */
+      --glass-fill:     rgba(255,255,253,0.5);
+      --glass-fill-h:   rgba(255,255,253,0.75);
+      --glass-border:   rgba(120,108,92,0.16);
+      --glass-border-h: rgba(120,108,92,0.34);
+      --glass-shine:    rgba(255,255,253,0.92);
+      --glass-shadow:   rgba(90,78,62,0.07);
+      --glass-inner-t:  rgba(255,255,253,0.85);
+      --glass-inner-b:  rgba(90,78,62,0.035);
       --grain-opacity:  0.03;
 
       /* ── Tiles ── */
-      --tile-bg:        rgba(255,250,240,0.6);
-      --tile-bg-h:      rgba(255,250,240,0.85);
-      --tile-icon:      #8a6a3a;
-      --tile-icon-h:    #6a4a1a;
-      --tile-label:     #8a6a3a;
-      --tile-label-h:   #6a4a1a;
-      --tile-border:    rgba(160,125,75,0.3);
-      --tile-border-h:  rgba(150,120,80,0.6);
-      --tile-inner-t:   rgba(255,252,244,0.9);
-      --tile-inner-b:   rgba(140,105,60,0.04);
-      --tile-shadow:    rgba(140,105,60,0.1);
+      --tile-bg:        rgba(255,255,253,0.55);
+      --tile-bg-h:      rgba(255,255,253,0.8);
+      --tile-icon:      #8a7550;
+      --tile-icon-h:    #6a5636;
+      --tile-label:     #8a7550;
+      --tile-label-h:   #6a5636;
+      --tile-border:    rgba(130,112,88,0.2);
+      --tile-border-h:  rgba(120,108,92,0.4);
+      --tile-inner-t:   rgba(255,255,253,0.85);
+      --tile-inner-b:   rgba(90,78,62,0.03);
+      --tile-shadow:    rgba(90,78,62,0.06);
 
       /* ── Status / warn ── */
       --warn-color:     #b84000;
       --warn-bg:        rgba(184,64,0,0.08);
-      --modal-bg:       #fdfaf3;
+      --modal-bg:       #fbfaf7;
     }
 
     body {
@@ -338,7 +356,7 @@
       width: max-content; max-width: min(360px, calc(100vw - 3rem)); min-width: 200px;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border-h);
-      box-shadow: 0 10px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+      box-shadow: 0 10px 32px var(--shadow-40), inset 0 1px 0 rgba(255,255,255,0.06);
       font-family: var(--font-ui);
       font-size: 12.5px; letter-spacing: 0.02em; line-height: 1.4;
       color: var(--text);
@@ -429,7 +447,7 @@
     .social-embed-wrap {
       border-radius: 10px;
       border: 1px solid var(--tile-border); background: var(--tile-bg);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 18px var(--shadow-25);
       padding: 0.9rem 1.1rem;
     }
     .social-note {
@@ -539,7 +557,7 @@
       animation: ctxIn 0.15s ease both;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border-h);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 32px var(--shadow-40);
     }
     .ctx-menu.visible { display: block; }
     @keyframes ctxIn { from{opacity:0;transform:scale(0.94) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
@@ -576,7 +594,7 @@
       gap: 1.1rem;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 60px var(--shadow-50);
       transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease;
       font-family: var(--font-ui);
     }
@@ -796,15 +814,27 @@
     .picker-back:hover { color:var(--text); background:var(--glass-fill-h); }
     .picker-action.login-active { color:#4ade80; }
 
-    [data-theme="light"] .player-dock .ctrl-btn { color: #8a6a3a; }
-    [data-theme="light"] .player-dock .ctrl-btn:hover { color: #6a4a1a; background: rgba(190,150,90,0.18); }
-    [data-theme="light"] .player-dock .ctrl-btn.play-btn { background: rgba(150,110,60,0.18); border-color: rgba(160,120,70,0.4); color: #6a3a10; }
-    [data-theme="light"] .player-dock .player-idle { color: #9c8a68; }
-    [data-theme="light"] .player-dock .player-title { color: #332b22; font-weight: 600; }
+    /* .ctrl-btn / .play-btn intentionally have no light-theme override —
+       the base rules already tint via rgba(var(--accent-rgb),*), so the
+       play button and control icons pick up the live album-art color in
+       light mode exactly like they do in dark mode. */
+    [data-theme="light"] .player-dock .player-idle { color: var(--text-dimmer); }
+    [data-theme="light"] .player-dock .player-title { color: var(--text); font-weight: 600; }
+    /* Artist name/link is accent-driven in the base rule too (album color) —
+       mixed with --text here so a pale extracted color stays readable on
+       a light background instead of washing out. */
     [data-theme="light"] .player-dock .player-artist,
-    [data-theme="light"] .player-dock .player-artist .player-link { color: #8a6030; }
-    [data-theme="light"] .player-dock .player-artist .player-link:hover { color: #6a3a10; text-shadow: none; }
-    [data-theme="light"] .player-dock .player-vol i { color: #9c8a68; }
+    [data-theme="light"] .player-dock .player-artist .player-link {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .player-dock .player-artist .player-link:hover {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 88%, var(--text) 12%);
+      text-shadow: none;
+    }
+    [data-theme="light"] .player-dock .player-title .player-link:hover {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 88%, var(--text) 12%);
+    }
+    [data-theme="light"] .player-dock .player-vol i { color: var(--text-dimmer); }
 
     /* ── DRAGGABLE SLIDERS ── */
     .slider-wrap {
@@ -841,13 +871,13 @@
     .vol-slider { background: none !important; width: 72px; flex-shrink: 0; }
 
     /* light mode slider colors */
-    [data-theme="light"] .slider-track { background: rgba(140,105,60,0.18); transition: background 0.25s ease; }
-    [data-theme="light"] .slider-wrap:hover .slider-track { background: rgba(140,105,60,0.28); }
+    [data-theme="light"] .slider-track { background: rgba(90,78,62,0.18); transition: background 0.25s ease; }
+    [data-theme="light"] .slider-wrap:hover .slider-track { background: rgba(90,78,62,0.28); }
     [data-theme="light"] .slider-fill {
       background: linear-gradient(90deg, rgba(var(--accent-rgb),0.4), rgba(var(--accent-rgb),0.75) 45%, rgba(var(--accent-rgb),1));
       transition: width 0.08s linear, background 0.5s ease;
     }
-    [data-theme="light"] .slider-dot { background: #a8660a; box-shadow: 0 2px 8px rgba(110,70,10,0.35), 0 0 0 2px rgba(220,170,90,0.3); }
+    [data-theme="light"] .slider-dot { background: #a8660a; box-shadow: 0 2px 8px var(--shadow-30), 0 0 0 2px rgba(220,170,90,0.3); }
 
     /* FS vol bar — use the slider-wrap system properly */
     #fsVolBar { width: 120px; background: none !important; }
@@ -979,7 +1009,7 @@
       animation: pickerUp 0.2s ease both;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 60px var(--shadow-50);
     }
     .add-app-title {
       font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer);
@@ -1131,7 +1161,7 @@
       animation: pickerUp 0.2s ease both;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 60px var(--shadow-50);
       overflow: hidden;
     }
     .settings-modal * { box-sizing: border-box; }
@@ -1166,7 +1196,7 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
       margin-bottom: 4px; gap: 1rem;
     }
-    [data-theme="light"] .settings-row { background: rgba(255,255,255,0.6); border-color: rgba(150,120,80,0.18); }
+    [data-theme="light"] .settings-row { background: rgba(255,255,255,0.6); border-color: rgba(120,108,92,0.18); }
     .settings-row-label {
       font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; flex: 1;
     }
@@ -1182,7 +1212,7 @@
     .s-toggle::after {
       content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
       background: #fff; top: 2px; left: 2px; transition: transform 0.2s, background 0.2s;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      box-shadow: 0 1px 3px var(--shadow-30);
     }
     .s-toggle.on { background: rgba(var(--accent-rgb),0.5); border-color: rgba(var(--accent-rgb),0.6); }
     .s-toggle.on::after { transform: translateX(16px); }
@@ -1213,52 +1243,52 @@
     .pl-new-input::placeholder { color: var(--text-faint); }
 
     /* ── Light theme overrides ── */
-    [data-theme="light"] .sec-line  { background: rgba(140,105,60,0.15); }
-    [data-theme="light"] #headerStatus { color: #6b5d4c; }
-    [data-theme="light"] .prompt-text  { color: #332b22; }
-    [data-theme="light"] .picker-item-title  { color: #332b22; }
-    [data-theme="light"] .picker-item-artist { color: #7a6a54; }
-    [data-theme="light"] .picker-search input { color: #332b22; }
-    [data-theme="light"] .sec-label { color: #6b5d4c; letter-spacing: 0.2em; }
-    [data-theme="light"] .sys-badge { color: #6b5d4c; background: rgba(255,255,255,0.6); border-color: rgba(150,120,80,0.2); }
-    [data-theme="light"] .hdr-btn   { color: #6b5d4c; }
-    [data-theme="light"] .hdr-btn:hover { color: #332b22; background: rgba(150,110,65,0.1); }
-    [data-theme="light"] .user-badge   { color: #948674 !important; }
-    [data-theme="light"] .picker-section-label { color: #8a7a64; }
-    [data-theme="light"] .picker-empty  { color: #b0a390; }
-    [data-theme="light"] .picker-tab    { color: #6b5d4c; background: rgba(255,255,255,0.5); border-color: rgba(150,120,80,0.18); }
+    [data-theme="light"] .sec-line  { background: rgba(90,78,62,0.15); }
+    [data-theme="light"] #headerStatus { color: var(--text-dim); }
+    [data-theme="light"] .prompt-text  { color: var(--text); }
+    [data-theme="light"] .picker-item-title  { color: var(--text); }
+    [data-theme="light"] .picker-item-artist { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-search input { color: var(--text); }
+    [data-theme="light"] .sec-label { color: var(--text-dim); letter-spacing: 0.2em; }
+    [data-theme="light"] .sys-badge { color: var(--text-dim); background: rgba(255,255,255,0.6); border-color: rgba(120,108,92,0.2); }
+    [data-theme="light"] .hdr-btn   { color: var(--text-dim); }
+    [data-theme="light"] .hdr-btn:hover { color: var(--text); background: rgba(130,112,88,0.1); }
+    [data-theme="light"] .user-badge   { color: var(--text-dimmer) !important; }
+    [data-theme="light"] .picker-section-label { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-empty  { color: var(--text-faint); }
+    [data-theme="light"] .picker-tab    { color: var(--text-dim); background: rgba(255,255,255,0.5); border-color: rgba(120,108,92,0.18); }
     [data-theme="light"] .picker-tab.active { color: rgba(var(--accent-rgb),1); background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
-    [data-theme="light"] .picker-search input::placeholder { color: #b0a390; }
-    [data-theme="light"] .picker-search i  { color: #948674; }
-    [data-theme="light"] .picker-item-art-ph { color: #948674; background: rgba(150,110,65,0.08); border-color: rgba(150,110,65,0.15); }
-    [data-theme="light"] .picker-action:hover { color: #332b22; background: rgba(150,110,65,0.1); }
-    [data-theme="light"] .picker-back   { color: #7a5a30; }
-    [data-theme="light"] .picker-back:hover { color: #332b22; }
-    [data-theme="light"] .tile-name     { color: #8a6a3a; }
+    [data-theme="light"] .picker-search input::placeholder { color: var(--text-faint); }
+    [data-theme="light"] .picker-search i  { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-item-art-ph { color: var(--text-dimmer); background: rgba(130,112,88,0.08); border-color: rgba(130,112,88,0.15); }
+    [data-theme="light"] .picker-action:hover { color: var(--text); background: rgba(130,112,88,0.1); }
+    [data-theme="light"] .picker-back   { color: var(--tile-icon); }
+    [data-theme="light"] .picker-back:hover { color: var(--text); }
+    [data-theme="light"] .tile-name     { color: var(--tile-icon); }
     [data-theme="light"] .edit-banner   { background: rgba(251,191,36,0.12); border-color: rgba(180,120,0,0.25); }
     [data-theme="light"] .edit-banner-label { color: #7a4a00; }
     [data-theme="light"] .edit-banner-hint  { color: rgba(120,70,0,0.55); }
     [data-theme="light"] .edit-done-btn     { color: #7a4a00; border-color: rgba(180,120,0,0.3); background: rgba(251,191,36,0.1); }
-    [data-theme="light"] .ctx-item { color: #6b5d4c; }
-    [data-theme="light"] .ctx-item:hover { background: rgba(150,110,65,0.08); color: #332b22; }
-    [data-theme="light"] .ctx-divider { background: rgba(150,110,65,0.1); }
-    [data-theme="light"] .settings-row-label { color: #332b22; font-weight: 500; }
-    [data-theme="light"] .settings-row-sub   { color: #8a7a64; }
-    [data-theme="light"] .settings-section-label { color: #948674; }
-    [data-theme="light"] .s-slider-val { color: #6b5d4c; }
-    [data-theme="light"] .s-toggle { background: rgba(140,105,60,0.12); border-color: rgba(140,105,60,0.22); }
-    [data-theme="light"] .s-toggle::after { background: #a08860; }
+    [data-theme="light"] .ctx-item { color: var(--text-dim); }
+    [data-theme="light"] .ctx-item:hover { background: rgba(130,112,88,0.08); color: var(--text); }
+    [data-theme="light"] .ctx-divider { background: rgba(130,112,88,0.1); }
+    [data-theme="light"] .settings-row-label { color: var(--text); font-weight: 500; }
+    [data-theme="light"] .settings-row-sub   { color: var(--text-dimmer); }
+    [data-theme="light"] .settings-section-label { color: var(--text-dimmer); }
+    [data-theme="light"] .s-slider-val { color: var(--text-dim); }
+    [data-theme="light"] .s-toggle { background: rgba(90,78,62,0.12); border-color: rgba(90,78,62,0.22); }
+    [data-theme="light"] .s-toggle::after { background: var(--text-dimmer); }
     [data-theme="light"] .s-toggle.on { background: rgba(var(--accent-rgb),0.45); border-color: rgba(var(--accent-rgb),0.6); }
     [data-theme="light"] .s-toggle.on::after { background: #fff; }
-    [data-theme="light"] .settings-title   { color: #948674; }
-    [data-theme="light"] .pl-name  { color: #332b22; }
-    [data-theme="light"] .pl-meta  { color: #948674; }
-    [data-theme="light"] .pl-icon  { color: #7a5a30; background: rgba(150,110,65,0.1); border-color: rgba(150,110,65,0.18); }
-    [data-theme="light"] .add-app-label  { color: #948674; }
-    [data-theme="light"] .add-app-title  { color: #948674; }
-    [data-theme="light"] .group-opt      { color: #6b5d4c; border-color: rgba(150,110,65,0.2); }
-    [data-theme="light"] .icon-opt       { color: #948674; background: rgba(150,110,65,0.06); }
-    [data-theme="light"] .icon-opt:hover { color: #332b22; background: rgba(150,110,65,0.14); }
+    [data-theme="light"] .settings-title   { color: var(--text-dimmer); }
+    [data-theme="light"] .pl-name  { color: var(--text); }
+    [data-theme="light"] .pl-meta  { color: var(--text-dimmer); }
+    [data-theme="light"] .pl-icon  { color: var(--tile-icon); background: rgba(130,112,88,0.1); border-color: rgba(130,112,88,0.18); }
+    [data-theme="light"] .add-app-label  { color: var(--text-dimmer); }
+    [data-theme="light"] .add-app-title  { color: var(--text-dimmer); }
+    [data-theme="light"] .group-opt      { color: var(--text-dim); border-color: rgba(130,112,88,0.2); }
+    [data-theme="light"] .icon-opt       { color: var(--text-dimmer); background: rgba(130,112,88,0.06); }
+    [data-theme="light"] .icon-opt:hover { color: var(--text); background: rgba(130,112,88,0.14); }
     [data-theme="light"] .tile-group-badge { color: #7a5800; border-color: rgba(122,88,0,0.3); background: rgba(122,88,0,0.08); }
 
     /* ── Album expand panel ── */
@@ -1595,10 +1625,18 @@
       letter-spacing: 0.14em; text-transform: uppercase;
     }
 
-    [data-theme="light"] .presence-card-avatar { border-color: rgba(150,120,80,0.2); }
-    [data-theme="light"] .presence-card-name   { color: #332b22; }
-    [data-theme="light"] .presence-card-track  { color: #6b5d4c; }
-    [data-theme="light"] .presence-card-artist { color: #b0a390; }
+    [data-theme="light"] .presence-card-avatar { border-color: rgba(120,108,92,0.2); }
+    [data-theme="light"] .presence-card-name   { color: var(--text); }
+    [data-theme="light"] .presence-card-track  { color: var(--text-dim); }
+    [data-theme="light"] .presence-card-artist { color: var(--text-faint); }
+    /* "you" card still tints with the live album color, just mixed with
+       --text so it stays legible on a light card background. */
+    [data-theme="light"] .presence-card.is-me .presence-card-avatar {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .presence-card.is-me .presence-card-name {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
 
     @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
@@ -1631,7 +1669,7 @@
       overflow: hidden;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+      box-shadow: 0 24px 70px var(--shadow-55);
       font-family: var(--font-ui);
       opacity: 0;
       transform: translateY(16px) scale(0.98);
@@ -1687,7 +1725,7 @@
       width: 80px; height: 80px; border-radius: 50%;
       object-fit: cover; flex-shrink: 0;
       border: 1px solid var(--glass-border);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      box-shadow: 0 4px 16px var(--shadow-35);
       background: var(--glass-fill);
     }
     .ap-hero-img.square { border-radius: 10px; }
@@ -1736,7 +1774,7 @@
       border: 1px solid rgba(var(--accent-rgb),0.35);
       border-top-color: rgba(255,255,255,0.22);
       color: rgba(var(--accent-rgb),1);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
       transition: all 0.18s;
     }
     .ap-btn-play:hover { background: rgba(var(--accent-rgb),0.25); }
@@ -1874,30 +1912,29 @@
     }
 
     [data-theme="light"] .ap-topbar,
-    [data-theme="light"] .ap-hero { border-bottom-color: rgba(150,120,80,0.11); }
+    [data-theme="light"] .ap-hero { border-bottom-color: rgba(120,108,92,0.11); }
     [data-theme="light"] .ap-hero-img,
     [data-theme="light"] .ap-hero-img-ph,
     [data-theme="light"] .ap-disc-card img,
-    [data-theme="light"] .ap-track-art { box-shadow: 0 4px 16px rgba(150,120,80,0.14); }
+    [data-theme="light"] .ap-track-art { box-shadow: 0 4px 16px rgba(120,108,92,0.14); }
     [data-theme="light"] .ap-btn-play {
-      color: color-mix(in srgb, rgb(var(--accent-rgb)) 72%, #332b22 28%);
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 72%, var(--text) 28%);
       background: rgba(var(--accent-rgb),0.12);
       border-color: rgba(var(--accent-rgb),0.24);
       border-top-color: rgba(255,255,255,0.85);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 3px 12px rgba(150,120,80,0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 3px 12px rgba(120,108,92,0.08);
     }
     [data-theme="light"] .ap-track:hover {
       background: rgba(255,255,255,0.48);
-      border-color: rgba(150,120,80,0.1);
+      border-color: rgba(120,108,92,0.1);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
     }
     [data-theme="light"] .ap-track.ap-now {
       background: rgba(var(--accent-rgb),0.08);
       border-color: rgba(var(--accent-rgb),0.18);
     }
-    [data-theme="light"] .ap-bio::after {
-      background: linear-gradient(transparent, rgba(248,250,253,0.94));
-    }
+    /* .ap-bio::after needs no light override — the base rule already
+       fades into var(--modal-bg), which is theme-adaptive. */
 
     .picker-backdrop {
       position: fixed; inset: 0; z-index: 200;
@@ -1924,7 +1961,7 @@
       position: relative;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+      box-shadow: 0 24px 70px var(--shadow-55);
     }
     @keyframes pickerUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
 
@@ -2052,7 +2089,7 @@
       border-radius: 6px; transition: color 0.15s, background 0.15s;
       font-family: inherit; line-height: 1;
     }
-    [data-theme="light"] .picker-action { color: #7a5a30; }
+    [data-theme="light"] .picker-action { color: var(--tile-icon); }
     .picker-action:hover { color: var(--text); background: var(--glass-fill-h); }
     .type-badge { font-size: 7.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; flex-shrink: 0; font-family: inherit; }
     .type-badge.song  { color: #7ab8ff; border-color: rgba(122,184,255,0.35); background: rgba(122,184,255,0.1); }
@@ -6369,7 +6406,7 @@ function tweenAccentRgb(target, duration, onDone) {
   _accentTweenId = requestAnimationFrame(step);
 }
 function _defaultAccentRgb() {
-  return document.documentElement.getAttribute('data-theme') === 'light' ? [198,146,86] : [200,195,188];
+  return document.documentElement.getAttribute('data-theme') === 'light' ? [192,150,96] : [200,195,188];
 }
 
 function _resetAccent() {
