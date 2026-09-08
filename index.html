@@ -936,24 +936,6 @@
       75%      { transform: rotate(0.6deg); }
     }
 
-    /* Edit controls on each tile */
-    .tile-edit-ctrl {
-      position: absolute; z-index: 10;
-      display: none; gap: 3px;
-      top: 6px; right: 6px;
-    }
-    body.edit-mode .tile-edit-ctrl { display: flex; }
-    .tile-edit-btn {
-      width: 22px; height: 22px; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 12px;
-      border: 1px solid rgba(255,255,255,0.15);
-      background: rgba(0,0,0,0.45); color: rgba(255,255,255,0.7);
-
-      transition: all 0.15s; flex-shrink: 0;
-    }
-    .tile-edit-btn:hover { background: rgba(0,0,0,0.65); color: #fff; }
-
     /* Drag ghost */
     .tile-drag-ghost {
       position: fixed; z-index: 9999; pointer-events: none;
@@ -1023,128 +1005,15 @@
       transition: color 0.15s, background 0.15s;
     }
     .add-app-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    .add-app-field { display: flex; flex-direction: column; gap: 5px; }
+    /* .add-app-label is still used by the klabcraft backup-browser
+       modal, which reuses this modal chrome — kept. The rest of the
+       old custom-app-builder styling (inputs, icon picker, group
+       picker, add/edit/delete tile controls, the group restriction
+       badge) was removed along with that feature. */
     .add-app-label {
       font-size: 9px; letter-spacing: 0.2em;
       color: var(--text-dimmer); text-transform: uppercase;
     }
-    .add-app-input {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-top-color: rgba(255,255,255,0.2);
-      border-radius: 10px; padding: 0.65rem 0.9rem;
-      font-family: var(--font-ui);
-      font-size: 12px; color: var(--text); outline: none;
-      transition: border-color 0.2s;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-    }
-    [data-theme="light"] .add-app-input {
-      background: rgba(255,255,255,0.45); border-color: rgba(255,255,255,0.5);
-    }
-    .add-app-input:focus { border-color: rgba(255,255,255,0.35); }
-    .add-app-input::placeholder { color: var(--text-faint); }
-    .icon-picker-wrap { display: flex; gap: 8px; align-items: flex-start; }
-    .icon-preview {
-      width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; color: var(--text-dim);
-    }
-    .icon-grid {
-      display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
-      max-height: 140px; overflow-y: auto; flex: 1;
-      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
-    }
-    .icon-opt {
-      width: 32px; height: 32px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 16px; color: var(--text-dimmer);
-      background: rgba(255,255,255,0.04); border: 1px solid transparent;
-      transition: all 0.12s;
-    }
-    .icon-opt:hover { background: rgba(255,255,255,0.1); color: var(--text); }
-    .icon-opt.selected {
-      background: rgba(255,255,255,0.15); color: var(--text);
-      border-color: rgba(255,255,255,0.25);
-    }
-    .group-picker { display: flex; flex-wrap: wrap; gap: 6px; }
-    .group-opt {
-      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-      padding: 4px 12px; border-radius: 100px; cursor: pointer;
-      border: 1px solid var(--glass-border); color: var(--text-dimmer);
-      background: none;
-      transition: all 0.15s;
-    }
-    .group-opt.selected {
-      background: rgba(122,184,255,0.15); color: #7ab8ff;
-      border-color: rgba(122,184,255,0.35);
-    }
-    .group-opt.admin-group.selected {
-      background: rgba(251,191,36,0.15); color: #fbbf24;
-      border-color: rgba(251,191,36,0.35);
-    }
-    .add-app-actions { display: flex; gap: 8px; justify-content: flex-end; }
-    .add-app-cancel {
-      font-size: 9.5px;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      padding: 7px 16px; border-radius: 8px; cursor: pointer;
-      background: none; border: 1px solid var(--glass-border);
-      color: var(--text-dimmer); transition: color 0.15s, border-color 0.15s;
-    }
-    .add-app-cancel:hover { color: var(--text); border-color: var(--glass-border-h); }
-    .add-app-submit {
-      font-size: 9.5px;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      padding: 7px 18px; border-radius: 8px; cursor: pointer;
-      background: rgba(var(--accent-rgb),0.15);
-      border: 1px solid rgba(var(--accent-rgb),0.3);
-      color: rgba(var(--accent-rgb),1); transition: background 0.15s, border-color 0.15s;
-    }
-    .add-app-submit:hover { background: rgba(var(--accent-rgb),0.25); }
-    /* + Add tile button — only visible to admins */
-    .tile-add-btn {
-      background: var(--tile-bg);
-      border: 1px dashed var(--tile-border);
-      border-radius: 8px; padding: 0.55rem 0.75rem;
-      display: none; flex-direction: row;
-      align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;
-      color: var(--text-dimmer); font-size: 10.5px;
-      letter-spacing: 0.07em; text-transform: uppercase;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .tile-add-btn i { font-size: 15px; }
-    .tile-add-btn:hover {
-      background: var(--tile-bg-h); color: var(--text);
-      border-color: rgba(var(--accent-rgb),0.45);
-    }
-    body.admin-user.edit-mode .tile-add-btn { display: flex; }
-
-    /* Edit button on tiles — admin only, edit mode only */
-    .tile-edit-btn.edit-btn { display: none; }
-    body.admin-user.edit-mode .tile-edit-ctrl .tile-edit-btn.edit-btn { display: flex; }
-    .tile-edit-btn.edit-btn:hover { background: rgba(122,184,255,0.25); color: #7ab8ff; border-color: rgba(122,184,255,0.4); }
-
-    /* Custom tile delete button (edit mode only) */
-    .tile-custom-del {
-      position: absolute; top: 6px; left: 6px; z-index: 10;
-      display: none; width: 20px; height: 20px; border-radius: 5px;
-      align-items: center; justify-content: center; cursor: pointer;
-      font-size: 11px; border: 1px solid rgba(248,113,113,0.4);
-      background: rgba(248,113,113,0.2); color: #f87171;
- transition: all 0.15s;
-    }
-    body.edit-mode .tile-custom-del { display: flex; }
-    body.edit-mode .tile-custom-del:hover { background: rgba(248,113,113,0.4); }
-    /* Group restriction badge */
-    .tile-group-badge {
-      position: absolute; bottom: 5px; right: 8px;
-      font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase;
-      padding: 1px 5px; border-radius: 4px; white-space: nowrap;
-      background: rgba(251,191,36,0.15); color: rgba(251,191,36,0.7);
-      border: 1px solid rgba(251,191,36,0.2);
-      display: none; z-index: 6;
-    }
-    body.edit-mode .tile-group-badge { display: block; }
 
     /* ══ SETTINGS MODAL ══ */
     .settings-backdrop {
@@ -1286,10 +1155,6 @@
     [data-theme="light"] .pl-icon  { color: var(--tile-icon); background: rgba(130,112,88,0.1); border-color: rgba(130,112,88,0.18); }
     [data-theme="light"] .add-app-label  { color: var(--text-dimmer); }
     [data-theme="light"] .add-app-title  { color: var(--text-dimmer); }
-    [data-theme="light"] .group-opt      { color: var(--text-dim); border-color: rgba(130,112,88,0.2); }
-    [data-theme="light"] .icon-opt       { color: var(--text-dimmer); background: rgba(130,112,88,0.06); }
-    [data-theme="light"] .icon-opt:hover { color: var(--text); background: rgba(130,112,88,0.14); }
-    [data-theme="light"] .tile-group-badge { color: #7a5800; border-color: rgba(122,88,0,0.3); background: rgba(122,88,0,0.08); }
 
     /* ── Album expand panel ── */
 
@@ -2320,31 +2185,23 @@
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
     <div class="grid" id="appGrid">
 
-      <div class="tile-wrap"><a class="tile" href="https://immich.klab.gg" data-id="6" data-group="klabnet-admin" data-name="Immich" data-url="https://immich.klab.gg" target="_blank"><span class="tile-dot" id="dot-6"></span><i class="ti ti-photo"></i><span class="tile-name">Immich</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
+      <div class="tile-wrap"><a class="tile" href="https://immich.klab.gg" data-id="6" data-name="Immich" data-url="https://immich.klab.gg" target="_blank"><span class="tile-dot" id="dot-6"></span><i class="ti ti-photo"></i><span class="tile-name">Immich</span></a>
       </div>
 
       <div class="tile-wrap"><a class="tile" href="https://nextcloud.klab.gg" data-id="4" data-name="Nextcloud" data-url="https://nextcloud.klab.gg" target="_blank"><span class="tile-dot" id="dot-4"></span><i class="ti ti-cloud"></i><span class="tile-name">Nextcloud</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
       </div>
 
       <div class="tile-wrap"><a class="tile" href="https://jellyfin.klab.gg" data-id="3" data-name="Jellyfin" data-url="https://jellyfin.klab.gg" target="_blank"><span class="tile-dot" id="dot-3"></span><i class="ti ti-device-tv"></i><span class="tile-name">Jellyfin</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
       </div>
 
-      <div class="tile-wrap"><a class="tile" href="https://qbt.klab.gg" data-id="12" data-group="klabnet-admin" data-name="qBittorrent" data-url="https://qbt.klab.gg" target="_blank"><span class="tile-dot" id="dot-12"></span><i class="ti ti-arrow-down-circle"></i><span class="tile-name">qBittorrent</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
+      <div class="tile-wrap"><a class="tile" href="https://qbt.klab.gg" data-id="12" data-name="qBittorrent" data-url="https://qbt.klab.gg" target="_blank"><span class="tile-dot" id="dot-12"></span><i class="ti ti-arrow-down-circle"></i><span class="tile-name">qBittorrent</span></a>
       </div>
 
-      <div class="tile-wrap"><a class="tile" href="https://pve.klab.gg" data-id="5" data-group="klabnet-admin" data-name="Proxmox" data-url="https://pve.klab.gg" target="_blank"><span class="tile-dot" id="dot-5"></span><i class="ti ti-server"></i><span class="tile-name">Proxmox</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
+      <div class="tile-wrap"><a class="tile" href="https://pve.klab.gg" data-id="5" data-name="Proxmox" data-url="https://pve.klab.gg" target="_blank"><span class="tile-dot" id="dot-5"></span><i class="ti ti-server"></i><span class="tile-name">Proxmox</span></a>
       </div>
 
-      <div class="tile-wrap"><a class="tile" href="https://git.klab.gg" data-id="0" data-group="klabnet-admin" data-name="Gitea" data-url="https://git.klab.gg" target="_blank"><span class="tile-dot" id="dot-gitea"></span><i class="ti ti-git-branch"></i><span class="tile-name">Gitea</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
+      <div class="tile-wrap"><a class="tile" href="https://git.klab.gg" data-id="0" data-name="Gitea" data-url="https://git.klab.gg" target="_blank"><span class="tile-dot" id="dot-gitea"></span><i class="ti ti-git-branch"></i><span class="tile-name">Gitea</span></a>
       </div>
-
-      <button class="tile-add-btn" id="addAppBtn"><i class="ti ti-plus"></i>add app</button>
     </div>
   </div>
 
@@ -2439,38 +2296,10 @@
 </div>
 
 <!-- ADD APP MODAL -->
-<div class="add-app-backdrop" id="addAppBackdrop">
-  <div class="add-app-modal">
-    <div class="add-app-title">
-      <span>// add application</span>
-      <button class="add-app-close" id="addAppClose"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="add-app-field">
-      <label class="add-app-label">App Name</label>
-      <input class="add-app-input" id="newAppName" type="text" placeholder="Gitea" autocomplete="off" />
-    </div>
-    <div class="add-app-field">
-      <label class="add-app-label">URL</label>
-      <input class="add-app-input" id="newAppUrl" type="text" placeholder="https://git.klab.gg" autocomplete="off" />
-    </div>
-    <div class="add-app-field">
-      <label class="add-app-label">Icon</label>
-      <div class="icon-picker-wrap">
-        <div class="icon-preview"><i class="ti ti-app" id="iconPreview"></i></div>
-        <div class="icon-grid" id="iconGrid"></div>
-      </div>
-      <input class="add-app-input" id="iconSearch" type="text" placeholder="search icons..." autocomplete="off" style="margin-top:6px;" />
-    </div>
-    <div class="add-app-field">
-      <label class="add-app-label">Restrict to group <span style="color:var(--text-faint)">(empty = everyone sees it)</span></label>
-      <div class="group-picker" id="groupPicker"></div>
-    </div>
-    <div class="add-app-actions">
-      <button class="add-app-cancel" id="addAppCancel">Cancel</button>
-      <button class="add-app-submit" id="addAppSubmit">Add App</button>
-    </div>
-  </div>
-</div>
+<!-- Custom "add app" modal + group-restriction feature was removed —
+     app tiles are hardcoded above in #appGrid now. Search this file for
+     "Per-group tile visibility" for a note on how it used to work, if
+     reviving it later. -->
 
 <!-- SETTINGS MODAL -->
 <div class="settings-backdrop" id="settingsBackdrop">
@@ -4657,7 +4486,6 @@ function createGhost(wrap, x, y) {
   ghostOffY = y - rect.top;
   ghost = wrap.cloneNode(true);
   ghost.classList.add('tile-drag-ghost');
-  ghost.querySelectorAll('.tile-edit-ctrl').forEach(el => el.remove());
   ghost.style.width  = rect.width  + 'px';
   ghost.style.height = rect.height + 'px';
   // Use viewport coords for position:fixed — straightforward
@@ -4807,7 +4635,6 @@ const PREF_KEYS = {
   favorites:     'klabnet_favorites',
   play_history:  'klabnet_play_history',
   theme:         'klabnet_theme',
-  tile_groups:   'klabnet_tile_groups',
 };
 
 async function fetchMe() {
@@ -4822,8 +4649,6 @@ async function fetchMe() {
       badge.style.opacity = '1';
       if (data.is_admin) badge.title = data.username + ' (admin)';
     }
-    // Apply group-based tile visibility
-    applyGroupVisibility(data.groups);
   } catch(e) {
 
   }
@@ -4866,30 +4691,13 @@ setInterval(checkSession, SESSION_CHECK_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSession(); });
 window.addEventListener('focus', checkSession);
 
-function applyGroupVisibility(userGroups) {
-  const isAdmin = window.KLAB_USER ? window.KLAB_USER.is_admin : false;
-  const map     = getTileGroups();
-
-  document.querySelectorAll('.tile[data-id]').forEach(tile => {
-    const tileId = tile.dataset.id;
-    const wrap   = tile.closest('.tile-wrap');
-    if (!wrap) return;
-
-    let required;
-    if (Object.prototype.hasOwnProperty.call(map, tileId)) {
-      required = map[tileId];
-    } else if (tile.dataset.group) {
-      required = tile.dataset.group.split(',').map(g => g.trim());
-    } else {
-      return;
-    }
-
-    if (!required.length) return;
-
-    const allowed = isAdmin || required.some(g => userGroups.includes(g));
-    wrap.style.display = allowed ? '' : 'none';
-  });
-}
+// Per-group tile visibility (applyGroupVisibility) was removed along with
+// the custom-app-builder feature — see the git history for this file if
+// reviving it. The shape it used: a static tile opts in via
+// data-group="group-a,group-b" in the HTML, or (for a per-user override) a
+// { tileId: [groups] } map; window.KLAB_USER.groups (from /api/me) is the
+// signed-in user's Authentik groups, and window.KLAB_USER.is_admin always
+// bypasses the check.
 
 async function loadServerPrefs() {
   try {
@@ -4918,7 +4726,6 @@ async function loadServerPrefs() {
     setIfPresent(PREF_KEYS.favorites,     prefs.favorites);
     setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
     setIfPresent(PREF_KEYS.theme,         prefs.theme);
-    setIfPresent(PREF_KEYS.tile_groups,   prefs.tile_groups);
 
   } catch(e) {
 
@@ -4937,7 +4744,6 @@ async function saveServerPrefs() {
     favorites:     parse(PREF_KEYS.favorites,     []),
     play_history:  parse(PREF_KEYS.play_history,  []),
     theme:         localStorage.getItem(PREF_KEYS.theme) || 'dark',
-    tile_groups:   parse(PREF_KEYS.tile_groups, {}),
   };
   try {
     await fetchTimeout('/api/prefs', {
@@ -4989,18 +4795,11 @@ document.addEventListener('visibilitychange', () => {
 // ── Boot sequence ──
 // Order matters: fetch identity → load server prefs → re-apply layout
 (async function boot() {
-  await fetchMe();           // who am I?
+  await fetchMe();           // who am I? (also applies admin state)
   await loadServerPrefs();   // pull their prefs from server into localStorage
-
-  // Apply admin state and load custom apps AFTER identity is known
-  applyAdminState(window.KLAB_USER && window.KLAB_USER.is_admin);
-  await loadCustomApps();
 
   // Re-run layout with server prefs now in localStorage
   loadLayoutState();
-
-  // Apply tile group restrictions AFTER identity + prefs + layout all settled
-  applyTileGroupRestrictions();
 
   // Re-apply theme with server values
   const savedTheme = localStorage.getItem(PREF_KEYS.theme);
@@ -5010,440 +4809,30 @@ document.addEventListener('visibilitychange', () => {
 // ══════════════════════════════════════════
 //  APP MANAGEMENT
 // ══════════════════════════════════════════
-const ICON_OPTIONS = [
-  'ti-app','ti-server','ti-cloud','ti-database','ti-shield','ti-shield-lock',
-  'ti-lock','ti-key','ti-fingerprint','ti-user','ti-users','ti-settings',
-  'ti-tool','ti-code','ti-terminal','ti-git-branch','ti-brand-github',
-  'ti-photo','ti-video','ti-music','ti-movie','ti-device-tv','ti-player-play',
-  'ti-download','ti-upload','ti-arrow-down-circle','ti-file','ti-folder',
-  'ti-search','ti-world','ti-link','ti-rss','ti-mail','ti-message',
-  'ti-chart-bar','ti-chart-line','ti-activity','ti-pulse','ti-cpu',
-  'ti-robot','ti-api','ti-webhook','ti-plug','ti-antenna',
-  'ti-home','ti-building','ti-map','ti-compass','ti-anchor',
-  'ti-star','ti-heart','ti-bookmark','ti-flag','ti-tag',
-  'ti-bell','ti-alert-circle','ti-info-circle','ti-help-circle',
-  'ti-refresh','ti-reload','ti-transfer','ti-trash','ti-pencil',
-  'ti-eye','ti-eye-off','ti-zoom-in','ti-zoom-out',
-  'ti-sun','ti-moon','ti-bolt','ti-flame','ti-snowflake','ti-droplet',
-  'ti-currency-dollar','ti-wallet','ti-credit-card','ti-package',
-  'ti-brand-discord','ti-brand-slack','ti-brand-telegram',
-];
-
-const ADMIN_GROUP_NAME = 'klabnet-admin';
-let _selectedIcon   = 'ti-app';
-let _selectedGroups = [];
-
-function buildIconGrid(filter) {
-  const grid = document.getElementById('iconGrid');
-  if (!grid) return;
-  const icons = filter
-    ? ICON_OPTIONS.filter(i => i.includes(filter.toLowerCase()))
-    : ICON_OPTIONS;
-  grid.innerHTML = '';
-  icons.forEach(icon => {
-    const el = document.createElement('div');
-    el.className = 'icon-opt' + (icon === _selectedIcon ? ' selected' : '');
-    el.innerHTML = '<i class="ti ' + icon + '"></i>';
-    el.title = icon.replace('ti-', '');
-    el.addEventListener('click', () => {
-      _selectedIcon = icon;
-      const prev = document.getElementById('iconPreview');
-      if (prev) prev.className = 'ti ' + icon;
-      grid.querySelectorAll('.icon-opt').forEach(e => e.classList.remove('selected'));
-      el.classList.add('selected');
-      SFX && SFX.play('click');
-    });
-    grid.appendChild(el);
-  });
-}
-
-function buildGroupPicker() {
-  const picker = document.getElementById('groupPicker');
-  if (!picker) return;
-  const userGroups = window.KLAB_USER ? window.KLAB_USER.groups : [];
-  const all = [...new Set([ADMIN_GROUP_NAME, ...userGroups])];
-  picker.innerHTML = '';
-  all.forEach(group => {
-    const el = document.createElement('button');
-    el.className = 'group-opt' + (group === ADMIN_GROUP_NAME ? ' admin-group' : '') +
-                   (_selectedGroups.includes(group) ? ' selected' : '');
-    el.textContent = group;
-    el.addEventListener('click', () => {
-      if (_selectedGroups.includes(group)) {
-        _selectedGroups = _selectedGroups.filter(g => g !== group);
-        el.classList.remove('selected');
-      } else {
-        _selectedGroups.push(group);
-        el.classList.add('selected');
-      }
-      SFX && SFX.play('click');
-    });
-    picker.appendChild(el);
-  });
-}
-
-function openAddApp() {
-  _selectedIcon = 'ti-app';
-  _selectedGroups = [];
-  document.getElementById('newAppName').value = '';
-  document.getElementById('newAppUrl').value  = '';
-  document.getElementById('iconSearch').value = '';
-  const prev = document.getElementById('iconPreview');
-  if (prev) prev.className = 'ti ti-app';
-  buildIconGrid();
-  buildGroupPicker();
-  document.getElementById('addAppBackdrop').classList.add('open');
-  document.getElementById('newAppName').focus();
-  SFX && SFX.play('open');
-}
-function closeAddApp() {
-  document.getElementById('addAppBackdrop').classList.remove('open');
-  SFX && SFX.play('close');
-}
-
-document.getElementById('addAppClose').addEventListener('click', closeAddApp);
-document.getElementById('addAppCancel').addEventListener('click', closeAddApp);
-document.getElementById('addAppBackdrop').addEventListener('click', e => {
-  if (e.target === document.getElementById('addAppBackdrop')) closeAddApp();
-});
-document.getElementById('addAppBtn').addEventListener('click', openAddApp);
-document.getElementById('iconSearch').addEventListener('input', function() {
-  buildIconGrid(this.value);
-});
-
-// Submit handled by the unified listener below — this is a no-op placeholder
-// to preserve event listener order. Actual logic is in the capture-phase listener.
-document.getElementById('addAppSubmit')._submitHandled = false;
-
-['newAppName','newAppUrl'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('addAppSubmit').click();
-  });
-});
-
-// ── Render a custom app tile ──
-function wireTileTilt(tile) {
-  if (!tile) return;
-  tile.addEventListener('mouseenter', () => {
-    if (typeof throttledHover === 'function') throttledHover();
-  });
-  tile.addEventListener('click', () => {
-    if (typeof SFX !== 'undefined') SFX.play('click');
-  });
-}
-
-function renderCustomTile(appData) {
-  // Guard: don't render a tile that already exists in the DOM
-  if (document.querySelector('[data-custom-id="' + appData.id + '"]')) return;
-
-  // Group check: skip render entirely if user lacks required groups
-  if (appData.groups && appData.groups.length) {
-    const userGroups = window.KLAB_USER ? window.KLAB_USER.groups : [];
-    const isAdmin    = window.KLAB_USER ? window.KLAB_USER.is_admin : false;
-    const allowed    = isAdmin || appData.groups.some(g => userGroups.includes(g));
-    // Admins always see everything so they can manage tiles
-    if (!allowed) return;
-  }
-
-  const grid   = document.getElementById('appGrid');
-  const addBtn = document.getElementById('addAppBtn');
-  const wrap   = document.createElement('div');
-  wrap.className = 'tile-wrap';
-  wrap.dataset.customId = appData.id;
-
-  const groupLabel = (appData.groups && appData.groups.length)
-    ? appData.groups.join(', ') : '';
-
-  wrap.innerHTML =
-    '<a class="tile" href="' + appData.url + '" data-id="custom-' + appData.id + '"' +
-    ' data-name="' + appData.name + '" data-url="' + appData.url + '" target="_blank">' +
-    '<i class="ti ' + appData.icon + '"></i>' +
-    '<span class="tile-name">' + appData.name + '</span>' +
-    (groupLabel ? '<span class="tile-group-badge">' + groupLabel + '</span>' : '') +
-    '</a>' +
-    '<div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit app" data-edit-custom><i class="ti ti-pencil"></i></button></div>' +
-    '<button class="tile-custom-del" title="Delete app" data-del-id="' + appData.id + '">' +
-    '<i class="ti ti-trash"></i></button>';
-
-  wrap.querySelector('[data-del-id]').addEventListener('click', async e => {
-    e.preventDefault(); e.stopPropagation();
-    if (!confirm('Delete "' + appData.name + '"?')) return;
-    try {
-      const res = await fetch('/api/apps/' + appData.id, { method: 'DELETE' });
-      if (res.ok) { wrap.remove(); showToast('"' + appData.name + '" removed'); SFX && SFX.play('click'); }
-    } catch(e) { showToast('failed to delete'); }
-  });
-
-  wireTileTilt(wrap.querySelector('.tile'));
-
-  grid.insertBefore(wrap, addBtn);
-}
-
-// ── Load all custom apps from API ──
-async function loadCustomApps() {
-  try {
-    const res  = await fetchTimeout('/api/apps', {}, 8000);
-    if (!res.ok) return;
-    const apps = await res.json();
-    apps.forEach(app => {
-      renderCustomTile(app);
-    });
-  } catch(e) {}
-}
+// The custom-app builder (add/edit/delete tile via /api/apps, icon
+// picker, group-restriction picker) was removed — app tiles are now
+// hardcoded in #appGrid's HTML only. window.KLAB_USER.is_admin is kept
+// around (and still toggles body.admin-user below) since it's generic
+// identity info, not part of that feature specifically.
 
 // ── Set admin class on body ──
 function applyAdminState(isAdmin) {
   document.body.classList.toggle('admin-user', !!isAdmin);
 }
 
-// ── Patch fetchMe — admin state only, loadCustomApps handled by boot ──
+// ── Patch fetchMe — apply admin state once identity is known ──
 const _origFetchMe = fetchMe;
 fetchMe = async function() {
   await _origFetchMe();
   applyAdminState(window.KLAB_USER && window.KLAB_USER.is_admin);
-  // NOTE: loadCustomApps is called by boot() after fetchMe — not here
-  //       calling it here caused double-render and broke group filtering
 };
 
-// ══════════════════════════════════════════
-//  TILE EDIT SYSTEM (admin, edit mode)
-// ══════════════════════════════════════════
-
-// tile_groups: persisted map of static tile id → restricted groups
-// stored in prefs as tile_groups: { "2": ["klabnet-admin"], "5": [] }
-const TILE_GROUPS_KEY = 'klabnet_tile_groups';
-function getTileGroups() {
-  try { return JSON.parse(localStorage.getItem(TILE_GROUPS_KEY) || '{}'); } catch(e) { return {}; }
-}
-function saveTileGroups(map) {
-  localStorage.setItem(TILE_GROUPS_KEY, JSON.stringify(map));
-  scheduleSave(); // persist to server prefs too
-}
-
-// Apply stored group restrictions to static tiles on load
-function applyTileGroupRestrictions() {
-  // Delegate to applyGroupVisibility which handles both HTML attrs and server overrides
-  const groups = window.KLAB_USER ? window.KLAB_USER.groups : [];
-  applyGroupVisibility(groups);
-}
-
-// Current edit target state
-let _editTarget = null; // { type: 'custom'|'static', id, wrap, appData? }
-
-function openTileEdit(type, id, wrap, appData) {
-  _editTarget = { type, id, wrap, appData };
-  _selectedGroups = appData ? (appData.groups || []) : (getTileGroups()[id] || []);
-
-  // Reuse the add-app modal, reconfigure it
-  const title = document.querySelector('.add-app-title span');
-  title.textContent = type === 'custom'
-    ? '// edit ' + (appData.name || 'app')
-    : '// restrict "' + (wrap.querySelector('.tile-name')?.textContent || id) + '"';
-
-  // For static tiles hide name/url/icon fields, show only groups
-  const nameField = document.getElementById('newAppName').closest('.add-app-field');
-  const urlField  = document.getElementById('newAppUrl').closest('.add-app-field');
-  const iconField = document.querySelector('.icon-picker-wrap')?.closest('.add-app-field');
-  const iconSearch = document.getElementById('iconSearch')?.closest('.add-app-field') ||
-                     document.getElementById('iconSearch');
-
-  if (type === 'static') {
-    nameField.style.display = 'none';
-    urlField.style.display  = 'none';
-    if (iconField) iconField.style.display = 'none';
-    if (iconSearch) iconSearch.style.display = 'none';
-  } else {
-    nameField.style.display = '';
-    urlField.style.display  = '';
-    if (iconField) iconField.style.display = '';
-    if (iconSearch) iconSearch.style.display = '';
-    // Pre-fill fields
-    document.getElementById('newAppName').value = appData.name || '';
-    document.getElementById('newAppUrl').value  = appData.url  || '';
-    _selectedIcon = appData.icon || 'ti-app';
-    const prev = document.getElementById('iconPreview');
-    if (prev) prev.className = 'ti ' + _selectedIcon;
-    buildIconGrid();
-  }
-
-  buildGroupPicker();
-
-  // Change submit button label
-  document.getElementById('addAppSubmit').textContent = 'Save';
-
-  document.getElementById('addAppBackdrop').classList.add('open');
-  SFX && SFX.play('open');
-}
-
-// Patch submit to handle edit vs create
-const _origSubmitClick = document.getElementById('addAppSubmit').onclick;
-document.getElementById('addAppSubmit').addEventListener('click', async (e) => {
-  e.stopImmediatePropagation();
-
-  // NEW APP
-  if (!_editTarget) {
-    const name = document.getElementById('newAppName').value.trim();
-    const url  = document.getElementById('newAppUrl').value.trim();
-    if (!name || !url) { showToast('name and url are required'); return; }
-    try {
-      const res = await fetch('/api/apps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name, url,
-          icon:   _selectedIcon,
-          groups: _selectedGroups,
-          section_id: typeof _selectedSectionId !== 'undefined' ? _selectedSectionId : 'applications'
-        })
-      });
-      if (!res.ok) { showToast('failed to add app'); return; }
-      const app = await res.json();
-      renderCustomTile(app);
-      closeAddApp();
-      showToast('"' + name + '" added');
-      SFX && SFX.play('star');
-    } catch(e) { showToast('could not reach api'); }
-    return;
-  }
-
-  // EDIT EXISTING
-  const { type, id, wrap, appData } = _editTarget;
-
-  if (type === 'custom') {
-    // Update custom app via API
-    const name = document.getElementById('newAppName').value.trim();
-    const url  = document.getElementById('newAppUrl').value.trim();
-    if (!name || !url) { showToast('name and url required'); return; }
-    try {
-      const res = await fetch('/api/apps/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, url, icon: _selectedIcon, groups: _selectedGroups })
-      });
-      if (!res.ok) { showToast('failed to update'); return; }
-      // Update tile in DOM
-      const tile = wrap.querySelector('.tile');
-      if (tile) {
-        tile.href = url;
-        tile.dataset.url = url;
-        tile.dataset.name = name;
-        const icon = tile.querySelector('i');
-        if (icon) icon.className = 'ti ' + _selectedIcon;
-        const nm = tile.querySelector('.tile-name');
-        if (nm) nm.textContent = name;
-        let badge = tile.querySelector('.tile-group-badge');
-        if (_selectedGroups.length) {
-          if (!badge) { badge = document.createElement('span'); badge.className='tile-group-badge'; tile.appendChild(badge); }
-          badge.textContent = _selectedGroups.join(', ');
-        } else if (badge) { badge.remove(); }
-      }
-      showToast('"' + name + '" updated');
-      SFX && SFX.play('star');
-    } catch(e) { showToast('could not reach api'); }
-
-  } else {
-    // Static tile — just update group restriction in localStorage
-    const map = getTileGroups();
-    if (_selectedGroups.length) map[id] = _selectedGroups;
-    else delete map[id];
-    saveTileGroups(map);
-
-    // Update badge on tile
-    const tile = wrap.querySelector('.tile');
-    if (tile) {
-      let badge = tile.querySelector('.tile-group-badge');
-      if (_selectedGroups.length) {
-        if (!badge) { badge = document.createElement('span'); badge.className='tile-group-badge'; tile.appendChild(badge); }
-        badge.textContent = _selectedGroups.join(', ');
-      } else if (badge) { badge.remove(); }
-    }
-
-    // Apply visibility immediately
-    const groups = window.KLAB_USER ? window.KLAB_USER.groups : [];
-    if (_selectedGroups.length && !_selectedGroups.some(g => groups.includes(g))) {
-      wrap.style.display = 'none';
-    } else {
-      wrap.style.display = '';
-    }
-    showToast('restrictions saved');
-    SFX && SFX.play('star');
-  }
-
-  closeAddApp();
-  _editTarget = null;
-}, true); // capture — runs before the existing "add" listener
-
-// Reset _editTarget when modal closes normally (new app flow)
-const _origCloseAddApp = closeAddApp;
-closeAddApp = function() {
-  _origCloseAddApp();
-  if (_editTarget) {
-    // Restore modal to "add" state
-    document.querySelector('.add-app-title span').textContent = '// add application';
-    document.getElementById('addAppSubmit').textContent = 'Add App';
-    ['newAppName','newAppUrl'].forEach(id => {
-      const field = document.getElementById(id)?.closest('.add-app-field');
-      if (field) field.style.display = '';
-    });
-    const iconField = document.querySelector('.icon-picker-wrap')?.closest('.add-app-field');
-    const iconSearch = document.getElementById('iconSearch');
-    if (iconField) iconField.style.display = '';
-    if (iconSearch) iconSearch.style.display = '';
-    _editTarget = null;
-  }
-};
-
-// Wire pencil buttons — static tiles (event delegation on appGrid)
-document.getElementById('appGrid').addEventListener('click', e => {
-  if (!editMode) return;
-  const btn = e.target.closest('[data-edit-tile]');
-  if (!btn) return;
-  e.preventDefault(); e.stopPropagation();
-  const wrap = btn.closest('.tile-wrap');
-  const tile = wrap?.querySelector('.tile');
-  if (!tile) return;
-  const id = tile.dataset.id;
-  openTileEdit('static', id, wrap, null);
-  SFX && SFX.play('click');
-}, true);
-
-// Wire pencil buttons — custom tiles (wired per tile in renderCustomTile)
-// Patch renderCustomTile to wire the edit button
-const _origRenderCustomTile = renderCustomTile;
-renderCustomTile = function(appData) {
-  _origRenderCustomTile(appData);
-  // Find the just-added tile wrap
-  const wrap = document.querySelector('[data-custom-id="' + appData.id + '"]');
-  if (!wrap) return;
-  const editBtn = wrap.querySelector('[data-edit-custom]');
-  if (!editBtn) return;
-  editBtn.addEventListener('click', e => {
-    e.preventDefault(); e.stopPropagation();
-    openTileEdit('custom', appData.id, wrap, appData);
-    SFX && SFX.play('click');
-  });
-};
-
-// Apply tile group restrictions on boot (after prefs loaded)
-// Patch boot's loadServerPrefs to also load tile_groups
-const _origLoadServerPrefs = loadServerPrefs;
-loadServerPrefs = async function() {
-  await _origLoadServerPrefs();
-  // tile_groups comes back as part of prefs if we add it to saveServerPrefs
-  // For now read from localStorage (already there from previous saves)
-  applyTileGroupRestrictions();
-};
-
-// Patch saveServerPrefs to always persist tile_groups
-const _origSaveServerPrefs = saveServerPrefs;
-saveServerPrefs = async function() {
-  // Sync tile_groups into the prefs localStorage key before saving
-  // so the base saveServerPrefs picks it up in its parse() call
-  const map = getTileGroups();
-  localStorage.setItem(PREF_KEYS.tile_groups, JSON.stringify(map));
-  await _origSaveServerPrefs();
-};
+// The old "TILE EDIT SYSTEM" (admin, edit mode) lived here: a shared
+// modal for both creating/editing custom app tiles (POST/PUT /api/apps)
+// and restricting a static tile to specific groups (persisted as
+// tile_groups in prefs, applied via applyGroupVisibility — see the note
+// near "Per-group tile visibility" above). Removed with the rest of the
+// custom-app-builder feature; tiles are hardcoded in #appGrid now.
 
 // ══════════════════════════════════════════
 //  SETTINGS

@@ -8,17 +8,16 @@ Live at [`user.klab.gg`](https://user.klab.gg) · staged at `staging.klab.gg` �
 
 ## What it does
 
-- **App launcher grid** — tiles linking out to every service in the homelab (Immich, Navidrome, Gitea, Proxmox, qBittorrent, status page, etc.), with live status dots, admin-only tiles, and drag-to-reorder edit mode for admins.
+- **App launcher grid** — tiles linking out to every service in the homelab (Immich, Nextcloud, Jellyfin, qBittorrent, Proxmox, Gitea, etc.), hardcoded in `index.html`, with live status dots and drag-to-reorder edit mode for admins.
 - **Full music player** — talks directly to Navidrome over the Subsonic API: browse by album/artist/genre, search, queue, playlists, favorites, play history, synced lyrics, and a fullscreen "now playing" view with album-art-driven accent color extraction.
 - **Presence** — an always-visible "// users" panel showing who else is online and what they're listening to, polling every 8 seconds.
 - **Identity & preferences** — reads the logged-in user's identity and admin status from Authentik (via `X-Authentik-Username` / `X-Authentik-Groups` headers passed through Caddy), and persists per-user preferences server-side.
 - **Personality touches** — a terminal-style typing intro, Minecraft-style rotating MOTD splash text, light/dark themes, and Frutiger Aero–inspired UI sound effects.
-- **Admin app management** — admins can add/edit/remove tiles directly from the UI, backed by the API rather than hand-editing HTML.
 
 ## Stack
 
 - Single static `index.html` — vanilla JS, no build step, no framework.
-- **Backend:** `klabnet-api` (FastAPI, separate service on `192.168.0.37:8765`) — handles `/api/me`, `/api/prefs`, `/api/apps`, `/api/presence`, etc.
+- **Backend:** `klabnet-api` (FastAPI, separate service on `192.168.0.37:8765`) — handles `/api/me`, `/api/prefs`, `/api/presence`, etc.
 - **Auth:** Authentik, enforced at the Caddy layer via `forward_auth` — the page itself trusts the identity headers Caddy injects after a successful auth check.
 - **Music:** Navidrome (Subsonic API) at `music.klab.gg`.
 - **Serving:** Caddy, `file_server` off a plain directory — no server-side rendering.
