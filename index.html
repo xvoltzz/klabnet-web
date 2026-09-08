@@ -383,11 +383,12 @@
     }
     .tile:active { background: var(--tile-bg-h); }
 
-    .tile[disabled] {
-      opacity: 0.45; cursor: not-allowed;
-      font: inherit; width: 100%; text-align: left;
+    .tile-wrap.tile-wrap-auto { width: fit-content; }
+    .tile.tile-wide {
+      font: inherit; padding: 0.7rem 1.1rem; gap: 0.75rem;
     }
-    .tile[disabled]:hover { background: var(--tile-bg); border-color: var(--tile-border); }
+    .tile.tile-wide .tile-name { overflow: visible; text-overflow: unset; white-space: nowrap; font-size: 11px; }
+    .tile.tile-wide i { font-size: 17px; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -1936,8 +1937,10 @@
     .type-badge { font-size: 7.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; flex-shrink: 0; font-family: inherit; }
     .type-badge.song  { color: #7ab8ff; border-color: rgba(122,184,255,0.35); background: rgba(122,184,255,0.1); }
     .type-badge.album { color: #c47aff; border-color: rgba(196,122,255,0.35); background: rgba(196,122,255,0.1); }
+    .type-badge.soon  { color: #eab308; border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.12); }
     [data-theme="light"] .type-badge.song  { color: #1040a0; border-color: rgba(16,64,160,0.35); background: rgba(16,64,160,0.1); }
     [data-theme="light"] .type-badge.album { color: #6020a0; border-color: rgba(96,32,160,0.35); background: rgba(96,32,160,0.1); }
+    [data-theme="light"] .type-badge.soon  { color: #92700a; border-color: rgba(146,112,10,0.4); background: rgba(234,179,8,0.14); }
     .picker-action.login-active { color: #4ade80; }
     .picker-action.fav-active { color: #f87171; }
 
@@ -2206,20 +2209,21 @@
     </div>
   </div>
 
-  <div class="sec" data-sec="klabcraft">
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><div class="sec-line"></div></div>
-    <div class="grid" id="klabcraftGrid">
-      <div class="tile-wrap">
-        <button class="tile" id="worldBackupBtn" disabled title="Coming soon"><i class="ti ti-cube"></i><span class="tile-name">Download World Backup</span></button>
-      </div>
-    </div>
-  </div>
-
   <div class="sec" data-sec="presence">
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// users</span><div class="sec-line"></div></div>
     <div class="presence-grid" id="presenceList">
       <div class="presence-empty">no one else is listening</div>
     </div>
+  </div>
+
+  <div class="sec" data-sec="klabcraft" hidden>
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
+    <div class="grid" id="klabcraftGrid">
+      <div class="tile-wrap tile-wrap-auto">
+        <button class="tile tile-wide" id="worldBackupBtn" title="Test: pick a local backup file"><i class="ti ti-cube"></i><span class="tile-name">Download World Backup</span></button>
+      </div>
+    </div>
+    <input type="file" id="worldBackupFileInput" accept=".zip" style="display:none;">
   </div>
 
     <div class="player-dock" id="playerDock">
@@ -2350,6 +2354,15 @@
         <div class="settings-row">
           <div><div class="settings-row-label">Scrobble History</div><div class="settings-row-sub">Track recently played locally</div></div>
           <div class="s-toggle on" id="scrobbleToggle"></div>
+        </div>
+      </div>
+
+      <!-- KlabCraft -->
+      <div class="settings-section">
+        <span class="settings-section-label">KlabCraft</span>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Show KlabCraft</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
+          <div class="s-toggle" id="klabcraftToggle"></div>
         </div>
       </div>
 
@@ -5221,6 +5234,7 @@ let _settings = {
   crossfade:     false,
   loginSong:     true,
   scrobble:      true,
+  showKlabcraft: false,
 };
 
 function loadSettings() {
@@ -5237,6 +5251,13 @@ function saveSettings() {
 function applySettings() {
   // SFX volume — patch the SFX compressor
   if (typeof SFX !== 'undefined') SFX.setVolume(_settings.sfxEnabled ? (_settings.sfxVolume ?? 0.7) : 0);
+
+  // KlabCraft section visibility
+  const klabcraftSec = document.querySelector('.sec[data-sec="klabcraft"]');
+  if (klabcraftSec) {
+    klabcraftSec.hidden = !_settings.showKlabcraft;
+    if (_settings.showKlabcraft) klabcraftSec.classList.add('in-view');
+  }
 }
 
 function openSettings() {
@@ -5250,6 +5271,7 @@ function openSettings() {
     crossfadeToggle:  'crossfade',
     loginSongToggle:  'loginSong',
     scrobbleToggle:   'scrobble',
+    klabcraftToggle:  'showKlabcraft',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -5279,7 +5301,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
     const map = {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
       crossfadeToggle: 'crossfade', loginSongToggle: 'loginSong',
-      scrobbleToggle: 'scrobble',
+      scrobbleToggle: 'scrobble', klabcraftToggle: 'showKlabcraft',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }
@@ -5322,6 +5344,20 @@ document.getElementById('settingsClose').addEventListener('click', () => { close
 document.getElementById('settingsBackdrop').addEventListener('click', e => {
   if (e.target === document.getElementById('settingsBackdrop')) closeSettings();
 });
+
+// KlabCraft — world backup (WIP: no backend yet, this just picks a local
+// file so the flow can be tested until backups live in one directory)
+(function() {
+  const btn   = document.getElementById('worldBackupBtn');
+  const input = document.getElementById('worldBackupFileInput');
+  if (!btn || !input) return;
+  btn.addEventListener('click', () => { SFX && SFX.play('click'); input.click(); });
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (file) showToast('test mode — picked "' + file.name + '" (no upload/download wired up yet)');
+    input.value = '';
+  });
+})();
 
 // ══════════════════════════════════════════
 //  GENRES BROWSER
