@@ -412,6 +412,41 @@
         transparent 100%);
     }
 
+    /* ══ TAB NAV — top-level Home/Social/Music/KLABCRAFT switcher ══ */
+    .tab-nav {
+      display: flex; gap: 6px;
+      flex-wrap: nowrap; overflow-x: auto;
+      scrollbar-width: none; -ms-overflow-style: none;
+      margin-bottom: 2.4rem;
+    }
+    .tab-nav::-webkit-scrollbar { display: none; }
+    .tab-nav-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem;
+      white-space: nowrap; font-family: var(--font-ui); font-weight: 500;
+      font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 0.55rem 0.9rem; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--tile-border);
+      color: var(--text-dim); background: var(--tile-bg);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tab-nav-btn i { font-size: 14px; }
+    .tab-nav-btn.active {
+      background: rgba(var(--accent-rgb),0.16);
+      color: var(--text); border-color: rgba(var(--accent-rgb),0.4);
+    }
+    .tab-nav-btn:hover:not(.active) {
+      background: var(--tile-bg-h); color: var(--text);
+      border-color: var(--tile-border-h);
+    }
+    .tab-nav-btn[hidden] { display: none; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .music-tab-placeholder {
+      font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer);
+      padding: 2rem 0;
+    }
+
     /* ══ APP GRID ══ */
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
@@ -2148,6 +2183,14 @@
     </div>
   </header>
 
+  <nav class="tab-nav" id="tabNav">
+    <button class="tab-nav-btn" data-tab-target="home" title="Home"><i class="ti ti-apps"></i><span>Home</span></button>
+    <button class="tab-nav-btn" data-tab-target="social" title="Social"><i class="ti ti-users"></i><span>Social</span></button>
+    <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+    <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
+  </nav>
+
+  <div class="tab-panel" data-tab-panel="home">
   <div class="sec" data-sec="applications">
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
     <div class="grid" id="appGrid">
@@ -2178,7 +2221,26 @@
       <div class="presence-empty">no one else is listening</div>
     </div>
   </div>
+  </div>
 
+  <div class="tab-panel" data-tab-panel="social">
+  <div class="sec" data-sec="klabsocial" hidden>
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">beta</span><div class="sec-line"></div></div>
+    <div class="social-embed-wrap">
+      <div id="klabSocialBody"><div class="picker-empty">loading discord...</div></div>
+    </div>
+    <div class="social-note">discord's widget only exposes voice channels & online members — text channels aren't available this way. matrix bridge planned for full chat later.</div>
+  </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="music">
+  <div class="sec" data-sec="music-placeholder">
+    <div class="sec-head"><span class="sec-label">// music</span><div class="sec-line"></div></div>
+    <div class="music-tab-placeholder">Full music page coming soon — use the player below for now.</div>
+  </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="klabcraft">
   <div class="sec" data-sec="klabcraft" hidden>
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
     <div class="grid" id="klabcraftGrid">
@@ -2187,13 +2249,6 @@
       </div>
     </div>
   </div>
-
-  <div class="sec" data-sec="klabsocial" hidden>
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">beta</span><div class="sec-line"></div></div>
-    <div class="social-embed-wrap">
-      <div id="klabSocialBody"><div class="picker-empty">loading discord...</div></div>
-    </div>
-    <div class="social-note">discord's widget only exposes voice channels & online members — text channels aren't available this way. matrix bridge planned for full chat later.</div>
   </div>
 
     <div class="player-dock" id="playerDock">
@@ -4158,7 +4213,7 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
   setPlayingClass();
 
   let lastPremiumHover = 0;
-  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tile, .pl-item';
+  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn, .tile, .pl-item';
   document.addEventListener('pointerover', e => {
     const el = e.target.closest(hoverSelector);
     if (!el || el._premiumHovered) return;
@@ -4436,15 +4491,17 @@ function loadLayoutState() {
     });
   }
 
-  // Section order
+  // Section order — reorder within each section's own parent (its .tab-panel),
+  // not .dash directly, so a restored section doesn't get pulled out of its
+  // tab and become permanently visible/invisible regardless of active tab.
   const secOrder = JSON.parse(localStorage.getItem(SECTION_KEY) || '[]');
   if (secOrder.length) {
-    const dash = document.querySelector('.dash');
     const secs = [...document.querySelectorAll('.sec[data-sec]')];
     const secMap = {};
     secs.forEach(s => secMap[s.dataset.sec] = s);
     secOrder.forEach(key => {
-      if (secMap[key]) dash.appendChild(secMap[key]);
+      const sec = secMap[key];
+      if (sec) sec.parentElement.appendChild(sec);
     });
   }
 }
@@ -4639,12 +4696,14 @@ function secDrop(e) {
   const target = e.currentTarget;
   target.classList.remove('sec-drag-over');
   if (!secDragSrc || secDragSrc === target) return;
-  const dash = document.querySelector('.dash');
+  // Reorder within the target's own parent (its .tab-panel) — a real drag can
+  // only happen between two currently-visible sections, i.e. sections that
+  // already share a tab-panel, so this stays correct without extra filtering.
   const secs = [...document.querySelectorAll('.sec[data-sec]')];
   const srcIdx = secs.indexOf(secDragSrc);
   const tgtIdx = secs.indexOf(target);
-  if (srcIdx < tgtIdx) dash.insertBefore(secDragSrc, target.nextSibling);
-  else dash.insertBefore(secDragSrc, target);
+  if (srcIdx < tgtIdx) target.parentElement.insertBefore(secDragSrc, target.nextSibling);
+  else target.parentElement.insertBefore(secDragSrc, target);
   SFX && SFX.play('click');
 }
 function secDragEnd() {
@@ -4918,10 +4977,55 @@ function applySettings() {
     sec.hidden = !visible;
     if (visible) sec.classList.add('in-view');
   };
-  showSec('.sec[data-sec="klabcraft"]', _settings.experimentalEnabled && _settings.showKlabcraft);
+  const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
+  showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
   const klabSocialVisible = _settings.experimentalEnabled && _settings.showKlabSocial;
   showSec('.sec[data-sec="klabsocial"]', klabSocialVisible);
   if (klabSocialVisible) loadDiscordWidget();
+
+  // Tab nav follows the same gates — a disabled section's tab disappears too.
+  const setTabBtnVisible = (key, visible) => {
+    const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
+    if (btn) btn.hidden = !visible;
+  };
+  setTabBtnVisible('klabcraft', klabcraftVisible);
+  setTabBtnVisible('social', klabSocialVisible);
+  if (typeof refreshActiveTabAvailability === 'function') refreshActiveTabAvailability();
+}
+
+// ══════════════════════════════════════════
+//  TAB NAV — Home / Social / Music / KLABCRAFT router
+//  Hash-based so tabs are bookmarkable and back/forward works. The floating
+//  player dock lives outside every .tab-panel, so it's unaffected by any of
+//  this and keeps playing/visible across tab switches.
+// ══════════════════════════════════════════
+const TABS = ['home', 'social', 'music', 'klabcraft'];
+
+function isTabEnabled(key) {
+  const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
+  return !!btn && !btn.hidden;
+}
+
+function setActiveTab(key) {
+  if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
+  document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
+  if (location.hash.slice(1) !== key) location.hash = key;
+}
+
+// Called after settings change a tab's availability — bumps off a now-hidden
+// active tab back to Home instead of leaving the user on a blank panel.
+function refreshActiveTabAvailability() {
+  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
+  if (!isTabEnabled(current)) setActiveTab('home');
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
+  });
+  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'home'));
+  setActiveTab(location.hash.slice(1) || 'home');
 }
 
 function openSettings() {
@@ -5725,6 +5829,7 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════════
 loadSettings();
 applySettings();
+initTabs();
 // ── Album view ──────────────────────────────────────────
 async function loadAlbumView(albumId, albumName, backFn) {
   if (window.openAlbumPage) { openMusicPanelPreservingPicker(() => window.openAlbumPage(albumId, albumName)); return; }
