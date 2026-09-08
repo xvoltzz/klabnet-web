@@ -389,6 +389,7 @@
     }
     .tile.tile-wide .tile-name { overflow: visible; text-overflow: unset; white-space: nowrap; font-size: 11px; }
     .tile.tile-wide i { font-size: 17px; }
+    .grass-icon-slot { display: flex; flex-shrink: 0; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -2220,10 +2221,9 @@
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
     <div class="grid" id="klabcraftGrid">
       <div class="tile-wrap tile-wrap-auto">
-        <button class="tile tile-wide" id="worldBackupBtn" title="Test: pick a local backup file"><i class="ti ti-cube"></i><span class="tile-name">Download World Backup</span></button>
+        <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
       </div>
     </div>
-    <input type="file" id="worldBackupFileInput" accept=".zip" style="display:none;">
   </div>
 
     <div class="player-dock" id="playerDock">
@@ -2271,6 +2271,25 @@
     </div>
 
 
+</div>
+
+<!-- KLABCRAFT BACKUP BROWSER MODAL -->
+<div class="add-app-backdrop" id="klabcraftBackdrop">
+  <div class="add-app-modal">
+    <div class="add-app-title">
+      <span>// select backup</span>
+      <div style="display:flex;align-items:center;gap:2px;">
+        <button class="add-app-close" id="klabcraftRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
+        <button class="add-app-close" id="klabcraftClose" title="Close"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    <div class="picker-list" id="klabcraftList">
+      <div class="picker-empty">loading backups...</div>
+    </div>
+    <div class="add-app-label" style="text-align:center;color:var(--text-faint);letter-spacing:0.1em;">
+      reads from the server's backup folder — nothing there until the backup script is running
+    </div>
+  </div>
 </div>
 
 <!-- ADD APP MODAL -->
@@ -5345,18 +5364,106 @@ document.getElementById('settingsBackdrop').addEventListener('click', e => {
   if (e.target === document.getElementById('settingsBackdrop')) closeSettings();
 });
 
-// KlabCraft — world backup (WIP: no backend yet, this just picks a local
-// file so the flow can be tested until backups live in one directory)
+// ══════════════════════════════════════════
+//  KLABCRAFT — world backup browser (WIP)
+//  Lists backups that live on the server (served through Caddy) once
+//  the backup script exists. Point this at wherever that script ends
+//  up publishing its file list.
+// ══════════════════════════════════════════
+const KLABCRAFT_BACKUPS_API = '/api/klabcraft/backups';
+
+function grassIconSvg(size) {
+  size = size || 16;
+  return '<svg viewBox="0 0 8 8" width="' + size + '" height="' + size + '" shape-rendering="crispEdges" style="display:block" aria-hidden="true">'
+    + '<rect x="0" y="0" width="8" height="8" fill="#8b5a2b"/>'
+    + '<rect x="0" y="0" width="8" height="5" fill="#6cbb3c"/>'
+    + '<rect x="1" y="4" width="1" height="1" fill="#8b5a2b"/>'
+    + '<rect x="3" y="4" width="1" height="1" fill="#8b5a2b"/>'
+    + '<rect x="6" y="4" width="1" height="1" fill="#8b5a2b"/>'
+    + '</svg>';
+}
+
+function formatBackupSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0, n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return (i === 0 ? n : n.toFixed(1)) + ' ' + units[i];
+}
+
 (function() {
-  const btn   = document.getElementById('worldBackupBtn');
-  const input = document.getElementById('worldBackupFileInput');
-  if (!btn || !input) return;
-  btn.addEventListener('click', () => { SFX && SFX.play('click'); input.click(); });
-  input.addEventListener('change', () => {
-    const file = input.files[0];
-    if (file) showToast('test mode — picked "' + file.name + '" (no upload/download wired up yet)');
-    input.value = '';
-  });
+  const iconSlot = document.getElementById('worldBackupIcon');
+  if (iconSlot) iconSlot.innerHTML = grassIconSvg(17);
+
+  const btn      = document.getElementById('worldBackupBtn');
+  const backdrop = document.getElementById('klabcraftBackdrop');
+  const list     = document.getElementById('klabcraftList');
+  const closeBtn = document.getElementById('klabcraftClose');
+  const refresh  = document.getElementById('klabcraftRefresh');
+  if (!btn || !backdrop || !list) return;
+
+  async function loadBackups() {
+    list.innerHTML = '<div class="picker-empty">loading backups...</div>';
+    try {
+      const res = await fetchTimeout(KLABCRAFT_BACKUPS_API, {}, 8000);
+      if (!res.ok) throw new Error('unavailable');
+      const backups = await res.json();
+      if (!Array.isArray(backups) || !backups.length) {
+        list.innerHTML = '<div class="picker-empty">no backups found on the server yet</div>';
+        return;
+      }
+      list.innerHTML = '';
+      backups.forEach(b => {
+        const row = document.createElement('div');
+        row.className = 'picker-item';
+
+        const art = document.createElement('div');
+        art.className = 'picker-item-art-ph';
+        art.innerHTML = grassIconSvg(20);
+
+        const info = document.createElement('div');
+        info.className = 'picker-item-info';
+        const title = document.createElement('div');
+        title.className = 'picker-item-title';
+        title.textContent = b.name || 'backup.zip';
+        const sub = document.createElement('div');
+        sub.className = 'picker-item-artist';
+        sub.textContent = [formatBackupSize(b.size), b.modified].filter(Boolean).join(' · ');
+        info.append(title, sub);
+
+        const actions = document.createElement('div');
+        actions.className = 'picker-item-actions';
+        const dl = document.createElement('button');
+        dl.className = 'picker-action'; dl.title = 'Download';
+        dl.innerHTML = '<i class="ti ti-download"></i>';
+        dl.addEventListener('click', e => {
+          e.stopPropagation();
+          window.open(b.url || (KLABCRAFT_BACKUPS_API + '/' + encodeURIComponent(b.name)), '_blank');
+        });
+        actions.appendChild(dl);
+
+        row.append(art, info, actions);
+        list.appendChild(row);
+      });
+    } catch (e) {
+      list.innerHTML = '<div class="picker-empty">backup server not connected yet<br>check back once the script is running</div>';
+    }
+  }
+
+  function openKlabcraftBrowser() {
+    SFX && SFX.play('open');
+    backdrop.classList.add('open');
+    loadBackups();
+  }
+  function closeKlabcraftBrowser() {
+    SFX && SFX.play('close');
+    backdrop.classList.remove('open');
+  }
+
+  btn.addEventListener('click', () => { SFX && SFX.play('click'); openKlabcraftBrowser(); });
+  closeBtn && closeBtn.addEventListener('click', closeKlabcraftBrowser);
+  refresh && refresh.addEventListener('click', () => { SFX && SFX.play('click'); loadBackups(); });
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeKlabcraftBrowser(); });
 })();
 
 // ══════════════════════════════════════════
