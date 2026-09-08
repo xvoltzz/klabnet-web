@@ -1498,6 +1498,11 @@
       transition: background 0.15s ease, border-color 0.15s ease;
     }
     .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .presence-card.is-playable { cursor: pointer; }
+    .presence-card.is-playable:hover {
+      border-color: rgba(var(--accent-rgb),0.4);
+      box-shadow: 0 0 0 1px rgba(var(--accent-rgb),0.15) inset;
+    }
 
     .presence-card-avatar {
       width: 34px; height: 34px; border-radius: 50%;
@@ -6660,10 +6665,19 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const list = document.getElementById('presenceList');
   if (!list) return;
 
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+      .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
   // ── Render helpers ───────────────────────
-  function cardHTML(username, song, artist, isMe, playing) {
+  function cardHTML(username, song, artist, isMe, playing, songId) {
     const initial = (username||'?')[0].toUpperCase();
-    return '<div class="presence-card' + (isMe ? ' is-me' : '') + '">' +
+    const playable = !isMe && playing && (songId || song);
+    const attrs = playable
+      ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Play what ' + esc(username) + ' is listening to"'
+      : '';
+    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + '"' + attrs + '>' +
       '<div class="presence-card-avatar">' + initial +
         (playing ? '<span class="presence-card-online"></span>' : '') +
       '</div>' +
@@ -6687,11 +6701,44 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       html += '<div class="presence-empty">no one else is listening</div>';
     } else {
       others.forEach(l => {
-        html += cardHTML(l.username, l.song, l.artist, false, l.playing);
+        html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
       });
     }
     list.innerHTML = html;
   }
+
+  // ── Click a listener's card to play what they're playing ──
+  async function playFromCard(card) {
+    const songId = card.dataset.songId;
+    const title  = card.dataset.songTitle;
+    const artist = card.dataset.songArtist;
+    try {
+      let song = null;
+      if (songId) {
+        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${songId}&${subsonicParams()}`, {}, 6000);
+        const data = await r.json();
+        song = data['subsonic-response']?.song || null;
+      }
+      if (!song && title) {
+        const q = encodeURIComponent(artist ? `${title} ${artist}` : title);
+        const r = await fetchTimeout(`${ND_URL}/rest/search3?query=${q}&songCount=5&artistCount=0&albumCount=0&${subsonicParams()}`, {}, 6000);
+        const data = await r.json();
+        const results = data['subsonic-response']?.searchResult3?.song || [];
+        song = results.find(s => s.title === title && (!artist || s.artist === artist)) || results[0] || null;
+      }
+      if (!song) { showToast("couldn't find that track"); SFX && SFX.play('error'); return; }
+      await playSong(song);
+      SFX && SFX.play('play');
+    } catch(e) {
+      showToast("couldn't play that track");
+      SFX && SFX.play('error');
+    }
+  }
+
+  list.addEventListener('click', e => {
+    const card = e.target.closest('.presence-card.is-playable');
+    if (card) playFromCard(card);
+  });
 
   // ── API calls ────────────────────────────
   async function postPresence() {
