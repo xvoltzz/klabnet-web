@@ -698,6 +698,7 @@
       border-radius:6px; display:flex; align-items:center; justify-content:center;
       cursor:pointer; font-size:13px; border:1px solid transparent; background:transparent;
       flex-shrink:0; color:var(--text-dim); transition:color 0.2s, background 0.2s, border-color 0.2s;
+      text-decoration:none;
     }
     .hdr-btn:hover { color:var(--text); background:var(--glass-fill-h); border-color:rgba(var(--accent-rgb),0.35); }
     .hdr-btn.active { color:var(--text); background:var(--glass-fill-h); }
@@ -2267,6 +2268,7 @@
       <button class="hdr-btn glass" id="editToggle" title="Edit layout"><i class="ti ti-layout-grid" id="editIcon"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
+      <a class="hdr-btn glass" id="accountBtn" href="https://auth.klab.gg" target="_blank" title="Account"><i class="ti ti-user-circle"></i></a>
       <div class="sys-badge glass">
         <span class="hb-dot" id="headerDot"></span>
         <span id="headerStatus">LOADING</span>
@@ -2278,10 +2280,6 @@
   <div class="sec" data-sec="applications">
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
     <div class="grid" id="appGrid">
-
-      <div class="tile-wrap"><a class="tile" href="https://vault.klab.gg" data-id="2" data-name="Vault" data-url="https://vault.klab.gg" target="_blank"><span class="tile-dot" id="dot-2"></span><i class="ti ti-shield-lock"></i><span class="tile-name">Vault</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
-      </div>
 
       <div class="tile-wrap"><a class="tile" href="https://immich.klab.gg" data-id="6" data-group="klabnet-admin" data-name="Immich" data-url="https://immich.klab.gg" target="_blank"><span class="tile-dot" id="dot-6"></span><i class="ti ti-photo"></i><span class="tile-name">Immich</span></a>
         <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
@@ -2299,27 +2297,11 @@
         <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
       </div>
 
-      <div class="tile-wrap"><a class="tile" href="https://search.klab.gg" data-id="13" data-name="SearXNG" data-url="https://search.klab.gg" target="_blank"><span class="tile-dot" id="dot-13"></span><i class="ti ti-search"></i><span class="tile-name">SearXNG</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://status.klab.gg" data-id="10" data-group="klabnet-admin" data-name="Status" data-url="https://status.klab.gg" target="_blank"><span class="tile-dot" id="dot-10"></span><i class="ti ti-activity"></i><span class="tile-name">Status</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://auth.klab.gg" data-id="14" data-name="Authentik" data-url="https://auth.klab.gg" target="_blank"><span class="tile-dot" id="dot-14"></span><i class="ti ti-fingerprint"></i><span class="tile-name">Authentik</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
-      </div>
-
       <div class="tile-wrap"><a class="tile" href="https://pve.klab.gg" data-id="5" data-group="klabnet-admin" data-name="Proxmox" data-url="https://pve.klab.gg" target="_blank"><span class="tile-dot" id="dot-5"></span><i class="ti ti-server"></i><span class="tile-name">Proxmox</span></a>
         <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
       </div>
 
       <div class="tile-wrap"><a class="tile" href="https://git.klab.gg" data-id="0" data-group="klabnet-admin" data-name="Gitea" data-url="https://git.klab.gg" target="_blank"><span class="tile-dot" id="dot-gitea"></span><i class="ti ti-git-branch"></i><span class="tile-name">Gitea</span></a>
-        <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://music.klab.gg" data-id="16" data-group="klabnet-admin" data-name="Navidrome" data-url="https://music.klab.gg" target="_blank"><span class="tile-dot" id="dot-16"></span><i class="ti ti-music"></i><span class="tile-name">Navidrome</span></a>
         <div class="tile-edit-ctrl"><button class="tile-edit-btn edit-btn" title="Edit restrictions" data-edit-tile><i class="ti ti-pencil"></i></button></div>
       </div>
 
@@ -2730,7 +2712,7 @@ const isMaint=id=>!!maintenance[id];
 // ══════════════════════════════════════════
 //  STATUS
 // ══════════════════════════════════════════
-const TILE_DOTS={2:'dot-2',3:'dot-3',4:'dot-4',5:'dot-5',6:'dot-6',10:'dot-10',12:'dot-12',13:'dot-13',14:'dot-14',16:'dot-16'};
+const TILE_DOTS={3:'dot-3',4:'dot-4',5:'dot-5',6:'dot-6',12:'dot-12'};
 
 function applyDot(id,status){
   const el=document.getElementById(TILE_DOTS[id]);
