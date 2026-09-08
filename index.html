@@ -6714,7 +6714,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const initial = (username||'?')[0].toUpperCase();
     const playable = !isMe && playing && (songId || song);
     const attrs = playable
-      ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Play what ' + esc(username) + ' is listening to"'
+      ? ' data-username="' + esc(username||'') + '" data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"'
       : '';
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + '"' + attrs + '>' +
       '<div class="presence-card-avatar">' + initial +
@@ -6746,11 +6746,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     list.innerHTML = html;
   }
 
-  // ── Click a listener's card to play what they're playing ──
+  // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
-    const songId = card.dataset.songId;
-    const title  = card.dataset.songTitle;
-    const artist = card.dataset.songArtist;
+    const username = card.dataset.username || 'them';
+    const songId   = card.dataset.songId;
+    const title    = card.dataset.songTitle;
+    const artist   = card.dataset.songArtist;
     try {
       let song = null;
       if (songId) {
@@ -6765,11 +6766,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         const results = data['subsonic-response']?.searchResult3?.song || [];
         song = results.find(s => s.title === title && (!artist || s.artist === artist)) || results[0] || null;
       }
-      if (!song) { showToast("couldn't find that track"); SFX && SFX.play('error'); return; }
+      if (!song) { showToast(`Couldn't sync with ${username}`); SFX && SFX.play('error'); return; }
       await playSong(song);
+      showToast(`Sync'd with ${username}! 🎶`);
       SFX && SFX.play('play');
     } catch(e) {
-      showToast("couldn't play that track");
+      showToast(`Couldn't sync with ${username}`);
       SFX && SFX.play('error');
     }
   }
