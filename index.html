@@ -1925,6 +1925,14 @@
       padding: 0.6rem 1rem; border-radius: 8px;
       background: var(--tile-bg);
       border: 1px solid var(--tile-border);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* The whole search box glows on focus instead of the global
+       input:focus-visible outline drawing its own box around just the
+       <input> nested inside it — that read as two boxes stacked. */
+    .picker-search:focus-within {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
     .picker-search i { color: var(--text-dimmer); font-size: 14px; flex-shrink: 0; }
     .picker-search input {
@@ -1932,6 +1940,7 @@
       font-family: var(--font-ui); font-size: 0.85rem;
       color: var(--text); flex: 1; caret-color: var(--text);
     }
+    .picker-search input:focus-visible { outline: none; }
     .picker-search input::placeholder { color: var(--text-dimmer); }
 
     .picker-tabs {
