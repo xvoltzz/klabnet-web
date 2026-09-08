@@ -391,6 +391,40 @@
     .tile.tile-wide i { font-size: 17px; }
     .grass-icon-slot { display: flex; flex-shrink: 0; }
 
+    /* ══ KLAB SOCIAL — blueprint mockup ══ */
+    .social-blueprint {
+      display: flex; gap: 1rem;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 10px; padding: 0.9rem 1.1rem;
+      opacity: 0.82; pointer-events: none;
+    }
+    .social-rooms {
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 130px; flex-shrink: 0;
+      border-right: 1px solid var(--tile-border); padding-right: 1rem;
+    }
+    .social-room {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--tile-label); padding: 5px 7px; border-radius: 6px;
+    }
+    .social-room i { font-size: 13px; color: var(--tile-icon); }
+    .social-room.active { background: var(--tile-bg-h); color: var(--tile-label-h); }
+    .social-chat { flex: 1; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+    .social-msg { display: flex; gap: 8px; align-items: baseline; font-size: 11px; }
+    .social-msg-user {
+      color: rgb(var(--accent-rgb)); font-weight: 600; letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+    .social-msg-text {
+      color: var(--text-dim); overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .social-blueprint-note {
+      font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-faint); text-align: center; margin-top: 0.6rem;
+    }
+
     .tile i {
       font-size: 16px; color: var(--tile-icon);
       transition: color 0.2s;
@@ -2226,6 +2260,24 @@
     </div>
   </div>
 
+  <div class="sec" data-sec="klabsocial" hidden>
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">blueprint only</span><div class="sec-line"></div></div>
+    <div class="social-blueprint">
+      <div class="social-rooms">
+        <div class="social-room active"><i class="ti ti-hash"></i><span>general</span></div>
+        <div class="social-room"><i class="ti ti-hash"></i><span>music</span></div>
+        <div class="social-room"><i class="ti ti-hash"></i><span>minecraft</span></div>
+        <div class="social-room"><i class="ti ti-hash"></i><span>off-topic</span></div>
+      </div>
+      <div class="social-chat">
+        <div class="social-msg"><span class="social-msg-user">xvoltzz</span><span class="social-msg-text">matrix bridge lands here eventually</span></div>
+        <div class="social-msg"><span class="social-msg-user">klab-bot</span><span class="social-msg-text">— synced from #klabnet:klab.gg —</span></div>
+        <div class="social-msg"><span class="social-msg-user">someone</span><span class="social-msg-text">just a mockup for now, no live messages</span></div>
+      </div>
+    </div>
+    <div class="social-blueprint-note">blueprint — matrix integration not wired up yet</div>
+  </div>
+
     <div class="player-dock" id="playerDock">
       <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
         <i class="ti ti-music"></i>
@@ -2376,12 +2428,22 @@
         </div>
       </div>
 
-      <!-- KlabCraft -->
+      <!-- Experimental Features -->
       <div class="settings-section">
-        <span class="settings-section-label">KlabCraft</span>
+        <span class="settings-section-label">Experimental Features</span>
         <div class="settings-row">
-          <div><div class="settings-row-label">Show KlabCraft</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
-          <div class="s-toggle" id="klabcraftToggle"></div>
+          <div><div class="settings-row-label">Enable Experimental Features</div><div class="settings-row-sub">Unlock the in-progress sections below</div></div>
+          <div class="s-toggle" id="experimentalToggle"></div>
+        </div>
+        <div id="experimentalOptions" hidden>
+          <div class="settings-row">
+            <div><div class="settings-row-label">KLABCRAFT</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
+            <div class="s-toggle" id="klabcraftToggle"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-row-label">KLAB SOCIAL</div><div class="settings-row-sub">Matrix chat integration (blueprint only)</div></div>
+            <div class="s-toggle" id="klabsocialToggle"></div>
+          </div>
         </div>
       </div>
 
@@ -5253,7 +5315,9 @@ let _settings = {
   crossfade:     false,
   loginSong:     true,
   scrobble:      true,
+  experimentalEnabled: false,
   showKlabcraft: false,
+  showKlabSocial: false,
 };
 
 function loadSettings() {
@@ -5271,12 +5335,18 @@ function applySettings() {
   // SFX volume — patch the SFX compressor
   if (typeof SFX !== 'undefined') SFX.setVolume(_settings.sfxEnabled ? (_settings.sfxVolume ?? 0.7) : 0);
 
-  // KlabCraft section visibility
-  const klabcraftSec = document.querySelector('.sec[data-sec="klabcraft"]');
-  if (klabcraftSec) {
-    klabcraftSec.hidden = !_settings.showKlabcraft;
-    if (_settings.showKlabcraft) klabcraftSec.classList.add('in-view');
-  }
+  // Experimental features — master gate + per-feature sections
+  const experimentalOptions = document.getElementById('experimentalOptions');
+  if (experimentalOptions) experimentalOptions.hidden = !_settings.experimentalEnabled;
+
+  const showSec = (selector, visible) => {
+    const sec = document.querySelector(selector);
+    if (!sec) return;
+    sec.hidden = !visible;
+    if (visible) sec.classList.add('in-view');
+  };
+  showSec('.sec[data-sec="klabcraft"]', _settings.experimentalEnabled && _settings.showKlabcraft);
+  showSec('.sec[data-sec="klabsocial"]', _settings.experimentalEnabled && _settings.showKlabSocial);
 }
 
 function openSettings() {
@@ -5290,7 +5360,9 @@ function openSettings() {
     crossfadeToggle:  'crossfade',
     loginSongToggle:  'loginSong',
     scrobbleToggle:   'scrobble',
+    experimentalToggle: 'experimentalEnabled',
     klabcraftToggle:  'showKlabcraft',
+    klabsocialToggle: 'showKlabSocial',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -5320,7 +5392,8 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
     const map = {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
       crossfadeToggle: 'crossfade', loginSongToggle: 'loginSong',
-      scrobbleToggle: 'scrobble', klabcraftToggle: 'showKlabcraft',
+      scrobbleToggle: 'scrobble', experimentalToggle: 'experimentalEnabled',
+      klabcraftToggle: 'showKlabcraft', klabsocialToggle: 'showKlabSocial',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }
