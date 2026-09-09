@@ -899,6 +899,28 @@
     .ctx-item.active-warn { color: var(--warn-color); }
     .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
 
+    /* gitea#2 — persistent indicator while continuously synced to
+       someone's playback (see the "Listening Party" JS section for the
+       actual sync logic); sits just above the dock, same bottom-centered
+       convention. */
+    .party-banner {
+      position: fixed; bottom: calc(1.1rem + 74px); left: 50%; transform: translateX(-50%);
+      z-index: 49; display: flex; align-items: center; gap: 8px;
+      padding: 7px 14px; border-radius: 20px;
+      background: var(--modal-bg); border: 1px solid var(--glass-border-h);
+      box-shadow: 0 10px 32px var(--shadow-40);
+      font-family: var(--font-ui); font-size: 11px; color: var(--text);
+    }
+    .party-banner[hidden] { display: none; }
+    .party-banner i { color: rgba(var(--accent-rgb),1); font-size: 14px; }
+    .party-banner-leave {
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 12px; font-weight: 700;
+      transition: color 0.15s, background 0.15s;
+    }
+    .party-banner-leave:hover { color: var(--text); background: var(--glass-fill-h); }
+
     /* ══ MUSIC PLAYER DOCK — always a floating bar, bottom-centered ══ */
     .player-dock {
       position: fixed;
@@ -2674,6 +2696,12 @@
   </aside>
 
   </div>
+
+    <div class="party-banner" id="partyBanner" hidden>
+      <i class="ti ti-headphones"></i>
+      <span class="party-banner-text"></span>
+      <button class="party-banner-leave" id="partyBannerLeave">Leave</button>
+    </div>
 
     <div class="player-dock" id="playerDock">
       <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
@@ -5833,6 +5861,10 @@ const MatrixChat = (function () {
     });
     client.on('RoomMember.typing', (event, member) => emit('typing', member));
     client.on('Room.receipt', (event, room) => emit('receipt', event, room));
+    // gitea#2 listening-party sync — plain to-device messages, no room/
+    // timeline involved at all, so nothing here ever shows up as a chat
+    // message or notification.
+    client.on('toDeviceEvent', event => emit('toDevice', event));
     // gitea#3: 20 felt thin ("does only like 20 messages"). This is just
     // the first page though — scrolling to the top of a room's timeline
     // pages in more/older history via scrollback(), see maybeLoadOlderMessages().
@@ -8088,11 +8120,152 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       await playSong(song);
       showToast(`Sync'd with ${username}! 🎶`);
       SFX && SFX.play('play');
+      // gitea#2: this was previously a one-shot "copy their track, play it
+      // from 0, never sync again" — startParty() below layers continuous
+      // drift-corrected sync on top via Matrix to-device messages, and the
+      // host replies with an immediate tick, correcting position within a
+      // beat rather than staying stuck at 0.
+      startParty(username);
     } catch(e) {
       showToast(`Couldn't sync with ${username}`);
       SFX && SFX.play('error');
     }
   }
+
+  // ── Listening Party: continuous sync via Matrix to-device messages ──
+  // Navidrome can't tell klabnet users apart to give us this for free —
+  // every user streams through one shared ND_USER service account, so
+  // there's no per-user "now playing position" to read from Subsonic.
+  // Matrix to-device messages are a real per-user channel already wired
+  // up for chat, so they're reused here as pure signaling (never touching
+  // any room/timeline) rather than adding any new backend.
+  //
+  // Not implemented — flagged back on the issue rather than attempted
+  // here: sacrificing playback controls to the host, and any actual
+  // shared/cross-device audio output (Spotify Jam-style). Both need real
+  // new infrastructure (exclusive control locking across the whole
+  // player UI; WebRTC-grade audio streaming), not just a signaling
+  // channel like this.
+  const PARTY_DRIFT_S    = 2.5;    // re-seek once local playback drifts this far from the host's
+  const PARTY_SUB_TTL_MS = 90000;  // drop a subscriber who hasn't renewed in this long (self-heals a closed tab with no explicit "leave")
+
+  let _partyHostId       = null;   // matrix userId we're currently following, or null
+  let _partyHostLabel    = '';     // their klabnet username, for the banner
+  let _applyingPartyTick = false;  // true only while our own tick handler is driving playSong — distinguishes that from the user picking a new track themselves
+  const _partySubscribers = new Map(); // matrix userId -> expiry ms, people currently following ME
+
+  function matrixIdFor(username) {
+    const client = MatrixChat.client;
+    return client ? `@${username}:${client.getUserId().split(':')[1]}` : null;
+  }
+
+  function sendToDeviceEvent(userId, type, content) {
+    const client = MatrixChat.client;
+    if (!client) return Promise.resolve();
+    return client.sendToDevice(type, new Map([[userId, new Map([['*', content]])]]));
+  }
+
+  function renderPartyBanner() {
+    const el = document.getElementById('partyBanner');
+    if (!el) return;
+    el.hidden = !_partyHostId;
+    if (_partyHostId) el.querySelector('.party-banner-text').textContent = `Listening party with ${_partyHostLabel}`;
+  }
+
+  function startParty(username) {
+    const hostId = matrixIdFor(username);
+    // No Matrix session, or this klabnet user has none — the one-shot
+    // sync playFromCard() already did still happened, it just won't stay
+    // continuously synced afterward.
+    if (!hostId) return;
+    _partyHostId = hostId;
+    _partyHostLabel = username;
+    renderPartyBanner();
+    sendToDeviceEvent(hostId, 'klab.sync_request', {}).catch(() => {});
+  }
+
+  function leaveParty(notify = true) {
+    if (!_partyHostId) return;
+    if (notify) sendToDeviceEvent(_partyHostId, 'klab.sync_stop', {}).catch(() => {});
+    _partyHostId = null;
+    _partyHostLabel = '';
+    renderPartyBanner();
+  }
+  document.getElementById('partyBannerLeave')?.addEventListener('click', () => { leaveParty(); SFX && SFX.play('click'); });
+
+  // Called whenever OUR OWN playback changes (track/play/pause) — pushes
+  // a fresh tick to everyone currently following us. A no-op loop over
+  // an empty map when nobody is.
+  function broadcastPartyTick() {
+    const now = Date.now();
+    for (const [userId, expiry] of _partySubscribers) if (expiry < now) _partySubscribers.delete(userId);
+    if (!_partySubscribers.size) return;
+    const song = playerState.currentSong;
+    const content = {
+      songId: song?.id ?? '', title: song?.title || '', artist: song?.artist || '',
+      position: playerState.audio.currentTime || 0, playing: !!song && playerState.playing,
+    };
+    for (const userId of _partySubscribers.keys()) sendToDeviceEvent(userId, 'klab.sync_tick', content).catch(() => {});
+  }
+  setInterval(broadcastPartyTick, 5000);
+  // Renew our own subscription with the host we're following every 60s —
+  // PARTY_SUB_TTL_MS on their end is longer than this on purpose, so a
+  // slow tick or two doesn't spuriously drop us.
+  setInterval(() => { if (_partyHostId) sendToDeviceEvent(_partyHostId, 'klab.sync_request', {}).catch(() => {}); }, 60000);
+
+  async function applyPartyTick(content) {
+    if (!_partyHostId) return;
+    const song = playerState.currentSong;
+    _applyingPartyTick = true;
+    try {
+      if (content.songId && content.songId !== song?.id) {
+        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${content.songId}&${subsonicParams()}`, {}, 6000);
+        const data = await r.json();
+        const newSong = data['subsonic-response']?.song || null;
+        if (newSong) {
+          await playSong(newSong);
+          playerState.audio.currentTime = content.position || 0;
+        }
+      } else if (song) {
+        if (Math.abs(playerState.audio.currentTime - (content.position || 0)) > PARTY_DRIFT_S) {
+          playerState.audio.currentTime = content.position || 0;
+        }
+        if (content.playing && playerState.audio.paused) playerState.audio.play().catch(() => {});
+        if (!content.playing && !playerState.audio.paused) playerState.audio.pause();
+      }
+    } catch (e) {
+    } finally {
+      _applyingPartyTick = false;
+    }
+  }
+
+  MatrixChat.on('toDevice', event => {
+    const type   = event.getType();
+    const sender = event.getSender();
+    if (type === 'klab.sync_request') {
+      _partySubscribers.set(sender, Date.now() + PARTY_SUB_TTL_MS);
+      broadcastPartyTick(); // catch this subscriber up immediately, don't make them wait for the next 5s tick
+    } else if (type === 'klab.sync_tick' && sender === _partyHostId) {
+      applyPartyTick(event.getContent());
+    } else if (type === 'klab.sync_stop') {
+      _partySubscribers.delete(sender);
+    }
+  });
+
+  // Any track change that isn't us applying a party tick means the user
+  // picked something themselves (search, queue, another card, etc.) —
+  // that implicitly leaves the party rather than silently fighting the
+  // host's next tick over what should be playing. Onion-wraps playSong
+  // once more, same pattern the lyrics engine and the media-session/
+  // history/accent-color patch above it already use.
+  const _origPlaySongParty = playSong;
+  playSong = async function(song) {
+    await _origPlaySongParty(song);
+    if (_partyHostId && !_applyingPartyTick) leaveParty();
+    broadcastPartyTick();
+  };
+  playerState.audio.addEventListener('play',  broadcastPartyTick);
+  playerState.audio.addEventListener('pause', broadcastPartyTick);
 
   list.addEventListener('click', e => {
     const meCard = e.target.closest('.presence-card.is-me');
