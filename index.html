@@ -1661,6 +1661,13 @@
       letter-spacing: 0.01em; margin-top: 1px;
     }
 
+    .presence-section-label {
+      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-faint); padding: 10px 4px 4px;
+    }
+    .presence-card.is-offline { opacity: 0.55; }
+    .presence-card.is-offline .presence-card-avatar { filter: grayscale(0.6); }
+
     .presence-empty {
       font-size: 9px; color: var(--text-faint);
       text-align: left; padding: 0.7rem 0.2rem;
@@ -3632,7 +3639,7 @@ document.getElementById('playerDock').addEventListener('contextmenu', e => {
 
 // ── Toast notification flyout — stacked cards hanging off the header
 //    buttons' bottom-right corner instead of a lone bottom-center pill ──
-function showToast(msg) {
+function showToast(msg, icon) {
   const host = document.getElementById('toastFlyout');
   if (!host) return;
 
@@ -3641,7 +3648,7 @@ function showToast(msg) {
 
   const item = document.createElement('div');
   item.className = 'toast-item';
-  item.innerHTML = '<i class="ti ti-bell toast-item-icon"></i><span class="toast-item-msg"></span>';
+  item.innerHTML = `<i class="ti ${icon || 'ti-bell'} toast-item-icon"></i><span class="toast-item-msg"></span>`;
   item.querySelector('.toast-item-msg').textContent = msg;
   host.appendChild(item);
   // Double rAF so the enter transition reliably fires on the frame after insertion.
@@ -4439,7 +4446,7 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 
 // Patch showToast to play notify sound
 const _origShowToast = showToast;
-showToast = function(msg) { SFX.play('notify'); _origShowToast(msg); };
+showToast = function(msg, icon) { SFX.play('notify'); _origShowToast(msg, icon); };
 
 // Patch addToQueue to play queue sound
 const _origAddToQueue = addToQueue;
@@ -5735,6 +5742,36 @@ function getDmRoomIds() {
   return new Set(Object.values(content).flat());
 }
 
+// startDm() only writes m.direct for whoever *initiates* the DM — the
+// person they invited never gets their own m.direct entry, so on their
+// side the room has no record of being a DM at all and falls into
+// Channels by default. Self-heals it using the is_direct flag Matrix
+// itself puts on the invite (RoomMember.getDMInviter(), returns the other
+// party's user ID if we were invited as a direct chat) — fire-and-forget,
+// re-renders once if anything actually changed. Each room is only ever
+// checked once per page load; a room's DM-ness never changes afterward.
+const _dmBookkeepingChecked = new Set();
+function ensureDmBookkeeping() {
+  const client = MatrixChat.client;
+  if (!client) return;
+  const myId = client.getUserId();
+  const directContent = client.getAccountData('m.direct')?.getContent() || {};
+  const known = new Set(Object.values(directContent).flat());
+  const updated = { ...directContent };
+  let changed = false;
+  client.getRooms().forEach(room => {
+    if (_dmBookkeepingChecked.has(room.roomId) || known.has(room.roomId)) return;
+    _dmBookkeepingChecked.add(room.roomId);
+    const inviter = room.getMember(myId)?.getDMInviter?.();
+    if (!inviter) return;
+    updated[inviter] = [...(updated[inviter] || []), room.roomId];
+    changed = true;
+  });
+  if (changed) {
+    client.setAccountData('m.direct', updated).then(renderChannelList).catch(() => {});
+  }
+}
+
 function buildChannelItem(room, icon) {
   // createRoom({invite:[...]}) only invites — the recipient hasn't actually
   // joined yet, and sending a message would fail if we treated this like
@@ -5764,6 +5801,7 @@ function buildChannelItem(room, icon) {
 function renderChannelList() {
   const list = document.getElementById('chatChannelsList');
   if (!list || !MatrixChat.client) return;
+  ensureDmBookkeeping();
   // Spaces get their own nav in a later milestone — hide them from this
   // flat list for now so they don't show up as bogus empty "channels".
   const dmIds = getDmRoomIds();
@@ -6134,11 +6172,20 @@ function openDmModal() {
   searchEl.focus();
 }
 
+// Set once the first sync reaches PREPARED — see the guard below.
+let _chatSyncSettled = false;
+
 // Toast for an incoming message the user isn't already looking at —
 // showToast() already plays the sitewide, user-customizable "notify" SFX
 // (see SFX.play('notify') inside its own wrapper), so this gets sound
 // support for free rather than needing its own notification primitive.
 function notifyNewMessage(event, room) {
+  // The initial sync (up to 20 messages/room, per initialSyncLimit) replays
+  // as live 'Room.timeline' events, same as anything genuinely new — without
+  // this, every page reload re-notifies for everything you already read
+  // last time. Only notify for events arriving after that first catch-up
+  // has already settled into PREPARED.
+  if (!_chatSyncSettled) return;
   if (event.getType() !== 'm.room.message') return;
   if (event.getRelation()?.rel_type === 'm.replace') return; // an edit, not a new message
   if (event.getSender() === MatrixChat.client.getUserId()) return; // our own message
@@ -6147,7 +6194,8 @@ function notifyNewMessage(event, room) {
   if (onThisRoomAlready) return;
   const senderName = event.sender?.name || event.getSender();
   const body = event.getContent().body || '';
-  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`);
+  const isDm = getDmRoomIds().has(room.roomId);
+  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined);
 }
 
 let _chatBound = false;
@@ -6166,6 +6214,10 @@ function showChatApp() {
       const live = state === 'PREPARED' || state === 'SYNCING';
       dot.classList.toggle('live', live);
       text.textContent = live ? 'connected' : state.toLowerCase();
+      // The initial sync's own Room.timeline events (the catch-up replay
+      // notifyNewMessage() guards against) always arrive before this fires,
+      // so it's safe to flip the gate open right here.
+      if (state === 'PREPARED') _chatSyncSettled = true;
       renderChannelList();
     });
     MatrixChat.on('timeline', (event, room) => {
@@ -7240,6 +7292,78 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   let _lastRenderedHTML = null;
+  // ── Offline roster (Matrix presence) ─────
+  // klabnet's own presence (above) only ever shows people currently
+  // active on the site. This supplements it with everyone else from your
+  // joined rooms' membership, via Matrix's own — separate — presence
+  // protocol: entirely client-side, no klabnet-api change. Only appears
+  // for viewers who've connected chat (needs MatrixChat.client), and
+  // needs the homeserver's use_presence setting on to show real
+  // last-seen data — with it off, entries just read "offline" plainly
+  // rather than erroring visibly.
+  const _offlineStatusCache = new Map(); // matrix userId -> status text
+  let _offlineTimer = null;
+
+  function fmtAgo(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function offlineRoster(onlineUsernames) {
+    const client = MatrixChat.client;
+    if (!client) return [];
+    const myId = client.getUserId();
+    const seen = new Set();
+    const roster = [];
+    client.getRooms().forEach(room => {
+      if (room.isSpaceRoom && room.isSpaceRoom()) return;
+      room.getJoinedMembers().forEach(member => {
+        if (member.userId === myId || seen.has(member.userId)) return;
+        seen.add(member.userId);
+        const username = member.userId.replace(/^@/, '').split(':')[0];
+        if (onlineUsernames.has(username)) return; // already shown as online above
+        roster.push({ userId: member.userId, username });
+      });
+    });
+    return roster;
+  }
+
+  async function refreshOfflineRoster(onlineUsernames) {
+    const client = MatrixChat.client;
+    if (!client) return;
+    await Promise.all(offlineRoster(onlineUsernames).map(async person => {
+      try {
+        const status = await client.getPresence(person.userId);
+        const text = status.presence === 'offline'
+          ? (status.last_active_ago != null ? `last seen ${fmtAgo(status.last_active_ago)}` : 'offline')
+          : 'online elsewhere';
+        _offlineStatusCache.set(person.userId, text);
+      } catch (e) {
+        _offlineStatusCache.set(person.userId, 'offline');
+      }
+    }));
+    renderList(_lastOthers);
+  }
+
+  function offlineCardHTML(person) {
+    ensureAvatarResolved(person.username);
+    const avatarUrl = _avatarCache.get(person.username);
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (person.username || '?')[0].toUpperCase();
+    const statusText = _offlineStatusCache.get(person.userId) || '…';
+    return '<div class="presence-card is-offline">' +
+      '<div class="presence-card-avatar">' + avatarInner + '</div>' +
+      '<div class="presence-card-info">' +
+        '<div class="presence-card-name">' + esc(person.username) + '</div>' +
+        '<div class="presence-card-track">' + esc(statusText) + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   function renderList(others) {
     _lastOthers = others;
     const me = window.KLAB_USER?.username;
@@ -7255,6 +7379,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       others.forEach(l => {
         html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
       });
+    }
+    const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
+    const roster = offlineRoster(onlineUsernames);
+    if (roster.length) {
+      html += '<div class="presence-section-label">Offline</div>';
+      roster.forEach(person => { html += offlineCardHTML(person); });
     }
     // Most 8s polls come back with nothing changed — skip the DOM
     // teardown/rebuild entirely when the output is identical to last time.
@@ -7359,13 +7489,23 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
   }
 
+  // Offline roster refreshes far less often than the 8s music-presence
+  // poll — last-seen data doesn't need second-by-second freshness, and
+  // it's one getPresence() REST call per roster member.
+  const OFFLINE_POLL_MS = 30000;
+  function refreshOfflineRosterNow() {
+    const me = window.KLAB_USER?.username;
+    refreshOfflineRoster(new Set([me, ...(_lastOthers || []).map(l => l.username)]));
+  }
+
   // ── Poll — runs from page load, pauses when the tab is hidden ──
   function startPoll() {
     if (_timer) return;
-    postPresence(); fetchPresence();
+    postPresence(); fetchPresence(); refreshOfflineRosterNow();
     _timer = setInterval(() => { postPresence(); fetchPresence(); }, POLL_MS);
+    _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
   }
-  function stopPoll() { clearInterval(_timer); _timer = null; }
+  function stopPoll() { clearInterval(_timer); _timer = null; clearInterval(_offlineTimer); _offlineTimer = null; }
 
   startPoll();
   document.addEventListener('visibilitychange', () => {
