@@ -732,12 +732,14 @@
     .chat-msg-text { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
     .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
     .chat-msg-edited { font-size: 9.5px; color: var(--text-faint); }
+    .chat-msg-seen { font-size: 9.5px; color: var(--text-faint); text-align: right; padding: 2px 4px 0; }
 
     .chat-typing {
       height: 18px; padding: 0 1.3rem; font-size: 10.5px; color: var(--text-faint);
       letter-spacing: 0.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-    .chat-composer { padding: 0.5rem 1.2rem 0.9rem; border-top: 1px solid var(--tile-border); }
+    .chat-composer { padding: 0.5rem 1.2rem 0.9rem; border-top: 1px solid var(--tile-border); position: relative; }
+    .chat-composer-row { display: flex; align-items: center; gap: 4px; }
     .chat-composer input {
       width: 100%; background: var(--glass-fill); border: 1px solid var(--tile-border);
       border-radius: 20px; padding: 10px 16px; font-size: 13px; color: var(--text);
@@ -752,6 +754,23 @@
        uses for .picker-search input — matching it here. */
     .chat-composer input:focus-visible { outline: none; }
     .chat-composer input::placeholder { color: var(--text-dimmer); }
+    .chat-emoji-btn { flex-shrink: 0; font-size: 17px; }
+    /* gitea#3 emoji request — plain Unicode emoji only, no custom-emoji
+       upload/storage (that's a real backend feature, not a v1 fit). */
+    .chat-emoji-picker {
+      position: absolute; bottom: 100%; left: 1.2rem; margin-bottom: 6px;
+      background: var(--glass-fill); backdrop-filter: blur(20px);
+      border: 1px solid var(--tile-border); border-radius: 10px;
+      padding: 6px; box-shadow: 0 8px 24px var(--shadow-20);
+      display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
+      width: 232px; max-height: 180px; overflow-y: auto;
+    }
+    .chat-emoji-picker[hidden] { display: none; }
+    .chat-emoji-picker button {
+      background: none; border: none; cursor: pointer; font-size: 17px;
+      line-height: 1; padding: 4px; border-radius: 6px;
+    }
+    .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
 
     .chat-channels-toolbar {
       display: flex; justify-content: flex-start; gap: 2px;
@@ -1786,6 +1805,11 @@
       letter-spacing: 0.01em; margin-bottom: 2px;
     }
     .presence-card.is-me .presence-card-name { color: rgba(var(--accent-rgb),1); }
+    /* Stable per-person color (gitea#3) — same idea as the chat
+       timeline's nametags. Lower specificity than the is-playing/
+       song-accent rule above, so a playing card's art-derived accent
+       still wins over this flatter per-person hash color. */
+    .presence-card:not(.is-me) .presence-card-name { color: var(--name-color, var(--text)); }
     .presence-card-track {
       font-family: var(--font-ui);
       font-size: 9.5px; color: var(--text-dimmer);
@@ -2573,7 +2597,11 @@
             <div class="chat-timeline" id="chatTimeline"></div>
             <div class="chat-typing" id="chatTyping"></div>
             <div class="chat-composer">
-              <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
+              <div class="chat-composer-row">
+                <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
+                <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
+              </div>
+              <div class="chat-emoji-picker" id="chatEmojiPicker" hidden></div>
             </div>
           </div>
         </div>
@@ -5804,7 +5832,11 @@ const MatrixChat = (function () {
       emit('timeline', event, room);
     });
     client.on('RoomMember.typing', (event, member) => emit('typing', member));
-    await client.startClient({ initialSyncLimit: 20 });
+    client.on('Room.receipt', (event, room) => emit('receipt', event, room));
+    // gitea#3: 20 felt thin ("does only like 20 messages"). This is just
+    // the first page though — scrolling to the top of a room's timeline
+    // pages in more/older history via scrollback(), see maybeLoadOlderMessages().
+    await client.startClient({ initialSyncLimit: 50 });
     return client;
   }
 
@@ -6141,11 +6173,6 @@ function renderTimeline() {
     return;
   }
   if (input) input.disabled = false;
-  // Actually being shown (Social tab open, this room selected) counts as
-  // read — same condition notifyNewMessage() uses to decide the reverse.
-  if (document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')) {
-    markRoomRead(room.roomId);
-  }
 
   const events = room.getLiveTimeline().getEvents().filter(ev => {
     if (ev.getType() !== 'm.room.message') return false;
@@ -6154,6 +6181,17 @@ function renderTimeline() {
     // here would show a second, redundant bubble with no body.
     return ev.getRelation()?.rel_type !== 'm.replace';
   });
+
+  // Actually being shown (Social tab open, this room selected) counts as
+  // read — same condition notifyNewMessage() uses to decide the reverse.
+  // Sending our own read receipt too (gitea#3) so the "Seen" line below
+  // shows up for the other party, and so other Matrix clients we're
+  // logged into elsewhere agree on what's read.
+  if (document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')) {
+    markRoomRead(room.roomId);
+    const lastEvent = events[events.length - 1];
+    if (lastEvent) MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
+  }
 
   const renderKey = room.roomId + '|' + events.map(ev =>
     `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}`
@@ -6214,7 +6252,82 @@ function renderTimeline() {
     row.append(avatar, body);
     el.appendChild(row);
   });
+
+  // gitea#3 read receipts — scoped to DMs only. A busy channel's "seen by
+  // 6 people, 2 unread" is real UI work (an avatar stack, etc.) that isn't
+  // worth building for a v1; a DM only ever has one other person to ask
+  // "have they seen my last message" about.
+  const lastEvent = events[events.length - 1];
+  if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId() && getDmRoomIds().has(room.roomId)) {
+    const otherMember = room.getMembers().find(m => m.userId !== MatrixChat.client.getUserId());
+    if (otherMember && room.hasUserReadEvent(otherMember.userId, lastEvent.getId())) {
+      const seen = document.createElement('div');
+      seen.className = 'chat-msg-seen';
+      seen.textContent = 'Seen';
+      el.appendChild(seen);
+    }
+  }
+
   if (wasNearBottom) el.scrollTop = el.scrollHeight;
+}
+
+// gitea#3: page in older history as the user scrolls up, rather than
+// stopping dead at whatever initialSyncLimit loaded. One in-flight
+// request per room (scrollback() itself also dedupes concurrent calls,
+// but this skips even issuing a second one while scrolling generates a
+// burst of scroll events). room.oldState.paginationToken === null is the
+// SDK's own signal that there's no more history to page in.
+let _paginatingRoomId = null;
+async function maybeLoadOlderMessages() {
+  const el = document.getElementById('chatTimeline');
+  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  if (!el || !room || el.scrollTop > 60) return;
+  if (_paginatingRoomId === room.roomId) return;
+  if (room.oldState.paginationToken === null) return;
+  _paginatingRoomId = room.roomId;
+  const prevHeight = el.scrollHeight;
+  try {
+    await MatrixChat.client.scrollback(room, 30);
+    _lastTimelineRenderKey = null; // force a rebuild — scrollback's events don't fire the 'timeline' emit (backfill is filtered out there)
+    renderTimeline();
+    // Keep the same messages on-screen instead of jumping — the rebuild
+    // clears scrollTop to 0, so shift it back down by exactly the height
+    // the newly-prepended older messages added.
+    el.scrollTop += el.scrollHeight - prevHeight;
+  } catch (e) {
+  } finally {
+    _paginatingRoomId = null;
+  }
+}
+
+// gitea#3 emoji request, scoped down to plain Unicode (no custom-emoji
+// upload — that needs real storage/moderation and isn't a v1 fit). A
+// curated common-emoji grid, not a full picker library.
+const CHAT_EMOJIS = [
+  '😀','😂','😅','😊','😍','😘','😎','🤔','😏','😢','😭','😡','🥳','😴','🤯','😱',
+  '👍','👎','👏','🙏','🙌','💪','🤝','👀','🔥','✨','🎉','💯','❤️','💀','🤡','🖕',
+];
+function initChatEmojiPicker() {
+  const btn    = document.getElementById('chatEmojiBtn');
+  const picker = document.getElementById('chatEmojiPicker');
+  const input  = document.getElementById('chatComposerInput');
+  if (!btn || !picker || !input || picker._bound) return;
+  picker._bound = true;
+  picker.innerHTML = CHAT_EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+  picker.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    input.value += b.textContent;
+    input.focus();
+    notifyTyping();
+  });
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    picker.hidden = !picker.hidden;
+  });
+  document.addEventListener('click', e => {
+    if (!picker.hidden && !picker.contains(e.target) && e.target !== btn) picker.hidden = true;
+  });
 }
 
 let _typingStopTimer = null;
@@ -6571,9 +6684,17 @@ let _chatSyncSettled = false;
 // it's the selected room). Cleared the same way — renderTimeline() marks
 // the active room read whenever it's actually being shown.
 const _chatUnreadRooms = new Set();
+// Base document.title, captured once before anything ever prefixes an
+// unread count onto it — reused below rather than hardcoding the string
+// a second time, so a future title change here doesn't need editing twice.
+const _baseTitle = document.title;
 function updateSocialUnreadBadge() {
   const badge = document.getElementById('socialUnreadBadge');
   if (badge) badge.textContent = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size})` : '';
+  // gitea#3: "visual blip to the browser tab" for an unread message —
+  // a title prefix works everywhere (pinned tabs, alt-tab switchers)
+  // unlike a favicon overlay, which a lot of browsers just clip/hide.
+  document.title = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size}) ${_baseTitle}` : _baseTitle;
 }
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
@@ -6584,7 +6705,7 @@ function markRoomRead(roomId) {
 // (see SFX.play('notify') inside its own wrapper), so this gets sound
 // support for free rather than needing its own notification primitive.
 function notifyNewMessage(event, room) {
-  // The initial sync (up to 20 messages/room, per initialSyncLimit) replays
+  // The initial sync (up to 50 messages/room, per initialSyncLimit) replays
   // as live 'Room.timeline' events, same as anything genuinely new — without
   // this, every page reload re-notifies for everything you already read
   // last time. Only notify for events arriving after that first catch-up
@@ -6685,10 +6806,21 @@ function showChatApp() {
       else _typingUsers.delete(member.userId);
       renderTypingLine();
     });
+    // gitea#3 read receipts — a receipt update doesn't change the events
+    // renderTimeline()'s renderKey hashes (it's the same messages, just a
+    // new "read up to" marker), so without invalidating the key here a
+    // fresh "Seen" line would never actually repaint.
+    MatrixChat.on('receipt', (event, room) => {
+      if (room.roomId !== _chatActiveRoomId) return;
+      _lastTimelineRenderKey = null;
+      renderTimeline();
+    });
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendChatMessage();
     });
     document.getElementById('chatComposerInput')?.addEventListener('input', notifyTyping);
+    document.getElementById('chatTimeline')?.addEventListener('scroll', maybeLoadOlderMessages);
+    initChatEmojiPicker();
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
     document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
@@ -7773,12 +7905,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // stay conditional on playable.
     const attrs = ' data-username="' + esc(username||'') + '"' +
       (playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
-    let cardStyle = '';
-    if (!isMe && playing && songId) {
-      ensureSongColorResolved(songId);
-      const rgb = _songColorCache.get(songId);
-      if (rgb) cardStyle = ' style="--card-accent:' + rgb.join(',') + '"';
+    // Every non-me card gets a stable per-person name color (same hash as
+    // the chat timeline's nametags, gitea#3) so a busy roster is easier to
+    // scan at a glance; a playing card's accent (song-art-derived) still
+    // wins visually since its CSS rule is more specific.
+    let cardVars = '';
+    if (!isMe) {
+      cardVars += '--name-color:' + chatNameColor(username) + ';';
+      if (playing && songId) {
+        ensureSongColorResolved(songId);
+        const rgb = _songColorCache.get(songId);
+        if (rgb) cardVars += '--card-accent:' + rgb.join(',') + ';';
+      }
     }
+    const cardStyle = cardVars ? ' style="' + cardVars + '"' : '';
     // Anyone cardHTML() renders at all is, by construction, currently
     // online on klabnet — so the dot means "online" now, not "playing".
     // It used to be gated on `playing`, which was fine back when presence
