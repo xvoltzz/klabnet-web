@@ -2851,7 +2851,18 @@ playerState.audio.addEventListener('pause', () => {
   setPlayIcon(false);
 });
 
+// Keeps the "now playing" highlight in any open album/artist track list
+// in sync with playback — needed because tracks also advance without a
+// click (auto-advance, prev/next, media session, presence sync).
+function refreshApNowHighlight() {
+  const nowId = playerState?.currentSong?.id;
+  document.querySelectorAll('.ap-track').forEach(row => {
+    row.classList.toggle('ap-now', nowId != null && row.dataset.songId === String(nowId));
+  });
+}
+
 function updatePlayerUI(song) {
+  refreshApNowHighlight();
   const titleEl  = document.getElementById('playerTitle');
   const artistEl = document.getElementById('playerArtist');
   const idleEl   = document.getElementById('playerIdle');
@@ -3188,6 +3199,10 @@ let pickerSongs = [];
 let pickerTab   = 'random';
 let pickerQuery = '';
 let pickerDebounce = null;
+// Guards loadPickerTab against out-of-order fetches: switching tabs, or
+// typing a new search query, before an earlier request resolves must not
+// let that earlier response overwrite the picker with stale results.
+let _pickerLoadToken = 0;
 
 const pickerBackdrop = document.getElementById('pickerBackdrop');
 const pickerList     = document.getElementById('pickerList');
@@ -3238,6 +3253,7 @@ function goToMusicDetail(openFn) {
 async function loadPickerTab(tab) {
   pickerTab = tab;
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  const myLoadToken = ++_pickerLoadToken;
 
   let songs = [];
   try {
@@ -3271,6 +3287,7 @@ async function loadPickerTab(tab) {
       const foundArtists = result.artist || [];
       const foundAlbums  = result.album  || [];
       const foundSongs   = result.song   || [];
+      if (myLoadToken !== _pickerLoadToken) return; // superseded by a newer tab switch / search
       pickerList.innerHTML = '';
       if (foundArtists.length) {
         const artLbl = document.createElement('div');
@@ -3303,10 +3320,12 @@ async function loadPickerTab(tab) {
       return;
     }
   } catch(e) {
+    if (myLoadToken !== _pickerLoadToken) return;
     pickerList.innerHTML = '<div class="picker-empty">failed to load</div>';
     return;
   }
 
+  if (myLoadToken !== _pickerLoadToken) return; // superseded by a newer tab switch / search
   pickerSongs = songs;
   const tabLabels = {random:'Songs',recent:'Recently Played',search:'Search Results'};
   renderPickerList(songs, tabLabels[pickerTab] || 'Songs');
@@ -6103,11 +6122,17 @@ document.addEventListener('keydown', e => {
   target.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
-    const a    = playerState.audio;
     const step = e.deltaY < 0 ? 0.05 : -0.05;
-    a.volume   = Math.max(0, Math.min(1, a.volume + step));
-    volSlider.setPct(a.volume);
-    localStorage.setItem('klabnet_volume', a.volume);
+    const pct  = Math.max(0, Math.min(1, playerState.audio.volume + step));
+    // Mirror the volSlider/fsVolSlider drag callbacks so a wheel-adjusted
+    // volume persists across track changes (playSong re-applies
+    // playerState.volume) and stays in sync with the fullscreen slider.
+    clearInterval(_loginFadeInterval);
+    playerState.volume = pct;
+    playerState.audio.volume = pct;
+    localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
+    volSlider.setPct(pct);
+    fsVolSlider.setPct(pct);
     SFX && SFX.play('hover');
   }, { passive: false });
 })();
@@ -6802,6 +6827,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   if (!panel) return;
 
   let _stack = [];
+  // Guards openArtistPage/openAlbumPage against out-of-order network
+  // responses: opening B before A's fetch resolves must not let A's
+  // late response overwrite B's already-rendered panel.
+  let _apLoadToken = 0;
 
   function fmtDur(s) {
     const m = Math.floor(s / 60);
@@ -6889,6 +6918,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       ? `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=150&${subsonicParams()}` : '';
     const row = document.createElement('div');
     row.className = 'ap-track' + (isNow ? ' ap-now' : '');
+    row.dataset.songId = song.id;
     row.innerHTML = `
       <span class="ap-track-num">${idx + 1}</span>
       ${artUrl ? `<img class="ap-track-art" src="${artUrl}" loading="lazy" onerror="this.style.display='none'" />` : ''}
@@ -6899,9 +6929,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       ${song.duration ? `<span class="ap-track-dur">${fmtDur(song.duration)}</span>` : ''}
       <button class="ap-track-play"><i class="ti ti-player-play"></i></button>`;
     row.addEventListener('click', () => {
-      // Update ap-now highlight across all tracks in this panel
-      scroll.querySelectorAll('.ap-track').forEach(t => t.classList.remove('ap-now'));
-      row.classList.add('ap-now');
       playerState.playlist = songs;
       playerState.playlistIndex = idx;
       playSong(song);
@@ -6935,12 +6962,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
     const renderFn = async () => {
       loading();
+      const myLoadToken = ++_apLoadToken;
       try {
         const [artRes, infoRes, topRes] = await Promise.allSettled([
           fetchTimeout(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
           fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=10&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
           fetchTimeout(`${ND_URL}/rest/getTopSongs?artist=${encodeURIComponent(artistName)}&count=5&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
+        if (myLoadToken !== _apLoadToken) return; // superseded by a newer openArtistPage/openAlbumPage call
 
         const artist   = artRes.status  === 'fulfilled' ? artRes.value['subsonic-response']?.artist        : null;
         const info     = infoRes.status === 'fulfilled' ? infoRes.value['subsonic-response']?.artistInfo2  : null;
@@ -7033,6 +7062,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         scroll.scrollTop = 0;
 
       } catch(e) {
+        if (myLoadToken !== _apLoadToken) return;
         scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Failed to load artist</div>`;
       }
     };
@@ -7051,11 +7081,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
     const renderFn = async () => {
       loading();
+      const myLoadToken = ++_apLoadToken;
       try {
         const [albRes, infoRes] = await Promise.allSettled([
           fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
           fetchTimeout(`${ND_URL}/rest/getAlbumInfo2?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
+        if (myLoadToken !== _apLoadToken) return; // superseded by a newer openArtistPage/openAlbumPage call
 
         const album = albRes.status  === 'fulfilled' ? albRes.value['subsonic-response']?.album    : null;
         const info  = infoRes.status === 'fulfilled' ? infoRes.value['subsonic-response']?.albumInfo : null;
@@ -7147,6 +7179,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         });
 
       } catch(e) {
+        if (myLoadToken !== _apLoadToken) return;
         scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Failed to load album</div>`;
       }
     };
