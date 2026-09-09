@@ -6721,22 +6721,44 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _avatarPending = new Set();
   let _lastOthers = [];
 
+  // Synapse's newer authenticated-media requirement (MSC3916) means a plain
+  // <img src="...media/v3/download..."> 401s silently — <img> tags can't attach
+  // an Authorization header, so the browser just shows a broken image with
+  // no visible error. Fetching the thumbnail ourselves with the access
+  // token and handing the img tag a blob: URL works regardless of whether
+  // the homeserver actually enforces auth on media or not.
+  function mxcParts(mxcUrl) {
+    const m = /^mxc:\/\/([^/]+)\/([^/?]+)/.exec(mxcUrl || '');
+    return m ? { server: m[1], mediaId: m[2] } : null;
+  }
+  async function fetchAvatarBlobUrl(client, mxcUrl) {
+    const parts = mxcParts(mxcUrl);
+    if (!parts) return null;
+    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=64&height=64&method=crop`;
+    const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
+    if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
+    return URL.createObjectURL(await res.blob());
+  }
+
   function ensureAvatarResolved(username) {
     if (!username || _avatarCache.has(username) || _avatarPending.has(username)) return;
     const client = MatrixChat.client;
     if (!client) return;
     _avatarPending.add(username);
-    const serverName = client.getUserId().split(':')[1];
-    client.getProfileInfo(`@${username}:${serverName}`).then(info => {
-      _avatarCache.set(username, info?.avatar_url ? client.mxcUrlToHttp(info.avatar_url, 64, 64, 'crop') : null);
-    }).catch(() => {
-      _avatarCache.set(username, null); // cache the miss too — don't retry every poll for users with no Matrix account
-    }).finally(() => {
-      _avatarPending.delete(username);
-      // Rebuild with whatever we last fetched — the resolved avatar changes
-      // the HTML this time, so the diff check below won't skip it.
-      renderList(_lastOthers);
-    });
+    (async () => {
+      try {
+        const serverName = client.getUserId().split(':')[1];
+        const info = await client.getProfileInfo(`@${username}:${serverName}`);
+        _avatarCache.set(username, info?.avatar_url ? await fetchAvatarBlobUrl(client, info.avatar_url) : null);
+      } catch (e) {
+        _avatarCache.set(username, null); // no Matrix account, no avatar set, or the fetch failed — cache the miss either way
+      } finally {
+        _avatarPending.delete(username);
+        // Rebuild with whatever we last fetched — the resolved avatar changes
+        // the HTML this time, so the diff check below won't skip it.
+        renderList(_lastOthers);
+      }
+    })();
   }
 
   // ── Render helpers ───────────────────────
