@@ -1558,6 +1558,10 @@
       background: rgba(var(--accent-rgb),0.1);
       color: rgba(var(--accent-rgb),1);
     }
+    .presence-card-avatar img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      border-radius: 50%; object-fit: cover;
+    }
     .presence-card-online {
       position: absolute; bottom: 1px; right: 1px;
       width: 9px; height: 9px; border-radius: 50%;
@@ -6702,15 +6706,50 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const list = document.getElementById('presenceList');
   if (!list) return;
 
+  // ── Matrix avatars ───────────────────────
+  // Opportunistic, 100% client-side: if (and only if) this viewer's own
+  // MatrixChat session is connected, resolve each listed username's own
+  // Matrix avatar directly from the homeserver (assumes klabnet usernames
+  // match Matrix localparts on the same server_name as the logged-in
+  // user — true by construction, since Matrix login here delegates to the
+  // same Authentik identity). No backend involved, no change to
+  // /api/presence's schema — this is purely a rendering enhancement on
+  // top of the existing username string already in each presence entry.
+  // A viewer who hasn't connected chat just keeps seeing initials, same
+  // as before.
+  const _avatarCache   = new Map(); // username -> https URL, or null (no avatar / lookup failed)
+  const _avatarPending = new Set();
+  let _lastOthers = [];
+
+  function ensureAvatarResolved(username) {
+    if (!username || _avatarCache.has(username) || _avatarPending.has(username)) return;
+    const client = MatrixChat.client;
+    if (!client) return;
+    _avatarPending.add(username);
+    const serverName = client.getUserId().split(':')[1];
+    client.getProfileInfo(`@${username}:${serverName}`).then(info => {
+      _avatarCache.set(username, info?.avatar_url ? client.mxcUrlToHttp(info.avatar_url, 64, 64, 'crop') : null);
+    }).catch(() => {
+      _avatarCache.set(username, null); // cache the miss too — don't retry every poll for users with no Matrix account
+    }).finally(() => {
+      _avatarPending.delete(username);
+      // Rebuild with whatever we last fetched — the resolved avatar changes
+      // the HTML this time, so the diff check below won't skip it.
+      renderList(_lastOthers);
+    });
+  }
+
   // ── Render helpers ───────────────────────
   function cardHTML(username, song, artist, isMe, playing, songId) {
-    const initial = (username||'?')[0].toUpperCase();
+    ensureAvatarResolved(username);
+    const avatarUrl = _avatarCache.get(username);
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (username||'?')[0].toUpperCase();
     const playable = !isMe && playing && (songId || song);
     const attrs = playable
       ? ' data-username="' + esc(username||'') + '" data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"'
       : '';
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + '"' + attrs + '>' +
-      '<div class="presence-card-avatar">' + initial +
+      '<div class="presence-card-avatar">' + avatarInner +
         (playing ? '<span class="presence-card-online"></span>' : '') +
       '</div>' +
       '<div class="presence-card-info">' +
@@ -6723,6 +6762,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
   let _lastRenderedHTML = null;
   function renderList(others) {
+    _lastOthers = others;
     const me = window.KLAB_USER?.username;
     const mySong = playerState.currentSong;
     let html = '';
