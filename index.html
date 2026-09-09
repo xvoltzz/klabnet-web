@@ -650,11 +650,15 @@
     .chat-msg-head { display: flex; align-items: baseline; gap: 6px; }
     .chat-msg-sender { font-size: 10.5px; font-weight: 700; color: var(--text); }
     .chat-msg-time { font-size: 8.5px; color: var(--text-faint); }
-    .chat-msg-text { font-size: 11px; color: var(--tile-label); line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+    .chat-msg-text { font-size: 11px; color: var(--text); line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
     .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
     .chat-msg-edited { font-size: 8.5px; color: var(--text-faint); }
 
-    .chat-composer { padding: 0.6rem 0.9rem; border-top: 1px solid var(--tile-border); }
+    .chat-typing {
+      height: 16px; padding: 0 0.9rem; font-size: 9.5px; color: var(--text-faint);
+      letter-spacing: 0.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .chat-composer { padding: 0.3rem 0.9rem 0.6rem; border-top: 1px solid var(--tile-border); }
     .chat-composer input {
       width: 100%; background: var(--glass-fill); border: 1px solid var(--tile-border);
       border-radius: 20px; padding: 8px 14px; font-size: 11px; color: var(--text);
@@ -2420,6 +2424,7 @@
           </div>
           <div class="chat-main">
             <div class="chat-timeline" id="chatTimeline"></div>
+            <div class="chat-typing" id="chatTyping"></div>
             <div class="chat-composer">
               <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
             </div>
@@ -5604,6 +5609,7 @@ const MatrixChat = (function () {
       if (toStartOfTimeline) return; // ignore backfill, only live events
       emit('timeline', event, room);
     });
+    client.on('RoomMember.typing', (event, member) => emit('typing', member));
     await client.startClient({ initialSyncLimit: 20 });
     return client;
   }
@@ -5686,6 +5692,20 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 // ══════════════════════════════════════════
 let _chatUiLoaded = false;
 let _chatActiveRoomId = null;
+
+// Consistent per-sender nametag color — same idea as Discord/Slack role
+// colors: hash the (stable) Matrix user ID to one fixed entry in a curated
+// palette, so a given person's name is always the same color, which makes
+// a busy timeline easier to scan by sender at a glance. Picked for
+// readability against both the dark (near-black) and light (warm cream)
+// theme backgrounds, and clear of --danger-color/--success-color so a
+// nametag is never mistaken for an error or online-status hue.
+const CHAT_NAME_COLORS = ['#5b9dd9', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf', '#eab308', '#38bdf8', '#c084fc'];
+function chatNameColor(id) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return CHAT_NAME_COLORS[hash % CHAT_NAME_COLORS.length];
+}
 
 // Message-avatar cache, keyed by Matrix user ID (unlike the presence
 // rail's cache, which is keyed by klabnet username — this one has a real
@@ -5778,10 +5798,31 @@ function renderChannelList() {
   renderTimeline();
 }
 
+// Typing state is only ever tracked for the active room — cleared here
+// (rather than at every _chatActiveRoomId assignment site, of which there
+// are several) whenever renderTimeline() notices the room actually changed.
+const _typingUsers = new Map(); // userId -> display name, active room only
+let _typingRenderedRoomId = null;
+
+function renderTypingLine() {
+  const el = document.getElementById('chatTyping');
+  if (!el) return;
+  const names = [..._typingUsers.values()];
+  if (!names.length) el.textContent = '';
+  else if (names.length === 1) el.textContent = `${names[0]} is typing…`;
+  else if (names.length === 2) el.textContent = `${names[0]} and ${names[1]} are typing…`;
+  else el.textContent = 'Several people are typing…';
+}
+
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
   if (!el) return;
+  if (_chatActiveRoomId !== _typingRenderedRoomId) {
+    _typingRenderedRoomId = _chatActiveRoomId;
+    _typingUsers.clear();
+    renderTypingLine();
+  }
   const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
   if (!room) {
     el.innerHTML = '<div class="chat-timeline-empty">Select a channel to start chatting.</div>';
@@ -5828,7 +5869,7 @@ function renderTimeline() {
     if (!grouped) {
       const head = document.createElement('div');
       head.className = 'chat-msg-head';
-      head.innerHTML = `<span class="chat-msg-sender">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+      head.innerHTML = `<span class="chat-msg-sender" style="color:${chatNameColor(senderId)}">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
       body.appendChild(head);
     }
 
@@ -5853,11 +5894,27 @@ function renderTimeline() {
   el.scrollTop = el.scrollHeight;
 }
 
+let _typingStopTimer = null;
+
+// Called on every composer keystroke — tells the room we're typing, and
+// lets the server's own 4s timeout naturally clear it if we stop without
+// sending (we also clear it explicitly on send, for a snappier "stopped").
+function notifyTyping() {
+  if (!_chatActiveRoomId || !MatrixChat.client) return;
+  MatrixChat.client.sendTyping(_chatActiveRoomId, true, 4000).catch(() => {});
+  clearTimeout(_typingStopTimer);
+  _typingStopTimer = setTimeout(() => {
+    MatrixChat.client?.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
+  }, 4000);
+}
+
 function sendChatMessage() {
   const input = document.getElementById('chatComposerInput');
   const text = input.value.trim();
   if (!text || !_chatActiveRoomId) return;
   input.value = '';
+  clearTimeout(_typingStopTimer);
+  MatrixChat.client.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
   MatrixChat.client.sendTextMessage(_chatActiveRoomId, text).catch(e => {
     console.error('[chat] send failed', e);
     input.value = text; // hand the text back so nothing typed is lost
@@ -5879,11 +5936,36 @@ function closeChatModal() {
 
 function openBrowseModal() {
   openChatModal('// browse channels', `
-    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="chatBrowseSearch" placeholder="search channels..." autocomplete="off" /></div>
+    <div class="chat-modal-search"><i class="ti ti-hash"></i><input type="text" id="chatJoinById" placeholder="or paste a room ID / #alias:server" autocomplete="off" /><button class="chat-modal-row-btn" id="chatJoinByIdBtn">Join</button></div>
+    <div class="chat-modal-search" style="margin-top:6px;"><i class="ti ti-search"></i><input type="text" id="chatBrowseSearch" placeholder="search channels..." autocomplete="off" /></div>
     <div class="chat-modal-list" id="chatBrowseList"><div class="picker-empty">loading...</div></div>
   `);
   const listEl   = document.getElementById('chatBrowseList');
   const searchEl = document.getElementById('chatBrowseSearch');
+
+  // A room can be self-joinable without being *published to the public
+  // directory* — those are two separate settings — so a room might never
+  // show up in the results below no matter how it's searched. This is the
+  // escape hatch: join directly by room ID or #alias:server if you know it.
+  const joinByIdInput = document.getElementById('chatJoinById');
+  const joinByIdBtn   = document.getElementById('chatJoinByIdBtn');
+  async function joinById() {
+    const idOrAlias = joinByIdInput.value.trim();
+    if (!idOrAlias) return;
+    joinByIdBtn.disabled = true; joinByIdBtn.textContent = 'Joining…';
+    try {
+      await MatrixChat.client.joinRoom(idOrAlias);
+      closeChatModal();
+      renderChannelList();
+      showToast(`Joined ${idOrAlias}`);
+    } catch (e) {
+      showToast(`Couldn't join: ${e.message || 'error'}`);
+    } finally {
+      joinByIdBtn.disabled = false; joinByIdBtn.textContent = 'Join';
+    }
+  }
+  joinByIdBtn.addEventListener('click', joinById);
+  joinByIdInput.addEventListener('keydown', e => { if (e.key === 'Enter') joinById(); });
 
   function renderResults(rooms) {
     const joined = new Set(MatrixChat.client.getRooms().map(r => r.roomId));
@@ -6052,6 +6134,22 @@ function openDmModal() {
   searchEl.focus();
 }
 
+// Toast for an incoming message the user isn't already looking at —
+// showToast() already plays the sitewide, user-customizable "notify" SFX
+// (see SFX.play('notify') inside its own wrapper), so this gets sound
+// support for free rather than needing its own notification primitive.
+function notifyNewMessage(event, room) {
+  if (event.getType() !== 'm.room.message') return;
+  if (event.getRelation()?.rel_type === 'm.replace') return; // an edit, not a new message
+  if (event.getSender() === MatrixChat.client.getUserId()) return; // our own message
+  const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')
+    && room.roomId === _chatActiveRoomId;
+  if (onThisRoomAlready) return;
+  const senderName = event.sender?.name || event.getSender();
+  const body = event.getContent().body || '';
+  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`);
+}
+
 let _chatBound = false;
 
 function showChatApp() {
@@ -6070,10 +6168,20 @@ function showChatApp() {
       text.textContent = live ? 'connected' : state.toLowerCase();
       renderChannelList();
     });
-    MatrixChat.on('timeline', () => renderChannelList()); // cascades to renderTimeline() too
+    MatrixChat.on('timeline', (event, room) => {
+      renderChannelList(); // cascades to renderTimeline() too
+      notifyNewMessage(event, room);
+    });
+    MatrixChat.on('typing', member => {
+      if (member.roomId !== _chatActiveRoomId || member.userId === MatrixChat.client.getUserId()) return;
+      if (member.typing) _typingUsers.set(member.userId, member.name);
+      else _typingUsers.delete(member.userId);
+      renderTypingLine();
+    });
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendChatMessage();
     });
+    document.getElementById('chatComposerInput')?.addEventListener('input', notifyTyping);
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
     document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
@@ -7215,19 +7323,24 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePresenceCtx(); });
 
   // ── API calls ────────────────────────────
+  // Presence used to be entirely gated on having a song loaded — someone
+  // just browsing/chatting with nothing playing never posted at all, and
+  // was filtered out of everyone else's list even if they had. Now it
+  // posts (and shows) "on the site" as its own state, with song/artist
+  // attached only when actually applicable.
   async function postPresence() {
-    if (!playerState.currentSong || !window.KLAB_USER?.username) return;
-    if (window.KLAB_USER.username === 'anonymous') return;
+    if (!window.KLAB_USER?.username || window.KLAB_USER.username === 'anonymous') return;
+    const song = playerState.currentSong;
     try {
       await fetchTimeout(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: window.KLAB_USER.username,
-          song:     playerState.currentSong.title  || 'Unknown',
-          artist:   playerState.currentSong.artist || '',
-          songId:   playerState.currentSong.id,
-          playing:  playerState.playing,
+          song:     song?.title  || '',
+          artist:   song?.artist || '',
+          songId:   song?.id     || '',
+          playing:  !!song && playerState.playing,
         })
       }, 6000);
     } catch(e) {}
@@ -7239,7 +7352,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       if (!r.ok) return;
       const data = await r.json();
       const me   = window.KLAB_USER?.username;
-      const others = (data.listeners || []).filter(l => l.username !== me && l.playing);
+      const others = (data.listeners || []).filter(l => l.username !== me);
       renderList(others);
     } catch(e) {
       renderList([]);
