@@ -295,6 +295,11 @@
     body.tab-social-active .presence-rail { align-self: stretch; max-height: 100%; }
     body.tab-social-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-social-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
+    /* .sec-head's global margin-bottom (1.2rem) plus .chat-app-header's
+       own top padding (0.9rem) stack into a gap that reads as too much
+       air above "connecting…"/"connected" — tightened for this section
+       only, same idea as .sec-global-presence's smaller variant below. */
+    body.tab-social-active .sec[data-sec="klabsocial"] .sec-head { margin-bottom: 0.6rem; }
     body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
     /* flex:1 (not 0 1 auto) — a fixed, content-independent height, so a
        short conversation doesn't shrink the box down to fit just those
