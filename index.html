@@ -645,6 +645,7 @@
       font-size: 10px; font-weight: 700; text-transform: uppercase;
     }
     .chat-msg-avatar.grouped { visibility: hidden; }
+    .chat-msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .chat-msg-body { min-width: 0; flex: 1; }
     .chat-msg-head { display: flex; align-items: baseline; gap: 6px; }
     .chat-msg-sender { font-size: 10.5px; font-weight: 700; color: var(--text); }
@@ -660,7 +661,14 @@
       font-family: var(--font-ui); outline: none; transition: border-color 0.15s;
     }
     .chat-composer input:focus { border-color: rgba(var(--accent-rgb),0.4); }
-    .chat-composer input::placeholder { color: var(--text-faint); }
+    /* A global input:focus-visible rule (accessibility outline ring) has the
+       same specificity as a plain "outline: none" here and sits later in the
+       stylesheet, so it wins the cascade and draws a second box tight around
+       the text on top of this pill's own border. Re-targeting :focus-visible
+       specifically (not just a base outline:none) is the fix the site already
+       uses for .picker-search input — matching it here. */
+    .chat-composer input:focus-visible { outline: none; }
+    .chat-composer input::placeholder { color: var(--text-dimmer); }
 
     .chat-channels-toolbar {
       display: flex; justify-content: flex-end; gap: 2px;
@@ -687,7 +695,8 @@
       flex: 1; background: none; border: none; outline: none; color: var(--text);
       font-family: var(--font-ui); font-size: 11px;
     }
-    .chat-modal-search input::placeholder { color: var(--text-faint); }
+    .chat-modal-search input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
+    .chat-modal-search input::placeholder { color: var(--text-dimmer); }
     .chat-modal-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 0.6rem; }
     .chat-modal-row {
       display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
@@ -709,8 +718,9 @@
       border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text);
       font-family: var(--font-ui); outline: none;
     }
-    .chat-modal-input::placeholder { color: var(--text-faint); }
+    .chat-modal-input::placeholder { color: var(--text-dimmer); }
     .chat-modal-input:focus { border-color: rgba(var(--accent-rgb),0.4); }
+    .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
     .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
 
     .tile i {
@@ -1302,7 +1312,8 @@
       outline: none; width: 100%; transition: border-color 0.2s;
     }
     .pl-new-input:focus { border-color: rgba(255,255,255,0.35); }
-    .pl-new-input::placeholder { color: var(--text-faint); }
+    .pl-new-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment */
+    .pl-new-input::placeholder { color: var(--text-dimmer); }
 
     /* ── Light theme overrides ── */
     [data-theme="light"] .sec-line  { background: rgba(90,78,62,0.15); }
@@ -1626,12 +1637,6 @@
       box-shadow: 0 0 6px rgba(74,222,128,0.6);
       animation: dotPulse 2.5s ease-out infinite;
     }
-    .presence-card.is-me .presence-card-online {
-      background: rgba(var(--accent-rgb),1);
-      box-shadow: 0 0 6px rgba(var(--accent-rgb),0.6);
-      animation: none;
-    }
-
     .presence-card-info { flex: 1; min-width: 0; }
     .presence-card-name {
       font-family: var(--font-ui);
@@ -2315,6 +2320,12 @@
   <div class="ctx-item" id="ctxOpen"><i class="ti ti-external-link"></i> Open</div>
   <div class="ctx-divider"></div>
   <div class="ctx-item warn" id="ctxMaintenance"><i class="ti ti-tool"></i> Set Maintenance</div>
+</div>
+
+<div class="ctx-menu" id="presenceCtxMenu">
+  <div class="ctx-label" id="presenceCtxLabel">User</div>
+  <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen Party</div>
+  <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
 </div>
 
 <div class="dash">
@@ -5639,7 +5650,28 @@ const MatrixChat = (function () {
     clearSession();
   }
 
-  return { login, logout, on, hasSession: () => !!loadSession(), get client() { return client; } };
+  // Synapse's newer authenticated-media requirement (MSC3916) means a plain
+  // <img src="...media/v3/download..."> 401s silently — <img> tags can't
+  // attach an Authorization header, so the browser just shows a broken
+  // image with no visible error. Fetching the thumbnail ourselves with the
+  // access token and handing the caller a blob: URL works regardless of
+  // whether the homeserver actually enforces auth on media or not. Shared
+  // by every avatar consumer (presence rail, chat timeline) rather than
+  // each maintaining its own copy.
+  function mxcParts(mxcUrl) {
+    const m = /^mxc:\/\/([^/]+)\/([^/?]+)/.exec(mxcUrl || '');
+    return m ? { server: m[1], mediaId: m[2] } : null;
+  }
+  async function mxcToBlobUrl(mxcUrl) {
+    const parts = mxcParts(mxcUrl);
+    if (!parts || !client) return null;
+    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=64&height=64&method=crop`;
+    const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
+    if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
+    return URL.createObjectURL(await res.blob());
+  }
+
+  return { login, logout, on, hasSession: () => !!loadSession(), mxcToBlobUrl, get client() { return client; } };
 })();
 
 window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section below for the UI wiring
@@ -5654,6 +5686,26 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 // ══════════════════════════════════════════
 let _chatUiLoaded = false;
 let _chatActiveRoomId = null;
+
+// Message-avatar cache, keyed by Matrix user ID (unlike the presence
+// rail's cache, which is keyed by klabnet username — this one has a real
+// RoomMember object per message with its own mxc avatar URL already
+// attached, so there's no separate profile-lookup step needed here).
+const _msgAvatarCache   = new Map(); // userId -> blob URL, or null
+const _msgAvatarPending = new Set();
+
+function ensureMsgAvatarResolved(userId, mxcUrl) {
+  if (!userId || !mxcUrl || _msgAvatarCache.has(userId) || _msgAvatarPending.has(userId)) return;
+  _msgAvatarPending.add(userId);
+  MatrixChat.mxcToBlobUrl(mxcUrl).then(url => {
+    _msgAvatarCache.set(userId, url);
+  }).catch(() => {
+    _msgAvatarCache.set(userId, null);
+  }).finally(() => {
+    _msgAvatarPending.delete(userId);
+    renderTimeline(); // re-render so the now-resolved avatar actually shows
+  });
+}
 
 // Rooms recorded in the 'm.direct' account-data map are DMs; everything
 // else joined (minus spaces) is a "channel". Matrix has no room-level flag
@@ -5759,7 +5811,17 @@ function renderTimeline() {
 
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
-    avatar.textContent = (senderName || '?').trim().charAt(0).toUpperCase();
+    const mxcAvatarUrl = ev.sender?.getMxcAvatarUrl?.();
+    ensureMsgAvatarResolved(senderId, mxcAvatarUrl);
+    const cachedAvatarUrl = _msgAvatarCache.get(senderId);
+    if (cachedAvatarUrl) {
+      const img = document.createElement('img');
+      img.src = cachedAvatarUrl;
+      img.alt = '';
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = (senderName || '?').trim().charAt(0).toUpperCase();
+    }
 
     const body = document.createElement('div');
     body.className = 'chat-msg-body';
@@ -5929,6 +5991,20 @@ async function startDm(userId) {
   } catch (e) {
     showToast(`Couldn't start DM: ${e.message || 'error'}`);
   }
+}
+
+// Entry point for the presence-card context menu's "Message" action —
+// resolves a klabnet username to its Matrix user ID (same localpart/
+// server_name convention as the presence-avatar lookup) and jumps to the
+// Social tab to start or resume a DM with them.
+function messageUser(username) {
+  if (!MatrixChat.client) {
+    showToast('Connect chat in the Social tab first');
+    return;
+  }
+  const serverName = MatrixChat.client.getUserId().split(':')[1];
+  setActiveTab('social');
+  startDm(`@${username}:${serverName}`);
 }
 
 function openDmModal() {
@@ -7011,25 +7087,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _avatarPending = new Set();
   let _lastOthers = [];
 
-  // Synapse's newer authenticated-media requirement (MSC3916) means a plain
-  // <img src="...media/v3/download..."> 401s silently — <img> tags can't attach
-  // an Authorization header, so the browser just shows a broken image with
-  // no visible error. Fetching the thumbnail ourselves with the access
-  // token and handing the img tag a blob: URL works regardless of whether
-  // the homeserver actually enforces auth on media or not.
-  function mxcParts(mxcUrl) {
-    const m = /^mxc:\/\/([^/]+)\/([^/?]+)/.exec(mxcUrl || '');
-    return m ? { server: m[1], mediaId: m[2] } : null;
-  }
-  async function fetchAvatarBlobUrl(client, mxcUrl) {
-    const parts = mxcParts(mxcUrl);
-    if (!parts) return null;
-    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=64&height=64&method=crop`;
-    const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
-    if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
-    return URL.createObjectURL(await res.blob());
-  }
-
   function ensureAvatarResolved(username) {
     if (!username || _avatarCache.has(username) || _avatarPending.has(username)) return;
     const client = MatrixChat.client;
@@ -7039,7 +7096,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       try {
         const serverName = client.getUserId().split(':')[1];
         const info = await client.getProfileInfo(`@${username}:${serverName}`);
-        _avatarCache.set(username, info?.avatar_url ? await fetchAvatarBlobUrl(client, info.avatar_url) : null);
+        _avatarCache.set(username, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
       } catch (e) {
         _avatarCache.set(username, null); // no Matrix account, no avatar set, or the fetch failed — cache the miss either way
       } finally {
@@ -7057,9 +7114,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const avatarUrl = _avatarCache.get(username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (username||'?')[0].toUpperCase();
     const playable = !isMe && playing && (songId || song);
-    const attrs = playable
-      ? ' data-username="' + esc(username||'') + '" data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"'
-      : '';
+    // data-username is always present (the context menu's Message action
+    // needs it regardless of playable state) — the sync-specific attrs
+    // stay conditional on playable.
+    const attrs = ' data-username="' + esc(username||'') + '"' +
+      (playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + '"' + attrs + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         (playing ? '<span class="presence-card-online"></span>' : '') +
@@ -7130,6 +7189,30 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const card = e.target.closest('.presence-card.is-playable');
     if (card) playFromCard(card);
   });
+
+  // ── Right-click context menu: Listen Party / Message ─────
+  const presenceCtxMenu = document.getElementById('presenceCtxMenu');
+  function hidePresenceCtx() { presenceCtxMenu.classList.remove('visible'); }
+  function showPresenceCtx(x, y, card) {
+    const username = card.dataset.username;
+    document.getElementById('presenceCtxLabel').textContent = username;
+    const listenItem = document.getElementById('presenceCtxListen');
+    listenItem.style.display = card.classList.contains('is-playable') ? 'flex' : 'none';
+    listenItem.onclick = () => { hidePresenceCtx(); playFromCard(card); };
+    document.getElementById('presenceCtxMessage').onclick = () => { hidePresenceCtx(); messageUser(username); };
+    presenceCtxMenu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
+    presenceCtxMenu.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
+    presenceCtxMenu.classList.add('visible');
+  }
+  list.addEventListener('contextmenu', e => {
+    const card = e.target.closest('.presence-card');
+    // Not yourself — listen-partying or DMing your own card makes no sense.
+    if (!card || card.classList.contains('is-me') || !card.dataset.username) return;
+    e.preventDefault();
+    showPresenceCtx(e.clientX, e.clientY, card);
+  });
+  document.addEventListener('click', e => { if (!presenceCtxMenu.contains(e.target)) hidePresenceCtx(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePresenceCtx(); });
 
   // ── API calls ────────────────────────────
   async function postPresence() {
