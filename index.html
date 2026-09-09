@@ -8292,9 +8292,21 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let pending = false;
   function update() {
     pending = false;
+    // Removing the class to re-measure "would this need scroll without
+    // the clearance" can itself shrink the page below the current scroll
+    // position, which the browser clamps immediately — even though the
+    // class goes right back on a few lines later if clearance is still
+    // needed. Restoring the pre-measurement scroll position afterward
+    // (only when clearance ends up staying on, i.e. the content height
+    // is back to what it was) is what was missing — without it, any
+    // content change anywhere in .dash while scrolled into the clearance
+    // zone (a MOTD reroll, a chat message arriving, a presence update)
+    // snapped the whole page back up.
+    const scrollBefore = window.scrollY;
     dash.classList.remove('dash-clearance');
     const needsScroll = document.documentElement.scrollHeight > window.innerHeight;
     dash.classList.toggle('dash-clearance', needsScroll);
+    if (needsScroll) window.scrollTo(window.scrollX, scrollBefore);
   }
   function schedule() {
     if (pending) return;
