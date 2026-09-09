@@ -817,7 +817,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 26px; font-weight: 700; color: rgba(var(--accent-rgb),1);
     }
-    .profile-modal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-modal-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .profile-modal-avatar-overlay {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.5); color: #fff; font-size: 16px; opacity: 0;
@@ -6511,7 +6511,10 @@ async function openProfileModal() {
     nameEl.value = info?.displayname || '';
     if (info?.avatar_url) {
       const url = await MatrixChat.mxcToBlobUrl(info.avatar_url);
-      if (url) avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`);
+      // Hide the fallback initial letter once a real photo loads — it's a
+      // flex sibling of the <img>, not something the image covers, so
+      // without this it stays visible right alongside the photo.
+      if (url) { initialEl.style.display = 'none'; avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`); }
     }
   } catch (e) { /* fall back to the initial-letter placeholder */ }
 
