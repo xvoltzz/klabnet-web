@@ -261,17 +261,17 @@
     /* Social tab: instead of guessing a fixed height for the chat box
        (which either wastes space or still forces page scroll depending
        on screen size), turn .dash into a flex column for just this tab
-       so the chat panel fills whatever's actually left after the header
-       and nav — the browser does that arithmetic exactly, no guessing.
-       The one thing that shrinks to make more room is the floating
-       player dock (see below), not the page header. */
+       so the chat panel fills whatever's actually left after the header,
+       nav, and player dock — the browser does that arithmetic exactly,
+       no guessing. The player dock stays full-size; the header got
+       shorter globally instead (see .header's margin-bottom below). */
     body.tab-social-active .dash {
       display: flex; flex-direction: column; min-height: 100vh;
       /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
          toggle above (same specificity, later in the sheet, so this
          wins) — this tab always needs room for the dock regardless of
          that toggle's own "does the page need to scroll" measurement. */
-      padding-bottom: 5.5rem;
+      padding-bottom: 7rem;
     }
     body.tab-social-active .dash-body { flex: 1; min-height: 0; }
     /* align-self, not the parent's align-items — so only .dash-main
@@ -283,15 +283,10 @@
     body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
     body.tab-social-active .chat-app { height: auto; flex: 1; min-height: 0; }
 
-    /* Mini player dock while chatting — the thing that shrinks. */
-    body.tab-social-active .player-dock { padding: 0.55rem 1rem; gap: 0.8rem; }
-    body.tab-social-active .player-art, body.tab-social-active .player-art-placeholder { width: 34px; height: 34px; font-size: 14px; }
-    body.tab-social-active .dock-extra { display: none; }
-
     /* ══ HEADER ══ */
     .header {
       display: flex; align-items: flex-start; justify-content: space-between;
-      margin-bottom: 4rem;
+      margin-bottom: 2rem;
       animation: fadeUp 0.6s ease both;
     }
 
@@ -499,7 +494,7 @@
       display: flex; gap: 6px;
       flex-wrap: nowrap; overflow-x: auto;
       scrollbar-width: none; -ms-overflow-style: none;
-      margin-bottom: 2.4rem;
+      margin-bottom: 1.5rem;
     }
     .tab-nav::-webkit-scrollbar { display: none; }
     .tab-nav-btn {
@@ -596,9 +591,6 @@
 
     /* ══ KLAB SOCIAL — Matrix chat ══ */
     .chat-shell {
-      border-radius: 10px;
-      border: 1px solid var(--tile-border); background: var(--tile-bg);
-      box-shadow: 0 4px 18px var(--shadow-25);
       min-height: 320px;
       display: flex; flex-direction: column;
     }
