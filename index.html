@@ -550,7 +550,16 @@
     .tab-nav-btn[hidden] { display: none; }
 
     .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    /* Switching tabs was an instant display:none -> block snap, no
+       transition at all — animation-name only "arms" the moment an
+       element's computed style newly matches a rule containing it (same
+       mechanism .ctx-menu's display:none -> block already relies on for
+       its own entrance), so this fires correctly on every genuine tab
+       switch without needing to animate `display` itself. */
+    .tab-panel.active { display: block; animation: fadeInUp 0.25s ease both; }
+    @media (prefers-reduced-motion: reduce) {
+      .tab-panel.active { animation: none; }
+    }
 
     /* The song picker and artist/album panel used to be global fixed-position
        modals (.picker-backdrop, .ap-panel — see their base rules further
