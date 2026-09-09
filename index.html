@@ -593,7 +593,7 @@
     .chat-connect-btn:hover { background: rgba(var(--accent-rgb),0.25); }
     .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
     .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
-    .chat-app { display: flex; flex-direction: column; flex: 1; }
+    .chat-app { display: flex; flex-direction: column; height: min(560px, 68vh); }
     /* Both set their own `display`, which otherwise beats the browser's
        default [hidden]{display:none} at equal specificity (author CSS
        always wins over UA styles regardless of source order) — so the
@@ -610,11 +610,52 @@
       background: #6b7280;
     }
     .chat-status-dot.live { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
-    .chat-empty {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      font-size: 10.5px; color: var(--text-faint); letter-spacing: 0.05em;
-      padding: 2rem; text-align: center;
+
+    .chat-body { display: flex; flex: 1; min-height: 0; }
+    .chat-channels { width: 180px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--tile-border); padding: 0.4rem; }
+    .chat-channel-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: 6px; cursor: pointer;
+      font-size: 10.5px; color: var(--tile-label);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: background 0.15s;
     }
+    .chat-channel-item i { font-size: 12px; color: var(--tile-icon); flex-shrink: 0; }
+    .chat-channel-item:hover { background: var(--glass-fill); }
+    .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
+    .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
+    .chat-channel-empty { font-size: 9px; color: var(--text-faint); padding: 0.6rem; line-height: 1.5; }
+
+    .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .chat-timeline { flex: 1; overflow-y: auto; padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 2px; }
+    .chat-timeline-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; color: var(--text-faint); text-align: center; padding: 2rem;
+    }
+    .chat-msg { display: flex; gap: 8px; padding: 3px 0; }
+    .chat-msg-avatar {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+    }
+    .chat-msg-avatar.grouped { visibility: hidden; }
+    .chat-msg-body { min-width: 0; flex: 1; }
+    .chat-msg-head { display: flex; align-items: baseline; gap: 6px; }
+    .chat-msg-sender { font-size: 10.5px; font-weight: 700; color: var(--text); }
+    .chat-msg-time { font-size: 8.5px; color: var(--text-faint); }
+    .chat-msg-text { font-size: 11px; color: var(--tile-label); line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+    .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
+    .chat-msg-edited { font-size: 8.5px; color: var(--text-faint); }
+
+    .chat-composer { padding: 0.6rem 0.9rem; border-top: 1px solid var(--tile-border); }
+    .chat-composer input {
+      width: 100%; background: var(--glass-fill); border: 1px solid var(--tile-border);
+      border-radius: 20px; padding: 8px 14px; font-size: 11px; color: var(--text);
+      font-family: var(--font-ui); outline: none; transition: border-color 0.15s;
+    }
+    .chat-composer input:focus { border-color: rgba(var(--accent-rgb),0.4); }
+    .chat-composer input::placeholder { color: var(--text-faint); }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -2297,7 +2338,15 @@
       </div>
       <div class="chat-app" id="chatApp" hidden>
         <div class="chat-app-header"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
-        <div class="chat-empty" id="chatEmpty">No rooms yet — join or create one via Element to get started.</div>
+        <div class="chat-body">
+          <div class="chat-channels" id="chatChannels"></div>
+          <div class="chat-main">
+            <div class="chat-timeline" id="chatTimeline"></div>
+            <div class="chat-composer">
+              <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -5457,6 +5506,14 @@ const MatrixChat = (function () {
       emit('sync', state);
       if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
     });
+    // Raw event-name strings rather than the SDK's enum constants (e.g.
+    // sdk.RoomEvent.Timeline) — these wire-level names are spec-stable, and
+    // pulling another named export off the CDN bundle isn't worth the risk
+    // after the UnstableValue detour it took to get this SDK loading at all.
+    client.on('Room.timeline', (event, room, toStartOfTimeline) => {
+      if (toStartOfTimeline) return; // ignore backfill, only live events
+      emit('timeline', event, room);
+    });
     await client.startClient({ initialSyncLimit: 20 });
     return client;
   }
@@ -5510,25 +5567,129 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 
 // ══════════════════════════════════════════
 //  KLAB SOCIAL — Matrix chat UI wiring
-//  This is just the Social tab's DOM glue: a connect prompt when there's
-//  no session, otherwise the chat app shell. The actual sync engine is
-//  the MatrixChat module (see MATRIX CHAT just above) —
-//  this milestone only proves the tab boots it and shows *something*
-//  real; the full three-pane room/channel/timeline UI is a later
-//  milestone (see the plan doc referenced in the MatrixChat module).
+//  DOM glue for the Social tab: a connect prompt when there's no session,
+//  otherwise a Discord-like channel list + timeline + composer for one
+//  space's worth of rooms. Multi-space nav, DMs, typing/presence, and
+//  media are later milestones (see the plan doc referenced above) — this
+//  one is plain-text messages in a flat room list only.
 // ══════════════════════════════════════════
 let _chatUiLoaded = false;
+let _chatActiveRoomId = null;
 
-function renderChatRooms() {
-  const empty = document.getElementById('chatEmpty');
-  if (!empty || !MatrixChat.client) return;
-  const rooms = MatrixChat.client.getRooms();
-  empty.textContent = rooms.length
-    ? `${rooms.length} room${rooms.length === 1 ? '' : 's'} — full chat UI coming soon.`
-    : 'No rooms yet — join or create one via Element to get started.';
+// Always re-renders the timeline pane too at the end — every call site
+// wants both kept in sync (a new/renamed room, a room becoming the active
+// one, etc.), so there's a single place responsible for that pairing
+// instead of every caller having to remember to call both.
+function renderChannelList() {
+  const list = document.getElementById('chatChannels');
+  if (!list || !MatrixChat.client) return;
+  // Spaces get their own nav in a later milestone — hide them from this
+  // flat list for now so they don't show up as bogus empty "channels".
+  const rooms = MatrixChat.client.getRooms()
+    .filter(r => !(r.isSpaceRoom && r.isSpaceRoom()))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  if (!rooms.length) {
+    list.innerHTML = '<div class="chat-channel-empty">No rooms yet — join or create one via Element to get started.</div>';
+    _chatActiveRoomId = null;
+    renderTimeline();
+    return;
+  }
+  if (!_chatActiveRoomId || !rooms.some(r => r.roomId === _chatActiveRoomId)) {
+    _chatActiveRoomId = rooms[0].roomId;
+  }
+  list.innerHTML = '';
+  rooms.forEach(room => {
+    const item = document.createElement('div');
+    item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
+    item.innerHTML = `<i class="ti ti-hash"></i><span>${esc(room.name || 'Unnamed room')}</span>`;
+    item.addEventListener('click', () => {
+      if (room.roomId === _chatActiveRoomId) return;
+      _chatActiveRoomId = room.roomId;
+      renderChannelList();
+    });
+    list.appendChild(item);
+  });
+  renderTimeline();
 }
 
-let _chatSyncListenerBound = false;
+function renderTimeline() {
+  const el    = document.getElementById('chatTimeline');
+  const input = document.getElementById('chatComposerInput');
+  if (!el) return;
+  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  if (!room) {
+    el.innerHTML = '<div class="chat-timeline-empty">Select a channel to start chatting.</div>';
+    if (input) input.disabled = true;
+    return;
+  }
+  if (input) input.disabled = false;
+
+  const events = room.getLiveTimeline().getEvents().filter(ev => {
+    if (ev.getType() !== 'm.room.message') return false;
+    // An edit shows up as its own timeline entry, but the SDK already
+    // folds it into the original event's content — rendering it again
+    // here would show a second, redundant bubble with no body.
+    return ev.getRelation()?.rel_type !== 'm.replace';
+  });
+
+  el.innerHTML = '';
+  let lastSender = null;
+  events.forEach(ev => {
+    const senderId   = ev.getSender();
+    const senderName = ev.sender?.name || senderId;
+    const grouped    = senderId === lastSender;
+    lastSender = senderId;
+
+    const row = document.createElement('div');
+    row.className = 'chat-msg';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
+    avatar.textContent = (senderName || '?').trim().charAt(0).toUpperCase();
+
+    const body = document.createElement('div');
+    body.className = 'chat-msg-body';
+    if (!grouped) {
+      const head = document.createElement('div');
+      head.className = 'chat-msg-head';
+      head.innerHTML = `<span class="chat-msg-sender">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+      body.appendChild(head);
+    }
+
+    const text = document.createElement('div');
+    if (ev.isRedacted()) {
+      text.className = 'chat-msg-text deleted';
+      text.textContent = 'message deleted';
+    } else {
+      text.className = 'chat-msg-text';
+      text.textContent = ev.getContent().body || '';
+      if (ev.replacingEvent && ev.replacingEvent()) {
+        const edited = document.createElement('span');
+        edited.className = 'chat-msg-edited';
+        edited.textContent = ' (edited)';
+        text.appendChild(edited);
+      }
+    }
+    body.appendChild(text);
+    row.append(avatar, body);
+    el.appendChild(row);
+  });
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chatComposerInput');
+  const text = input.value.trim();
+  if (!text || !_chatActiveRoomId) return;
+  input.value = '';
+  MatrixChat.client.sendTextMessage(_chatActiveRoomId, text).catch(e => {
+    console.error('[chat] send failed', e);
+    input.value = text; // hand the text back so nothing typed is lost
+  });
+}
+
+let _chatBound = false;
 
 function showChatApp() {
   document.getElementById('chatConnect').hidden = true;
@@ -5537,17 +5698,21 @@ function showChatApp() {
   const text = document.getElementById('chatStatusText');
   // showChatApp() can run more than once (MatrixChat.login() is idempotent,
   // but a "Connect" click after already connecting still calls this again)
-  // — only bind the listener once or every sync tick would fire it N times.
-  if (!_chatSyncListenerBound) {
-    _chatSyncListenerBound = true;
+  // — only bind listeners once or they'd stack and fire N times each.
+  if (!_chatBound) {
+    _chatBound = true;
     MatrixChat.on('sync', state => {
       const live = state === 'PREPARED' || state === 'SYNCING';
       dot.classList.toggle('live', live);
       text.textContent = live ? 'connected' : state.toLowerCase();
-      renderChatRooms();
+      renderChannelList();
+    });
+    MatrixChat.on('timeline', () => renderChannelList()); // cascades to renderTimeline() too
+    document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendChatMessage();
     });
   }
-  renderChatRooms();
+  renderChannelList();
 }
 
 async function connectChat() {
