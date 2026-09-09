@@ -769,6 +769,7 @@
     .chat-emoji-picker button {
       background: none; border: none; cursor: pointer; font-size: 17px;
       line-height: 1; padding: 4px; border-radius: 6px;
+      transition: background 0.15s;
     }
     .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
 
@@ -872,6 +873,9 @@
     .tile-dot.maintenance { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,0.7); animation: blink 2.5s ease infinite; }
 
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @media (prefers-reduced-motion: reduce) {
+      .tile-dot.down, .tile-dot.maintenance { animation: none; }
+    }
 
     /* ══ CONTEXT MENU ══ */
     .ctx-menu {
@@ -969,7 +973,7 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.02em;
     }
-    .player-title .player-link { color: var(--text); }
+    .player-title .player-link { color: var(--text); transition: color 0.25s; }
     .player-title .player-link:hover { color: rgba(var(--accent-rgb),1); }
 
     .player-artist {
@@ -1288,6 +1292,9 @@
       25%      { transform: rotate(-0.6deg); }
       75%      { transform: rotate(0.6deg); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      body.edit-mode .tile { animation: none; }
+    }
 
     /* Drag ghost */
     .tile-drag-ghost {
@@ -1559,6 +1566,9 @@
       70% { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
       100%{ box-shadow: 0 0 0 0 rgba(74,222,128,0); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .tile-dot.up, .presence-card.is-playing .presence-card-online { animation: none; }
+    }
 
     /* ── Smooth loading spinner ── */
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -1761,7 +1771,7 @@
       background: var(--tile-bg);
       border: 1px solid var(--tile-border);
       cursor: default;
-      transition: background 0.15s ease, border-color 0.15s ease;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       /* Grid items default to min-width:auto, so without this a long song
          title forces the card wider than its 1fr track in the presence
          rail instead of the inner text actually truncating with an
