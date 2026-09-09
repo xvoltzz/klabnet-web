@@ -281,7 +281,11 @@
     body.tab-social-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-social-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
     body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
-    body.tab-social-active .chat-app { height: auto; flex: 1; min-height: 0; }
+    /* flex:0 1 auto (not flex:1) + max-height, not a plain height, so a
+       short conversation still shrinks to fit its content instead of
+       always claiming the full half — long ones cap out and scroll
+       within their own timeline instead of taking the whole panel. */
+    body.tab-social-active .chat-app { height: auto; flex: 0 1 auto; max-height: 50%; min-height: 0; }
 
     /* ══ HEADER ══ */
     .header {
@@ -645,6 +649,7 @@
       transition: background 0.15s;
     }
     .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
+    .chat-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chat-channel-invited {
       margin-left: auto; flex-shrink: 0;
       font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
@@ -655,6 +660,18 @@
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--success-color); box-shadow: 0 0 5px rgba(74,222,128,0.6);
     }
+    .chat-channel-close {
+      margin-left: auto; flex-shrink: 0; opacity: 0;
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: 11px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+    .chat-channel-item:hover .chat-channel-close { opacity: 1; }
+    .chat-channel-close:hover { color: var(--danger-color); background: var(--glass-fill-h); }
+    /* The close button takes over the same right-hand slot on hover
+       instead of sitting next to the status badge in a cramped row. */
+    .chat-channel-item:hover .chat-channel-online-dot,
+    .chat-channel-item:hover .chat-channel-invited { display: none; }
     .chat-channel-item:hover { background: var(--glass-fill); }
     .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
     .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
@@ -6071,8 +6088,12 @@ function buildChannelItem(room, icon) {
   const dmOnline = !invited && isDm && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(room));
   const item = document.createElement('div');
   item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
-  item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span>${esc(room.name || 'Unnamed room')}</span>` +
-    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot"></span>' : ''));
+  item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
+    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot"></span>' : '')) +
+    // DMs (only) get a close button, hidden until hover — leaves the
+    // room outright rather than just hiding it client-side, so it's
+    // actually gone rather than reappearing on the next sync.
+    (isDm ? '<button class="chat-channel-close" title="Close DM"><i class="ti ti-x"></i></button>' : '');
   item.addEventListener('click', async () => {
     if (invited) {
       try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`); return; }
@@ -6081,6 +6102,16 @@ function buildChannelItem(room, icon) {
     }
     _chatActiveRoomId = room.roomId;
     renderChannelList();
+  });
+  item.querySelector('.chat-channel-close')?.addEventListener('click', async e => {
+    e.stopPropagation(); // don't also select the room we're about to leave
+    try {
+      await MatrixChat.client.leave(room.roomId);
+      if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
+      renderChannelList();
+    } catch (err) {
+      showToast(`Couldn't close DM: ${err.message || 'error'}`);
+    }
   });
   return item;
 }
