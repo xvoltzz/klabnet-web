@@ -299,8 +299,15 @@
     /* flex:0 1 auto (not flex:1) + max-height, not a plain height, so a
        short conversation still shrinks to fit its content instead of
        always claiming the full half — long ones cap out and scroll
-       within their own timeline instead of taking the whole panel. */
-    body.tab-social-active .chat-app { height: auto; flex: 0 1 auto; max-height: 56%; min-height: 0; }
+       within their own timeline instead of taking the whole panel.
+       This % was tuned (50% -> 56%) back when .dash could still grow
+       past 100vh (the scroll-underneath-the-widget bug) — chat-shell's
+       real height was inflated by that overflow, so 56% of it looked
+       right. Now that .dash is hard-capped to the true viewport height,
+       that same 56% is of a much smaller, correct number, which visibly
+       shrank the box. Bumped up to restore the intended size against
+       the now-correct (smaller) baseline. */
+    body.tab-social-active .chat-app { height: auto; flex: 0 1 auto; max-height: 88%; min-height: 0; }
 
     /* ══ HEADER ══ */
     .header {
@@ -794,6 +801,26 @@
     .chat-modal-input:focus { border-color: rgba(var(--accent-rgb),0.4); }
     .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
     .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
+
+    /* Profile-editor modal (avatar + display name, opened from your own
+       presence card) — reuses .chat-modal-input/.chat-connect-btn for the
+       form controls, just adds the clickable avatar preview. */
+    .profile-modal-avatar-row { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .profile-modal-avatar {
+      position: relative; width: 72px; height: 72px; border-radius: 50%;
+      overflow: hidden; cursor: pointer; background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 700; color: rgba(var(--accent-rgb),1);
+    }
+    .profile-modal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-modal-avatar-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); color: #fff; font-size: 16px; opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .profile-modal-avatar:hover .profile-modal-avatar-overlay { opacity: 1; }
+    .profile-modal-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; display: block; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -1698,6 +1725,7 @@
     }
     .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
     .presence-card.is-playable { cursor: pointer; }
+    .presence-card.is-me { cursor: pointer; } /* click to edit your profile */
     .presence-card.is-playable:hover {
       border-color: rgba(var(--accent-rgb),0.4);
       box-shadow: 0 0 0 1px rgba(var(--accent-rgb),0.15) inset;
@@ -6440,6 +6468,93 @@ function openDmModal() {
   searchEl.focus();
 }
 
+// ── Edit your own profile (avatar + display name) from inside klabnet,
+// instead of needing Element or another Matrix client — opened by
+// clicking your own presence card. Uploads go straight to the
+// homeserver via uploadContent()/setAvatarUrl(); both avatar caches
+// (the presence rail's, keyed by username, and the chat timeline's,
+// keyed by Matrix user ID) are invalidated afterward via
+// window.KLAB_REFRESH_MY_AVATAR so the new photo shows up immediately
+// everywhere without a reload.
+async function openProfileModal() {
+  const client = MatrixChat.client;
+  if (!client) { showToast('Connect chat in the Social tab first'); return; }
+  const myId = client.getUserId();
+  openChatModal('// edit profile', `
+    <div class="profile-modal-avatar-row">
+      <div class="profile-modal-avatar" id="profileAvatarPreview">
+        <span id="profileAvatarInitial">${esc((myId.replace(/^@/, '')[0] || '?').toUpperCase())}</span>
+        <div class="profile-modal-avatar-overlay"><i class="ti ti-camera"></i></div>
+      </div>
+      <input type="file" accept="image/*" id="profileAvatarFile" hidden />
+    </div>
+    <span class="profile-modal-label">Display name</span>
+    <input type="text" class="chat-modal-input" id="profileNameInput" placeholder="Display name" autocomplete="off" />
+    <button class="chat-connect-btn" id="profileSaveBtn" style="margin-top:12px;width:100%;justify-content:center;">Save</button>
+    <div class="chat-modal-error" id="profileError" hidden></div>
+  `);
+
+  const avatarEl   = document.getElementById('profileAvatarPreview');
+  const initialEl  = document.getElementById('profileAvatarInitial');
+  const fileEl     = document.getElementById('profileAvatarFile');
+  const nameEl     = document.getElementById('profileNameInput');
+  const saveBtn    = document.getElementById('profileSaveBtn');
+  const errEl      = document.getElementById('profileError');
+  let pendingFile  = null;
+
+  try {
+    const info = await client.getProfileInfo(myId);
+    nameEl.value = info?.displayname || '';
+    if (info?.avatar_url) {
+      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url);
+      if (url) avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`);
+    }
+  } catch (e) { /* fall back to the initial-letter placeholder */ }
+
+  avatarEl.addEventListener('click', () => fileEl.click());
+  fileEl.addEventListener('change', () => {
+    const file = fileEl.files?.[0];
+    if (!file) return;
+    pendingFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      avatarEl.querySelectorAll('img').forEach(img => img.remove());
+      initialEl.style.display = 'none';
+      avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(reader.result)}" alt="" />`);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    errEl.hidden = true;
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    try {
+      if (pendingFile) {
+        const upload = await client.uploadContent(pendingFile);
+        await client.setAvatarUrl(upload.content_uri);
+      }
+      const newName = nameEl.value.trim();
+      if (newName) await client.setDisplayName(newName);
+      closeChatModal();
+      showToast('Profile updated');
+      // Presence rail's cache is keyed by username, private to that
+      // module's own IIFE — invalidated via the exposed hook. The chat
+      // timeline's cache (keyed by Matrix user ID) is in this same
+      // global scope, so it's cleared directly.
+      window.KLAB_REFRESH_MY_AVATAR && window.KLAB_REFRESH_MY_AVATAR();
+      if (pendingFile) {
+        _msgAvatarCache.delete(myId);
+        _lastTimelineRenderKey = null;
+        renderTimeline();
+      }
+    } catch (e) {
+      errEl.textContent = e.message || 'Failed to update profile.';
+      errEl.hidden = false;
+      saveBtn.disabled = false; saveBtn.textContent = 'Save';
+    }
+  });
+}
+
 // Set once the first sync reaches PREPARED — see the guard below.
 let _chatSyncSettled = false;
 
@@ -7601,6 +7716,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     })();
   }
 
+  // Exposed so openProfileModal() (KLAB SOCIAL section, defined earlier in
+  // this script but hoisted) can invalidate *your own* cached avatar after
+  // an upload — _avatarCache is private to this IIFE, so there's no other
+  // way in from outside.
+  window.KLAB_REFRESH_MY_AVATAR = function() {
+    const me = window.KLAB_USER?.username;
+    if (me) _avatarCache.delete(me);
+    renderList(_lastOthers);
+  };
+
   // Per-song accent color for *other* listeners' cards — same sampling
   // core the local player uses for its own --accent-rgb (see COLOR
   // SAMPLING CORE), but resolved independently per songId and applied
@@ -7823,6 +7948,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   list.addEventListener('click', e => {
+    const meCard = e.target.closest('.presence-card.is-me');
+    if (meCard) { openProfileModal(); return; }
     const card = e.target.closest('.presence-card.is-playable');
     if (card) playFromCard(card);
   });
