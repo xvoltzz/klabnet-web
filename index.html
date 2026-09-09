@@ -1824,12 +1824,6 @@
     .presence-card.is-offline { opacity: 0.55; }
     .presence-card.is-offline .presence-card-avatar { filter: grayscale(0.6); }
 
-    .presence-empty {
-      font-size: 9px; color: var(--text-faint);
-      text-align: left; padding: 0.7rem 0.2rem;
-      font-family: var(--font-ui);
-      letter-spacing: 0.14em; text-transform: uppercase;
-    }
 
     [data-theme="light"] .presence-card-avatar { border-color: rgba(120,108,92,0.2); }
     [data-theme="light"] .presence-card-name   { color: var(--text); }
@@ -2667,9 +2661,7 @@
        query) it drops below the tab content as a horizontal strip instead. -->
   <aside class="sec sec-global-presence presence-rail">
     <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
-    <div class="presence-grid" id="presenceList">
-      <div class="presence-empty">no one else is listening</div>
-    </div>
+    <div class="presence-grid" id="presenceList"></div>
   </aside>
 
   </div>
@@ -7905,13 +7897,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (me && me !== 'anonymous') {
       html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing);
     }
-    if (!others.length) {
-      html += '<div class="presence-empty">no one else is listening</div>';
-    } else {
-      others.forEach(l => {
-        html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
-      });
-    }
+    others.forEach(l => {
+      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
+    });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
     // Nudge the chat sidebar too — it has its own cheap skip-if-unchanged
