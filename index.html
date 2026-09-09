@@ -7265,11 +7265,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 const MATRIX_URL          = 'https://matrix.klab.gg';
 // jsdelivr's generic `+esm` conversion 404s on matrix-js-sdk's sdp-transform
 // dependency (pulled in eagerly for WebRTC calling support we don't even
-// use — see plan non-goals), which breaks the whole import. esm.sh has its
-// own build pipeline that resolves it correctly and polyfills the Node
-// `events` module the SDK needs — verified both actually serve before
-// switching to it.
-const MATRIX_SDK_URL      = 'https://esm.sh/matrix-js-sdk@42.3.0';
+// use — see plan non-goals). esm.sh's *default* (non-bundle) mode avoids
+// that 404 but has its own bug: its shallow per-file CJS export detection
+// misses `UnstableValue` in matrix-events-sdk's re-export chain, breaking
+// polls.ts's import of it. `?bundle` fixes both at once — esbuild's real
+// bundler correctly resolves the export AND tree-shakes out the unused
+// sdp-transform/WebRTC path entirely. Verified against the actual bundle
+// bytes (no sdp-transform reference, UnstableValue properly defined,
+// createClient/ClientEvent both exported, only one Node polyfill —
+// node:events, which esm.sh serves natively) before pinning this.
+const MATRIX_SDK_URL      = 'https://esm.sh/matrix-js-sdk@42.3.0?bundle';
 const MATRIX_SESSION_KEY  = 'klabnet_matrix_session';
 const MATRIX_PENDING_KEY  = 'klabnet_matrix_pending_token';
 
