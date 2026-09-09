@@ -3,6 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    // Matrix SSO popup callback — this load IS the popup that MatrixChat.login()
+    // opened, being bounced back here by Synapse/MAS's SSO redirect with a
+    // loginToken. Detected and handled before anything else on the page loads
+    // (fonts, icon CSS, the dashboard body, /api/me) so the popup never renders
+    // the full app — it just relays the token home and closes.
+    //
+    // Two relay channels, since window.opener can be nulled by a
+    // Cross-Origin-Opener-Policy header on the identity provider hops in
+    // between: localStorage (fires a 'storage' event in the opener — robust,
+    // same-origin, works even if opener was severed) and postMessage (fast
+    // path when opener survived). The opener only needs one to arrive.
+    (function () {
+      if (!location.search.includes('matrixSsoCallback')) return;
+      const loginToken = new URLSearchParams(location.search).get('loginToken');
+      if (loginToken) {
+        try {
+          localStorage.setItem('klabnet_matrix_pending_token', JSON.stringify({ loginToken, ts: Date.now() }));
+        } catch (e) {}
+        try {
+          window.opener && window.opener.postMessage({ type: 'matrix-sso-token', loginToken }, location.origin);
+        } catch (e) {}
+      }
+      window.close();
+      window.stop(); // belt-and-suspenders: don't load the rest of the page if close() is delayed
+    })();
+  </script>
   <title>klabnet>_</title>
   <link rel="icon" type="image/svg+xml" href="klab.png" />
   <link rel="shortcut icon" href="klab.png" />
@@ -7224,6 +7251,161 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   window.addEventListener('load', schedule);
   schedule();
 })();
+
+// ══════════════════════════════════════════
+//  MATRIX CHAT — auth spike (milestone 1)
+//  Plan: ~/.claude/plans/enumerated-honking-moon.md
+//
+//  Just the login flow + SDK boot for now, exposed on window.MatrixChat so
+//  it can be exercised from the console on staging before any UI is built:
+//    await MatrixChat.login()
+//    MatrixChat.client.getRooms()
+//  No chat tab / UI wiring yet — that's the next milestone.
+// ══════════════════════════════════════════
+const MATRIX_URL          = 'https://matrix.klab.gg';
+const MATRIX_SDK_URL      = 'https://cdn.jsdelivr.net/npm/matrix-js-sdk@42.3.0/+esm';
+const MATRIX_SESSION_KEY  = 'klabnet_matrix_session';
+const MATRIX_PENDING_KEY  = 'klabnet_matrix_pending_token';
+
+const MatrixChat = (function () {
+  let matrixcs = null; // populated by a dynamic import on first login/boot —
+                        // users who never open chat never fetch the SDK at all
+  let client   = null;
+  const listeners = {};
+
+  function on(event, cb) { (listeners[event] = listeners[event] || []).push(cb); }
+  function emit(event, ...args) {
+    (listeners[event] || []).forEach(cb => { try { cb(...args); } catch (e) { console.error(e); } });
+  }
+
+  function loadSession()  { try { return JSON.parse(localStorage.getItem(MATRIX_SESSION_KEY)); } catch (e) { return null; } }
+  function saveSession(s) { localStorage.setItem(MATRIX_SESSION_KEY, JSON.stringify(s)); }
+  function clearSession() { localStorage.removeItem(MATRIX_SESSION_KEY); }
+
+  async function loadSdk() {
+    if (!matrixcs) matrixcs = await import(MATRIX_SDK_URL);
+    return matrixcs;
+  }
+
+  // ── SSO popup login ──────────────────────
+  // Opens Synapse/MAS's SSO redirect in a popup. Authentik already has a
+  // live session for this user (they're on this page at all because they
+  // passed Caddy forward-auth), so it should resolve without any visible
+  // interaction. The popup is this same index.html, short-circuited by the
+  // <head> script for `?matrixSsoCallback=1` — it relays the resulting
+  // loginToken back via localStorage + postMessage and closes itself.
+  function ssoPopupLogin() {
+    return new Promise((resolve, reject) => {
+      const redirectUrl = `${location.origin}${location.pathname}?matrixSsoCallback=1`;
+      const popup = window.open(
+        `${MATRIX_URL}/_matrix/client/v3/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`,
+        'matrix-sso-login',
+        'width=480,height=640'
+      );
+      if (!popup) { reject(new Error('Popup blocked — allow popups for this site to use chat')); return; }
+
+      let settled = false;
+      function finish(token) {
+        if (settled) return;
+        settled = true;
+        clearInterval(pollTimer);
+        window.removeEventListener('message', onMessage);
+        window.removeEventListener('storage', onStorage);
+        localStorage.removeItem(MATRIX_PENDING_KEY);
+        resolve(token);
+      }
+      function onMessage(e) {
+        if (e.origin !== location.origin) return;
+        if (e.data && e.data.type === 'matrix-sso-token') finish(e.data.loginToken);
+      }
+      function onStorage(e) {
+        if (e.key !== MATRIX_PENDING_KEY || !e.newValue) return;
+        try { finish(JSON.parse(e.newValue).loginToken); } catch (err) {}
+      }
+      window.addEventListener('message', onMessage);
+      window.addEventListener('storage', onStorage);
+
+      // Belt-and-suspenders poll: the 'storage' event doesn't reliably fire
+      // in every browser/timing combo for a popup that closes itself
+      // immediately after writing, so also poll the pending-token key
+      // directly, and detect the user closing the popup without completing
+      // (reject rather than hang the login forever).
+      const pollTimer = setInterval(() => {
+        if (settled) return;
+        try {
+          const raw = localStorage.getItem(MATRIX_PENDING_KEY);
+          if (raw) { finish(JSON.parse(raw).loginToken); return; }
+        } catch (e) {}
+        if (popup.closed) {
+          settled = true;
+          clearInterval(pollTimer);
+          window.removeEventListener('message', onMessage);
+          window.removeEventListener('storage', onStorage);
+          reject(new Error('Login window closed before completing'));
+        }
+      }, 400);
+    });
+  }
+
+  async function exchangeLoginToken(loginToken) {
+    const res = await fetchTimeout(`${MATRIX_URL}/_matrix/client/v3/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'm.login.token', token: loginToken }),
+    }, 8000);
+    if (!res.ok) throw new Error(`Matrix login failed: HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function bootClient(session) {
+    const sdk = await loadSdk();
+    client = sdk.createClient({
+      baseUrl: MATRIX_URL,
+      accessToken: session.accessToken,
+      userId: session.userId,
+      deviceId: session.deviceId,
+    });
+    client.on(sdk.ClientEvent.Sync, state => {
+      emit('sync', state);
+      if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
+    });
+    await client.startClient({ initialSyncLimit: 20 });
+    return client;
+  }
+
+  async function login() {
+    let session = loadSession();
+    if (session && session.expiresAt && session.expiresAt < Date.now()) {
+      // No refresh support yet (milestone 8) — a lapsed token just forces
+      // a fresh SSO round-trip rather than limping along with a dead one.
+      clearSession();
+      session = null;
+    }
+    if (!session) {
+      const loginToken = await ssoPopupLogin();
+      const data = await exchangeLoginToken(loginToken);
+      session = {
+        accessToken:  data.access_token,
+        userId:       data.user_id,
+        deviceId:     data.device_id,
+        refreshToken: data.refresh_token || null,
+        expiresAt:    data.expires_in_ms ? Date.now() + data.expires_in_ms : null,
+      };
+      saveSession(session);
+    }
+    return bootClient(session);
+  }
+
+  function logout() {
+    try { client && client.stopClient(); } catch (e) {}
+    client = null;
+    clearSession();
+  }
+
+  return { login, logout, on, get client() { return client; } };
+})();
+
+window.MatrixChat = MatrixChat; // console-testable during the auth spike; UI wiring is the next milestone
 
 </script>
 
