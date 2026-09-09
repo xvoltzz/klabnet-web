@@ -264,6 +264,14 @@
       margin-bottom: 4rem;
       animation: fadeUp 0.6s ease both;
     }
+    /* Social tab: collapse the hero/MOTD and the presence rail (redundant
+       there — Social already shows who's around) so chat gets real room
+       instead of a small fixed box squeezed under a full page header.
+       See setActiveTab()'s tab-social-active toggle. */
+    body.tab-social-active .header-left { display: none; }
+    body.tab-social-active .header { margin-bottom: 1rem; }
+    body.tab-social-active .dash { padding-top: 1.5rem; }
+    body.tab-social-active .presence-rail { display: none; }
 
     .header-left { display: flex; align-items: center; gap: 1.1rem; }
 
@@ -482,6 +490,8 @@
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
     .tab-nav-btn i { font-size: 14px; }
+    #socialUnreadBadge { font-size: 8.5px; font-weight: 700; color: rgba(var(--accent-rgb),1); }
+    #socialUnreadBadge:empty { display: none; } /* don't reserve flex-gap space when there's nothing to show */
     .tab-nav-btn.active {
       background: rgba(var(--accent-rgb),0.16);
       color: var(--text); border-color: rgba(var(--accent-rgb),0.4);
@@ -574,9 +584,9 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 0.5rem; padding: 3rem 1.5rem; text-align: center; flex: 1;
     }
-    .chat-connect i { font-size: 28px; color: var(--tile-icon); }
-    .chat-connect-title { font-size: 13px; font-weight: 700; color: var(--text); }
-    .chat-connect-sub { font-size: 10.5px; color: var(--text-dimmer); max-width: 320px; line-height: 1.5; }
+    .chat-connect i { font-size: 32px; color: var(--tile-icon); }
+    .chat-connect-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .chat-connect-sub { font-size: 11.5px; color: var(--text-dimmer); max-width: 340px; line-height: 1.55; }
     .chat-connect-btn {
       margin-top: 0.4rem;
       display: flex; align-items: center; gap: 6px;
@@ -593,7 +603,7 @@
     .chat-connect-btn:hover { background: rgba(var(--accent-rgb),0.25); }
     .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
     .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
-    .chat-app { display: flex; flex-direction: column; height: min(560px, 68vh); }
+    .chat-app { display: flex; flex-direction: column; height: min(780px, 82vh); }
     /* Both set their own `display`, which otherwise beats the browser's
        default [hidden]{display:none} at equal specificity (author CSS
        always wins over UA styles regardless of source order) — so the
@@ -601,67 +611,72 @@
     .chat-connect[hidden], .chat-app[hidden] { display: none; }
     .chat-app-header {
       display: flex; align-items: center; gap: 8px;
-      padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--tile-border);
-      font-size: 9px; letter-spacing: 0.1em; color: var(--text-dimmer);
+      padding: 0.9rem 1.2rem; border-bottom: 1px solid var(--tile-border);
+      font-size: 10px; letter-spacing: 0.1em; color: var(--text-dimmer);
       text-transform: uppercase;
     }
     .chat-status-dot {
-      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
       background: #6b7280;
     }
     .chat-status-dot.live { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
 
     .chat-body { display: flex; flex: 1; min-height: 0; }
-    .chat-channels { width: 180px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--tile-border); padding: 0.4rem; }
+    .chat-channels { width: 230px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--tile-border); padding: 0.6rem; }
     .chat-channel-item {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 8px; border-radius: 6px; cursor: pointer;
-      font-size: 10.5px; color: var(--tile-label);
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 7px; cursor: pointer;
+      font-size: 12px; color: var(--tile-label);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       transition: background 0.15s;
     }
-    .chat-channel-item i { font-size: 12px; color: var(--tile-icon); flex-shrink: 0; }
+    .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
     .chat-channel-invited {
       margin-left: auto; flex-shrink: 0;
-      font-size: 7.5px; letter-spacing: 0.08em; text-transform: uppercase;
+      font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
       color: rgba(var(--accent-rgb),1);
+    }
+    .chat-channel-online-dot {
+      margin-left: auto; flex-shrink: 0;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success-color); box-shadow: 0 0 5px rgba(74,222,128,0.6);
     }
     .chat-channel-item:hover { background: var(--glass-fill); }
     .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
     .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
-    .chat-channel-empty { font-size: 9px; color: var(--text-faint); padding: 0.6rem; line-height: 1.5; }
+    .chat-channel-empty { font-size: 10px; color: var(--text-faint); padding: 0.8rem; line-height: 1.6; }
 
     .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-    .chat-timeline { flex: 1; overflow-y: auto; padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 2px; }
+    .chat-timeline { flex: 1; overflow-y: auto; padding: 1rem 1.3rem; display: flex; flex-direction: column; gap: 3px; }
     .chat-timeline-empty {
       flex: 1; display: flex; align-items: center; justify-content: center;
-      font-size: 10.5px; color: var(--text-faint); text-align: center; padding: 2rem;
+      font-size: 12px; color: var(--text-faint); text-align: center; padding: 2rem;
     }
-    .chat-msg { display: flex; gap: 8px; padding: 3px 0; }
+    .chat-msg { display: flex; gap: 11px; padding: 4px 0; }
     .chat-msg-avatar {
-      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
       display: flex; align-items: center; justify-content: center;
       background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
-      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
     }
     .chat-msg-avatar.grouped { visibility: hidden; }
     .chat-msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .chat-msg-body { min-width: 0; flex: 1; }
-    .chat-msg-head { display: flex; align-items: baseline; gap: 6px; }
-    .chat-msg-sender { font-size: 10.5px; font-weight: 700; color: var(--text); }
-    .chat-msg-time { font-size: 8.5px; color: var(--text-faint); }
-    .chat-msg-text { font-size: 11px; color: var(--text); line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+    .chat-msg-head { display: flex; align-items: baseline; gap: 8px; }
+    .chat-msg-sender { font-size: 12.5px; font-weight: 700; color: var(--text); }
+    .chat-msg-time { font-size: 10px; color: var(--text-faint); }
+    .chat-msg-text { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
     .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
-    .chat-msg-edited { font-size: 8.5px; color: var(--text-faint); }
+    .chat-msg-edited { font-size: 9.5px; color: var(--text-faint); }
 
     .chat-typing {
-      height: 16px; padding: 0 0.9rem; font-size: 9.5px; color: var(--text-faint);
+      height: 18px; padding: 0 1.3rem; font-size: 10.5px; color: var(--text-faint);
       letter-spacing: 0.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-    .chat-composer { padding: 0.3rem 0.9rem 0.6rem; border-top: 1px solid var(--tile-border); }
+    .chat-composer { padding: 0.5rem 1.2rem 0.9rem; border-top: 1px solid var(--tile-border); }
     .chat-composer input {
       width: 100%; background: var(--glass-fill); border: 1px solid var(--tile-border);
-      border-radius: 20px; padding: 8px 14px; font-size: 11px; color: var(--text);
+      border-radius: 20px; padding: 10px 16px; font-size: 13px; color: var(--text);
       font-family: var(--font-ui); outline: none; transition: border-color 0.15s;
     }
     .chat-composer input:focus { border-color: rgba(var(--accent-rgb),0.4); }
@@ -675,7 +690,7 @@
     .chat-composer input::placeholder { color: var(--text-dimmer); }
 
     .chat-channels-toolbar {
-      display: flex; justify-content: flex-end; gap: 2px;
+      display: flex; justify-content: flex-start; gap: 2px;
       padding: 4px 4px 6px; border-bottom: 1px solid var(--tile-border); margin-bottom: 4px;
     }
     .chat-icon-btn {
@@ -685,8 +700,8 @@
     }
     .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
     .chat-channel-section-label {
-      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-faint); padding: 8px 8px 3px;
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-faint); padding: 10px 10px 4px;
     }
 
     /* Browse/create/DM modal — rows and inputs shared across all three modes */
@@ -1716,6 +1731,10 @@
       width: 9px; height: 9px; border-radius: 50%;
       background: var(--success-color);
       border: 1.5px solid rgba(4,4,10,0.95);
+    }
+    /* The pulse is reserved for "actively playing something" — plain
+       means online, pulsing means "look, I'm jamming right now". */
+    .presence-card.is-playing .presence-card-online {
       box-shadow: 0 0 6px rgba(74,222,128,0.6);
       animation: dotPulse 2.5s ease-out infinite;
     }
@@ -2436,7 +2455,7 @@
     </div>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
-      <button class="hdr-btn glass" id="changelogBtn" title="What's new"><i class="ti ti-sparkles"></i></button>
+      <button class="hdr-btn glass" id="changelogBtn" title="What's new"><i class="ti ti-file-text"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="editToggle" title="Edit layout"><i class="ti ti-layout-grid" id="editIcon"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
@@ -2453,7 +2472,7 @@
 
   <nav class="tab-nav" id="tabNav">
     <button class="tab-nav-btn" data-tab-target="home" title="Home"><i class="ti ti-apps"></i><span>Home</span></button>
-    <button class="tab-nav-btn" data-tab-target="social" title="Social"><i class="ti ti-users"></i><span>Social</span></button>
+    <button class="tab-nav-btn" data-tab-target="social" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
     <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
     <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
   </nav>
@@ -5462,6 +5481,17 @@ function setActiveTab(key) {
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
+  // Chat wants to feel like its own app screen, not another section on
+  // the scrolling dashboard — the hero/MOTD header and the presence rail
+  // (redundant there anyway, Social already shows who's around) collapse
+  // to give it real room instead of being squeezed into a small fixed box.
+  document.body.classList.toggle('tab-social-active', key === 'social');
+  // Landing on Social with a room already selected but nothing else
+  // happening to trigger a re-render (e.g. clicking the nav tab itself)
+  // still counts as reading whatever's currently open.
+  if (key === 'social' && typeof _chatActiveRoomId !== 'undefined' && _chatActiveRoomId && typeof markRoomRead === 'function') {
+    markRoomRead(_chatActiveRoomId);
+  }
   if (location.hash.slice(1) !== key) location.hash = key;
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
@@ -5980,16 +6010,30 @@ function ensureDmBookkeeping() {
     .finally(() => { _dmBookkeepingInFlight = false; });
 }
 
+// The other party's username in a (2-member) DM room — same @user:server
+// -> username convention used everywhere else this session (avatar
+// lookups, DM bookkeeping). Returns null for group DMs/anything odd.
+function dmOtherUsername(room) {
+  const myId = MatrixChat.client?.getUserId();
+  const other = room.getJoinedMembers?.().find(m => m.userId !== myId);
+  return other ? other.userId.replace(/^@/, '').split(':')[0] : null;
+}
+
 function buildChannelItem(room, icon) {
   // createRoom({invite:[...]}) only invites — the recipient hasn't actually
   // joined yet, and sending a message would fail if we treated this like
   // any other room. Clicking an invited room joins it first (Discord-style
   // no-friction accept, not a separate accept/decline step).
   const invited = room.getMyMembership && room.getMyMembership() === 'invite';
+  const isDm = icon === 'ti-user';
+  // klabnet's own online roster, kept up to date by the presence module
+  // (window.KLAB_ONLINE_USERNAMES) — reused here rather than a second
+  // presence source, so a DM shows the same "online" you'd see in the rail.
+  const dmOnline = !invited && isDm && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(room));
   const item = document.createElement('div');
   item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
   item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span>${esc(room.name || 'Unnamed room')}</span>` +
-    (invited ? '<span class="chat-channel-invited">invited</span>' : '');
+    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot"></span>' : ''));
   item.addEventListener('click', async () => {
     if (invited) {
       try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`); return; }
@@ -6037,7 +6081,10 @@ function renderChannelList() {
     _chatActiveRoomId = rooms[0].roomId;
   }
 
-  const listKey = rooms.map(r => `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}`).join(',') + '|' + _chatActiveRoomId;
+  const listKey = rooms.map(r => {
+    const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? '1' : '0';
+    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}`;
+  }).join(',') + '|' + _chatActiveRoomId;
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
     list.innerHTML = '';
@@ -6102,6 +6149,11 @@ function renderTimeline() {
     return;
   }
   if (input) input.disabled = false;
+  // Actually being shown (Social tab open, this room selected) counts as
+  // read — same condition notifyNewMessage() uses to decide the reverse.
+  if (document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')) {
+    markRoomRead(room.roomId);
+  }
 
   const events = room.getLiveTimeline().getEvents().filter(ev => {
     if (ev.getType() !== 'm.room.message') return false;
@@ -6431,6 +6483,20 @@ function openDmModal() {
 // Set once the first sync reaches PREPARED — see the guard below.
 let _chatSyncSettled = false;
 
+// ── Unread badge on the Social nav tab ───
+// A room counts unread the same way notifyNewMessage() decides whether to
+// toast for it: you weren't already looking at it (Social tab active AND
+// it's the selected room). Cleared the same way — renderTimeline() marks
+// the active room read whenever it's actually being shown.
+const _chatUnreadRooms = new Set();
+function updateSocialUnreadBadge() {
+  const badge = document.getElementById('socialUnreadBadge');
+  if (badge) badge.textContent = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size})` : '';
+}
+function markRoomRead(roomId) {
+  if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
+}
+
 // Toast for an incoming message the user isn't already looking at —
 // showToast() already plays the sitewide, user-customizable "notify" SFX
 // (see SFX.play('notify') inside its own wrapper), so this gets sound
@@ -6448,6 +6514,8 @@ function notifyNewMessage(event, room) {
   const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')
     && room.roomId === _chatActiveRoomId;
   if (onThisRoomAlready) return;
+  _chatUnreadRooms.add(room.roomId);
+  updateSocialUnreadBadge();
   const senderName = event.sender?.name || event.getSender();
   const body = event.getContent().body || '';
   const isDm = getDmRoomIds().has(room.roomId);
@@ -7535,9 +7603,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // stay conditional on playable.
     const attrs = ' data-username="' + esc(username||'') + '"' +
       (playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
-    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + '"' + attrs + '>' +
+    // Anyone cardHTML() renders at all is, by construction, currently
+    // online on klabnet — so the dot means "online" now, not "playing".
+    // It used to be gated on `playing`, which was fine back when presence
+    // only ever showed people who were playing something; now that it
+    // shows anyone just on the site, that gate hid the dot for most cards.
+    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
-        (playing ? '<span class="presence-card-online"></span>' : '') +
+        '<span class="presence-card-online"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + username + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
@@ -7600,6 +7673,19 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     return roster;
   }
 
+  // Matrix's own presence is a different signal from "on klabnet" — a
+  // phone with Element (or any Matrix client) running in the background
+  // keeps a persistent connection, so the homeserver reports someone
+  // "online" more or less permanently whether or not they're anywhere
+  // near this site. A flat "online elsewhere" label reads as a stuck/
+  // broken status when it's actually just... always true for them. A
+  // rotating silly line (same idea as the MOTD splash text) owns that
+  // instead of pretending it's a precise status.
+  const MATRIX_ELSEWHERE_PHRASES = [
+    'lurking off-site', 'ghosting klabnet', 'somewhere else, probably',
+    'on the matrix, not on klabnet', 'AWOL', 'phoning it in', 'off the grid (kinda)',
+    'in another tab', 'living their own life', 'not here, spiritually',
+  ];
   async function refreshOfflineRoster(onlineUsernames) {
     const client = MatrixChat.client;
     if (!client) return;
@@ -7608,7 +7694,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         const status = await client.getPresence(person.userId);
         const text = status.presence === 'offline'
           ? (status.last_active_ago != null ? `last seen ${fmtAgo(status.last_active_ago)}` : 'offline')
-          : 'online elsewhere';
+          : MATRIX_ELSEWHERE_PHRASES[Math.floor(Math.random() * MATRIX_ELSEWHERE_PHRASES.length)];
         _offlineStatusCache.set(person.userId, text);
       } catch (e) {
         _offlineStatusCache.set(person.userId, 'offline');
@@ -7648,6 +7734,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       });
     }
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
+    window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
+    // Nudge the chat sidebar too — it has its own cheap skip-if-unchanged
+    // check, so this is safe to call every poll; without it, a DM's online
+    // dot would only ever update when something chat-specific also
+    // happened to trigger a re-render.
+    if (typeof renderChannelList === 'function') renderChannelList();
     const roster = offlineRoster(onlineUsernames);
     if (roster.length) {
       html += '<div class="presence-section-label">Offline</div>';
