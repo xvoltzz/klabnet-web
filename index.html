@@ -621,6 +621,11 @@
       transition: background 0.15s;
     }
     .chat-channel-item i { font-size: 12px; color: var(--tile-icon); flex-shrink: 0; }
+    .chat-channel-invited {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 7.5px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: rgba(var(--accent-rgb),1);
+    }
     .chat-channel-item:hover { background: var(--glass-fill); }
     .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
     .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
@@ -656,6 +661,57 @@
     }
     .chat-composer input:focus { border-color: rgba(var(--accent-rgb),0.4); }
     .chat-composer input::placeholder { color: var(--text-faint); }
+
+    .chat-channels-toolbar {
+      display: flex; justify-content: flex-end; gap: 2px;
+      padding: 4px 4px 6px; border-bottom: 1px solid var(--tile-border); margin-bottom: 4px;
+    }
+    .chat-icon-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: 14px; padding: 4px 6px; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
+    .chat-channel-section-label {
+      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-faint); padding: 8px 8px 3px;
+    }
+
+    /* Browse/create/DM modal — rows and inputs shared across all three modes */
+    .chat-modal-search {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
+      border-radius: 20px; padding: 6px 12px; font-size: 11px; color: var(--text-dimmer);
+    }
+    .chat-modal-search input {
+      flex: 1; background: none; border: none; outline: none; color: var(--text);
+      font-family: var(--font-ui); font-size: 11px;
+    }
+    .chat-modal-search input::placeholder { color: var(--text-faint); }
+    .chat-modal-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 0.6rem; }
+    .chat-modal-row {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
+    }
+    .chat-modal-row-info { flex: 1; min-width: 0; }
+    .chat-modal-row-name { font-size: 10.5px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-modal-row-sub { font-size: 9px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-modal-row-btn {
+      flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 5px 10px; border-radius: 14px; cursor: pointer; font-weight: 700;
+      background: rgba(var(--accent-rgb),0.15); border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1); transition: background 0.15s;
+    }
+    .chat-modal-row-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .chat-modal-row-btn:disabled { opacity: 0.5; cursor: default; }
+    .chat-modal-input {
+      width: 100%; background: var(--glass-fill); border: 1px solid var(--tile-border);
+      border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text);
+      font-family: var(--font-ui); outline: none;
+    }
+    .chat-modal-input::placeholder { color: var(--text-faint); }
+    .chat-modal-input:focus { border-color: rgba(var(--accent-rgb),0.4); }
+    .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -2343,7 +2399,14 @@
       <div class="chat-app" id="chatApp" hidden>
         <div class="chat-app-header"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
         <div class="chat-body">
-          <div class="chat-channels" id="chatChannels"></div>
+          <div class="chat-channels" id="chatChannels">
+            <div class="chat-channels-toolbar">
+              <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
+              <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
+              <button class="chat-icon-btn" id="chatNewDmBtn" title="New direct message"><i class="ti ti-message-2-plus"></i></button>
+            </div>
+            <div class="chat-channels-list" id="chatChannelsList"></div>
+          </div>
           <div class="chat-main">
             <div class="chat-timeline" id="chatTimeline"></div>
             <div class="chat-composer">
@@ -2485,6 +2548,18 @@
     <div class="add-app-label" style="text-align:center;color:var(--text-faint);letter-spacing:0.1em;">
       reads from the server's backup folder — nothing there until the backup script is running
     </div>
+  </div>
+</div>
+
+<!-- CHAT — browse/create/DM modal (one shared shell, body swapped per action
+     by the JS in the KLAB SOCIAL section — see openChatModal()) -->
+<div class="add-app-backdrop" id="chatModalBackdrop">
+  <div class="add-app-modal">
+    <div class="add-app-title">
+      <span id="chatModalTitle">// chat</span>
+      <button class="add-app-close" id="chatModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="chatModalBody"></div>
   </div>
 </div>
 
@@ -5580,21 +5655,53 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 let _chatUiLoaded = false;
 let _chatActiveRoomId = null;
 
+// Rooms recorded in the 'm.direct' account-data map are DMs; everything
+// else joined (minus spaces) is a "channel". Matrix has no room-level flag
+// for this — m.direct is the SDK-standard convention every client uses.
+function getDmRoomIds() {
+  const content = MatrixChat.client?.getAccountData('m.direct')?.getContent() || {};
+  return new Set(Object.values(content).flat());
+}
+
+function buildChannelItem(room, icon) {
+  // createRoom({invite:[...]}) only invites — the recipient hasn't actually
+  // joined yet, and sending a message would fail if we treated this like
+  // any other room. Clicking an invited room joins it first (Discord-style
+  // no-friction accept, not a separate accept/decline step).
+  const invited = room.getMyMembership && room.getMyMembership() === 'invite';
+  const item = document.createElement('div');
+  item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
+  item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span>${esc(room.name || 'Unnamed room')}</span>` +
+    (invited ? '<span class="chat-channel-invited">invited</span>' : '');
+  item.addEventListener('click', async () => {
+    if (invited) {
+      try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`); return; }
+    } else if (room.roomId === _chatActiveRoomId) {
+      return;
+    }
+    _chatActiveRoomId = room.roomId;
+    renderChannelList();
+  });
+  return item;
+}
+
 // Always re-renders the timeline pane too at the end — every call site
 // wants both kept in sync (a new/renamed room, a room becoming the active
 // one, etc.), so there's a single place responsible for that pairing
 // instead of every caller having to remember to call both.
 function renderChannelList() {
-  const list = document.getElementById('chatChannels');
+  const list = document.getElementById('chatChannelsList');
   if (!list || !MatrixChat.client) return;
   // Spaces get their own nav in a later milestone — hide them from this
   // flat list for now so they don't show up as bogus empty "channels".
-  const rooms = MatrixChat.client.getRooms()
-    .filter(r => !(r.isSpaceRoom && r.isSpaceRoom()))
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const dmIds = getDmRoomIds();
+  const allRooms = MatrixChat.client.getRooms().filter(r => !(r.isSpaceRoom && r.isSpaceRoom()));
+  const dmRooms      = allRooms.filter(r => dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const channelRooms = allRooms.filter(r => !dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const rooms = [...dmRooms, ...channelRooms];
 
   if (!rooms.length) {
-    list.innerHTML = '<div class="chat-channel-empty">No rooms yet — join or create one via Element to get started.</div>';
+    list.innerHTML = '<div class="chat-channel-empty">No channels yet — use the buttons above to browse or create one.</div>';
     _chatActiveRoomId = null;
     renderTimeline();
     return;
@@ -5602,18 +5709,20 @@ function renderChannelList() {
   if (!_chatActiveRoomId || !rooms.some(r => r.roomId === _chatActiveRoomId)) {
     _chatActiveRoomId = rooms[0].roomId;
   }
+
   list.innerHTML = '';
-  rooms.forEach(room => {
-    const item = document.createElement('div');
-    item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
-    item.innerHTML = `<i class="ti ti-hash"></i><span>${esc(room.name || 'Unnamed room')}</span>`;
-    item.addEventListener('click', () => {
-      if (room.roomId === _chatActiveRoomId) return;
-      _chatActiveRoomId = room.roomId;
-      renderChannelList();
-    });
-    list.appendChild(item);
-  });
+  if (dmRooms.length) {
+    const lbl = document.createElement('div');
+    lbl.className = 'chat-channel-section-label';
+    lbl.textContent = 'Direct Messages';
+    list.append(lbl, ...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
+  }
+  if (channelRooms.length) {
+    const lbl = document.createElement('div');
+    lbl.className = 'chat-channel-section-label';
+    lbl.textContent = 'Channels';
+    list.append(lbl, ...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
+  }
   renderTimeline();
 }
 
@@ -5693,6 +5802,180 @@ function sendChatMessage() {
   });
 }
 
+// ── Browse / Create / DM modal ───────────
+// One shared backdrop+shell (see #chatModalBackdrop in the markup); each
+// action rebuilds #chatModalBody for itself rather than three separate
+// modal shells sitting mostly-duplicated in the DOM.
+function openChatModal(title, bodyHTML) {
+  document.getElementById('chatModalTitle').textContent = title;
+  document.getElementById('chatModalBody').innerHTML = bodyHTML;
+  document.getElementById('chatModalBackdrop').classList.add('open');
+}
+function closeChatModal() {
+  document.getElementById('chatModalBackdrop').classList.remove('open');
+}
+
+function openBrowseModal() {
+  openChatModal('// browse channels', `
+    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="chatBrowseSearch" placeholder="search channels..." autocomplete="off" /></div>
+    <div class="chat-modal-list" id="chatBrowseList"><div class="picker-empty">loading...</div></div>
+  `);
+  const listEl   = document.getElementById('chatBrowseList');
+  const searchEl = document.getElementById('chatBrowseSearch');
+
+  function renderResults(rooms) {
+    const joined = new Set(MatrixChat.client.getRooms().map(r => r.roomId));
+    listEl.innerHTML = '';
+    if (!rooms.length) { listEl.innerHTML = '<div class="picker-empty">no channels found</div>'; return; }
+    rooms.forEach(r => {
+      const alreadyIn = joined.has(r.room_id);
+      const row = document.createElement('div');
+      row.className = 'chat-modal-row';
+      const memberCount = r.num_joined_members || 0;
+      row.innerHTML =
+        '<div class="chat-modal-row-info">' +
+          `<div class="chat-modal-row-name">${esc(r.name || r.canonical_alias || 'Unnamed room')}</div>` +
+          `<div class="chat-modal-row-sub">${esc(r.topic ? r.topic + ' · ' : '')}${memberCount} member${memberCount === 1 ? '' : 's'}</div>` +
+        '</div>' +
+        `<button class="chat-modal-row-btn" ${alreadyIn ? 'disabled' : ''}>${alreadyIn ? 'Joined' : 'Join'}</button>`;
+      if (!alreadyIn) {
+        const btn = row.querySelector('button');
+        btn.addEventListener('click', async () => {
+          btn.disabled = true; btn.textContent = 'Joining…';
+          try {
+            await MatrixChat.client.joinRoom(r.room_id);
+            btn.textContent = 'Joined';
+            renderChannelList();
+          } catch (e) {
+            btn.disabled = false; btn.textContent = 'Join';
+            showToast(`Couldn't join: ${e.message || 'error'}`);
+          }
+        });
+      }
+      listEl.appendChild(row);
+    });
+  }
+
+  async function load(term) {
+    listEl.innerHTML = '<div class="picker-empty">loading...</div>';
+    try {
+      const res = await MatrixChat.client.publicRooms(term ? { limit: 50, filter: { generic_search_term: term } } : { limit: 50 });
+      renderResults(res.chunk || []);
+    } catch (e) {
+      listEl.innerHTML = '<div class="picker-empty">failed to load channels</div>';
+    }
+  }
+
+  let debounce;
+  searchEl.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => load(searchEl.value.trim()), 350);
+  });
+  load('');
+}
+
+function openCreateModal() {
+  openChatModal('// create channel', `
+    <input type="text" class="chat-modal-input" id="chatCreateName" placeholder="Channel name" autocomplete="off" />
+    <input type="text" class="chat-modal-input" id="chatCreateTopic" placeholder="Topic (optional)" autocomplete="off" style="margin-top:8px;" />
+    <button class="chat-connect-btn" id="chatCreateSubmit" style="margin-top:12px;width:100%;justify-content:center;">Create</button>
+    <div class="chat-modal-error" id="chatCreateError" hidden></div>
+  `);
+  const nameEl  = document.getElementById('chatCreateName');
+  const topicEl = document.getElementById('chatCreateTopic');
+  const btn     = document.getElementById('chatCreateSubmit');
+  const err     = document.getElementById('chatCreateError');
+  nameEl.focus();
+
+  btn.addEventListener('click', async () => {
+    const name = nameEl.value.trim();
+    if (!name) { err.textContent = 'Give it a name.'; err.hidden = false; return; }
+    err.hidden = true;
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const { room_id } = await MatrixChat.client.createRoom({
+        name,
+        topic: topicEl.value.trim() || undefined,
+        visibility: 'public',
+        preset: 'public_chat',
+      });
+      closeChatModal();
+      _chatActiveRoomId = room_id;
+      renderChannelList();
+      showToast(`Created #${name}`);
+    } catch (e) {
+      err.textContent = e.message || 'Failed to create channel.';
+      err.hidden = false;
+      btn.disabled = false; btn.textContent = 'Create';
+    }
+  });
+}
+
+async function startDm(userId) {
+  const client = MatrixChat.client;
+  try {
+    // Reuse an existing DM with this person if one's already recorded in
+    // m.direct, rather than spinning up a duplicate room every time.
+    const directContent = client.getAccountData('m.direct')?.getContent() || {};
+    let roomId = (directContent[userId] || []).find(id => client.getRoom(id));
+    if (!roomId) {
+      const res = await client.createRoom({ is_direct: true, invite: [userId], preset: 'trusted_private_chat' });
+      roomId = res.room_id;
+      await client.setAccountData('m.direct', { ...directContent, [userId]: [...(directContent[userId] || []), roomId] });
+    }
+    closeChatModal();
+    _chatActiveRoomId = roomId;
+    renderChannelList();
+  } catch (e) {
+    showToast(`Couldn't start DM: ${e.message || 'error'}`);
+  }
+}
+
+function openDmModal() {
+  openChatModal('// new message', `
+    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="chatDmSearch" placeholder="search users..." autocomplete="off" /></div>
+    <div class="chat-modal-list" id="chatDmList"></div>
+  `);
+  const listEl   = document.getElementById('chatDmList');
+  const searchEl = document.getElementById('chatDmSearch');
+  const myId     = MatrixChat.client.getUserId();
+
+  function renderResults(users) {
+    listEl.innerHTML = '';
+    if (!users.length) { listEl.innerHTML = '<div class="picker-empty">no users found</div>'; return; }
+    users.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'chat-modal-row';
+      row.innerHTML =
+        '<div class="chat-modal-row-info">' +
+          `<div class="chat-modal-row-name">${esc(u.display_name || u.user_id)}</div>` +
+          `<div class="chat-modal-row-sub">${esc(u.user_id)}</div>` +
+        '</div>' +
+        '<button class="chat-modal-row-btn">Message</button>';
+      row.querySelector('button').addEventListener('click', () => startDm(u.user_id));
+      listEl.appendChild(row);
+    });
+  }
+
+  async function search(term) {
+    if (!term) { listEl.innerHTML = ''; return; }
+    listEl.innerHTML = '<div class="picker-empty">searching...</div>';
+    try {
+      const res = await MatrixChat.client.searchUserDirectory({ term, limit: 20 });
+      renderResults((res.results || []).filter(u => u.user_id !== myId));
+    } catch (e) {
+      listEl.innerHTML = '<div class="picker-empty">search failed</div>';
+    }
+  }
+
+  let debounce;
+  searchEl.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => search(searchEl.value.trim()), 350);
+  });
+  searchEl.focus();
+}
+
 let _chatBound = false;
 
 function showChatApp() {
@@ -5714,6 +5997,13 @@ function showChatApp() {
     MatrixChat.on('timeline', () => renderChannelList()); // cascades to renderTimeline() too
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendChatMessage();
+    });
+    document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
+    document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
+    document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
+    document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
+    document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
+      if (e.target.id === 'chatModalBackdrop') closeChatModal();
     });
   }
   renderChannelList();
