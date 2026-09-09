@@ -285,7 +285,7 @@
        short conversation still shrinks to fit its content instead of
        always claiming the full half — long ones cap out and scroll
        within their own timeline instead of taking the whole panel. */
-    body.tab-social-active .chat-app { height: auto; flex: 0 1 auto; max-height: 50%; min-height: 0; }
+    body.tab-social-active .chat-app { height: auto; flex: 0 1 auto; max-height: 56%; min-height: 0; }
 
     /* ══ HEADER ══ */
     .header {
@@ -640,7 +640,14 @@
     .chat-status-dot.live { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
 
     .chat-body { display: flex; flex: 1; min-height: 0; }
-    .chat-channels { width: 230px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--tile-border); padding: 0.6rem; }
+    /* Width is set inline by the resizer script (initChatResizer()) from
+       the saved/dragged value — 230px here is only the pre-JS fallback. */
+    .chat-channels { width: 230px; flex-shrink: 0; overflow-y: auto; overflow-x: hidden; border-right: 1px solid var(--tile-border); padding: 0.6rem; }
+    .chat-resizer {
+      width: 5px; flex-shrink: 0; cursor: col-resize;
+      background: transparent; transition: background 0.15s;
+    }
+    .chat-resizer:hover, .chat-resizer.dragging { background: rgba(var(--accent-rgb),0.35); }
     .chat-channel-item {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 10px; border-radius: 7px; cursor: pointer;
@@ -2578,6 +2585,7 @@
             </div>
             <div class="chat-channels-list" id="chatChannelsList"></div>
           </div>
+          <div class="chat-resizer" id="chatResizer" title="Drag to resize — double-click to collapse"></div>
           <div class="chat-main">
             <div class="chat-timeline" id="chatTimeline"></div>
             <div class="chat-typing" id="chatTyping"></div>
@@ -6132,8 +6140,17 @@ function renderChannelList() {
   ensureDmBookkeeping();
   // Spaces get their own nav in a later milestone — hide them from this
   // flat list for now so they don't show up as bogus empty "channels".
+  // client.getRooms() keeps returning rooms after you've left them (the
+  // close-DM button calls client.leave()) — without filtering membership,
+  // a closed DM stayed in the list, and since you can no longer resolve
+  // the other member's state once you've left, it rendered as a
+  // nameless "Empty room" instead of actually disappearing.
   const dmIds = getDmRoomIds();
-  const allRooms = MatrixChat.client.getRooms().filter(r => !(r.isSpaceRoom && r.isSpaceRoom()));
+  const allRooms = MatrixChat.client.getRooms().filter(r => {
+    if (r.isSpaceRoom && r.isSpaceRoom()) return false;
+    const membership = r.getMyMembership?.();
+    return membership === 'join' || membership === 'invite';
+  });
   const dmRooms      = allRooms.filter(r => dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const channelRooms = allRooms.filter(r => !dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const rooms = [...dmRooms, ...channelRooms];
@@ -6592,6 +6609,54 @@ function notifyNewMessage(event, room) {
   showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined);
 }
 
+// Drag to resize the channel sidebar; double-click the resizer to
+// collapse it entirely (and again to restore the last width). Persisted
+// per-browser so it doesn't reset every visit.
+const CHAT_SIDEBAR_WIDTH_KEY = 'klabnet_chat_sidebar_width';
+const CHAT_SIDEBAR_MIN = 60;
+const CHAT_SIDEBAR_MAX = 420;
+const CHAT_SIDEBAR_DEFAULT = 230;
+function initChatResizer() {
+  const resizer  = document.getElementById('chatResizer');
+  const channels = document.getElementById('chatChannels');
+  if (!resizer || !channels || resizer._bound) return;
+  resizer._bound = true;
+
+  const saved = parseInt(localStorage.getItem(CHAT_SIDEBAR_WIDTH_KEY), 10);
+  let lastExpandedWidth = Number.isFinite(saved) && saved > 0 ? saved : CHAT_SIDEBAR_DEFAULT;
+  channels.style.width = lastExpandedWidth + 'px';
+
+  let dragging = false, startX = 0, startWidth = 0;
+  resizer.addEventListener('pointerdown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = channels.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    resizer.setPointerCapture(e.pointerId);
+  });
+  resizer.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const w = Math.max(0, Math.min(CHAT_SIDEBAR_MAX, startWidth + (e.clientX - startX)));
+    channels.style.width = (w < CHAT_SIDEBAR_MIN ? 0 : w) + 'px'; // snap fully closed below the min
+  });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    const w = Math.round(channels.getBoundingClientRect().width);
+    if (w > 0) {
+      lastExpandedWidth = w;
+      localStorage.setItem(CHAT_SIDEBAR_WIDTH_KEY, String(w));
+    }
+  }
+  resizer.addEventListener('pointerup', endDrag);
+  resizer.addEventListener('pointercancel', endDrag);
+  resizer.addEventListener('dblclick', () => {
+    const collapsed = channels.getBoundingClientRect().width < 1;
+    channels.style.width = (collapsed ? lastExpandedWidth : 0) + 'px';
+  });
+}
+
 let _chatBound = false;
 
 function showChatApp() {
@@ -6604,6 +6669,7 @@ function showChatApp() {
   // — only bind listeners once or they'd stack and fire N times each.
   if (!_chatBound) {
     _chatBound = true;
+    initChatResizer();
     MatrixChat.on('sync', state => {
       const live = state === 'PREPARED' || state === 'SYNCING';
       dot.classList.toggle('live', live);
