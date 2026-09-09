@@ -258,20 +258,42 @@
        the end of the document. */
     .dash.dash-clearance { padding-bottom: 7rem; }
 
+    /* Social tab: instead of guessing a fixed height for the chat box
+       (which either wastes space or still forces page scroll depending
+       on screen size), turn .dash into a flex column for just this tab
+       so the chat panel fills whatever's actually left after the header
+       and nav — the browser does that arithmetic exactly, no guessing.
+       The one thing that shrinks to make more room is the floating
+       player dock (see below), not the page header. */
+    body.tab-social-active .dash {
+      display: flex; flex-direction: column; min-height: 100vh;
+      /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
+         toggle above (same specificity, later in the sheet, so this
+         wins) — this tab always needs room for the dock regardless of
+         that toggle's own "does the page need to scroll" measurement. */
+      padding-bottom: 5.5rem;
+    }
+    body.tab-social-active .dash-body { flex: 1; min-height: 0; }
+    /* align-self, not the parent's align-items — so only .dash-main
+       stretches to fill the row's height; the presence rail next to it
+       keeps its normal natural-height, sticky-positioned behavior. */
+    body.tab-social-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    body.tab-social-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-social-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
+    body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
+    body.tab-social-active .chat-app { height: auto; flex: 1; min-height: 0; }
+
+    /* Mini player dock while chatting — the thing that shrinks. */
+    body.tab-social-active .player-dock { padding: 0.55rem 1rem; gap: 0.8rem; }
+    body.tab-social-active .player-art, body.tab-social-active .player-art-placeholder { width: 34px; height: 34px; font-size: 14px; }
+    body.tab-social-active .dock-extra { display: none; }
+
     /* ══ HEADER ══ */
     .header {
       display: flex; align-items: flex-start; justify-content: space-between;
       margin-bottom: 4rem;
       animation: fadeUp 0.6s ease both;
     }
-    /* Social tab: collapse the hero/MOTD and the presence rail (redundant
-       there — Social already shows who's around) so chat gets real room
-       instead of a small fixed box squeezed under a full page header.
-       See setActiveTab()'s tab-social-active toggle. */
-    body.tab-social-active .header-left { display: none; }
-    body.tab-social-active .header { margin-bottom: 1rem; }
-    body.tab-social-active .dash { padding-top: 1.5rem; }
-    body.tab-social-active .presence-rail { display: none; }
 
     .header-left { display: flex; align-items: center; gap: 1.1rem; }
 
