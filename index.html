@@ -562,84 +562,54 @@
     .tile.tile-wide i { font-size: 17px; }
     .grass-icon-slot { display: flex; flex-shrink: 0; }
 
-    /* ══ KLAB SOCIAL — discord widget (custom-rendered, themed) ══ */
-    .social-embed-wrap {
+    /* ══ KLAB SOCIAL — Matrix chat ══ */
+    .chat-shell {
       border-radius: 10px;
       border: 1px solid var(--tile-border); background: var(--tile-bg);
       box-shadow: 0 4px 18px var(--shadow-25);
-      padding: 0.9rem 1.1rem;
+      min-height: 320px;
+      display: flex; flex-direction: column;
     }
-    .social-note {
-      font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--text-faint); margin-top: 0.6rem;
+    .chat-connect {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.5rem; padding: 3rem 1.5rem; text-align: center; flex: 1;
     }
-    .discord-header {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 0.6rem;
-      margin-bottom: 0.7rem; padding-bottom: 0.6rem;
-      border-bottom: 1px solid var(--tile-border);
+    .chat-connect i { font-size: 28px; color: var(--tile-icon); }
+    .chat-connect-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .chat-connect-sub { font-size: 10.5px; color: var(--text-dimmer); max-width: 320px; line-height: 1.5; }
+    .chat-connect-btn {
+      margin-top: 0.4rem;
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 16px; border-radius: 6px;
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+      cursor: pointer; font-weight: 700;
+      background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      border-top-color: rgba(255,255,255,0.22);
+      color: rgba(var(--accent-rgb),1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
+      transition: all 0.18s;
     }
-    .discord-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .discord-header-title {
-      font-size: 11px; letter-spacing: 0.06em; color: var(--text);
-      text-transform: uppercase; font-family: var(--font-ui);
+    .chat-connect-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
+    .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
+    .chat-app { display: flex; flex-direction: column; flex: 1; }
+    .chat-app-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--tile-border);
+      font-size: 9px; letter-spacing: 0.1em; color: var(--text-dimmer);
+      text-transform: uppercase;
     }
-    .discord-header-count {
-      font-size: 8.5px; letter-spacing: 0.1em; color: var(--text-dimmer);
-      text-transform: uppercase; display: flex; align-items: center; gap: 4px;
+    .chat-status-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: #6b7280;
     }
-    .discord-header-count::before {
-      content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6);
+    .chat-status-dot.live { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+    .chat-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; color: var(--text-faint); letter-spacing: 0.05em;
+      padding: 2rem; text-align: center;
     }
-    .discord-join-btn {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--tile-label); text-decoration: none;
-      padding: 5px 11px; border-radius: 20px;
-      background: var(--glass-fill); border: 1px solid var(--tile-border);
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-      flex-shrink: 0;
-    }
-    .discord-join-btn i { font-size: 13px; }
-    .discord-join-btn:hover {
-      background: var(--tile-bg-h); border-color: var(--tile-border-h); color: var(--tile-label-h);
-    }
-    .discord-voice-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.7rem; }
-    .discord-voice-item {
-      display: flex; align-items: center; gap: 5px;
-      font-size: 10px; letter-spacing: 0.03em; color: var(--tile-label);
-      padding: 4px 10px; border-radius: 20px;
-      background: var(--glass-fill); border: 1px solid var(--tile-border);
-    }
-    .discord-voice-item i { font-size: 12px; color: var(--tile-icon); }
-    .discord-members-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr));
-      gap: 6px;
-    }
-    .discord-member-card {
-      display: flex; align-items: center; gap: 0.55rem;
-      padding: 0.4rem 0.55rem; border-radius: 8px;
-      background: var(--glass-fill); border: 1px solid var(--tile-border);
-    }
-    .discord-member-name {
-      font-size: 10.5px; color: var(--tile-label); letter-spacing: 0.01em;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .discord-member-avatar-wrap { position: relative; flex-shrink: 0; width: 26px; height: 26px; }
-    .discord-member-avatar-wrap img,
-    .discord-member-avatar-wrap .picker-item-art-ph {
-      width: 26px; height: 26px; border-radius: 50%;
-    }
-    .discord-status-dot {
-      position: absolute; bottom: -1px; right: -1px;
-      width: 8px; height: 8px; border-radius: 50%;
-      border: 2px solid var(--tile-bg);
-    }
-    .discord-status-dot.online  { background: var(--success-color); }
-    .discord-status-dot.idle    { background: #eab308; }
-    .discord-status-dot.dnd     { background: var(--danger-color); }
-    .discord-status-dot.offline { background: #6b7280; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -2312,10 +2282,19 @@
   <div class="tab-panel" data-tab-panel="social">
   <div class="sec" data-sec="klabsocial" hidden>
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">beta</span><div class="sec-line"></div></div>
-    <div class="social-embed-wrap">
-      <div id="klabSocialBody"><div class="picker-empty">loading discord...</div></div>
+    <div class="chat-shell" id="chatShell">
+      <div class="chat-connect" id="chatConnect">
+        <i class="ti ti-message-circle-2"></i>
+        <div class="chat-connect-title">Chat</div>
+        <div class="chat-connect-sub">Message using the account you're already logged in with.</div>
+        <button class="chat-connect-btn" id="chatConnectBtn">Connect</button>
+        <div class="chat-connect-error" id="chatConnectError" hidden></div>
+      </div>
+      <div class="chat-app" id="chatApp" hidden>
+        <div class="chat-app-header"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
+        <div class="chat-empty" id="chatEmpty">No rooms yet — join or create one via Element to get started.</div>
+      </div>
     </div>
-    <div class="social-note">discord's widget only exposes voice channels & online members — text channels aren't available this way. matrix bridge planned for full chat later.</div>
   </div>
   </div>
 
@@ -2520,7 +2499,7 @@
             <div class="s-toggle" id="klabcraftToggle"></div>
           </div>
           <div class="settings-row">
-            <div><div class="settings-row-label">KLAB SOCIAL</div><div class="settings-row-sub">Matrix chat integration (blueprint only)</div></div>
+            <div><div class="settings-row-label">KLAB SOCIAL</div><div class="settings-row-sub">Matrix-powered chat (in progress)</div></div>
             <div class="s-toggle" id="klabsocialToggle"></div>
           </div>
         </div>
@@ -5104,7 +5083,7 @@ function applySettings() {
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
   const klabSocialVisible = _settings.experimentalEnabled && _settings.showKlabSocial;
   showSec('.sec[data-sec="klabsocial"]', klabSocialVisible);
-  if (klabSocialVisible) loadDiscordWidget();
+  if (klabSocialVisible && typeof ensureChatLoaded === 'function') ensureChatLoaded();
 
   // Tab nav follows the same gates — a disabled section's tab disappears too.
   const setTabBtnVisible = (key, visible) => {
@@ -5345,104 +5324,247 @@ function formatBackupSize(bytes) {
 })();
 
 // ══════════════════════════════════════════
-//  KLAB SOCIAL — discord widget (custom-rendered to match the site)
-//  Discord's widget API only ever exposes voice channels + online
-//  member presence — no text channels or messages. That's a platform
-//  limit, not something we can work around from the client. Real chat
-//  is still the planned matrix bridge.
+//  MATRIX CHAT — sync engine
+//  Plan: ~/.claude/plans/enumerated-honking-moon.md
+//
+//  Login flow + SDK boot, exposed on window.MatrixChat. Defined ahead of
+//  the KLAB SOCIAL section below (which wires it into the Social tab's
+//  DOM) and ahead of the top-level applySettings() call further down —
+//  MatrixChat is a `const`, so anything that touches it before this
+//  point in the script would hit the temporal-dead-zone, not just an
+//  undefined value.
 // ══════════════════════════════════════════
-const DISCORD_GUILD_ID = '1435469331336138895';
-let _discordLoaded = false;
+const MATRIX_URL          = 'https://matrix.klab.gg';
+// jsdelivr's generic `+esm` conversion 404s on matrix-js-sdk's sdp-transform
+// dependency (pulled in eagerly for WebRTC calling support we don't even
+// use — see plan non-goals). esm.sh's *default* (non-bundle) mode avoids
+// that 404 but has its own bug: its shallow per-file CJS export detection
+// misses `UnstableValue` in matrix-events-sdk's re-export chain, breaking
+// polls.ts's import of it. `?bundle` fixes both at once — esbuild's real
+// bundler correctly resolves the export AND tree-shakes out the unused
+// sdp-transform/WebRTC path entirely. Verified against the actual bundle
+// bytes (no sdp-transform reference, UnstableValue properly defined,
+// createClient/ClientEvent both exported, only one Node polyfill —
+// node:events, which esm.sh serves natively) before pinning this.
+const MATRIX_SDK_URL      = 'https://esm.sh/matrix-js-sdk@42.3.0?bundle';
+const MATRIX_SESSION_KEY  = 'klabnet_matrix_session';
+const MATRIX_PENDING_KEY  = 'klabnet_matrix_pending_token';
 
-function renderDiscordWidget(body, data) {
-  body.innerHTML = '';
+const MatrixChat = (function () {
+  let matrixcs = null; // populated by a dynamic import on first login/boot —
+                        // users who never open chat never fetch the SDK at all
+  let client   = null;
+  const listeners = {};
 
-  const header = document.createElement('div');
-  header.className = 'discord-header';
-
-  const left = document.createElement('div');
-  left.className = 'discord-header-left';
-  const title = document.createElement('span');
-  title.className = 'discord-header-title';
-  title.textContent = data.name || 'discord';
-  const count = document.createElement('span');
-  count.className = 'discord-header-count';
-  count.textContent = (data.presence_count || 0) + ' online';
-  left.append(title, count);
-  header.appendChild(left);
-
-  if (data.instant_invite) {
-    const join = document.createElement('a');
-    join.className = 'discord-join-btn';
-    join.href = data.instant_invite; join.target = '_blank'; join.rel = 'noopener';
-    join.innerHTML = '<i class="ti ti-brand-discord"></i>';
-    const label = document.createElement('span');
-    label.textContent = 'Join';
-    join.appendChild(label);
-    header.appendChild(join);
+  function on(event, cb) { (listeners[event] = listeners[event] || []).push(cb); }
+  function emit(event, ...args) {
+    (listeners[event] || []).forEach(cb => { try { cb(...args); } catch (e) { console.error(e); } });
   }
-  body.appendChild(header);
 
-  if (Array.isArray(data.channels) && data.channels.length) {
-    const voiceList = document.createElement('div');
-    voiceList.className = 'discord-voice-list';
-    data.channels.forEach(ch => {
-      const row = document.createElement('div');
-      row.className = 'discord-voice-item';
-      const icon = document.createElement('i');
-      icon.className = 'ti ti-headphones';
-      const name = document.createElement('span');
-      name.textContent = ch.name;
-      row.append(icon, name);
-      voiceList.appendChild(row);
+  function loadSession()  { try { return JSON.parse(localStorage.getItem(MATRIX_SESSION_KEY)); } catch (e) { return null; } }
+  function saveSession(s) { localStorage.setItem(MATRIX_SESSION_KEY, JSON.stringify(s)); }
+  function clearSession() { localStorage.removeItem(MATRIX_SESSION_KEY); }
+
+  async function loadSdk() {
+    if (!matrixcs) matrixcs = await import(MATRIX_SDK_URL);
+    return matrixcs;
+  }
+
+  // ── SSO popup login ──────────────────────
+  // Opens Synapse/MAS's SSO redirect in a popup. Authentik already has a
+  // live session for this user (they're on this page at all because they
+  // passed Caddy forward-auth), so it should resolve without any visible
+  // interaction. The popup is this same index.html, short-circuited by the
+  // <head> script for `?matrixSsoCallback=1` — it relays the resulting
+  // loginToken back via localStorage + postMessage and closes itself.
+  function ssoPopupLogin() {
+    return new Promise((resolve, reject) => {
+      const redirectUrl = `${location.origin}${location.pathname}?matrixSsoCallback=1`;
+      const popup = window.open(
+        `${MATRIX_URL}/_matrix/client/v3/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`,
+        'matrix-sso-login',
+        'width=480,height=640'
+      );
+      if (!popup) { reject(new Error('Popup blocked — allow popups for this site to use chat')); return; }
+
+      let settled = false;
+      function finish(token) {
+        if (settled) return;
+        settled = true;
+        clearInterval(pollTimer);
+        window.removeEventListener('message', onMessage);
+        window.removeEventListener('storage', onStorage);
+        localStorage.removeItem(MATRIX_PENDING_KEY);
+        resolve(token);
+      }
+      function onMessage(e) {
+        if (e.origin !== location.origin) return;
+        if (e.data && e.data.type === 'matrix-sso-token') finish(e.data.loginToken);
+      }
+      function onStorage(e) {
+        if (e.key !== MATRIX_PENDING_KEY || !e.newValue) return;
+        try { finish(JSON.parse(e.newValue).loginToken); } catch (err) {}
+      }
+      window.addEventListener('message', onMessage);
+      window.addEventListener('storage', onStorage);
+
+      // Belt-and-suspenders poll: the 'storage' event doesn't reliably fire
+      // in every browser/timing combo for a popup that closes itself
+      // immediately after writing, so also poll the pending-token key
+      // directly, and detect the user closing the popup without completing
+      // (reject rather than hang the login forever).
+      const pollTimer = setInterval(() => {
+        if (settled) return;
+        try {
+          const raw = localStorage.getItem(MATRIX_PENDING_KEY);
+          if (raw) { finish(JSON.parse(raw).loginToken); return; }
+        } catch (e) {}
+        if (popup.closed) {
+          settled = true;
+          clearInterval(pollTimer);
+          window.removeEventListener('message', onMessage);
+          window.removeEventListener('storage', onStorage);
+          reject(new Error('Login window closed before completing'));
+        }
+      }, 400);
     });
-    body.appendChild(voiceList);
   }
 
-  const memberGrid = document.createElement('div');
-  memberGrid.className = 'discord-members-grid';
-  (data.members || []).forEach(m => {
-    const card = document.createElement('div');
-    card.className = 'discord-member-card';
+  async function exchangeLoginToken(loginToken) {
+    const res = await fetchTimeout(`${MATRIX_URL}/_matrix/client/v3/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'm.login.token', token: loginToken }),
+    }, 8000);
+    if (!res.ok) throw new Error(`Matrix login failed: HTTP ${res.status}`);
+    return res.json();
+  }
 
-    const avatarWrap = document.createElement('div');
-    avatarWrap.className = 'discord-member-avatar-wrap';
-    if (m.avatar_url) {
-      const img = document.createElement('img');
-      img.src = m.avatar_url; img.alt = '';
-      avatarWrap.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'picker-item-art-ph';
-      ph.innerHTML = '<i class="ti ti-user"></i>';
-      avatarWrap.appendChild(ph);
-    }
-    const dot = document.createElement('span');
-    dot.className = 'discord-status-dot ' + (m.status || 'offline');
-    avatarWrap.appendChild(dot);
+  async function bootClient(session) {
+    const sdk = await loadSdk();
+    client = sdk.createClient({
+      baseUrl: MATRIX_URL,
+      accessToken: session.accessToken,
+      userId: session.userId,
+      deviceId: session.deviceId,
+    });
+    client.on(sdk.ClientEvent.Sync, state => {
+      emit('sync', state);
+      if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
+    });
+    await client.startClient({ initialSyncLimit: 20 });
+    return client;
+  }
 
-    const uname = document.createElement('span');
-    uname.className = 'discord-member-name';
-    uname.textContent = m.username;
+  // Idempotent/concurrency-safe: the UI can call this from two places that
+  // race (an automatic silent reconnect on tab load, and a manual "Connect"
+  // click) — without this, both would call bootClient() independently,
+  // spinning up two separate MatrixClient instances double-registering
+  // every 'sync' listener. Concurrent callers share one in-flight attempt;
+  // a failure clears it so a later retry can start fresh, a success stays
+  // cached so later calls just resolve to the same already-live client.
+  let _loginPromise = null;
+  function login() {
+    if (_loginPromise) return _loginPromise;
+    _loginPromise = (async () => {
+      let session = loadSession();
+      if (session && session.expiresAt && session.expiresAt < Date.now()) {
+        // No refresh support yet (milestone 8) — a lapsed token just forces
+        // a fresh SSO round-trip rather than limping along with a dead one.
+        clearSession();
+        session = null;
+      }
+      if (!session) {
+        const loginToken = await ssoPopupLogin();
+        const data = await exchangeLoginToken(loginToken);
+        session = {
+          accessToken:  data.access_token,
+          userId:       data.user_id,
+          deviceId:     data.device_id,
+          refreshToken: data.refresh_token || null,
+          expiresAt:    data.expires_in_ms ? Date.now() + data.expires_in_ms : null,
+        };
+        saveSession(session);
+      }
+      return bootClient(session);
+    })().catch(e => { _loginPromise = null; throw e; });
+    return _loginPromise;
+  }
 
-    card.append(avatarWrap, uname);
-    memberGrid.appendChild(card);
-  });
-  body.appendChild(memberGrid);
+  function logout() {
+    try { client && client.stopClient(); } catch (e) {}
+    client = null;
+    _loginPromise = null; // otherwise a future login() would just hand back the stopped client
+    clearSession();
+  }
+
+  return { login, logout, on, hasSession: () => !!loadSession(), get client() { return client; } };
+})();
+
+window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section below for the UI wiring
+
+// ══════════════════════════════════════════
+//  KLAB SOCIAL — Matrix chat UI wiring
+//  This is just the Social tab's DOM glue: a connect prompt when there's
+//  no session, otherwise the chat app shell. The actual sync engine is
+//  the MatrixChat module (see MATRIX CHAT just above) —
+//  this milestone only proves the tab boots it and shows *something*
+//  real; the full three-pane room/channel/timeline UI is a later
+//  milestone (see the plan doc referenced in the MatrixChat module).
+// ══════════════════════════════════════════
+let _chatUiLoaded = false;
+
+function renderChatRooms() {
+  const empty = document.getElementById('chatEmpty');
+  if (!empty || !MatrixChat.client) return;
+  const rooms = MatrixChat.client.getRooms();
+  empty.textContent = rooms.length
+    ? `${rooms.length} room${rooms.length === 1 ? '' : 's'} — full chat UI coming soon.`
+    : 'No rooms yet — join or create one via Element to get started.';
 }
 
-async function loadDiscordWidget() {
-  if (_discordLoaded) return;
-  const body = document.getElementById('klabSocialBody');
-  if (!body) return;
-  _discordLoaded = true;
+function showChatApp() {
+  document.getElementById('chatConnect').hidden = true;
+  document.getElementById('chatApp').hidden = false;
+  const dot  = document.getElementById('chatStatusDot');
+  const text = document.getElementById('chatStatusText');
+  MatrixChat.on('sync', state => {
+    const live = state === 'PREPARED' || state === 'SYNCING';
+    dot.classList.toggle('live', live);
+    text.textContent = live ? 'connected' : state.toLowerCase();
+    renderChatRooms();
+  });
+  renderChatRooms();
+}
+
+async function connectChat() {
+  const btn = document.getElementById('chatConnectBtn');
+  const err = document.getElementById('chatConnectError');
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
   try {
-    const res = await fetchTimeout('https://discord.com/api/guilds/' + DISCORD_GUILD_ID + '/widget.json', {}, 8000);
-    if (!res.ok) throw new Error('unavailable');
-    renderDiscordWidget(body, await res.json());
+    await MatrixChat.login();
+    showChatApp();
   } catch (e) {
-    _discordLoaded = false;
-    body.innerHTML = '<div class="picker-empty">discord widget unavailable right now</div>';
+    console.error('[chat] connect failed', e);
+    err.textContent = e.message || 'Connection failed — try again.';
+    err.hidden = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect';
+  }
+}
+
+function ensureChatLoaded() {
+  if (_chatUiLoaded) return;
+  _chatUiLoaded = true;
+  document.getElementById('chatConnectBtn')?.addEventListener('click', connectChat);
+  if (MatrixChat.client) { showChatApp(); return; }
+  if (MatrixChat.hasSession()) {
+    // Returning session — boot silently in the background, no popup and
+    // no button click required, so a returning user just sees chat ready.
+    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e));
   }
 }
 
@@ -7252,171 +7374,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   schedule();
 })();
 
-// ══════════════════════════════════════════
-//  MATRIX CHAT — auth spike (milestone 1)
-//  Plan: ~/.claude/plans/enumerated-honking-moon.md
-//
-//  Just the login flow + SDK boot for now, exposed on window.MatrixChat so
-//  it can be exercised from the console on staging before any UI is built:
-//    await MatrixChat.login()
-//    MatrixChat.client.getRooms()
-//  No chat tab / UI wiring yet — that's the next milestone.
-// ══════════════════════════════════════════
-const MATRIX_URL          = 'https://matrix.klab.gg';
-// jsdelivr's generic `+esm` conversion 404s on matrix-js-sdk's sdp-transform
-// dependency (pulled in eagerly for WebRTC calling support we don't even
-// use — see plan non-goals). esm.sh's *default* (non-bundle) mode avoids
-// that 404 but has its own bug: its shallow per-file CJS export detection
-// misses `UnstableValue` in matrix-events-sdk's re-export chain, breaking
-// polls.ts's import of it. `?bundle` fixes both at once — esbuild's real
-// bundler correctly resolves the export AND tree-shakes out the unused
-// sdp-transform/WebRTC path entirely. Verified against the actual bundle
-// bytes (no sdp-transform reference, UnstableValue properly defined,
-// createClient/ClientEvent both exported, only one Node polyfill —
-// node:events, which esm.sh serves natively) before pinning this.
-const MATRIX_SDK_URL      = 'https://esm.sh/matrix-js-sdk@42.3.0?bundle';
-const MATRIX_SESSION_KEY  = 'klabnet_matrix_session';
-const MATRIX_PENDING_KEY  = 'klabnet_matrix_pending_token';
-
-const MatrixChat = (function () {
-  let matrixcs = null; // populated by a dynamic import on first login/boot —
-                        // users who never open chat never fetch the SDK at all
-  let client   = null;
-  const listeners = {};
-
-  function on(event, cb) { (listeners[event] = listeners[event] || []).push(cb); }
-  function emit(event, ...args) {
-    (listeners[event] || []).forEach(cb => { try { cb(...args); } catch (e) { console.error(e); } });
-  }
-
-  function loadSession()  { try { return JSON.parse(localStorage.getItem(MATRIX_SESSION_KEY)); } catch (e) { return null; } }
-  function saveSession(s) { localStorage.setItem(MATRIX_SESSION_KEY, JSON.stringify(s)); }
-  function clearSession() { localStorage.removeItem(MATRIX_SESSION_KEY); }
-
-  async function loadSdk() {
-    if (!matrixcs) matrixcs = await import(MATRIX_SDK_URL);
-    return matrixcs;
-  }
-
-  // ── SSO popup login ──────────────────────
-  // Opens Synapse/MAS's SSO redirect in a popup. Authentik already has a
-  // live session for this user (they're on this page at all because they
-  // passed Caddy forward-auth), so it should resolve without any visible
-  // interaction. The popup is this same index.html, short-circuited by the
-  // <head> script for `?matrixSsoCallback=1` — it relays the resulting
-  // loginToken back via localStorage + postMessage and closes itself.
-  function ssoPopupLogin() {
-    return new Promise((resolve, reject) => {
-      const redirectUrl = `${location.origin}${location.pathname}?matrixSsoCallback=1`;
-      const popup = window.open(
-        `${MATRIX_URL}/_matrix/client/v3/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`,
-        'matrix-sso-login',
-        'width=480,height=640'
-      );
-      if (!popup) { reject(new Error('Popup blocked — allow popups for this site to use chat')); return; }
-
-      let settled = false;
-      function finish(token) {
-        if (settled) return;
-        settled = true;
-        clearInterval(pollTimer);
-        window.removeEventListener('message', onMessage);
-        window.removeEventListener('storage', onStorage);
-        localStorage.removeItem(MATRIX_PENDING_KEY);
-        resolve(token);
-      }
-      function onMessage(e) {
-        if (e.origin !== location.origin) return;
-        if (e.data && e.data.type === 'matrix-sso-token') finish(e.data.loginToken);
-      }
-      function onStorage(e) {
-        if (e.key !== MATRIX_PENDING_KEY || !e.newValue) return;
-        try { finish(JSON.parse(e.newValue).loginToken); } catch (err) {}
-      }
-      window.addEventListener('message', onMessage);
-      window.addEventListener('storage', onStorage);
-
-      // Belt-and-suspenders poll: the 'storage' event doesn't reliably fire
-      // in every browser/timing combo for a popup that closes itself
-      // immediately after writing, so also poll the pending-token key
-      // directly, and detect the user closing the popup without completing
-      // (reject rather than hang the login forever).
-      const pollTimer = setInterval(() => {
-        if (settled) return;
-        try {
-          const raw = localStorage.getItem(MATRIX_PENDING_KEY);
-          if (raw) { finish(JSON.parse(raw).loginToken); return; }
-        } catch (e) {}
-        if (popup.closed) {
-          settled = true;
-          clearInterval(pollTimer);
-          window.removeEventListener('message', onMessage);
-          window.removeEventListener('storage', onStorage);
-          reject(new Error('Login window closed before completing'));
-        }
-      }, 400);
-    });
-  }
-
-  async function exchangeLoginToken(loginToken) {
-    const res = await fetchTimeout(`${MATRIX_URL}/_matrix/client/v3/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'm.login.token', token: loginToken }),
-    }, 8000);
-    if (!res.ok) throw new Error(`Matrix login failed: HTTP ${res.status}`);
-    return res.json();
-  }
-
-  async function bootClient(session) {
-    const sdk = await loadSdk();
-    client = sdk.createClient({
-      baseUrl: MATRIX_URL,
-      accessToken: session.accessToken,
-      userId: session.userId,
-      deviceId: session.deviceId,
-    });
-    client.on(sdk.ClientEvent.Sync, state => {
-      emit('sync', state);
-      if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
-    });
-    await client.startClient({ initialSyncLimit: 20 });
-    return client;
-  }
-
-  async function login() {
-    let session = loadSession();
-    if (session && session.expiresAt && session.expiresAt < Date.now()) {
-      // No refresh support yet (milestone 8) — a lapsed token just forces
-      // a fresh SSO round-trip rather than limping along with a dead one.
-      clearSession();
-      session = null;
-    }
-    if (!session) {
-      const loginToken = await ssoPopupLogin();
-      const data = await exchangeLoginToken(loginToken);
-      session = {
-        accessToken:  data.access_token,
-        userId:       data.user_id,
-        deviceId:     data.device_id,
-        refreshToken: data.refresh_token || null,
-        expiresAt:    data.expires_in_ms ? Date.now() + data.expires_in_ms : null,
-      };
-      saveSession(session);
-    }
-    return bootClient(session);
-  }
-
-  function logout() {
-    try { client && client.stopClient(); } catch (e) {}
-    client = null;
-    clearSession();
-  }
-
-  return { login, logout, on, get client() { return client; } };
-})();
-
-window.MatrixChat = MatrixChat; // console-testable during the auth spike; UI wiring is the next milestone
 
 </script>
 
