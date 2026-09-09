@@ -5976,6 +5976,12 @@ function ensureMsgAvatarResolved(userId, mxcUrl) {
     _msgAvatarCache.set(userId, null);
   }).finally(() => {
     _msgAvatarPending.delete(userId);
+    // renderTimeline()'s skip-if-unchanged render key doesn't factor in
+    // avatar-cache state (only room/events), so without this reset, this
+    // call sees an "unchanged" key and skips the rebuild entirely — the
+    // newly-resolved avatar wouldn't actually paint until some unrelated
+    // event (a new message, a sync tick) forced a real rebuild later.
+    _lastTimelineRenderKey = null;
     renderTimeline(); // re-render so the now-resolved avatar actually shows
   });
 }
