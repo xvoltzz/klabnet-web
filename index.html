@@ -278,6 +278,14 @@
        stretches to fill the row's height; the presence rail next to it
        keeps its normal natural-height, sticky-positioned behavior. */
     body.tab-social-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    /* The rail's own max-height: calc(100vh - 3rem) is sized for the
+       normal scrolling-page tabs, where .dash-body's height is whatever
+       its content needs. It doesn't know about the flex-fill chain here
+       — asking for nearly a full viewport's height regardless of how
+       much .dash-body actually has left after the header/nav took their
+       share is exactly what was ballooning the whole page past 100vh
+       (mostly empty, since there's rarely enough listeners to fill it). */
+    body.tab-social-active .presence-rail { align-self: stretch; max-height: 100%; }
     body.tab-social-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-social-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
     body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
