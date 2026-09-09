@@ -5751,25 +5751,39 @@ function getDmRoomIds() {
 // re-renders once if anything actually changed. Each room is only ever
 // checked once per page load; a room's DM-ness never changes afterward.
 const _dmBookkeepingChecked = new Set();
+// Guards against two overlapping calls (renderChannelList() runs on
+// every 'timeline'/'sync' event, so this can be re-entered while an
+// earlier write is still in flight) racing: both would read the same
+// stale m.direct snapshot, and whichever setAccountData() resolves last
+// would silently clobber the other's addition. Rooms discovered while a
+// write is already in flight just aren't marked checked, so they're
+// picked up cleanly on the next call once it clears — no data lost.
+let _dmBookkeepingInFlight = false;
 function ensureDmBookkeeping() {
+  if (_dmBookkeepingInFlight) return;
   const client = MatrixChat.client;
   if (!client) return;
   const myId = client.getUserId();
   const directContent = client.getAccountData('m.direct')?.getContent() || {};
   const known = new Set(Object.values(directContent).flat());
-  const updated = { ...directContent };
-  let changed = false;
+  const additions = {}; // inviter -> roomIds discovered this pass
   client.getRooms().forEach(room => {
     if (_dmBookkeepingChecked.has(room.roomId) || known.has(room.roomId)) return;
     _dmBookkeepingChecked.add(room.roomId);
     const inviter = room.getMember(myId)?.getDMInviter?.();
     if (!inviter) return;
-    updated[inviter] = [...(updated[inviter] || []), room.roomId];
-    changed = true;
+    (additions[inviter] = additions[inviter] || []).push(room.roomId);
   });
-  if (changed) {
-    client.setAccountData('m.direct', updated).then(renderChannelList).catch(() => {});
-  }
+  if (!Object.keys(additions).length) return;
+  _dmBookkeepingInFlight = true;
+  const updated = { ...directContent };
+  Object.entries(additions).forEach(([inviter, roomIds]) => {
+    updated[inviter] = [...(updated[inviter] || []), ...roomIds];
+  });
+  client.setAccountData('m.direct', updated)
+    .then(renderChannelList)
+    .catch(() => {})
+    .finally(() => { _dmBookkeepingInFlight = false; });
 }
 
 function buildChannelItem(room, icon) {
@@ -5798,6 +5812,12 @@ function buildChannelItem(room, icon) {
 // wants both kept in sync (a new/renamed room, a room becoming the active
 // one, etc.), so there's a single place responsible for that pairing
 // instead of every caller having to remember to call both.
+// Same "skip if nothing relevant changed" idea as renderTimeline() — this
+// used to fully teardown/rebuild the sidebar on every single timeline
+// event across every joined room and every sync tick, not just when a
+// room was actually added/removed/renamed.
+let _lastChannelListKey = null;
+
 function renderChannelList() {
   const list = document.getElementById('chatChannelsList');
   if (!list || !MatrixChat.client) return;
@@ -5811,7 +5831,10 @@ function renderChannelList() {
   const rooms = [...dmRooms, ...channelRooms];
 
   if (!rooms.length) {
-    list.innerHTML = '<div class="chat-channel-empty">No channels yet — use the buttons above to browse or create one.</div>';
+    if (_lastChannelListKey !== '') {
+      _lastChannelListKey = '';
+      list.innerHTML = '<div class="chat-channel-empty">No channels yet — use the buttons above to browse or create one.</div>';
+    }
     _chatActiveRoomId = null;
     renderTimeline();
     return;
@@ -5820,18 +5843,22 @@ function renderChannelList() {
     _chatActiveRoomId = rooms[0].roomId;
   }
 
-  list.innerHTML = '';
-  if (dmRooms.length) {
-    const lbl = document.createElement('div');
-    lbl.className = 'chat-channel-section-label';
-    lbl.textContent = 'Direct Messages';
-    list.append(lbl, ...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
-  }
-  if (channelRooms.length) {
-    const lbl = document.createElement('div');
-    lbl.className = 'chat-channel-section-label';
-    lbl.textContent = 'Channels';
-    list.append(lbl, ...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
+  const listKey = rooms.map(r => `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}`).join(',') + '|' + _chatActiveRoomId;
+  if (listKey !== _lastChannelListKey) {
+    _lastChannelListKey = listKey;
+    list.innerHTML = '';
+    if (dmRooms.length) {
+      const lbl = document.createElement('div');
+      lbl.className = 'chat-channel-section-label';
+      lbl.textContent = 'Direct Messages';
+      list.append(lbl, ...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
+    }
+    if (channelRooms.length) {
+      const lbl = document.createElement('div');
+      lbl.className = 'chat-channel-section-label';
+      lbl.textContent = 'Channels';
+      list.append(lbl, ...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
+    }
   }
   renderTimeline();
 }
@@ -5852,11 +5879,23 @@ function renderTypingLine() {
   else el.textContent = 'Several people are typing…';
 }
 
+// renderChannelList() always cascades into this (see its own comment) —
+// which used to mean *any* timeline event in *any* room, or even a
+// routine sync tick, fully rebuilt the active room's DOM and yanked the
+// scroll position to the bottom, even while the user was scrolled up
+// reading history and nothing in this room had actually changed. The key
+// below (room + per-event id/redacted/edited state) lets a no-op call
+// bail before touching the DOM at all; when a rebuild is genuinely
+// needed, scroll only snaps to bottom if the user was already there (or
+// this is a fresh room switch) rather than always.
+let _lastTimelineRenderKey = null;
+
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
   if (!el) return;
-  if (_chatActiveRoomId !== _typingRenderedRoomId) {
+  const roomChanged = _chatActiveRoomId !== _typingRenderedRoomId;
+  if (roomChanged) {
     _typingRenderedRoomId = _chatActiveRoomId;
     _typingUsers.clear();
     renderTypingLine();
@@ -5865,6 +5904,7 @@ function renderTimeline() {
   if (!room) {
     el.innerHTML = '<div class="chat-timeline-empty">Select a channel to start chatting.</div>';
     if (input) input.disabled = true;
+    _lastTimelineRenderKey = null;
     return;
   }
   if (input) input.disabled = false;
@@ -5876,6 +5916,13 @@ function renderTimeline() {
     // here would show a second, redundant bubble with no body.
     return ev.getRelation()?.rel_type !== 'm.replace';
   });
+
+  const renderKey = room.roomId + '|' + events.map(ev =>
+    `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}`
+  ).join(',');
+  if (!roomChanged && renderKey === _lastTimelineRenderKey) return;
+  const wasNearBottom = roomChanged || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  _lastTimelineRenderKey = renderKey;
 
   el.innerHTML = '';
   let lastSender = null;
@@ -5929,19 +5976,25 @@ function renderTimeline() {
     row.append(avatar, body);
     el.appendChild(row);
   });
-  el.scrollTop = el.scrollHeight;
+  if (wasNearBottom) el.scrollTop = el.scrollHeight;
 }
 
 let _typingStopTimer = null;
+let _isTypingNow = false;
 
-// Called on every composer keystroke — tells the room we're typing, and
-// lets the server's own 4s timeout naturally clear it if we stop without
-// sending (we also clear it explicitly on send, for a snappier "stopped").
+// Called on every composer keystroke, but only actually sends on the
+// false->true transition — the 4s refresh timer (re-armed each keystroke)
+// is what keeps the room knowing we're still typing, not a fresh PUT per
+// character.
 function notifyTyping() {
   if (!_chatActiveRoomId || !MatrixChat.client) return;
-  MatrixChat.client.sendTyping(_chatActiveRoomId, true, 4000).catch(() => {});
   clearTimeout(_typingStopTimer);
+  if (!_isTypingNow) {
+    _isTypingNow = true;
+    MatrixChat.client.sendTyping(_chatActiveRoomId, true, 4000).catch(() => {});
+  }
   _typingStopTimer = setTimeout(() => {
+    _isTypingNow = false;
     MatrixChat.client?.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
   }, 4000);
 }
@@ -5952,6 +6005,7 @@ function sendChatMessage() {
   if (!text || !_chatActiveRoomId) return;
   input.value = '';
   clearTimeout(_typingStopTimer);
+  _isTypingNow = false;
   MatrixChat.client.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
   MatrixChat.client.sendTextMessage(_chatActiveRoomId, text).catch(e => {
     console.error('[chat] send failed', e);
@@ -6095,6 +6149,14 @@ function openCreateModal() {
 
 async function startDm(userId) {
   const client = MatrixChat.client;
+  // client is assigned in bootClient() before the first sync actually
+  // finishes — calling this in that narrow window would read an empty
+  // m.direct/room list and wrongly conclude no DM with this person exists
+  // yet, creating a duplicate room even if one's already there.
+  if (!_chatSyncSettled) {
+    showToast('Still connecting — try again in a moment');
+    return;
+  }
   try {
     // Reuse an existing DM with this person if one's already recorded in
     // m.direct, rather than spinning up a duplicate room every time.
@@ -7314,22 +7376,33 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     return `${Math.floor(h / 24)}d ago`;
   }
 
+  // Capped two ways: a room with a huge membership (e.g. a big public
+  // channel) is skipped entirely rather than flooding the roster with
+  // people you don't really know, and the total is capped regardless —
+  // otherwise refreshOfflineRoster() would fire one getPresence() REST
+  // call per member, unbounded, every 30s.
+  const OFFLINE_ROSTER_ROOM_MEMBER_CAP = 50;
+  const OFFLINE_ROSTER_MAX = 40;
   function offlineRoster(onlineUsernames) {
     const client = MatrixChat.client;
     if (!client) return [];
     const myId = client.getUserId();
     const seen = new Set();
     const roster = [];
-    client.getRooms().forEach(room => {
-      if (room.isSpaceRoom && room.isSpaceRoom()) return;
-      room.getJoinedMembers().forEach(member => {
-        if (member.userId === myId || seen.has(member.userId)) return;
+    for (const room of client.getRooms()) {
+      if (roster.length >= OFFLINE_ROSTER_MAX) break;
+      if (room.isSpaceRoom && room.isSpaceRoom()) continue;
+      const members = room.getJoinedMembers();
+      if (members.length > OFFLINE_ROSTER_ROOM_MEMBER_CAP) continue;
+      for (const member of members) {
+        if (roster.length >= OFFLINE_ROSTER_MAX) break;
+        if (member.userId === myId || seen.has(member.userId)) continue;
         seen.add(member.userId);
         const username = member.userId.replace(/^@/, '').split(':')[0];
-        if (onlineUsernames.has(username)) return; // already shown as online above
+        if (onlineUsernames.has(username)) continue; // already shown as online above
         roster.push({ userId: member.userId, username });
-      });
-    });
+      }
+    }
     return roster;
   }
 
@@ -7469,7 +7542,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           username: window.KLAB_USER.username,
           song:     song?.title  || '',
           artist:   song?.artist || '',
-          songId:   song?.id     || '',
+          songId:   song?.id     ?? '', // nullish, not ||  — a falsy-but-real id like 0 must survive
           playing:  !!song && playerState.playing,
         })
       }, 6000);
