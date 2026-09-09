@@ -594,6 +594,11 @@
     .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
     .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
     .chat-app { display: flex; flex-direction: column; flex: 1; }
+    /* Both set their own `display`, which otherwise beats the browser's
+       default [hidden]{display:none} at equal specificity (author CSS
+       always wins over UA styles regardless of source order) — so the
+       .hidden=true toggle in JS would do nothing without this. */
+    .chat-connect[hidden], .chat-app[hidden] { display: none; }
     .chat-app-header {
       display: flex; align-items: center; gap: 8px;
       padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--tile-border);
@@ -5523,17 +5528,25 @@ function renderChatRooms() {
     : 'No rooms yet — join or create one via Element to get started.';
 }
 
+let _chatSyncListenerBound = false;
+
 function showChatApp() {
   document.getElementById('chatConnect').hidden = true;
   document.getElementById('chatApp').hidden = false;
   const dot  = document.getElementById('chatStatusDot');
   const text = document.getElementById('chatStatusText');
-  MatrixChat.on('sync', state => {
-    const live = state === 'PREPARED' || state === 'SYNCING';
-    dot.classList.toggle('live', live);
-    text.textContent = live ? 'connected' : state.toLowerCase();
-    renderChatRooms();
-  });
+  // showChatApp() can run more than once (MatrixChat.login() is idempotent,
+  // but a "Connect" click after already connecting still calls this again)
+  // — only bind the listener once or every sync tick would fire it N times.
+  if (!_chatSyncListenerBound) {
+    _chatSyncListenerBound = true;
+    MatrixChat.on('sync', state => {
+      const live = state === 'PREPARED' || state === 'SYNCING';
+      dot.classList.toggle('live', live);
+      text.textContent = live ? 'connected' : state.toLowerCase();
+      renderChatRooms();
+    });
+  }
   renderChatRooms();
 }
 
