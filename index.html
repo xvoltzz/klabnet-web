@@ -1283,63 +1283,6 @@
       color: var(--text-dimmer); text-transform: uppercase;
     }
 
-    /* ══ CHANGELOG MODAL ══ */
-    .changelog-backdrop {
-      position: fixed; inset: 0; z-index: 400;
-      background: rgba(0,0,0,0.6);
-      display: none; align-items: center; justify-content: center; padding: 1rem;
-    }
-    .changelog-backdrop.open { display: flex; animation: backdropIn 0.25s ease both; }
-    .changelog-modal {
-      width: min(520px, calc(100vw - 2rem)); max-height: min(640px, calc(100vh - 4rem));
-      border-radius: 10px; padding: 1.6rem;
-      display: flex; flex-direction: column; gap: 1rem;
-      animation: pickerUp 0.2s ease both;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px var(--shadow-50);
-    }
-    .changelog-header { display: flex; align-items: flex-start; justify-content: space-between; }
-    .changelog-kicker {
-      font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
-      color: rgba(var(--accent-rgb),0.85);
-    }
-    .changelog-title { font-size: 1.2rem; font-weight: 700; color: var(--text); letter-spacing: 0.03em; }
-    .changelog-ver { font-size: 9px; letter-spacing: 0.14em; color: var(--text-faint); margin-top: 3px; }
-    .changelog-close {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-dimmer); font-size: 18px;
-      padding: 0 4px; border-radius: 6px;
-      transition: color 0.15s, background 0.15s;
-    }
-    .changelog-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    .changelog-body { overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent; }
-    .changelog-entry { margin-bottom: 1.2rem; }
-    .changelog-entry-ver {
-      font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
-      color: var(--text-dimmer); padding-bottom: 0.4rem; margin-bottom: 0.5rem;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .changelog-item { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
-    .changelog-tag {
-      flex-shrink: 0; font-size: 7.5px; letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 2px 6px; border-radius: 4px; border: 1px solid transparent; font-weight: 700;
-    }
-    .changelog-tag.new  { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.07); }
-    .changelog-tag.fix  { color: #fbbf24; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.07); }
-    .changelog-tag.imp  { color: #7ab8ff; border-color: rgba(122,184,255,0.3); background: rgba(122,184,255,0.07); }
-    .changelog-item-text { font-size: 11px; color: var(--text-dim); line-height: 1.5; letter-spacing: 0.02em; }
-    .changelog-dismiss {
-      align-self: flex-end; padding: 7px 18px; border-radius: 20px;
-      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
-      cursor: pointer; color: var(--text); background: var(--glass-fill); border: 1px solid var(--glass-border);
-      transition: background 0.15s;
-    }
-    .changelog-dismiss:hover { background: var(--glass-fill-h); }
-    [data-theme="light"] .changelog-tag.new  { color: #1a6a28; border-color: rgba(26,106,40,0.3); background: rgba(26,106,40,0.08); }
-    [data-theme="light"] .changelog-tag.fix  { color: #8a5a00; border-color: rgba(138,90,0,0.3); background: rgba(138,90,0,0.08); }
-    [data-theme="light"] .changelog-tag.imp  { color: #1a4a9a; border-color: rgba(26,74,154,0.3); background: rgba(26,74,154,0.08); }
-
     /* ══ LIVE UPDATE BANNER — someone deployed a new commit while this
        tab was open (see the version-poll script near the end of the
        document) ══ */
@@ -2514,7 +2457,6 @@
     </div>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
-      <button class="hdr-btn glass" id="changelogBtn" title="What's new"><i class="ti ti-file-text"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="editToggle" title="Edit layout"><i class="ti ti-layout-grid" id="editIcon"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
@@ -2740,22 +2682,6 @@
       <button class="add-app-close" id="chatModalClose"><i class="ti ti-x"></i></button>
     </div>
     <div id="chatModalBody"></div>
-  </div>
-</div>
-
-<!-- CHANGELOG MODAL -->
-<div class="changelog-backdrop" id="changelogBackdrop">
-  <div class="changelog-modal">
-    <div class="changelog-header">
-      <div>
-        <div class="changelog-kicker">what's new in klabnet</div>
-        <div class="changelog-title">Release Notes</div>
-        <div class="changelog-ver" id="changelogVer"></div>
-      </div>
-      <button class="changelog-close" id="changelogClose"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="changelog-body" id="changelogBody"></div>
-    <button class="changelog-dismiss" id="changelogDismiss">Got it</button>
   </div>
 </div>
 
@@ -5368,74 +5294,14 @@ fetchMe = async function() {
 // custom-app-builder feature; tiles are hardcoded in #appGrid now.
 
 // ══════════════════════════════════════════
-//  VERSION + CHANGELOG + LIVE UPDATE CHECK
-//  Re-added after being dropped in an earlier overhaul — this time kept
-//  honest by convention: KLABNET_VERSION gets bumped and a matching
-//  CHANGELOG entry gets added in the same commit as any user-facing
-//  change, generated from that commit's own message rather than written
-//  separately later (which is how the old one drifted out of sync).
+//  VERSION + LIVE UPDATE CHECK
+//  The changelog UI that used to live here was dropped again — the
+//  Gitea repo link in the header covers the same "what changed" need
+//  without a second, hand-maintained UI to keep in sync. KLABNET_VERSION
+//  itself stays: the live update-check banner below needs a version
+//  string embedded in the page to compare against.
 // ══════════════════════════════════════════
 const KLABNET_VERSION = 'v2026.09.09.1';
-const CHANGELOG_KEY = 'klabnet_seen_version';
-
-const CHANGELOG = [
-  {
-    version: 'v2026.09.09.1',
-    entries: [
-      { tag: 'new', text: 'Real-time chat in the Social tab — channels, DMs, browsing and joining public rooms, and creating your own. Powered by Matrix, auto-logged-in with your klabnet account.' },
-      { tag: 'new', text: 'Typing indicators and new-message notifications, with sound' },
-      { tag: 'new', text: "Right-click a listener's presence card for Listen Party or to start a DM" },
-      { tag: 'new', text: 'Presence rail shows real profile photos, and an "Offline" section for people not currently on the site' },
-      { tag: 'imp', text: 'Presence no longer requires playing music to show up — just being on the site is enough' },
-      { tag: 'fix', text: 'Now-playing highlight, volume, and album/artist browsing races' },
-      { tag: 'fix', text: 'Whole-page scroll snapping back to the top while scrolled into the player-dock clearance zone (e.g. during a MOTD reroll or an active, playing music player)' },
-      { tag: 'fix', text: 'Assorted chat polish — search box focus outline, message text contrast, colored nametags, DM/channel sorting, stale notifications on reload' },
-    ],
-  },
-];
-
-function renderChangelog() {
-  const body = document.getElementById('changelogBody');
-  const ver  = document.getElementById('changelogVer');
-  if (!body) return;
-  ver.textContent = KLABNET_VERSION;
-  body.innerHTML = '';
-  CHANGELOG.forEach(entry => {
-    const div = document.createElement('div');
-    div.className = 'changelog-entry';
-    div.innerHTML = '<div class="changelog-entry-ver">' + esc(entry.version) + '</div>' +
-      entry.entries.map(e =>
-        '<div class="changelog-item">' +
-          '<span class="changelog-tag ' + esc(e.tag) + '">' + esc(e.tag) + '</span>' +
-          '<span class="changelog-item-text">' + esc(e.text) + '</span>' +
-        '</div>'
-      ).join('');
-    body.appendChild(div);
-  });
-}
-function openChangelog() {
-  renderChangelog();
-  document.getElementById('changelogBackdrop').classList.add('open');
-  SFX && SFX.play('open');
-}
-function closeChangelog() {
-  document.getElementById('changelogBackdrop').classList.remove('open');
-  localStorage.setItem(CHANGELOG_KEY, KLABNET_VERSION);
-  SFX && SFX.play('close');
-}
-document.getElementById('changelogBtn')?.addEventListener('click', openChangelog);
-document.getElementById('changelogClose')?.addEventListener('click', closeChangelog);
-document.getElementById('changelogDismiss')?.addEventListener('click', closeChangelog);
-document.getElementById('changelogBackdrop')?.addEventListener('click', e => {
-  if (e.target === document.getElementById('changelogBackdrop')) closeChangelog();
-});
-// Auto-open once per new version, same as before — a little delay so it
-// doesn't compete with the terminal-typing intro on first paint.
-(function checkChangelogSeen() {
-  if (localStorage.getItem(CHANGELOG_KEY) !== KLABNET_VERSION) {
-    setTimeout(openChangelog, 1200);
-  }
-})();
 
 // ── Live update check ────────────────────
 // This is a long-lived SPA with no build step or version endpoint to poll
