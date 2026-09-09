@@ -265,8 +265,15 @@
        nav, and player dock — the browser does that arithmetic exactly,
        no guessing. The player dock stays full-size; the header got
        shorter globally instead (see .header's margin-bottom below). */
+    /* height (a hard cap), not min-height — belt-and-suspenders against
+       page-level scroll: everything that can legitimately overflow
+       (timeline, channel list, presence rail) already has its own
+       overflow-y:auto, so nothing important gets clipped, and this
+       guarantees no scroll at the page level even if some descendant's
+       flex math is off by a few px, rather than just discouraging it. */
+    body.tab-social-active { overflow: hidden; }
     body.tab-social-active .dash {
-      display: flex; flex-direction: column; min-height: 100vh;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
       /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
          toggle above (same specificity, later in the sheet, so this
          wins) — this tab always needs room for the dock regardless of
