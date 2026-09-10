@@ -3477,15 +3477,20 @@ async function prevSong() {
   await playSong(playerState.playlist[playerState.playlistIndex]);
 }
 
-// Progress tracking — dock only. The fullscreen player's own timeupdate
-// listener (further below, where _syncFSProgress is defined) handles all
-// of its own DOM, gated behind whether FS is actually open; this one used
-// to also duplicate that same work unconditionally on every tick
-// regardless of FS being visible at all.
+// Progress tracking
 playerState.audio.addEventListener('timeupdate', () => {
   if (!playerState.audio.duration) return;
   const pct = playerState.audio.currentTime / playerState.audio.duration;
   if (typeof progSlider !== 'undefined') progSlider.setPct(pct);
+  if (typeof fsProgSlider !== 'undefined') fsProgSlider.setPct(pct);
+  // FS timestamps
+  const cur = playerState.audio.currentTime;
+  const dur = playerState.audio.duration;
+  const fmt = s => { const m=Math.floor(s/60),sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; };
+  const fc = document.getElementById('fsCur'); if (fc) fc.textContent = fmt(cur);
+  const fd = document.getElementById('fsDur'); if (fd) fd.textContent = fmt(dur);
+  const fspi = document.getElementById('fsPlayIcon');
+  if (fspi) fspi.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
 });
 
 playerState.audio.addEventListener('ended', nextSong);
@@ -3557,13 +3562,10 @@ const volSlider = makeSlider(
     playerState.volume = pct;
     playerState.audio.volume = pct;
     localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
-    // fsVolSlider isn't defined yet at setup time (declared further down),
-    // but is by the time a user can actually drag this and trigger the
-    // callback — same forward-reference pattern as fsProgSlider/progSlider
-    // above. Using its own setPct() here instead of hand-duplicating the
-    // fill/dot writes matches how fsVolSlider's own onChange keeps this
-    // slider in sync in the other direction, below.
-    if (typeof fsVolSlider !== 'undefined') fsVolSlider.setPct(pct);
+    const fvf = document.getElementById('fsVolFill');
+    const fvd = document.getElementById('fsVolDot');
+    if (fvf) fvf.style.width = (pct*100) + '%';
+    if (fvd) fvd.style.left = (pct*100) + '%';
   }
 );
 volSlider.setPct(playerState.volume);
@@ -3829,7 +3831,9 @@ function renderSongItem(song, container) {
     e.stopPropagation();
     if (isFavorite(song.id)) removeFavorite(song.id);
     else addFavorite(song);
-    // Just update this item's heart icon and class, not a full re-render
+    // re-render to update heart state
+    const allItems = container.querySelectorAll('.picker-item');
+    // Just update this item's heart icon and class
     const btn = e.currentTarget;
     const nowFav = isFavorite(song.id);
     btn.querySelector('i').className = 'ti ' + (nowFav ? 'ti-heart-filled' : 'ti-heart');
@@ -3849,17 +3853,7 @@ function renderSongItem(song, container) {
     if (isLogin) clearLoginSong(); else setLoginSong(song);
     renderPickerList(pickerSongs);
   });
-  item.addEventListener('click', async e => {
-    // Every other action button (.picker-action) stops its own propagation
-    // locally — [data-add-pl] doesn't (it's handled by a delegated
-    // listener on #pickerList instead, see ensurePlDelegate()), so without
-    // this guard clicking "Add to playlist" also fired this row-level
-    // listener and hijacked playback to that song. Checking for any
-    // .picker-action ancestor here (rather than adding stopPropagation
-    // directly on the button) keeps the click still bubbling up to that
-    // delegated #pickerList handler, which the add-to-playlist flow
-    // depends on.
-    if (e.target.closest('.picker-action')) return;
+  item.addEventListener('click', async () => {
     playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
     await playSong(song);
   });
@@ -4091,7 +4085,6 @@ document.getElementById('fsNext').addEventListener('click', nextSong);
 if (playerState.audio) {
   const _fsPlayerEl   = document.getElementById('fsPlayer');
   const _fsProgFillEl = document.getElementById('fsProgFill');
-  const _fsProgDotEl  = document.getElementById('fsProgDot');
   const _fsCurEl       = document.getElementById('fsCur');
   const _fsDurEl       = document.getElementById('fsDur');
   const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
@@ -4099,14 +4092,6 @@ if (playerState.audio) {
     if (!playerState.audio.duration) return;
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
     _fsProgFillEl.style.width = pct + '%';
-    // fsProgSlider (makeSlider()'s wrapper around this same fill+dot pair)
-    // used to be what kept the dot in sync, called from the OTHER
-    // timeupdate listener above — that one ran unconditionally on every
-    // tick regardless of whether FS was even open, duplicating this
-    // gated listener's work. Setting the dot here directly (this listener
-    // already skips all its work while FS is closed) replaces that
-    // without reintroducing the always-on duplicate.
-    _fsProgDotEl.style.left = pct + '%';
     _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
     _fsDurEl.textContent = formatTime(playerState.audio.duration);
     _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
@@ -4694,12 +4679,14 @@ document.getElementById('appGrid').addEventListener('click', e => {
 }, true); // capture phase — runs before tile's own handlers
 
 // Wire SFX to UI elements
-// Tiles — hover chime comes from the delegated pointerover/pointerout
-// system below (hoverSelector includes '.tile'); this used to also bind
-// its own separate per-tile mouseenter listener, which fired alongside
-// the delegated one on every hover (two independent throttle timers, so
-// neither one suppressed the other) and played the 'hover' sound twice.
+let _lastHover = 0;
+function throttledHover() {
+  const now = Date.now();
+  if (now - _lastHover > 80) { _lastHover = now; SFX.play('hover'); }
+}
+// Tiles
 document.querySelectorAll('.tile').forEach(tile => {
+  tile.addEventListener('mouseenter', throttledHover);
   tile.addEventListener('click', () => SFX.play('glass'));
 });
 
@@ -5111,15 +5098,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && editMode) 
 let dragSrc = null;
 let ghost   = null;
 let ghostOffX = 0, ghostOffY = 0;
-// Set while a drag from tileMouseDown() is in flight, so disableTileDrag()
-// (called from setEditMode(false) — Escape or Done, which can fire with
-// the mouse button still held down mid-drag) can tear it down instead of
-// just stopping *new* drags from starting. Without this, an in-flight
-// drag's own window-level mousemove/mouseup listeners kept running after
-// edit mode turned off: the ghost tile kept following the cursor, and
-// releasing the mouse later still silently committed a reorder the user
-// no longer thought they were making.
-let _cancelActiveTileDrag = null;
 
 function enableTileDrag() {
   const grid = document.getElementById('appGrid');
@@ -5131,12 +5109,10 @@ function enableTileDrag() {
 
 function disableTileDrag() {
   const grid = document.getElementById('appGrid');
-  if (grid) {
-    grid.querySelectorAll('.tile-wrap').forEach(wrap => {
-      wrap.removeEventListener('mousedown',  tileMouseDown);
-    });
-  }
-  if (_cancelActiveTileDrag) _cancelActiveTileDrag();
+  if (!grid) return;
+  grid.querySelectorAll('.tile-wrap').forEach(wrap => {
+    wrap.removeEventListener('mousedown',  tileMouseDown);
+  });
 }
 
 function createGhost(wrap, x, y) {
@@ -5220,26 +5196,11 @@ function tileMouseDown(e) {
       curHighlighted = next;
     }
   };
-  const cleanupListeners = () => {
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup',   onUp);
-    _cancelActiveTileDrag = null;
-  };
   const onUp = ev => {
     if (curHighlighted) curHighlighted.classList.remove('drop-before');
     dropGhost(ev.clientX, ev.clientY);
-    cleanupListeners();
-  };
-  // Called by disableTileDrag() if edit mode turns off mid-drag — cancels
-  // rather than drops, so it doesn't commit a reorder the user never
-  // actually released the mouse to confirm.
-  _cancelActiveTileDrag = () => {
-    if (curHighlighted) curHighlighted.classList.remove('drop-before');
-    if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-    ghost = null;
-    if (dragSrc) dragSrc.style.opacity = '';
-    dragSrc = null;
-    cleanupListeners();
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup',   onUp);
   };
   window.addEventListener('mousemove', onMove);
   window.addEventListener('mouseup',   onUp);
@@ -5315,17 +5276,6 @@ loadLayoutState();
 window.KLAB_USER = { username: 'anonymous', groups: [], is_admin: false };
 let _prefsSaveTimer = null;
 
-// Resolves once fetchMe() has completed at least once (success or failure)
-// — anything that needs to know "who's actually logged in right now"
-// rather than the still-default placeholder above should await this.
-// boot() (further down) calls fetchMe() but its completion is a network
-// round trip away; the rest of this synchronous script — including
-// applySettings()'s ensureChatLoaded() call — finishes running long
-// before that resolves, so reading window.KLAB_USER.username without
-// waiting for this would almost always see 'anonymous'.
-let _resolveIdentityReady;
-const identityReady = new Promise(resolve => { _resolveIdentityReady = resolve; });
-
 // All keys we sync between localStorage and server
 const PREF_KEYS = {
   tile_order:    'klabnet_tile_order',
@@ -5351,8 +5301,6 @@ async function fetchMe() {
     }
   } catch(e) {
 
-  } finally {
-    _resolveIdentityReady();
   }
 }
 
@@ -6092,22 +6040,7 @@ const MatrixChat = (function () {
     return URL.createObjectURL(await res.blob());
   }
 
-  // A saved session belongs to whichever klabnet user was signed in when
-  // it was created — if Authentik's identity in this browser has since
-  // changed, this session is for someone else's account entirely.
-  // Matrix user IDs are `@localpart:server`; the localpart-is-the-klabnet-
-  // username assumption already holds everywhere else this app talks to
-  // Matrix (matrixIdFor(), DM lookups, avatar resolution), so it's a
-  // reliable enough check without needing to separately track which
-  // klabnet user each session belongs to.
-  function sessionMatches(klabUsername) {
-    const session = loadSession();
-    if (!session || !session.userId) return false;
-    const localpart = session.userId.replace(/^@/, '').split(':')[0];
-    return localpart === (klabUsername || '').toLowerCase();
-  }
-
-  return { login, logout, on, hasSession: () => !!loadSession(), sessionMatches, mxcToBlobUrl, get client() { return client; } };
+  return { login, logout, on, hasSession: () => !!loadSession(), mxcToBlobUrl, get client() { return client; } };
 })();
 
 window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section below for the UI wiring
@@ -7135,34 +7068,18 @@ async function connectChat() {
   }
 }
 
-async function ensureChatLoaded() {
+function ensureChatLoaded() {
   if (_chatUiLoaded) return;
   _chatUiLoaded = true;
   document.getElementById('chatConnectBtn')?.addEventListener('click', connectChat);
   if (MatrixChat.client) { showChatApp(); return; }
   if (MatrixChat.hasSession()) {
-    // A saved session belongs to whichever klabnet user was signed in
-    // when it was created — if a different Authentik identity is active
-    // in this browser now (someone switched users), silently reconnecting
-    // would hand THIS person a live, authenticated Matrix client for the
-    // PREVIOUS user's account: their DMs, their rooms, the ability to
-    // post as them. identityReady is awaited (rather than reading
-    // window.KLAB_USER directly) because this runs synchronously at
-    // boot, before fetchMe()'s network round trip has actually resolved
-    // — reading it immediately would almost always see the default
-    // 'anonymous' placeholder instead of the real answer.
-    await identityReady;
-    if (MatrixChat.sessionMatches(window.KLAB_USER.username)) {
-      // Returning session, same user — boot silently in the background, no popup and
-      // no button click required, so a returning user just sees chat ready.
-      MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e));
-      return;
-    }
-    console.warn('[chat] saved Matrix session belongs to a different klabnet user — clearing it');
-    MatrixChat.logout();
+    // Returning session — boot silently in the background, no popup and
+    // no button click required, so a returning user just sees chat ready.
+    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e));
+    return;
   }
-  // First time ever connecting (or just cleared a stale session above) —
-  // login() needs a real SSO popup (see
+  // First time ever connecting — login() needs a real SSO popup (see
   // ssoPopupLogin() above), and every browser blocks window.open() unless
   // it happens synchronously inside a genuine user gesture. Rather than
   // require everyone to find the Social tab and click Connect by hand,
@@ -7693,15 +7610,66 @@ loadSettings();
 applySettings();
 initTabs();
 // ── Album view ──────────────────────────────────────────
-// backFn is accepted for call-site compatibility but unused — the panel
-// (window.openAlbumPage, defined in the ARTIST/ALBUM PAGE PANEL section
-// below) is always available by the time this can actually be called (its
-// only guard is a static #apPanel element that's unconditionally in the
-// markup), so the manual fetch-and-render fallback this used to have
-// before that panel existed was dead code — traced every call site to
-// confirm none of them depend on the fallback path.
 async function loadAlbumView(albumId, albumName, backFn) {
-  goToMusicDetail(() => window.openAlbumPage(albumId, albumName));
+  if (window.openAlbumPage) { goToMusicDetail(() => window.openAlbumPage(albumId, albumName)); return; }
+  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  try {
+    const res  = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000);
+    const data = await res.json();
+    const info = data['subsonic-response']?.album;
+    if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; return; }
+
+    pickerList.innerHTML = '';
+
+    // Back
+    const back = document.createElement('button');
+    back.className = 'picker-back';
+    back.innerHTML = '<i class="ti ti-arrow-left"></i> back';
+    back.addEventListener('click', () => backFn ? backFn() : closePicker());
+    pickerList.appendChild(back);
+
+    // Header
+    const artUrl = `${ND_URL}/rest/getCoverArt?id=${info.coverArt}&size=200&${subsonicParams()}`;
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:flex-start;gap:1rem;padding:0.5rem 0.8rem 1rem;border-bottom:1px solid var(--glass-border);margin-bottom:0.5rem;';
+    hdr.innerHTML = `
+      <img src="${artUrl}" loading="lazy" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0;border:1px solid var(--glass-border);"
+           onerror="this.outerHTML='<div style=\'width:72px;height:72px;border-radius:12px;background:var(--glass-fill);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-dimmer);flex-shrink:0;\'><i class=\'ti ti-vinyl\'></i></div>'" />
+      <div style="min-width:0;flex:1;">
+        <div style="font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:0.03em;margin-bottom:2px;">${info.name||'Unknown'}</div>
+        <div style="font-size:9px;letter-spacing:0.14em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:10px;">${info.artist||''} · ${info.year||''} · ${(info.song||[]).length} tracks</div>
+        <div style="display:flex;gap:6px;">
+          <button id="_avPlayAll" class="picker-action" style="width:auto;padding:4px 12px;border-radius:8px;border:1px solid var(--glass-border-h);background:var(--glass-fill-h);gap:5px;display:flex;align-items:center;">
+            <i class="ti ti-player-play" style="font-size:12px;"></i> Play all
+          </button>
+          <button id="_avQueueAll" class="picker-action" style="width:auto;padding:4px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--glass-fill);gap:5px;display:flex;align-items:center;">
+            <i class="ti ti-playlist-add" style="font-size:12px;"></i> Queue all
+          </button>
+        </div>
+      </div>`;
+    pickerList.appendChild(hdr);
+
+    const songs = info.song || [];
+    pickerSongs = songs;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'picker-section-label';
+    lbl.textContent = `Tracks (${songs.length})`;
+    pickerList.appendChild(lbl);
+
+    songs.forEach(song => renderSongItem(song, pickerList));
+
+    hdr.querySelector('#_avPlayAll').addEventListener('click', async () => {
+      if (!songs.length) return;
+      queue = songs.slice(1); updateQueueBadge();
+      await playSong(songs[0]);
+      showToast(`Playing "${info.name}"`);
+    });
+    hdr.querySelector('#_avQueueAll').addEventListener('click', () => {
+      queue.push(...songs); updateQueueBadge();
+      showToast(`Queued ${songs.length} tracks from "${info.name}"`);
+    });
+  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load album</div>'; }
 }
 
 // ── Artist / album link delegation ──────────────────────
@@ -8691,6 +8659,21 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 //  PICKER NAVIGATION HISTORY + MOUSE BUTTONS
 // ══════════════════════════════════════════
 (function() {
+  // Navigation stack — each entry is a fn that restores that view
+  const _navStack = [];
+
+  // Push current view before navigating — call this before loadAlbumView etc.
+  window.pickerPushHistory = function(restoreFn) {
+    _navStack.push(restoreFn);
+  };
+
+  window.pickerGoBack = function() {
+    if (!_navStack.length) return;
+    const fn = _navStack.pop();
+    SFX && SFX.play('nav_back');
+    fn();
+  };
+
   // Back button in picker — wire dynamically since picker-back is created per view
   const pickerList = document.getElementById('pickerList');
   if (pickerList) {
@@ -8722,6 +8705,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       else {
         if (history.length > 1) history.back();
         else window.location.href = '/';
+      }
+    }
+    if (false && e.button === 4) {
+      e.preventDefault();
+      // Forward — open picker if closed
+      if (!document.getElementById('pickerBackdrop')?.classList.contains('open')) {
+        openPicker();
       }
     }
   });
