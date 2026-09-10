@@ -466,16 +466,34 @@
       color: var(--text);
       cursor: pointer; pointer-events: auto;
       opacity: 0; transform: translateX(20px) scale(0.96);
-      transition: opacity 0.25s ease, transform 0.25s ease;
+      /* max-height/margin/padding are along for the ride so a dismissed
+         toast collapses its own footprint instead of vanishing outright —
+         `gap` on the flyout still puts fixed space around it while it
+         shrinks, but without this the rest of the stack used to just snap
+         upward the instant a toast was removed (worst with the 4-deep cap
+         silently dropping the oldest one mid-burst). Delayed so the
+         collapse only starts once the fade/slide-out has actually
+         finished, rather than the text visibly squishing while still
+         readable. */
+      transition: opacity 0.25s ease, transform 0.25s ease,
+                  max-height 0.28s ease 0.2s, margin-bottom 0.28s ease 0.2s, padding-block 0.28s ease 0.2s;
+      max-height: 160px; overflow: hidden;
     }
     .toast-item.visible { opacity: 1; transform: translateX(0) scale(1); }
-    .toast-item.leaving { opacity: 0; transform: translateX(20px) scale(0.96); }
+    .toast-item.leaving {
+      opacity: 0; transform: translateX(20px) scale(0.96);
+      max-height: 0; margin-bottom: 0; padding-block: 0;
+    }
     .toast-item-icon {
       font-size: 16px; color: rgba(var(--accent-rgb),1); flex-shrink: 0;
     }
+    .toast-item-avatar {
+      width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    }
     .toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
     @media (prefers-reduced-motion: reduce) {
-      .toast-item { transition: opacity 0.15s ease; transform: none !important; }
+      .toast-item { transition: opacity 0.15s ease; transform: none !important; max-height: none; }
+      .toast-item.leaving { max-height: none; }
     }
 
     .sys-badge {
@@ -550,8 +568,11 @@
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
     .tab-nav-btn i { font-size: 14px; }
-    #socialUnreadBadge { font-size: 8.5px; font-weight: 700; color: rgba(var(--accent-rgb),1); }
+    #socialUnreadBadge { font-size: 8.5px; font-weight: 700; color: rgba(var(--accent-rgb),1); display: inline-block; }
     #socialUnreadBadge:empty { display: none; } /* don't reserve flex-gap space when there's nothing to show */
+    @keyframes unreadBadgePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.65; transform: scale(1.15); } }
+    #socialUnreadBadge:not(:empty) { animation: unreadBadgePulse 2.4s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { #socialUnreadBadge { animation: none !important; } }
     .tab-nav-btn.active {
       background: rgba(var(--accent-rgb),0.16);
       color: var(--text); border-color: rgba(var(--accent-rgb),0.4);
@@ -3878,32 +3899,41 @@ document.getElementById('playerDock').addEventListener('contextmenu', e => {
 
 // ── Toast notification flyout — stacked cards hanging off the header
 //    buttons' bottom-right corner instead of a lone bottom-center pill ──
-function showToast(msg, icon) {
+const TOAST_DEFAULT_MS = 3200;
+function showToast(msg, icon, durationMs, avatarUrl) {
   const host = document.getElementById('toastFlyout');
   if (!host) return;
 
-  // Cap the stack so a burst of calls doesn't grow the column forever.
-  while (host.children.length >= 4) host.firstElementChild.remove();
+  // Cap the stack so a burst of calls doesn't grow the column forever —
+  // dismissed through the normal animated path (not a bare .remove())
+  // so evicting the oldest toast mid-burst collapses smoothly instead of
+  // just popping the rest of the stack up a slot.
+  while (host.children.length >= 4) dismissToast(host.firstElementChild);
 
   const item = document.createElement('div');
   item.className = 'toast-item';
-  item.innerHTML = `<i class="ti ${icon || 'ti-bell'} toast-item-icon"></i><span class="toast-item-msg"></span>`;
+  // Chat notifications pass the sender's already-resolved avatar (see
+  // notifyNewMessage) so the toast shows who's messaging you rather than
+  // a generic icon; everything else still gets the plain Tabler icon.
+  item.innerHTML = avatarUrl
+    ? `<img class="toast-item-avatar" src="${esc(avatarUrl)}" alt="" /><span class="toast-item-msg"></span>`
+    : `<i class="ti ${icon || 'ti-bell'} toast-item-icon"></i><span class="toast-item-msg"></span>`;
   item.querySelector('.toast-item-msg').textContent = msg;
   host.appendChild(item);
   // Double rAF so the enter transition reliably fires on the frame after insertion.
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
 
-  const dismiss = () => {
-    if (item._dismissed) return;
-    item._dismissed = true;
-    clearTimeout(item._hide);
-    item.classList.remove('visible');
-    item.classList.add('leaving');
-    item.addEventListener('transitionend', () => item.remove(), { once: true });
-    setTimeout(() => item.remove(), 400); // fallback if transitionend never fires
-  };
-  item.addEventListener('click', dismiss);
-  item._hide = setTimeout(dismiss, 3200);
+  item.addEventListener('click', () => dismissToast(item));
+  item._hide = setTimeout(() => dismissToast(item), durationMs ?? TOAST_DEFAULT_MS);
+}
+function dismissToast(item) {
+  if (item._dismissed) return;
+  item._dismissed = true;
+  clearTimeout(item._hide);
+  item.classList.remove('visible');
+  item.classList.add('leaving');
+  item.addEventListener('transitionend', () => item.remove(), { once: true });
+  setTimeout(() => item.remove(), 700); // fallback if transitionend never fires (fade + delayed collapse together run under this)
 }
 
 // ══════════════════════════════════════════
@@ -4685,7 +4715,7 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 
 // Patch showToast to play notify sound
 const _origShowToast = showToast;
-showToast = function(msg, icon) { SFX.play('notify'); _origShowToast(msg, icon); };
+showToast = function(msg, icon, durationMs, avatarUrl) { SFX.play('notify'); _origShowToast(msg, icon, durationMs, avatarUrl); };
 
 // Patch addToQueue to play queue sound
 const _origAddToQueue = addToQueue;
@@ -6850,7 +6880,19 @@ function notifyNewMessage(event, room) {
   const senderName = event.sender?.name || event.getSender();
   const body = event.getContent().body || '';
   const isDm = getDmRoomIds().has(room.roomId);
-  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined);
+  // Same avatar cache/resolver the chat timeline uses (see
+  // ensureMsgAvatarResolved above) — if this sender's avatar hasn't been
+  // resolved yet (their first message this session), this toast falls
+  // back to the plain icon and kicks off the resolve for next time,
+  // rather than blocking the notification on a network round trip.
+  const senderId = event.getSender();
+  ensureMsgAvatarResolved(senderId, event.sender?.getMxcAvatarUrl?.());
+  const avatarUrl = _msgAvatarCache.get(senderId);
+  // Longer than TOAST_DEFAULT_MS — a chat notification carries more to
+  // actually read (a name plus a message body) than the usual one-line
+  // status toasts, and is more likely to arrive while you're looking
+  // elsewhere on the page.
+  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined, TOAST_DEFAULT_MS * 2, avatarUrl);
 }
 
 // Drag to resize the channel sidebar; double-click the resizer to
@@ -8060,14 +8102,21 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // It used to be gated on `playing`, which was fine back when presence
     // only ever showed people who were playing something; now that it
     // shows anyone just on the site, that gate hid the dot for most cards.
+    // A paused/stopped listener still posts their last-loaded song (so
+    // resuming doesn't need to wait a poll cycle) — but that's stale once
+    // they're not actually playing it, so the card only shows it while
+    // `playing` is true. The online dot above isn't gated on this at all,
+    // so someone who stops listening just drops back to "nothing playing"
+    // rather than looking like they left.
+    const showTrack = playing && song;
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         '<span class="presence-card-online"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + username + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
-        '<div class="presence-card-track">' + (song || 'nothing playing') + '</div>' +
-        (artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
+        '<div class="presence-card-track">' + (showTrack ? song : 'nothing playing') + '</div>' +
+        (showTrack && artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
       '</div>' +
     '</div>';
   }
