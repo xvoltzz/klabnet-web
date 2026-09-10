@@ -2603,6 +2603,19 @@
   <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
 </div>
 
+<div class="ctx-menu" id="songCtxMenu">
+  <div class="ctx-label" id="songCtxLabel">Song</div>
+  <div class="ctx-item" id="songCtxPlay"><i class="ti ti-player-play"></i> Play Now</div>
+  <div class="ctx-item" id="songCtxQueue"><i class="ti ti-playlist-add"></i> Add to Queue</div>
+  <div class="ctx-item" id="songCtxAddPl"><i class="ti ti-playlist"></i> Add to Playlist</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="songCtxArtist"><i class="ti ti-microphone-2"></i> View Artist</div>
+  <div class="ctx-item" id="songCtxAlbum"><i class="ti ti-disc"></i> View Album</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="songCtxFav"><i class="ti ti-heart"></i> Add to Favorites</div>
+  <div class="ctx-item" id="songCtxLogin"><i class="ti ti-star"></i> Set as Login Song</div>
+</div>
+
 <div class="dash">
 
   <header class="header">
@@ -3477,20 +3490,15 @@ async function prevSong() {
   await playSong(playerState.playlist[playerState.playlistIndex]);
 }
 
-// Progress tracking
+// Progress tracking — dock only. The fullscreen player's own timeupdate
+// listener (further below, where _syncFSProgress is defined) handles all
+// of its own DOM, gated behind whether FS is actually open; this one used
+// to also duplicate that same work unconditionally on every tick
+// regardless of FS being visible at all.
 playerState.audio.addEventListener('timeupdate', () => {
   if (!playerState.audio.duration) return;
   const pct = playerState.audio.currentTime / playerState.audio.duration;
   if (typeof progSlider !== 'undefined') progSlider.setPct(pct);
-  if (typeof fsProgSlider !== 'undefined') fsProgSlider.setPct(pct);
-  // FS timestamps
-  const cur = playerState.audio.currentTime;
-  const dur = playerState.audio.duration;
-  const fmt = s => { const m=Math.floor(s/60),sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; };
-  const fc = document.getElementById('fsCur'); if (fc) fc.textContent = fmt(cur);
-  const fd = document.getElementById('fsDur'); if (fd) fd.textContent = fmt(dur);
-  const fspi = document.getElementById('fsPlayIcon');
-  if (fspi) fspi.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
 });
 
 playerState.audio.addEventListener('ended', nextSong);
@@ -3562,10 +3570,13 @@ const volSlider = makeSlider(
     playerState.volume = pct;
     playerState.audio.volume = pct;
     localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
-    const fvf = document.getElementById('fsVolFill');
-    const fvd = document.getElementById('fsVolDot');
-    if (fvf) fvf.style.width = (pct*100) + '%';
-    if (fvd) fvd.style.left = (pct*100) + '%';
+    // fsVolSlider isn't defined yet at setup time (declared further down),
+    // but is by the time a user can actually drag this and trigger the
+    // callback — same forward-reference pattern as fsProgSlider/progSlider
+    // above. Using its own setPct() here instead of hand-duplicating the
+    // fill/dot writes matches how fsVolSlider's own onChange keeps this
+    // slider in sync in the other direction, below.
+    if (typeof fsVolSlider !== 'undefined') fsVolSlider.setPct(pct);
   }
 );
 volSlider.setPct(playerState.volume);
@@ -3831,9 +3842,7 @@ function renderSongItem(song, container) {
     e.stopPropagation();
     if (isFavorite(song.id)) removeFavorite(song.id);
     else addFavorite(song);
-    // re-render to update heart state
-    const allItems = container.querySelectorAll('.picker-item');
-    // Just update this item's heart icon and class
+    // Just update this item's heart icon and class, not a full re-render
     const btn = e.currentTarget;
     const nowFav = isFavorite(song.id);
     btn.querySelector('i').className = 'ti ' + (nowFav ? 'ti-heart-filled' : 'ti-heart');
@@ -3853,9 +3862,23 @@ function renderSongItem(song, container) {
     if (isLogin) clearLoginSong(); else setLoginSong(song);
     renderPickerList(pickerSongs);
   });
-  item.addEventListener('click', async () => {
+  item.addEventListener('click', async e => {
+    // Every other action button (.picker-action) stops its own propagation
+    // locally — [data-add-pl] doesn't (it's handled by a delegated
+    // listener on #pickerList instead, see ensurePlDelegate()), so without
+    // this guard clicking "Add to playlist" also fired this row-level
+    // listener and hijacked playback to that song. Checking for any
+    // .picker-action ancestor here (rather than adding stopPropagation
+    // directly on the button) keeps the click still bubbling up to that
+    // delegated #pickerList handler, which the add-to-playlist flow
+    // depends on.
+    if (e.target.closest('.picker-action')) return;
     playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
     await playSong(song);
+  });
+  item.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    showSongCtx(e.clientX, e.clientY, song);
   });
   container.appendChild(item);
 }
@@ -3905,20 +3928,6 @@ pickerSearchEl.addEventListener('keydown', e => {
 
 pickerBackdrop.addEventListener('click', e => { if (e.target === pickerBackdrop) closePicker(); });
 
-// Right-click player to set login song from current
-document.getElementById('playerDock').addEventListener('contextmenu', e => {
-  e.preventDefault();
-  if (!playerState.currentSong) return;
-  const song = playerState.currentSong;
-  const existing = getLoginSong();
-  if (existing && existing.id === song.id) {
-    clearLoginSong();
-    showToast('Login song cleared');
-  } else {
-    setLoginSong(song);
-    showToast(`"${song.title}" set as login song ★`);
-  }
-});
 
 // ── Toast notification flyout — stacked cards hanging off the header
 //    buttons' bottom-right corner instead of a lone bottom-center pill ──
@@ -4085,6 +4094,7 @@ document.getElementById('fsNext').addEventListener('click', nextSong);
 if (playerState.audio) {
   const _fsPlayerEl   = document.getElementById('fsPlayer');
   const _fsProgFillEl = document.getElementById('fsProgFill');
+  const _fsProgDotEl  = document.getElementById('fsProgDot');
   const _fsCurEl       = document.getElementById('fsCur');
   const _fsDurEl       = document.getElementById('fsDur');
   const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
@@ -4092,6 +4102,14 @@ if (playerState.audio) {
     if (!playerState.audio.duration) return;
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
     _fsProgFillEl.style.width = pct + '%';
+    // fsProgSlider (makeSlider()'s wrapper around this same fill+dot pair)
+    // used to be what kept the dot in sync, called from the OTHER
+    // timeupdate listener above — that one ran unconditionally on every
+    // tick regardless of whether FS was even open, duplicating this
+    // gated listener's work. Setting the dot here directly (this listener
+    // already skips all its work while FS is closed) replaces that
+    // without reintroducing the always-on duplicate.
+    _fsProgDotEl.style.left = pct + '%';
     _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
     _fsDurEl.textContent = formatTime(playerState.audio.duration);
     _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
@@ -4679,14 +4697,12 @@ document.getElementById('appGrid').addEventListener('click', e => {
 }, true); // capture phase — runs before tile's own handlers
 
 // Wire SFX to UI elements
-let _lastHover = 0;
-function throttledHover() {
-  const now = Date.now();
-  if (now - _lastHover > 80) { _lastHover = now; SFX.play('hover'); }
-}
-// Tiles
+// Tiles — hover chime comes from the delegated pointerover/pointerout
+// system below (hoverSelector includes '.tile'); this used to also bind
+// its own separate per-tile mouseenter listener, which fired alongside
+// the delegated one on every hover (two independent throttle timers, so
+// neither one suppressed the other) and played the 'hover' sound twice.
 document.querySelectorAll('.tile').forEach(tile => {
-  tile.addEventListener('mouseenter', throttledHover);
   tile.addEventListener('click', () => SFX.play('glass'));
 });
 
@@ -5098,6 +5114,15 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && editMode) 
 let dragSrc = null;
 let ghost   = null;
 let ghostOffX = 0, ghostOffY = 0;
+// Set while a drag from tileMouseDown() is in flight, so disableTileDrag()
+// (called from setEditMode(false) — Escape or Done, which can fire with
+// the mouse button still held down mid-drag) can tear it down instead of
+// just stopping *new* drags from starting. Without this, an in-flight
+// drag's own window-level mousemove/mouseup listeners kept running after
+// edit mode turned off: the ghost tile kept following the cursor, and
+// releasing the mouse later still silently committed a reorder the user
+// no longer thought they were making.
+let _cancelActiveTileDrag = null;
 
 function enableTileDrag() {
   const grid = document.getElementById('appGrid');
@@ -5109,10 +5134,12 @@ function enableTileDrag() {
 
 function disableTileDrag() {
   const grid = document.getElementById('appGrid');
-  if (!grid) return;
-  grid.querySelectorAll('.tile-wrap').forEach(wrap => {
-    wrap.removeEventListener('mousedown',  tileMouseDown);
-  });
+  if (grid) {
+    grid.querySelectorAll('.tile-wrap').forEach(wrap => {
+      wrap.removeEventListener('mousedown',  tileMouseDown);
+    });
+  }
+  if (_cancelActiveTileDrag) _cancelActiveTileDrag();
 }
 
 function createGhost(wrap, x, y) {
@@ -5196,11 +5223,26 @@ function tileMouseDown(e) {
       curHighlighted = next;
     }
   };
+  const cleanupListeners = () => {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup',   onUp);
+    _cancelActiveTileDrag = null;
+  };
   const onUp = ev => {
     if (curHighlighted) curHighlighted.classList.remove('drop-before');
     dropGhost(ev.clientX, ev.clientY);
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup',   onUp);
+    cleanupListeners();
+  };
+  // Called by disableTileDrag() if edit mode turns off mid-drag — cancels
+  // rather than drops, so it doesn't commit a reorder the user never
+  // actually released the mouse to confirm.
+  _cancelActiveTileDrag = () => {
+    if (curHighlighted) curHighlighted.classList.remove('drop-before');
+    if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+    ghost = null;
+    if (dragSrc) dragSrc.style.opacity = '';
+    dragSrc = null;
+    cleanupListeners();
   };
   window.addEventListener('mousemove', onMove);
   window.addEventListener('mouseup',   onUp);
@@ -6186,6 +6228,7 @@ function buildChannelItem(room, icon) {
   // (_chatUnreadRooms), just rendered per-row here too.
   const hasUnread = _chatUnreadRooms.has(room.roomId);
   const item = document.createElement('div');
+  item.dataset.roomId = room.roomId; // updateChannelUnreadDots() targets rows by this instead of a full re-render
   item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
   item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
     (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
@@ -6877,6 +6920,34 @@ const _chatUnreadRooms = new Set();
 // unread count onto it — reused below rather than hardcoding the string
 // a second time, so a future title change here doesn't need editing twice.
 const _baseTitle = document.title;
+// Patches the per-row unread dot/bold-name directly (buildChannelItem()
+// tags each row with data-room-id for exactly this) instead of going
+// through renderChannelList(). That used to be a full renderChannelList()
+// call — which itself calls renderTimeline() — and since this function is
+// called FROM markRoomRead(), which is itself called FROM renderTimeline(),
+// that was a real reentrant cycle: outer renderTimeline() calls
+// markRoomRead() before it's finished computing its own render-key/scroll
+// bookkeeping, the nested renderChannelList()->renderTimeline() call could
+// end up measuring/restoring scroll position against a DOM that was still
+// mid-transition from a different room, and unwound back through multiple
+// redundant full timeline rebuilds. A direct, targeted DOM patch here has
+// no way to feed back into renderTimeline() at all, which removes the
+// cycle rather than just hoping it converges cleanly.
+function updateChannelUnreadDots() {
+  document.querySelectorAll('#chatChannelsList .chat-channel-item[data-room-id]').forEach(item => {
+    const hasUnread = _chatUnreadRooms.has(item.dataset.roomId);
+    item.classList.toggle('has-unread', hasUnread);
+    const existingDot = item.querySelector('.chat-channel-unread-dot');
+    if (hasUnread && !existingDot) {
+      const dot = document.createElement('span');
+      dot.className = 'chat-channel-unread-dot';
+      dot.title = 'Unread messages';
+      item.querySelector('.chat-channel-name')?.after(dot);
+    } else if (!hasUnread && existingDot) {
+      existingDot.remove();
+    }
+  });
+}
 function updateSocialUnreadBadge() {
   const badge = document.getElementById('socialUnreadBadge');
   if (badge) badge.textContent = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size})` : '';
@@ -6884,14 +6955,7 @@ function updateSocialUnreadBadge() {
   // a title prefix works everywhere (pinned tabs, alt-tab switchers)
   // unlike a favicon overlay, which a lot of browsers just clip/hide.
   document.title = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size}) ${_baseTitle}` : _baseTitle;
-  // Repaint the per-room dots too (buildChannelItem() reads _chatUnreadRooms
-  // directly) — both callers of this function (notifyNewMessage adding a
-  // room, markRoomRead clearing one) change which rooms should show one.
-  // Safe to call from inside a renderChannelList()->renderTimeline()->
-  // markRoomRead() chain: the nested call's own listKey/renderKey diff
-  // guards make this converge in one extra pass rather than loop, same
-  // as the existing renderChannelList()/ensureDmBookkeeping() reentrancy.
-  if (typeof renderChannelList === 'function') renderChannelList();
+  updateChannelUnreadDots();
 }
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
@@ -7339,8 +7403,26 @@ function loadPlaylistView(pl) {
   });
 }
 
-// Add to playlist — wired directly inside renderSongItem template
-// via event delegation on the pickerList container
+// Add to playlist — shared by the picker row button (delegated, below)
+// and the song right-click context menu (SONG CONTEXT MENU, further down).
+function addSongToPlaylistFlow(song) {
+  const pls = getPlaylists();
+  if (!pls.length) {
+    const name = prompt('No playlists yet. Create one:');
+    if (!name) return;
+    const pl = createPlaylist(name);
+    addSongToPlaylist(pl.id, song);
+  } else {
+    const opts = pls.map((p, i) => (i+1) + '. ' + p.name + ' (' + p.songs.length + ' songs)').join('\n');
+    const choice = prompt('Add "' + song.title + '" to playlist:\n\n' + opts + '\n\nEnter number:');
+    const idx = parseInt(choice) - 1;
+    if (!isNaN(idx) && pls[idx]) addSongToPlaylist(pls[idx].id, song);
+  }
+  SFX && SFX.play('queue');
+}
+
+// Wired directly inside renderSongItem's template via event delegation on
+// the pickerList container.
 let _plDelegated = false;
 function ensurePlDelegate() {
   if (_plDelegated) return;
@@ -7349,22 +7431,75 @@ function ensurePlDelegate() {
     const btn = e.target.closest('[data-add-pl]');
     if (!btn) return;
     e.stopPropagation();
-    const song = JSON.parse(decodeURIComponent(btn.dataset.addPl));
-    const pls  = getPlaylists();
-    if (!pls.length) {
-      const name = prompt('No playlists yet. Create one:');
-      if (!name) return;
-      const pl = createPlaylist(name);
-      addSongToPlaylist(pl.id, song);
-    } else {
-      const opts = pls.map((p, i) => (i+1) + '. ' + p.name + ' (' + p.songs.length + ' songs)').join('\n');
-      const choice = prompt('Add "' + song.title + '" to playlist:\n\n' + opts + '\n\nEnter number:');
-      const idx = parseInt(choice) - 1;
-      if (!isNaN(idx) && pls[idx]) addSongToPlaylist(pls[idx].id, song);
-    }
-    SFX && SFX.play('queue');
+    addSongToPlaylistFlow(JSON.parse(decodeURIComponent(btn.dataset.addPl)));
   });
 }
+
+// ══════════════════════════════════════════
+//  SONG CONTEXT MENU — right-click a song (picker rows, player dock)
+//  for the same actions each row's buttons already offer, without
+//  needing that whole action row (the player dock has no room for one).
+// ══════════════════════════════════════════
+const songCtxMenu = document.getElementById('songCtxMenu');
+function hideSongCtx() { songCtxMenu.classList.remove('visible'); }
+function showSongCtx(x, y, song) {
+  if (!song) return;
+  document.getElementById('songCtxLabel').textContent = song.title || 'Song';
+
+  document.getElementById('songCtxPlay').onclick = async () => {
+    hideSongCtx();
+    if (Array.isArray(pickerSongs) && pickerSongs.includes(song)) {
+      playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
+    }
+    await playSong(song);
+  };
+  document.getElementById('songCtxQueue').onclick = () => { hideSongCtx(); addToQueue(song); };
+  document.getElementById('songCtxAddPl').onclick = () => { hideSongCtx(); addSongToPlaylistFlow(song); };
+
+  const artistItem = document.getElementById('songCtxArtist');
+  artistItem.style.display = song.artistId ? 'flex' : 'none';
+  artistItem.onclick = () => { hideSongCtx(); loadArtistView({ id: song.artistId, name: song.artist }); };
+
+  const albumItem = document.getElementById('songCtxAlbum');
+  albumItem.style.display = song.albumId ? 'flex' : 'none';
+  albumItem.onclick = () => { hideSongCtx(); loadAlbumView(song.albumId, song.album); };
+
+  const favItem = document.getElementById('songCtxFav');
+  const isFav = isFavorite(song.id);
+  favItem.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i> ${isFav ? 'Remove from Favorites' : 'Add to Favorites'}`;
+  favItem.onclick = () => {
+    hideSongCtx();
+    if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
+    updateFavBadge();
+    SFX.play('star');
+  };
+
+  const loginItem = document.getElementById('songCtxLogin');
+  const existingLogin = getLoginSong();
+  const isLogin = existingLogin && existingLogin.id === song.id;
+  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-star-filled' : 'ti-star'}"></i> ${isLogin ? 'Clear Login Song' : 'Set as Login Song'}`;
+  loginItem.onclick = () => {
+    hideSongCtx();
+    if (isLogin) { clearLoginSong(); showToast('Login song cleared'); }
+    else { setLoginSong(song); showToast(`"${song.title}" set as login song ★`); }
+  };
+
+  const z = zoomFactor();
+  songCtxMenu.style.left = Math.min(x / z, window.innerWidth / z - 200) + 'px';
+  songCtxMenu.style.top  = Math.min(y / z, window.innerHeight / z - 300) + 'px';
+  songCtxMenu.classList.add('visible');
+}
+document.addEventListener('click', e => { if (!songCtxMenu.contains(e.target)) hideSongCtx(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideSongCtx(); });
+
+// Player dock — right-click anywhere on it for the full menu on whatever's
+// currently playing, instead of just the one login-song shortcut this
+// used to be.
+document.getElementById('playerDock').addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (!playerState.currentSong) return;
+  showSongCtx(e.clientX, e.clientY, playerState.currentSong);
+});
 
 // ══════════════════════════════════════════
 //  WIRE NEW TABS TO PICKER
@@ -7610,66 +7745,15 @@ loadSettings();
 applySettings();
 initTabs();
 // ── Album view ──────────────────────────────────────────
+// backFn is accepted for call-site compatibility but unused — the panel
+// (window.openAlbumPage, defined in the ARTIST/ALBUM PAGE PANEL section
+// below) is always available by the time this can actually be called (its
+// only guard is a static #apPanel element that's unconditionally in the
+// markup), so the manual fetch-and-render fallback this used to have
+// before that panel existed was dead code — traced every call site to
+// confirm none of them depend on the fallback path.
 async function loadAlbumView(albumId, albumName, backFn) {
-  if (window.openAlbumPage) { goToMusicDetail(() => window.openAlbumPage(albumId, albumName)); return; }
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
-  try {
-    const res  = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000);
-    const data = await res.json();
-    const info = data['subsonic-response']?.album;
-    if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; return; }
-
-    pickerList.innerHTML = '';
-
-    // Back
-    const back = document.createElement('button');
-    back.className = 'picker-back';
-    back.innerHTML = '<i class="ti ti-arrow-left"></i> back';
-    back.addEventListener('click', () => backFn ? backFn() : closePicker());
-    pickerList.appendChild(back);
-
-    // Header
-    const artUrl = `${ND_URL}/rest/getCoverArt?id=${info.coverArt}&size=200&${subsonicParams()}`;
-    const hdr = document.createElement('div');
-    hdr.style.cssText = 'display:flex;align-items:flex-start;gap:1rem;padding:0.5rem 0.8rem 1rem;border-bottom:1px solid var(--glass-border);margin-bottom:0.5rem;';
-    hdr.innerHTML = `
-      <img src="${artUrl}" loading="lazy" style="width:72px;height:72px;border-radius:12px;object-fit:cover;flex-shrink:0;border:1px solid var(--glass-border);"
-           onerror="this.outerHTML='<div style=\'width:72px;height:72px;border-radius:12px;background:var(--glass-fill);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-dimmer);flex-shrink:0;\'><i class=\'ti ti-vinyl\'></i></div>'" />
-      <div style="min-width:0;flex:1;">
-        <div style="font-size:1.05rem;font-weight:700;color:var(--text);letter-spacing:0.03em;margin-bottom:2px;">${info.name||'Unknown'}</div>
-        <div style="font-size:9px;letter-spacing:0.14em;color:var(--text-dimmer);text-transform:uppercase;margin-bottom:10px;">${info.artist||''} · ${info.year||''} · ${(info.song||[]).length} tracks</div>
-        <div style="display:flex;gap:6px;">
-          <button id="_avPlayAll" class="picker-action" style="width:auto;padding:4px 12px;border-radius:8px;border:1px solid var(--glass-border-h);background:var(--glass-fill-h);gap:5px;display:flex;align-items:center;">
-            <i class="ti ti-player-play" style="font-size:12px;"></i> Play all
-          </button>
-          <button id="_avQueueAll" class="picker-action" style="width:auto;padding:4px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--glass-fill);gap:5px;display:flex;align-items:center;">
-            <i class="ti ti-playlist-add" style="font-size:12px;"></i> Queue all
-          </button>
-        </div>
-      </div>`;
-    pickerList.appendChild(hdr);
-
-    const songs = info.song || [];
-    pickerSongs = songs;
-
-    const lbl = document.createElement('div');
-    lbl.className = 'picker-section-label';
-    lbl.textContent = `Tracks (${songs.length})`;
-    pickerList.appendChild(lbl);
-
-    songs.forEach(song => renderSongItem(song, pickerList));
-
-    hdr.querySelector('#_avPlayAll').addEventListener('click', async () => {
-      if (!songs.length) return;
-      queue = songs.slice(1); updateQueueBadge();
-      await playSong(songs[0]);
-      showToast(`Playing "${info.name}"`);
-    });
-    hdr.querySelector('#_avQueueAll').addEventListener('click', () => {
-      queue.push(...songs); updateQueueBadge();
-      showToast(`Queued ${songs.length} tracks from "${info.name}"`);
-    });
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load album</div>'; }
+  goToMusicDetail(() => window.openAlbumPage(albumId, albumName));
 }
 
 // ── Artist / album link delegation ──────────────────────
@@ -8070,8 +8154,51 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _avatarPending = new Set();
   let _lastOthers = [];
 
+  // Persisted avatar cache (data: URIs, survive page reloads) — separate
+  // from _avatarCache above, which is realtime-fresh but (a) can only
+  // start resolving once THIS viewer's own Matrix client has connected,
+  // which for a first-time visitor waits on a user gesture before it even
+  // starts, and (b) holds blob: URLs, which don't survive a reload anyway.
+  // Reading this synchronously below means a returning visitor's
+  // already-seen faces show up with zero network round trip — "instant,"
+  // rather than waiting on Matrix to connect and a profile lookup to
+  // finish — with the live Matrix lookup only needed to catch avatar
+  // changes or resolve someone genuinely new to this browser.
+  const AVATAR_CACHE_KEY = 'klabnet_avatar_cache_v1';
+  function loadPersistedAvatars() {
+    try { return JSON.parse(localStorage.getItem(AVATAR_CACHE_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function persistAvatar(username, dataUri) {
+    try {
+      const cache = loadPersistedAvatars();
+      cache[username] = dataUri;
+      localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {} // storage full/unavailable — the live blob: URL this session still works fine either way
+  }
+  function clearPersistedAvatar(username) {
+    try {
+      const cache = loadPersistedAvatars();
+      delete cache[username];
+      localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {}
+  }
+  // fetch() on a blob: URL just re-reads the already-in-memory blob (no
+  // network) — cheaper than plumbing the raw Blob back out of
+  // MatrixChat.mxcToBlobUrl(), which other consumers (chat timeline) use
+  // as-is and shouldn't need to change shape for this.
+  function persistAvatarFromBlobUrl(username, blobUrl) {
+    fetch(blobUrl).then(r => r.blob()).then(blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    })).then(dataUri => persistAvatar(username, dataUri)).catch(() => {});
+  }
+  const _persistedAvatars = loadPersistedAvatars();
+
   function ensureAvatarResolved(username) {
     if (!username || _avatarCache.has(username) || _avatarPending.has(username)) return;
+    if (_persistedAvatars[username]) _avatarCache.set(username, _persistedAvatars[username]);
     const client = MatrixChat.client;
     if (!client) return;
     _avatarPending.add(username);
@@ -8079,9 +8206,22 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       try {
         const serverName = client.getUserId().split(':')[1];
         const info = await client.getProfileInfo(`@${username}:${serverName}`);
-        _avatarCache.set(username, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
+        if (info?.avatar_url) {
+          const blobUrl = await MatrixChat.mxcToBlobUrl(info.avatar_url);
+          _avatarCache.set(username, blobUrl);
+          if (blobUrl) persistAvatarFromBlobUrl(username, blobUrl);
+        } else {
+          // Profile fetch succeeded and definitively has no avatar set —
+          // safe to clear a stale cached one.
+          _avatarCache.set(username, null);
+          clearPersistedAvatar(username);
+        }
       } catch (e) {
-        _avatarCache.set(username, null); // no Matrix account, no avatar set, or the fetch failed — cache the miss either way
+        // The lookup itself failed (network, no Matrix account, timeout,
+        // etc.) — keep whatever we already had (persisted cache or
+        // nothing) rather than overwriting a perfectly good cached
+        // avatar with a miss just because this one attempt didn't finish.
+        if (!_avatarCache.has(username)) _avatarCache.set(username, null);
       } finally {
         _avatarPending.delete(username);
         // Rebuild with whatever we last fetched — the resolved avatar changes
@@ -8097,7 +8237,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // way in from outside.
   window.KLAB_REFRESH_MY_AVATAR = function() {
     const me = window.KLAB_USER?.username;
-    if (me) _avatarCache.delete(me);
+    if (me) { _avatarCache.delete(me); clearPersistedAvatar(me); }
     renderList(_lastOthers);
   };
 
@@ -8164,8 +8304,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // resuming doesn't need to wait a poll cycle) — but that's stale once
     // they're not actually playing it, so the card only shows it while
     // `playing` is true. The online dot above isn't gated on this at all,
-    // so someone who stops listening just drops back to "nothing playing"
-    // rather than looking like they left.
+    // so someone who stops listening just drops back to "Online" rather
+    // than looking like they left.
     const showTrack = playing && song;
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
@@ -8173,7 +8313,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + username + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
-        '<div class="presence-card-track">' + (showTrack ? song : 'nothing playing') + '</div>' +
+        '<div class="presence-card-track">' + (showTrack ? song : 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
       '</div>' +
     '</div>';
@@ -8659,21 +8799,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 //  PICKER NAVIGATION HISTORY + MOUSE BUTTONS
 // ══════════════════════════════════════════
 (function() {
-  // Navigation stack — each entry is a fn that restores that view
-  const _navStack = [];
-
-  // Push current view before navigating — call this before loadAlbumView etc.
-  window.pickerPushHistory = function(restoreFn) {
-    _navStack.push(restoreFn);
-  };
-
-  window.pickerGoBack = function() {
-    if (!_navStack.length) return;
-    const fn = _navStack.pop();
-    SFX && SFX.play('nav_back');
-    fn();
-  };
-
   // Back button in picker — wire dynamically since picker-back is created per view
   const pickerList = document.getElementById('pickerList');
   if (pickerList) {
@@ -8705,13 +8830,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       else {
         if (history.length > 1) history.back();
         else window.location.href = '/';
-      }
-    }
-    if (false && e.button === 4) {
-      e.preventDefault();
-      // Forward — open picker if closed
-      if (!document.getElementById('pickerBackdrop')?.classList.contains('open')) {
-        openPicker();
       }
     }
   });
