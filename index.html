@@ -9787,6 +9787,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const FEED_POLL_MS = 30000; // same cadence as notes/offline-roster — a feed doesn't need second-by-second freshness
   fetchFeed();
   setInterval(fetchFeed, FEED_POLL_MS);
+
+  // The very first fetchFeed() above almost always lands before Matrix has
+  // finished (re)connecting — ensureFeedAvatar()/ensureFeedImage() correctly
+  // skip resolving rather than caching a permanent failure (see their
+  // client-readiness guards), but without this, nothing ever retried them
+  // until the next 30s poll — in practice, "images don't load until you
+  // click Load older" (whatever else happens to call renderFeed() first).
+  // PREPARED is the same "client is actually usable now" signal the chat
+  // module's own sync handler treats as settled.
+  MatrixChat.on('sync', state => { if (state === 'PREPARED') renderFeed(); });
 })();
 
 // ── Volume icon mute toggle ──────────────
