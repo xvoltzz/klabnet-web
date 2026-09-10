@@ -564,6 +564,7 @@
          available space instead of guessing" fix the Social tab layout
          and the scroll-clearance logic elsewhere already use. */
       max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
+      overscroll-behavior: contain; /* scrolling the rail to its end shouldn't hand off to the page scroll */
       scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
     }
     .sec-global-presence { margin-bottom: 0; }
@@ -679,11 +680,28 @@
       background: var(--tile-bg); border: 1px solid var(--tile-border);
       border-radius: 10px; padding: 0.85rem; margin-bottom: 1.4rem;
     }
+    /* Live @mention coloring while typing: a real <textarea> can't render
+       inline-styled spans, so the standard trick is an identically-sized
+       div behind it rendering the highlighted markup, with the textarea's
+       own text made transparent (caret-color kept so you still see where
+       you're typing) — the overlay is what you actually see. */
+    .feed-composer-text-wrap { position: relative; }
+    .feed-composer-text, .feed-composer-highlight {
+      width: 100%; min-height: 44px; max-height: 220px;
+      margin: 0; padding: 0; border: none; box-sizing: border-box;
+      font: inherit; font-size: 12.5px; line-height: 1.5; font-family: var(--font-ui);
+      white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+    }
+    .feed-composer-highlight {
+      position: absolute; inset: 0; overflow: hidden;
+      pointer-events: none; color: var(--text);
+    }
+    .feed-composer-highlight .feed-post-mention { font-weight: 700; }
     .feed-composer-text {
-      width: 100%; resize: vertical; min-height: 44px;
-      background: none; border: none; outline: none;
-      font: inherit; font-size: 12.5px; color: var(--text); line-height: 1.5;
-      font-family: var(--font-ui);
+      position: relative; resize: none; height: 44px;
+      overflow-y: hidden; /* JS grows it to fit content, no manual drag handle or scrollbar until it hits max-height */
+      background: none; outline: none;
+      color: transparent; caret-color: var(--text);
     }
     .feed-composer-text::placeholder { color: var(--text-dimmer); }
     .feed-composer-preview-wrap { position: relative; width: fit-content; margin-top: 0.5rem; }
@@ -726,16 +744,16 @@
       border-radius: 10px; padding: 0.85rem; display: flex; gap: 0.7rem;
     }
     .feed-post-avatar {
-      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: var(--tile-bg-h); font-size: 12px; font-weight: 700; color: var(--text-dim);
+      background: var(--tile-bg-h); font-size: 15px; font-weight: 700; color: var(--text-dim);
       overflow: hidden;
     }
     .feed-post-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .feed-post-body { flex: 1; min-width: 0; }
     .feed-post-head { display: flex; align-items: baseline; gap: 0.5rem; }
-    .feed-post-name { font-size: 11.5px; font-weight: 700; color: var(--name-color, var(--text)); }
-    .feed-post-time { font-size: 9px; color: var(--text-dimmer); }
+    .feed-post-name { font-size: 12.5px; font-weight: 700; color: var(--name-color, var(--text)); }
+    .feed-post-time { font-size: 9.5px; color: var(--text-dimmer); }
     .feed-post-delete {
       margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 13px;
       opacity: 0; transition: opacity 0.15s, color 0.15s;
@@ -743,10 +761,24 @@
     .feed-post:hover .feed-post-delete { opacity: 1; }
     .feed-post-delete:hover { color: var(--danger-color); }
     .feed-post-text {
-      font-size: 12px; color: var(--text); line-height: 1.55; margin-top: 2px;
+      font-size: 13.5px; color: var(--text); line-height: 1.55; margin-top: 3px;
       white-space: pre-wrap; word-break: break-word;
     }
+    .feed-post-mention { font-weight: 700; }
+    .feed-post-mention.is-me { text-decoration: underline; text-underline-offset: 2px; }
     .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; }
+    .feed-mentions-btn {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
+      color: var(--text-dimmer); font-size: 13px; background: transparent; border: none;
+      transition: color 0.15s, background 0.15s;
+    }
+    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { color: var(--text); background: var(--tile-bg-h); }
+    .feed-mentions-dot {
+      position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
+      border-radius: 50%; background: rgba(var(--accent-rgb),1);
+    }
+    .feed-mentions-dot[hidden] { display: none; }
     .feed-empty { font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer); padding: 2rem 0; text-align: center; }
     .feed-load-more {
       display: block; margin: 0.8rem auto 0; padding: 6px 16px; border-radius: 6px;
@@ -757,7 +789,7 @@
     .feed-load-more:hover { background: var(--tile-bg-h); color: var(--text); }
     @media (max-width: 560px) {
       .feed-post { flex-direction: column; }
-      .feed-post-avatar { width: 24px; height: 24px; }
+      .feed-post-avatar { width: 30px; height: 30px; }
     }
 
     /* ══ APP GRID ══ */
@@ -2793,9 +2825,15 @@
 
   <div class="tab-panel" data-tab-panel="home">
   <div class="sec" data-sec="feed">
-    <div class="sec-head"><span class="sec-label">// feed</span><div class="sec-line"></div></div>
+    <div class="sec-head">
+      <span class="sec-label">// feed</span><div class="sec-line"></div>
+      <button class="feed-mentions-btn" id="feedMentionsBtn" title="Mentions"><i class="ti ti-at"></i><span class="feed-mentions-dot" id="feedMentionsDot" hidden></span></button>
+    </div>
     <div class="feed-composer" id="feedComposer">
-      <textarea class="feed-composer-text" id="feedComposerText" placeholder="what's going on?" rows="2"></textarea>
+      <div class="feed-composer-text-wrap">
+        <div class="feed-composer-highlight" id="feedComposerHighlight" aria-hidden="true"></div>
+        <textarea class="feed-composer-text" id="feedComposerText" placeholder="what's going on?" rows="2"></textarea>
+      </div>
       <div class="feed-composer-preview-wrap" id="feedComposerPreviewWrap" hidden>
         <img class="feed-composer-preview" id="feedComposerPreview" alt="" />
         <button class="feed-composer-preview-remove" id="feedComposerPreviewRemove" title="Remove image"><i class="ti ti-x"></i></button>
@@ -6225,10 +6263,11 @@ const MatrixChat = (function () {
     const m = /^mxc:\/\/([^/]+)\/([^/?]+)/.exec(mxcUrl || '');
     return m ? { server: m[1], mediaId: m[2] } : null;
   }
-  async function mxcToBlobUrl(mxcUrl) {
+  async function mxcToBlobUrl(mxcUrl, opts) {
     const parts = mxcParts(mxcUrl);
     if (!parts || !client) return null;
-    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=64&height=64&method=crop`;
+    const { width = 64, height = 64, method = 'crop' } = opts || {};
+    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=${width}&height=${height}&method=${method}`;
     const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
     if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
     return URL.createObjectURL(await res.blob());
@@ -8982,8 +9021,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 //  image needs one.
 // ══════════════════════════════════════════
 (function() {
-  const listEl       = document.getElementById('feedList');
-  const textEl       = document.getElementById('feedComposerText');
+  const listEl        = document.getElementById('feedList');
+  const textEl        = document.getElementById('feedComposerText');
+  const highlightEl   = document.getElementById('feedComposerHighlight');
   const fileEl        = document.getElementById('feedComposerImage');
   const imageBtnEl    = document.getElementById('feedComposerImageBtn');
   const previewWrapEl = document.getElementById('feedComposerPreviewWrap');
@@ -8992,15 +9032,56 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const errEl         = document.getElementById('feedComposerError');
   const postBtnEl     = document.getElementById('feedComposerPostBtn');
   const loadMoreEl    = document.getElementById('feedLoadMore');
+  const mentionsBtnEl = document.getElementById('feedMentionsBtn');
+  const mentionsDotEl = document.getElementById('feedMentionsDot');
   if (!listEl) return; // feed markup not present (shouldn't happen, guards a bad merge)
 
   const FEED_MAX_IMAGE_BYTES = 8 * 1024 * 1024; // client-side sanity cap — Matrix's own content-repo limit is the real backstop
   const FEED_PAGE_SIZE = 50;
+  const MENTIONS_SEEN_KEY = 'klabnet_feed_mentions_seen_v1'; // { username: highest post id already seen mentioning them }
 
-  let _feedPosts    = [];   // newest-first
-  let _feedHasMore  = false;
-  let _feedPending  = false; // a fetch is in flight — guards overlapping polls/loads
-  let _pendingFile  = null;
+  let _feedPosts     = [];   // newest-first
+  let _feedHasMore   = false;
+  let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
+  let _pendingFile   = null;
+  let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
+
+  // @mentions — plain "@name" tokens, not validated against a real user
+  // directory (matching Twitter's own composer: it highlights syntactically
+  // as you type, same idea here). Shared between the composer's live
+  // highlight overlay and rendered post text so both stay in sync.
+  function mentionHTML(rawText, me) {
+    const escaped = esc(rawText);
+    return escaped.replace(/(^|[^\w@])@([a-zA-Z0-9_][\w.-]*)/g, (m, pre, name) => {
+      const isMe = !!me && name.toLowerCase() === me.toLowerCase();
+      return pre + '<span class="feed-post-mention' + (isMe ? ' is-me' : '') + '" style="color:' + chatNameColor(name.toLowerCase()) + '">@' + name + '</span>';
+    });
+  }
+
+  function textMentions(text, username) {
+    if (!text || !username) return false;
+    return new RegExp('(^|[^\\w@])@' + username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.-])', 'i').test(text);
+  }
+
+  function loadMentionsSeen() {
+    try { return JSON.parse(localStorage.getItem(MENTIONS_SEEN_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markMentionsSeen(uptoId) {
+    const me = window.KLAB_USER?.username;
+    if (!me) return;
+    try {
+      const seen = loadMentionsSeen();
+      seen[me] = Math.max(seen[me] || 0, uptoId);
+      localStorage.setItem(MENTIONS_SEEN_KEY, JSON.stringify(seen));
+    } catch (e) {}
+  }
+  function updateMentionsDot() {
+    const me = window.KLAB_USER?.username;
+    if (!me || !mentionsDotEl) return;
+    const lastSeen = loadMentionsSeen()[me] || 0;
+    const hasUnseen = _feedPosts.some(p => p.id > lastSeen && p.username !== me && textMentions(p.text, me));
+    mentionsDotEl.hidden = !hasUnseen;
+  }
 
   const _feedAvatarCache   = new Map(); // username -> blob URL or null
   const _feedAvatarPending = new Set();
@@ -9028,10 +9109,19 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
   function ensureFeedImage(mxc) {
     if (!mxc || _feedImageCache.has(mxc) || _feedImagePending.has(mxc)) return;
+    // Same guard ensureFeedAvatar()/presence's ensureAvatarResolved() use:
+    // bail WITHOUT touching the cache when there's no client yet, so a
+    // page load that renders before Matrix finishes reconnecting retries
+    // on the next render instead of permanently caching a null result.
+    const client = MatrixChat.client;
+    if (!client) return;
     _feedImagePending.add(mxc);
     (async () => {
       try {
-        _feedImageCache.set(mxc, await MatrixChat.mxcToBlobUrl(mxc));
+        // 800px scaled thumbnail, not the 64x64 avatar crop other
+        // mxcToBlobUrl() callers use — a feed photo needs to actually be
+        // visible, not cropped to a square.
+        _feedImageCache.set(mxc, await MatrixChat.mxcToBlobUrl(mxc, { width: 800, height: 800, method: 'scale' }));
       } catch (e) {
         _feedImageCache.set(mxc, null);
       } finally {
@@ -9077,19 +9167,23 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
           (canDelete ? '<span class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post"><i class="ti ti-trash"></i></span>' : '') +
         '</div>' +
-        (post.text ? '<div class="feed-post-text">' + esc(post.text) + '</div>' : '') +
+        (post.text ? '<div class="feed-post-text">' + mentionHTML(post.text, me) + '</div>' : '') +
         imageHTML +
       '</div>' +
     '</div>';
   }
 
   function renderFeed() {
-    if (!_feedPosts.length) {
-      listEl.innerHTML = '<div class="feed-empty">No posts yet — be the first!</div>';
+    const me = window.KLAB_USER?.username;
+    const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
+    if (!posts.length) {
+      listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
     } else {
-      listEl.innerHTML = _feedPosts.map(postHTML).join('');
+      listEl.innerHTML = posts.map(postHTML).join('');
     }
-    loadMoreEl.hidden = !_feedHasMore;
+    loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
+    if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
+    updateMentionsDot();
   }
 
   async function fetchFeed() {
@@ -9126,6 +9220,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
   }
 
+  function autoGrowComposer() {
+    textEl.style.height = '44px'; // shrink first so deleting text un-grows it, not just growing one-way
+    textEl.style.height = Math.min(textEl.scrollHeight, 220) + 'px';
+    textEl.style.overflowY = textEl.scrollHeight > 220 ? 'auto' : 'hidden';
+    if (highlightEl) {
+      highlightEl.innerHTML = mentionHTML(textEl.value, null);
+      highlightEl.scrollTop = textEl.scrollTop;
+    }
+  }
+
   function clearComposer() {
     textEl.value = '';
     _pendingFile = null;
@@ -9133,6 +9237,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     previewWrapEl.hidden = true;
     imageBtnEl.classList.remove('has-image');
     errEl.hidden = true;
+    autoGrowComposer();
   }
 
   async function submitPost() {
@@ -9212,6 +9317,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   textEl.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitPost();
   });
+  textEl.addEventListener('input', autoGrowComposer);
+  if (highlightEl) textEl.addEventListener('scroll', () => { highlightEl.scrollTop = textEl.scrollTop; });
+  if (mentionsBtnEl) {
+    mentionsBtnEl.addEventListener('click', () => {
+      _mentionsOnly = !_mentionsOnly;
+      if (_mentionsOnly) {
+        const maxId = _feedPosts.reduce((max, p) => Math.max(max, p.id), 0);
+        if (maxId) markMentionsSeen(maxId);
+      }
+      renderFeed();
+    });
+  }
   loadMoreEl.addEventListener('click', loadOlderPosts);
   listEl.addEventListener('click', (e) => {
     const del = e.target.closest('.feed-post-delete');
