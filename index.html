@@ -1917,6 +1917,23 @@
     .presence-card-party-leave { cursor: pointer; transition: opacity 0.15s; }
     .presence-card-party-leave:hover { opacity: 0.75; }
 
+    /* Instagram-Notes-style ephemeral status text (klabnet-api /api/notes,
+       24h TTL) — deliberately styled quieter/dimmer than the party line
+       above (italic, --text-dim not accent) so the two don't visually
+       compete; a note is idle color commentary, not a status. */
+    .presence-card-note {
+      font-size: 9px; color: var(--text-dim); margin-top: 3px; font-style: italic;
+      display: flex; align-items: flex-start; gap: 4px; line-height: 1.35;
+      word-break: break-word;
+    }
+    .presence-card-note i { font-size: 9px; flex-shrink: 0; margin-top: 1px; }
+    .presence-card-note-edit { cursor: pointer; transition: color 0.15s; }
+    .presence-card-note-edit:hover { color: var(--text); }
+    /* Always-present invite on your own card when you don't have a note
+       yet, rather than the line only appearing once you've used the
+       feature once — faint enough to read as a hint, not a status. */
+    .presence-card-note-empty { color: var(--text-faint); }
+
     .presence-section-label {
       font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
       color: var(--text-faint); padding: 10px 4px 4px;
@@ -8305,6 +8322,17 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           (isMe ? ' <i class="ti ti-x"></i>' : '') +
         '</div>'
       : '';
+    // Instagram-Notes-style ephemeral status text (klabnet-api /api/notes,
+    // 24h TTL) — your own card always shows *something* here (a faint
+    // "Add a note…" invite when you don't have one), so it reads as an
+    // always-available thing to do rather than a hidden feature; other
+    // people's cards only show the line when they actually have a note.
+    const note = _notesCache.get(username);
+    const noteLine = isMe
+      ? '<div class="presence-card-note presence-card-note-edit' + (note ? '' : ' presence-card-note-empty') + '" title="' + (note ? 'Edit your note' : 'Add a note') + '">' +
+          '<i class="ti ti-message-2"></i> ' + (note ? esc(note) : 'Add a note…') +
+        '</div>'
+      : (note ? '<div class="presence-card-note" title="' + esc(note) + '"><i class="ti ti-message-2"></i> ' + esc(note) + '</div>' : '');
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         '<span class="presence-card-online"></span>' +
@@ -8314,6 +8342,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<div class="presence-card-track">' + (showTrack ? song : 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
         partyLine +
+        noteLine +
       '</div>' +
     '</div>';
   }
@@ -8330,6 +8359,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // rather than erroring visibly.
   const _offlineStatusCache = new Map(); // matrix userId -> status text
   let _offlineTimer = null;
+  let _notesTimer = null;
 
   function fmtAgo(ms) {
     const s = Math.floor(ms / 1000);
@@ -8406,11 +8436,17 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const avatarUrl = _avatarCache.get(person.username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (person.username || '?')[0].toUpperCase();
     const statusText = _offlineStatusCache.get(person.userId) || '…';
+    // Notes outlive being online (24h TTL, independent of presence) —
+    // same as klabnet-web's "me" card, just always read-only here since
+    // nobody offline is ever the viewer.
+    const note = _notesCache.get(person.username);
+    const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '"><i class="ti ti-message-2"></i> ' + esc(note) + '</div>' : '';
     return '<div class="presence-card is-offline">' +
       '<div class="presence-card-avatar">' + avatarInner + '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(person.username) + '</div>' +
         '<div class="presence-card-track">' + esc(statusText) + '</div>' +
+        noteLine +
       '</div>' +
     '</div>';
   }
@@ -8649,6 +8685,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   playerState.audio.addEventListener('pause', broadcastPartyTick);
 
   list.addEventListener('click', e => {
+    if (e.target.closest('.presence-card-note-edit')) { editMyNote(); return; }
     if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
     if (meCard) { openProfileModal(); return; }
@@ -8730,14 +8767,53 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     refreshOfflineRoster(new Set([me, ...(_lastOthers || []).map(l => l.username)]));
   }
 
+  // ── Notes — Instagram-Notes-style ephemeral status text, one per user.
+  // One bulk GET decorates every card (online AND offline) rather than a
+  // request per person; doesn't need 8s freshness, same cadence as the
+  // offline roster above.
+  const _notesCache = new Map(); // username -> note text
+  async function fetchNotes() {
+    try {
+      const r = await fetchTimeout('/api/notes', {}, 6000);
+      if (!r.ok) return;
+      const data = await r.json();
+      _notesCache.clear();
+      (data.notes || []).forEach(n => _notesCache.set(n.username, n.text));
+      renderList(_lastOthers);
+    } catch (e) {}
+  }
+  async function editMyNote() {
+    const me = window.KLAB_USER?.username;
+    if (!me) return;
+    const text = prompt('Share a note — visible to everyone for 24h (max 60 characters):', _notesCache.get(me) || '');
+    if (text === null) return; // cancelled
+    try {
+      const r = await fetchTimeout('/api/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.trim() }),
+      }, 6000);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.text) _notesCache.set(me, data.text); else _notesCache.delete(me);
+      renderList(_lastOthers);
+      SFX && SFX.play(data.text ? 'star' : 'click');
+    } catch (e) {}
+  }
+
   // ── Poll — runs from page load, pauses when the tab is hidden ──
   function startPoll() {
     if (_timer) return;
-    postPresence(); fetchPresence(); refreshOfflineRosterNow();
+    postPresence(); fetchPresence(); refreshOfflineRosterNow(); fetchNotes();
     _timer = setInterval(() => { postPresence(); fetchPresence(); }, POLL_MS);
     _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
+    _notesTimer = setInterval(fetchNotes, OFFLINE_POLL_MS);
   }
-  function stopPoll() { clearInterval(_timer); _timer = null; clearInterval(_offlineTimer); _offlineTimer = null; }
+  function stopPoll() {
+    clearInterval(_timer); _timer = null;
+    clearInterval(_offlineTimer); _offlineTimer = null;
+    clearInterval(_notesTimer); _notesTimer = null;
+  }
 
   startPoll();
   document.addEventListener('visibilitychange', () => {
