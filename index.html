@@ -3118,6 +3118,18 @@ Object.keys(maintenance).forEach(id=>applyDot(parseInt(id),0));
 // ══════════════════════════════════════════
 //  CONTEXT MENU
 // ══════════════════════════════════════════
+// Both context menus (app tiles here, presence cards further down) are
+// fixed-position elements living inside the zoomed `html` subtree (see the
+// `zoom` tiers on large displays, up in the base stylesheet). `clientX`/
+// `clientY` are reported in real, unzoomed viewport pixels, but a
+// fixed-position descendant's `left`/`top` are lengths *inside* the zoomed
+// context — assigning the raw client coords shoots the menu off to the
+// right/bottom by the zoom factor (confirmed: at zoom 1.3, a menu placed
+// at clientX=3407 on a 3440px-wide screen rendered ~760px off-screen).
+// Dividing both the coordinates and the viewport bounds by the current
+// zoom factor converts everything back into the zoomed element's own
+// coordinate space before positioning.
+function zoomFactor(){ return parseFloat(getComputedStyle(document.documentElement).zoom) || 1; }
 const ctxMenu=document.getElementById('ctxMenu');
 function showCtx(x,y,tile){
   const id=parseInt(tile.dataset.id);
@@ -3135,8 +3147,9 @@ function showCtx(x,y,tile){
     applyDot(id,list&&list.length?list[list.length-1].status:1);
     hideCtx();
   };
-  ctxMenu.style.left=Math.min(x,window.innerWidth-210)+'px';
-  ctxMenu.style.top=Math.min(y,window.innerHeight-140)+'px';
+  const z=zoomFactor();
+  ctxMenu.style.left=Math.min(x/z,window.innerWidth/z-210)+'px';
+  ctxMenu.style.top=Math.min(y/z,window.innerHeight/z-140)+'px';
   ctxMenu.classList.add('visible');
 }
 function hideCtx(){ctxMenu.classList.remove('visible');}
@@ -6019,13 +6032,25 @@ function ensureMsgAvatarResolved(userId, mxcUrl) {
     _msgAvatarCache.set(userId, null);
   }).finally(() => {
     _msgAvatarPending.delete(userId);
-    // renderTimeline()'s skip-if-unchanged render key doesn't factor in
-    // avatar-cache state (only room/events), so without this reset, this
-    // call sees an "unchanged" key and skips the rebuild entirely — the
-    // newly-resolved avatar wouldn't actually paint until some unrelated
-    // event (a new message, a sync tick) forced a real rebuild later.
-    _lastTimelineRenderKey = null;
-    renderTimeline(); // re-render so the now-resolved avatar actually shows
+    // Paint the now-resolved avatar directly into any already-rendered
+    // rows for this sender instead of forcing a full renderTimeline()
+    // rebuild — this used to reset _lastTimelineRenderKey and re-render
+    // the whole message list (avatars resolve async, per sender, so a
+    // chatty room could trigger several of these in a row), which is one
+    // of the causes behind chat messages visibly flickering. Nothing else
+    // about a message's rendering ever depends on avatar-cache state, so
+    // a direct DOM patch is equivalent and doesn't touch the rest of the
+    // timeline.
+    const url = _msgAvatarCache.get(userId);
+    if (!url) return;
+    document.querySelectorAll(`.chat-msg-avatar[data-msg-avatar-for="${CSS.escape(userId)}"]`).forEach(avatar => {
+      if (avatar.querySelector('img')) return;
+      avatar.textContent = '';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      avatar.appendChild(img);
+    });
   });
 }
 
@@ -6224,6 +6249,7 @@ function renderTypingLine() {
 // needed, scroll only snaps to bottom if the user was already there (or
 // this is a fresh room switch) rather than always.
 let _lastTimelineRenderKey = null;
+const _lastSentReadEventId = new Map(); // roomId -> event id we've already sent a read receipt for
 
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
@@ -6257,10 +6283,24 @@ function renderTimeline() {
   // Sending our own read receipt too (gitea#3) so the "Seen" line below
   // shows up for the other party, and so other Matrix clients we're
   // logged into elsewhere agree on what's read.
+  //
+  // Guarded by _lastSentReadEventId: without it this fired on EVERY
+  // renderTimeline() call, including the ones the receipt listener itself
+  // triggers below — receiving a receipt caused us to send one right back,
+  // which the other client's own copy of this same code echoed right back
+  // again, forever, with each bounce forcing a full timeline rebuild on
+  // both ends (this is what was seen as messages "flickering in and out"
+  // between two people actively in the same room). Only sending when the
+  // event we'd acknowledge has actually changed breaks the loop at the
+  // source; the receipt listener no longer force-rebuilding at all (see
+  // updateSeenLine()) closes it from the other side too.
   if (document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')) {
     markRoomRead(room.roomId);
     const lastEvent = events[events.length - 1];
-    if (lastEvent) MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
+    if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
+      _lastSentReadEventId.set(room.roomId, lastEvent.getId());
+      MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
+    }
   }
 
   const renderKey = room.roomId + '|' + events.map(ev =>
@@ -6283,6 +6323,7 @@ function renderTimeline() {
 
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
+    avatar.dataset.msgAvatarFor = senderId;
     const mxcAvatarUrl = ev.sender?.getMxcAvatarUrl?.();
     ensureMsgAvatarResolved(senderId, mxcAvatarUrl);
     const cachedAvatarUrl = _msgAvatarCache.get(senderId);
@@ -6323,22 +6364,39 @@ function renderTimeline() {
     el.appendChild(row);
   });
 
-  // gitea#3 read receipts — scoped to DMs only. A busy channel's "seen by
-  // 6 people, 2 unread" is real UI work (an avatar stack, etc.) that isn't
-  // worth building for a v1; a DM only ever has one other person to ask
-  // "have they seen my last message" about.
-  const lastEvent = events[events.length - 1];
-  if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId() && getDmRoomIds().has(room.roomId)) {
-    const otherMember = room.getMembers().find(m => m.userId !== MatrixChat.client.getUserId());
-    if (otherMember && room.hasUserReadEvent(otherMember.userId, lastEvent.getId())) {
-      const seen = document.createElement('div');
-      seen.className = 'chat-msg-seen';
-      seen.textContent = 'Seen';
-      el.appendChild(seen);
-    }
-  }
+  updateSeenLine(room, events);
 
   if (wasNearBottom) el.scrollTop = el.scrollHeight;
+}
+
+// gitea#3 read receipts — scoped to DMs only. A busy channel's "seen by
+// 6 people, 2 unread" is real UI work (an avatar stack, etc.) that isn't
+// worth building for a v1; a DM only ever has one other person to ask
+// "have they seen my last message" about.
+//
+// Split out of renderTimeline() so a receipt arriving (which changes only
+// this line, never the messages themselves) can update just this without
+// wiping and rebuilding the whole message list — see the 'receipt'
+// listener below and the comment on _lastSentReadEventId above for why
+// that full rebuild was the actual cause of the chat flicker bug.
+function updateSeenLine(room, events) {
+  const el = document.getElementById('chatTimeline');
+  if (!el || _chatActiveRoomId !== room.roomId) return;
+  const existing = el.querySelector('.chat-msg-seen');
+  const lastEvent = events[events.length - 1];
+  let shouldShow = false;
+  if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId() && getDmRoomIds().has(room.roomId)) {
+    const otherMember = room.getMembers().find(m => m.userId !== MatrixChat.client.getUserId());
+    shouldShow = !!(otherMember && room.hasUserReadEvent(otherMember.userId, lastEvent.getId()));
+  }
+  if (shouldShow && !existing) {
+    const seen = document.createElement('div');
+    seen.className = 'chat-msg-seen';
+    seen.textContent = 'Seen';
+    el.appendChild(seen);
+  } else if (!shouldShow && existing) {
+    existing.remove();
+  }
 }
 
 // gitea#3: page in older history as the user scrolls up, rather than
@@ -6878,12 +6936,20 @@ function showChatApp() {
     });
     // gitea#3 read receipts — a receipt update doesn't change the events
     // renderTimeline()'s renderKey hashes (it's the same messages, just a
-    // new "read up to" marker), so without invalidating the key here a
-    // fresh "Seen" line would never actually repaint.
+    // new "read up to" marker), so it needs its own repaint path. That
+    // used to be "force a full renderTimeline() rebuild", but a receipt
+    // updating the Seen line would make renderTimeline() send ITS OWN read
+    // receipt too (unconditionally, back then) — which the other client's
+    // identical code echoed straight back, forever, each bounce clearing
+    // and rebuilding the entire message list on both ends. That's what
+    // was seen as chat messages flickering in and out. updateSeenLine()
+    // only ever touches the one "Seen" div, never the messages or the
+    // read-receipt-sending path, so there's nothing left to bounce.
     MatrixChat.on('receipt', (event, room) => {
       if (room.roomId !== _chatActiveRoomId) return;
-      _lastTimelineRenderKey = null;
-      renderTimeline();
+      const events = room.getLiveTimeline().getEvents().filter(ev =>
+        ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace');
+      updateSeenLine(room, events);
     });
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendChatMessage();
@@ -8322,8 +8388,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     listenItem.style.display = card.classList.contains('is-playable') ? 'flex' : 'none';
     listenItem.onclick = () => { hidePresenceCtx(); playFromCard(card); };
     document.getElementById('presenceCtxMessage').onclick = () => { hidePresenceCtx(); messageUser(username); };
-    presenceCtxMenu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
-    presenceCtxMenu.style.top  = Math.min(y, window.innerHeight - 140) + 'px';
+    // See zoomFactor()'s comment above showCtx() — same zoomed-viewport
+    // fix-up, needed here too.
+    const z = zoomFactor();
+    presenceCtxMenu.style.left = Math.min(x / z, window.innerWidth / z - 210) + 'px';
+    presenceCtxMenu.style.top  = Math.min(y / z, window.innerHeight / z - 140) + 'px';
     presenceCtxMenu.classList.add('visible');
   }
   list.addEventListener('contextmenu', e => {
