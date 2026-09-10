@@ -42,7 +42,7 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    html { font-size: 19px; }
+    html { font-size: 19px; height: 100%; }
 
     /* Humanist sans everywhere — reads as a designed UI rather than
        "generated code" on dense control labels. The klabnet wordmark
@@ -271,9 +271,22 @@
        overflow-y:auto, so nothing important gets clipped, and this
        guarantees no scroll at the page level even if some descendant's
        flex math is off by a few px, rather than just discouraging it. */
-    body.tab-social-active { overflow: hidden; }
+    /* height:100%, not 100vh: `height` here chains through html/body
+       (both set to 100% too) down to the real viewport, so it scales
+       correctly under the `zoom` tiers above. `vh` units don't get
+       compensated for `zoom` in Chromium — a zoomed 100vh box renders
+       taller than the viewport by exactly the zoom factor (confirmed:
+       at zoom:1.3 a `height:100vh` box measured 130% of window.innerHeight)
+       — which on ultrawide/4K monitors (zoom kicks in at 2200px+) pushed
+       the chat composer off the bottom of this `overflow:hidden` box
+       with no way to scroll to it. */
+    /* min-height:100vh is set unconditionally on body (above) and, being
+       a *minimum*, wins over this height:100% unless overridden too — at
+       zoom:1.3 that min-height alone still forces body 30% past the real
+       viewport height, re-clipping the composer even with the fix below. */
+    body.tab-social-active { overflow: hidden; height: 100%; min-height: 0; }
     body.tab-social-active .dash {
-      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
       /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
          toggle above (same specificity, later in the sheet, so this
          wins) — this tab always needs room for the dock regardless of
@@ -5887,7 +5900,13 @@ const MatrixChat = (function () {
     // gitea#3: 20 felt thin ("does only like 20 messages"). This is just
     // the first page though — scrolling to the top of a room's timeline
     // pages in more/older history via scrollback(), see maybeLoadOlderMessages().
-    await client.startClient({ initialSyncLimit: 50 });
+    // lazyLoadMembers: without it, /sync pulls the FULL membership list for
+    // every joined room up front — for anyone in a large public channel
+    // (see chatBrowseBtn) that's what was making the client take forever
+    // to reach PREPARED. With it, only members with visible timeline
+    // events sync eagerly; the rest load on demand (opening a room,
+    // needing a read receipt's sender, etc).
+    await client.startClient({ initialSyncLimit: 50, lazyLoadMembers: true });
     return client;
   }
 
