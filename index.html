@@ -6568,20 +6568,30 @@ function chatNameColor(id) {
 }
 
 // Message-avatar cache, keyed by Matrix user ID (unlike the presence
-// rail's cache, which is keyed by klabnet username — this one has a real
-// RoomMember object per message with its own mxc avatar URL already
-// attached, so there's no separate profile-lookup step needed here).
+// rail's cache, which is keyed by klabnet username). This used to trust
+// the mxc URL already attached to each message's RoomMember snapshot to
+// skip a profile lookup — but that snapshot is only as fresh as the last
+// m.room.member state event Synapse happened to propagate to that room,
+// which can lag well behind a just-changed global profile avatar (this is
+// what caused feed/presence to show a freshly-changed avatar immediately
+// while chat kept showing the old one — those two already did a live
+// getProfileInfo() lookup instead). Doing the same lookup here trades one
+// extra one-time request per sender for actually being correct.
 const _msgAvatarCache   = new Map(); // userId -> blob URL, or null
 const _msgAvatarPending = new Set();
 
-function ensureMsgAvatarResolved(userId, mxcUrl) {
-  if (!userId || !mxcUrl || _msgAvatarCache.has(userId) || _msgAvatarPending.has(userId)) return;
+function ensureMsgAvatarResolved(userId) {
+  if (!userId || _msgAvatarCache.has(userId) || _msgAvatarPending.has(userId)) return;
+  const client = MatrixChat.client;
+  if (!client) return;
   _msgAvatarPending.add(userId);
-  MatrixChat.mxcToBlobUrl(mxcUrl).then(url => {
-    _msgAvatarCache.set(userId, url);
-  }).catch(() => {
-    _msgAvatarCache.set(userId, null);
-  }).finally(() => {
+  (async () => {
+    try {
+      const info = await client.getProfileInfo(userId);
+      _msgAvatarCache.set(userId, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
+    } catch (e) {
+      if (!_msgAvatarCache.has(userId)) _msgAvatarCache.set(userId, null);
+    }
     _msgAvatarPending.delete(userId);
     // Paint the now-resolved avatar directly into any already-rendered
     // rows for this sender instead of forcing a full renderTimeline()
@@ -6604,7 +6614,7 @@ function ensureMsgAvatarResolved(userId, mxcUrl) {
       img.alt = '';
       avatar.appendChild(img);
     });
-  });
+  })();
 }
 
 // Rooms recorded in the 'm.direct' account-data map are DMs; everything
@@ -6993,8 +7003,7 @@ function renderTimeline() {
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
     avatar.dataset.msgAvatarFor = senderId;
-    const mxcAvatarUrl = ev.sender?.getMxcAvatarUrl?.();
-    ensureMsgAvatarResolved(senderId, mxcAvatarUrl);
+    ensureMsgAvatarResolved(senderId);
     const cachedAvatarUrl = _msgAvatarCache.get(senderId);
     if (cachedAvatarUrl) {
       const img = document.createElement('img');
@@ -7114,7 +7123,7 @@ function updateSeenLine(room, events) {
   const seen = document.createElement('div');
   seen.className = 'chat-msg-seen';
   readers.slice(0, SEEN_LINE_AVATAR_MAX).forEach(member => {
-    ensureMsgAvatarResolved(member.userId, member.getMxcAvatarUrl?.());
+    ensureMsgAvatarResolved(member.userId);
     const url = _msgAvatarCache.get(member.userId);
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-seen-avatar';
@@ -7695,7 +7704,7 @@ function notifyNewMessage(event, room) {
   // back to the plain icon and kicks off the resolve for next time,
   // rather than blocking the notification on a network round trip.
   const senderId = event.getSender();
-  ensureMsgAvatarResolved(senderId, event.sender?.getMxcAvatarUrl?.());
+  ensureMsgAvatarResolved(senderId);
   const avatarUrl = _msgAvatarCache.get(senderId);
   // Longer than TOAST_DEFAULT_MS — a chat notification carries more to
   // actually read (a name plus a message body) than the usual one-line
