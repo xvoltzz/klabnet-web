@@ -3543,7 +3543,8 @@ scheduleMotdCycle();
 //  THEME
 // ══════════════════════════════════════════
 const THEME_KEY = 'klabnet_theme';
-let currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+let currentTheme = 'dark';
+try { currentTheme = localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) {} // storage blocked (private mode, extension) — fall back to the default rather than aborting this whole script
 
 function applyTheme(t) {
   currentTheme = t;
@@ -3559,7 +3560,8 @@ document.getElementById('themeToggle').addEventListener('click', () => { applyTh
 //  MAINTENANCE
 // ══════════════════════════════════════════
 const MAINT_KEY='klabnet_maintenance';
-let maintenance=JSON.parse(localStorage.getItem(MAINT_KEY)||'{}');
+let maintenance={};
+try { maintenance = JSON.parse(localStorage.getItem(MAINT_KEY)||'{}'); } catch (e) {} // corrupted/blocked storage — don't let this throw abort every script statement after it
 const saveMaint=()=>localStorage.setItem(MAINT_KEY,JSON.stringify(maintenance));
 const isMaint=id=>!!maintenance[id];
 
@@ -5349,6 +5351,11 @@ const _origLoadPickerTab2 = loadPickerTab;
 loadPickerTab = async function(tab) {
   if (tab === 'favorites') {
     pickerTab = tab;
+    // Bump the shared race-guard token used by every other tab (random/
+    // recent/search) — without this, a still-in-flight fetch from whatever
+    // tab was active before switching to Favorites would pass its own
+    // stale-token check once it resolves and overwrite this list.
+    _pickerLoadToken++;
     const favs = getFavorites();
     if (!favs.length) {
       pickerList.innerHTML = '<div class="picker-empty">no favorites yet — hit the heart on any song</div>';
@@ -6456,6 +6463,17 @@ const MatrixChat = (function () {
     });
     client.on('RoomMember.typing', (event, member) => emit('typing', member));
     client.on('Room.receipt', (event, room) => emit('receipt', event, room));
+    // A member's m.room.member state event changes whenever THEIR OWN
+    // avatar/display name changes (Synapse re-propagates it to every room
+    // they're in) — used to bust the per-sender avatar cache below so a
+    // participant who changes their avatar mid-session doesn't keep showing
+    // their old photo for the rest of the page's life (this used to only
+    // self-heal for your *own* avatar via openProfileModal()'s explicit
+    // cache-clear; everyone else's stayed stale with no invalidation path
+    // at all).
+    client.on('RoomState.events', event => {
+      if (event.getType() === 'm.room.member') emit('memberProfileChanged', event.getStateKey());
+    });
     // gitea#2 listening-party sync — plain to-device messages, no room/
     // timeline involved at all, so nothing here ever shows up as a chat
     // message or notification.
@@ -6615,6 +6633,19 @@ function ensureMsgAvatarResolved(userId) {
       avatar.appendChild(img);
     });
   })();
+}
+
+// Busts a stale cached avatar for one sender (see the 'memberProfileChanged'
+// wiring in showChatApp()) and re-resolves it — otherwise a participant who
+// changes their avatar mid-session keeps showing their old photo in every
+// already-rendered row for the rest of the page's life.
+function invalidateMsgAvatar(userId) {
+  if (!userId || !_msgAvatarCache.has(userId)) return;
+  _msgAvatarCache.delete(userId);
+  document.querySelectorAll(
+    `.chat-msg-avatar[data-msg-avatar-for="${CSS.escape(userId)}"], .chat-msg-seen-avatar[data-seen-avatar-for="${CSS.escape(userId)}"]`
+  ).forEach(avatar => avatar.querySelectorAll('img').forEach(img => img.remove()));
+  ensureMsgAvatarResolved(userId);
 }
 
 // Rooms recorded in the 'm.direct' account-data map are DMs; everything
@@ -7260,12 +7291,16 @@ async function sendChatMessage() {
   if (image) {
     try {
       const upload = await client.uploadContent(image);
-      // The reply relation (if any) rides on the image message when there's
-      // no separate caption text to attach it to instead.
+      // The reply relation (if any) always rides on the image message —
+      // it's sent first, and a caption (if any) goes out as its own
+      // follow-up below. Previously this only attached when there was no
+      // caption text, so replying with an image *and* a typed caption
+      // silently dropped the reply context entirely (neither message got
+      // the m.relates_to relation).
       await client.sendMessage(roomId, {
         msgtype: 'm.image', body: image.name, url: upload.content_uri,
         info: { mimetype: image.type, size: image.size },
-        ...(!text && replyRelation ? replyRelation : {}),
+        ...(replyRelation || {}),
       });
     } catch (e) {
       console.error('[chat] image send failed', e);
@@ -7483,8 +7518,12 @@ function messageUser(username) {
     return;
   }
   const serverName = MatrixChat.client.getUserId().split(':')[1];
-  setActiveTab('chat');
-  startDm(`@${username}:${serverName}`);
+  // startDm() resolves/creates the room and sets _chatActiveRoomId itself
+  // (async — may need to createRoom() first). setActiveTab('chat') must run
+  // AFTER that, not before: it marks whatever room is currently active as
+  // read, so calling it first here was marking the room the user was
+  // previously on as read instead of the DM they're jumping to.
+  startDm(`@${username}:${serverName}`).then(() => setActiveTab('chat'));
 }
 
 function openDmModal() {
@@ -7719,8 +7758,12 @@ function notifyNewMessage(event, room) {
 // channel sidebar (see the identical _chatActiveRoomId/renderChannelList()
 // pairing in the channel-item click handler).
 function openChatRoom(roomId) {
-  setActiveTab('chat');
+  // _chatActiveRoomId must be updated BEFORE setActiveTab('chat') runs —
+  // that call marks whatever room is currently active as read (see its own
+  // comment), so calling it first here was marking the room the user was
+  // previously on as read instead of the one they're jumping to.
   _chatActiveRoomId = roomId;
+  setActiveTab('chat');
   renderChannelList();
 }
 
@@ -7795,6 +7838,7 @@ function showChatApp() {
       if (state === 'PREPARED') _chatSyncSettled = true;
       renderChannelList();
     });
+    MatrixChat.on('memberProfileChanged', userId => invalidateMsgAvatar(userId));
     MatrixChat.on('timeline', (event, room) => {
       renderChannelList(); // cascades to renderTimeline() too
       notifyNewMessage(event, room);
@@ -9097,9 +9141,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<span class="presence-card-online"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
-        '<div class="presence-card-name">' + username + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
-        '<div class="presence-card-track">' + (showTrack ? song : 'Online') + '</div>' +
-        (showTrack && artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
+        '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
+        '<div class="presence-card-track">' + (showTrack ? esc(song) : 'Online') + '</div>' +
+        (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
         noteLine +
       '</div>' +
@@ -9514,7 +9558,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const others = (data.listeners || []).filter(l => l.username !== me);
       renderList(others);
     } catch(e) {
-      renderList([]);
+      // A single timed-out/failed poll shouldn't blank out everyone who was
+      // online a moment ago — keep showing the last-known roster and let
+      // the next successful poll (8s away) correct it.
+      renderList(_lastOthers);
     } finally {
       window.KLAB_BOOT?.mark('presence');
     }
@@ -9771,8 +9818,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
     const reactions = post.reactions || {};
     const pillsHTML = Object.entries(reactions).map(([emoji, entry]) =>
-      '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + emoji + '">' +
-        emoji + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
+      '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + esc(emoji) + '">' +
+        esc(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
       '</button>'
     ).join('');
     const quickPickerOpen = _openReactionPickers.has(post.id);
@@ -9816,12 +9863,24 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   async function fetchFeed() {
     if (_feedPending) return;
     _feedPending = true;
+    const isFirstLoad = _feedPosts.length === 0;
     try {
       const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
       if (!r.ok) return;
       const data = await r.json();
-      _feedPosts = data.posts || [];
-      _feedHasMore = _feedPosts.length === FEED_PAGE_SIZE;
+      const fresh = data.posts || [];
+      // Merge the newest page into whatever's already loaded instead of
+      // replacing wholesale — this runs on a 30s poll and after every post
+      // submit, and a plain replace was silently discarding any older pages
+      // the user had already paged in via "Load older", snapping the list
+      // back to just the newest 50 out from under them.
+      const byId = new Map(_feedPosts.map(p => [p.id, p]));
+      fresh.forEach(p => byId.set(p.id, p));
+      _feedPosts = [...byId.values()].sort((a, b) => b.id - a.id);
+      // _feedHasMore is otherwise owned by loadOlderPosts() once pagination
+      // has started — only the very first load should derive it from this
+      // top-page fetch.
+      if (isFirstLoad) _feedHasMore = fresh.length === FEED_PAGE_SIZE;
       renderFeed();
     } catch (e) {
     } finally {
@@ -10148,6 +10207,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   document.addEventListener('mousedown', e => {
     if (e.button === 3 || e.button === 4) {
       e.preventDefault();
+      // Forward has no in-app "forward stack" to mirror the back logic
+      // below (this app's panels/tabs don't track a forward direction) —
+      // the closest correct behavior is the browser's own history-forward,
+      // not silently re-running the back logic (which is what button 4
+      // used to fall through to here).
+      if (e.button === 4) { history.forward(); return; }
       // If the artist/album detail view is open, step back to the browse list
       if (document.getElementById('apPanel')?.classList.contains('open')) {
         document.getElementById('apBack')?.click();
