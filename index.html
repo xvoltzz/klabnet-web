@@ -594,7 +594,7 @@
       .presence-rail .presence-grid { grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); }
     }
 
-    /* ══ TAB NAV — top-level Home/Social/Music/KLABCRAFT switcher ══ */
+    /* ══ TAB NAV — top-level Feed/Apps/Social/Music/KLABCRAFT switcher ══ */
     .tab-nav {
       display: flex; gap: 6px;
       flex-wrap: nowrap; overflow-x: auto;
@@ -672,6 +672,92 @@
     .music-tab-placeholder {
       font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer);
       padding: 2rem 0;
+    }
+
+    /* ══ FEED — Home tab, text/image posts ══ */
+    .feed-composer {
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 10px; padding: 0.85rem; margin-bottom: 1.4rem;
+    }
+    .feed-composer-text {
+      width: 100%; resize: vertical; min-height: 44px;
+      background: none; border: none; outline: none;
+      font: inherit; font-size: 12.5px; color: var(--text); line-height: 1.5;
+      font-family: var(--font-ui);
+    }
+    .feed-composer-text::placeholder { color: var(--text-dimmer); }
+    .feed-composer-preview-wrap { position: relative; width: fit-content; margin-top: 0.5rem; }
+    .feed-composer-preview { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; }
+    .feed-composer-preview-remove {
+      position: absolute; top: -7px; right: -7px; width: 20px; height: 20px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      cursor: pointer; font-size: 11px;
+    }
+    .feed-composer-row {
+      display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem;
+    }
+    .feed-composer-image-btn {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg-h); border: 1px solid var(--tile-border);
+      color: var(--text-dim); cursor: pointer; font-size: 14px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-composer-image-btn:hover { border-color: var(--tile-border-h); color: var(--text); }
+    .feed-composer-image-btn.has-image { color: rgba(var(--accent-rgb),1); border-color: rgba(var(--accent-rgb),0.4); }
+    .feed-composer-error { font-size: 9.5px; color: var(--danger-color); }
+    .feed-composer-post-btn {
+      margin-left: auto;
+      padding: 6px 16px; border-radius: 6px;
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+      cursor: pointer;
+      background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1);
+      transition: background 0.15s;
+    }
+    .feed-composer-post-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .feed-composer-post-btn:disabled { opacity: 0.5; cursor: default; }
+
+    .feed-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .feed-post {
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 10px; padding: 0.85rem; display: flex; gap: 0.7rem;
+    }
+    .feed-post-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg-h); font-size: 12px; font-weight: 700; color: var(--text-dim);
+      overflow: hidden;
+    }
+    .feed-post-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .feed-post-body { flex: 1; min-width: 0; }
+    .feed-post-head { display: flex; align-items: baseline; gap: 0.5rem; }
+    .feed-post-name { font-size: 11.5px; font-weight: 700; color: var(--name-color, var(--text)); }
+    .feed-post-time { font-size: 9px; color: var(--text-dimmer); }
+    .feed-post-delete {
+      margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 13px;
+      opacity: 0; transition: opacity 0.15s, color 0.15s;
+    }
+    .feed-post:hover .feed-post-delete { opacity: 1; }
+    .feed-post-delete:hover { color: var(--danger-color); }
+    .feed-post-text {
+      font-size: 12px; color: var(--text); line-height: 1.55; margin-top: 2px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; }
+    .feed-empty { font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer); padding: 2rem 0; text-align: center; }
+    .feed-load-more {
+      display: block; margin: 0.8rem auto 0; padding: 6px 16px; border-radius: 6px;
+      font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      cursor: pointer;
+    }
+    .feed-load-more:hover { background: var(--tile-bg-h); color: var(--text); }
+    @media (max-width: 560px) {
+      .feed-post { flex-direction: column; }
+      .feed-post-avatar { width: 24px; height: 24px; }
     }
 
     /* ══ APP GRID ══ */
@@ -2695,7 +2781,8 @@
   </header>
 
   <nav class="tab-nav" id="tabNav">
-    <button class="tab-nav-btn" data-tab-target="home" title="Home"><i class="ti ti-apps"></i><span>Home</span></button>
+    <button class="tab-nav-btn" data-tab-target="home" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
+    <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
     <button class="tab-nav-btn" data-tab-target="social" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
     <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
     <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
@@ -2705,6 +2792,27 @@
   <div class="dash-main">
 
   <div class="tab-panel" data-tab-panel="home">
+  <div class="sec" data-sec="feed">
+    <div class="sec-head"><span class="sec-label">// feed</span><div class="sec-line"></div></div>
+    <div class="feed-composer" id="feedComposer">
+      <textarea class="feed-composer-text" id="feedComposerText" placeholder="what's going on?" rows="2"></textarea>
+      <div class="feed-composer-preview-wrap" id="feedComposerPreviewWrap" hidden>
+        <img class="feed-composer-preview" id="feedComposerPreview" alt="" />
+        <button class="feed-composer-preview-remove" id="feedComposerPreviewRemove" title="Remove image"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="feed-composer-row">
+        <input type="file" accept="image/*" id="feedComposerImage" hidden />
+        <button class="feed-composer-image-btn" id="feedComposerImageBtn" title="Add an image"><i class="ti ti-photo"></i></button>
+        <span class="feed-composer-error" id="feedComposerError" hidden></span>
+        <button class="feed-composer-post-btn" id="feedComposerPostBtn">Post</button>
+      </div>
+    </div>
+    <div class="feed-list" id="feedList"></div>
+    <button class="feed-load-more" id="feedLoadMore" hidden>Load older</button>
+  </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="apps">
   <div class="sec" data-sec="applications">
     <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
     <div class="grid" id="appGrid">
@@ -5670,12 +5778,12 @@ function applySettings() {
 }
 
 // ══════════════════════════════════════════
-//  TAB NAV — Home / Social / Music / KLABCRAFT router
+//  TAB NAV — Feed / Apps / Social / Music / KLABCRAFT router
 //  Hash-based so tabs are bookmarkable and back/forward works. The floating
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'social', 'music', 'klabcraft'];
+const TABS = ['home', 'apps', 'social', 'music', 'klabcraft'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -8863,6 +8971,256 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   });
   playerState.audio.addEventListener('play',  postPresence);
   playerState.audio.addEventListener('pause', postPresence);
+})();
+
+// ══════════════════════════════════════════
+//  FEED — Home tab. Text/image posts, klabnet-api /api/posts. Images never
+//  touch klabnet-api: the browser uploads straight to Matrix's content repo
+//  via uploadContent() (same flow the profile-avatar picker already uses,
+//  see openProfileModal()) and only the resulting mxc:// URI gets posted —
+//  so posting text works even without a Matrix session; only attaching an
+//  image needs one.
+// ══════════════════════════════════════════
+(function() {
+  const listEl       = document.getElementById('feedList');
+  const textEl       = document.getElementById('feedComposerText');
+  const fileEl        = document.getElementById('feedComposerImage');
+  const imageBtnEl    = document.getElementById('feedComposerImageBtn');
+  const previewWrapEl = document.getElementById('feedComposerPreviewWrap');
+  const previewEl     = document.getElementById('feedComposerPreview');
+  const previewRmEl   = document.getElementById('feedComposerPreviewRemove');
+  const errEl         = document.getElementById('feedComposerError');
+  const postBtnEl     = document.getElementById('feedComposerPostBtn');
+  const loadMoreEl    = document.getElementById('feedLoadMore');
+  if (!listEl) return; // feed markup not present (shouldn't happen, guards a bad merge)
+
+  const FEED_MAX_IMAGE_BYTES = 8 * 1024 * 1024; // client-side sanity cap — Matrix's own content-repo limit is the real backstop
+  const FEED_PAGE_SIZE = 50;
+
+  let _feedPosts    = [];   // newest-first
+  let _feedHasMore  = false;
+  let _feedPending  = false; // a fetch is in flight — guards overlapping polls/loads
+  let _pendingFile  = null;
+
+  const _feedAvatarCache   = new Map(); // username -> blob URL or null
+  const _feedAvatarPending = new Set();
+  const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
+  const _feedImagePending  = new Set();
+
+  function ensureFeedAvatar(username) {
+    if (!username || _feedAvatarCache.has(username) || _feedAvatarPending.has(username)) return;
+    const client = MatrixChat.client;
+    if (!client) return;
+    _feedAvatarPending.add(username);
+    (async () => {
+      try {
+        const serverName = client.getUserId().split(':')[1];
+        const info = await client.getProfileInfo(`@${username}:${serverName}`);
+        _feedAvatarCache.set(username, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
+      } catch (e) {
+        if (!_feedAvatarCache.has(username)) _feedAvatarCache.set(username, null);
+      } finally {
+        _feedAvatarPending.delete(username);
+        renderFeed();
+      }
+    })();
+  }
+
+  function ensureFeedImage(mxc) {
+    if (!mxc || _feedImageCache.has(mxc) || _feedImagePending.has(mxc)) return;
+    _feedImagePending.add(mxc);
+    (async () => {
+      try {
+        _feedImageCache.set(mxc, await MatrixChat.mxcToBlobUrl(mxc));
+      } catch (e) {
+        _feedImageCache.set(mxc, null);
+      } finally {
+        _feedImagePending.delete(mxc);
+        renderFeed();
+      }
+    })();
+  }
+
+  function fmtFeedTime(apiTime) {
+    // Backend timestamps are "YYYY-MM-DD HH:MM:SS" in UTC with no zone
+    // marker — appending Z is what makes Date parse it as UTC instead of
+    // (incorrectly) local time.
+    const d = new Date(apiTime.replace(' ', 'T') + 'Z');
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const days = Math.floor(h / 24);
+    if (days < 7) return `${days}d`;
+    return d.toLocaleDateString();
+  }
+
+  function postHTML(post) {
+    const me = window.KLAB_USER?.username;
+    const canDelete = post.username === me || window.KLAB_USER?.is_admin;
+    ensureFeedAvatar(post.username);
+    const avatarUrl = _feedAvatarCache.get(post.username);
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (post.username || '?')[0].toUpperCase();
+    let imageHTML = '';
+    if (post.image_mxc) {
+      ensureFeedImage(post.image_mxc);
+      const url = _feedImageCache.get(post.image_mxc);
+      if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" alt="" loading="lazy" />';
+    }
+    return '<div class="feed-post" style="--name-color:' + chatNameColor(post.username) + '">' +
+      '<div class="feed-post-avatar">' + avatarInner + '</div>' +
+      '<div class="feed-post-body">' +
+        '<div class="feed-post-head">' +
+          '<span class="feed-post-name">' + esc(post.username) + '</span>' +
+          '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
+          (canDelete ? '<span class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post"><i class="ti ti-trash"></i></span>' : '') +
+        '</div>' +
+        (post.text ? '<div class="feed-post-text">' + esc(post.text) + '</div>' : '') +
+        imageHTML +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderFeed() {
+    if (!_feedPosts.length) {
+      listEl.innerHTML = '<div class="feed-empty">No posts yet — be the first!</div>';
+    } else {
+      listEl.innerHTML = _feedPosts.map(postHTML).join('');
+    }
+    loadMoreEl.hidden = !_feedHasMore;
+  }
+
+  async function fetchFeed() {
+    if (_feedPending) return;
+    _feedPending = true;
+    try {
+      const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
+      if (!r.ok) return;
+      const data = await r.json();
+      _feedPosts = data.posts || [];
+      _feedHasMore = _feedPosts.length === FEED_PAGE_SIZE;
+      renderFeed();
+    } catch (e) {
+    } finally {
+      _feedPending = false;
+    }
+  }
+
+  async function loadOlderPosts() {
+    if (_feedPending || !_feedPosts.length) return;
+    _feedPending = true;
+    const oldestId = _feedPosts[_feedPosts.length - 1].id;
+    try {
+      const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}&before_id=${oldestId}`, {}, 8000);
+      if (!r.ok) return;
+      const data = await r.json();
+      const older = data.posts || [];
+      _feedPosts = _feedPosts.concat(older);
+      _feedHasMore = older.length === FEED_PAGE_SIZE;
+      renderFeed();
+    } catch (e) {
+    } finally {
+      _feedPending = false;
+    }
+  }
+
+  function clearComposer() {
+    textEl.value = '';
+    _pendingFile = null;
+    fileEl.value = '';
+    previewWrapEl.hidden = true;
+    imageBtnEl.classList.remove('has-image');
+    errEl.hidden = true;
+  }
+
+  async function submitPost() {
+    const text = textEl.value.trim();
+    if (!text && !_pendingFile) return;
+    errEl.hidden = true;
+    postBtnEl.disabled = true;
+    postBtnEl.textContent = 'Posting…';
+    try {
+      let image_mxc = '';
+      if (_pendingFile) {
+        const client = MatrixChat.client;
+        if (!client) throw new Error('Connect chat in the Social tab first to post images');
+        const upload = await client.uploadContent(_pendingFile);
+        image_mxc = upload.content_uri;
+      }
+      const r = await fetchTimeout('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, image_mxc }),
+      }, 15000);
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to post');
+      }
+      clearComposer();
+      SFX && SFX.play('star');
+      await fetchFeed();
+    } catch (e) {
+      errEl.textContent = e.message || 'Failed to post';
+      errEl.hidden = false;
+    } finally {
+      postBtnEl.disabled = false;
+      postBtnEl.textContent = 'Post';
+    }
+  }
+
+  async function deletePost(id) {
+    if (!confirm('Delete this post?')) return;
+    try {
+      const r = await fetchTimeout('/api/posts/' + id, { method: 'DELETE' }, 8000);
+      if (r.ok) {
+        _feedPosts = _feedPosts.filter(p => p.id !== id);
+        renderFeed();
+        SFX && SFX.play('click');
+      }
+    } catch (e) {}
+  }
+
+  imageBtnEl.addEventListener('click', () => fileEl.click());
+  fileEl.addEventListener('change', () => {
+    const file = fileEl.files?.[0];
+    if (!file) return;
+    errEl.hidden = true;
+    if (file.size > FEED_MAX_IMAGE_BYTES) {
+      errEl.textContent = 'Image too large (max 8MB)';
+      errEl.hidden = false;
+      fileEl.value = '';
+      return;
+    }
+    _pendingFile = file;
+    imageBtnEl.classList.add('has-image');
+    const reader = new FileReader();
+    reader.onload = () => {
+      previewEl.src = reader.result;
+      previewWrapEl.hidden = false;
+    };
+    reader.readAsDataURL(file);
+  });
+  previewRmEl.addEventListener('click', () => {
+    _pendingFile = null;
+    fileEl.value = '';
+    previewWrapEl.hidden = true;
+    imageBtnEl.classList.remove('has-image');
+  });
+  postBtnEl.addEventListener('click', submitPost);
+  textEl.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitPost();
+  });
+  loadMoreEl.addEventListener('click', loadOlderPosts);
+  listEl.addEventListener('click', (e) => {
+    const del = e.target.closest('.feed-post-delete');
+    if (del) deletePost(Number(del.dataset.postId));
+  });
+
+  const FEED_POLL_MS = 30000; // same cadence as notes/offline-roster — a feed doesn't need second-by-second freshness
+  fetchFeed();
+  setInterval(fetchFeed, FEED_POLL_MS);
 })();
 
 // ── Volume icon mute toggle ──────────────
