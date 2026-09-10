@@ -234,6 +234,67 @@
       body.ambient-flash .ambient-glow::before { animation: none; }
     }
 
+    /* ══ BOOT OVERLAY — masks the page while Matrix/presence/feed's first
+       round trips settle (see window.KLAB_BOOT in the inline script right
+       after this element in the HTML). ══ */
+    .boot-overlay {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1.4rem; background: var(--bg);
+      opacity: 1; transition: opacity 0.55s ease;
+    }
+    .boot-overlay.boot-overlay-hide { opacity: 0; pointer-events: none; }
+    .boot-glow {
+      position: absolute; width: 340px; height: 340px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--accent-rgb),0.35), transparent 70%);
+      animation: bootGlowPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes bootGlowPulse {
+      0%, 100% { transform: scale(0.85); opacity: 0.6; }
+      50%      { transform: scale(1.15); opacity: 1; }
+    }
+    .boot-logo {
+      width: 84px; height: 84px; position: relative;
+      animation: bootLogoBreathe 2.2s ease-in-out infinite;
+    }
+    /* klab.png is a white mark — same theme-flip .logo uses in the header
+       (mix-blend-mode + invert), plus a glow that'd otherwise vanish under
+       invert(1), so it's layered on as a drop-shadow instead of a filter. */
+    [data-theme="dark"]  .boot-logo { mix-blend-mode: screen; filter: drop-shadow(0 0 18px rgba(var(--accent-rgb),0.5)); }
+    [data-theme="light"] .boot-logo { mix-blend-mode: multiply; filter: invert(1) drop-shadow(0 0 18px rgba(var(--accent-rgb),0.5)); }
+    @keyframes bootLogoBreathe {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.06); }
+    }
+    .boot-status {
+      position: relative; font-family: var(--font-ui); font-weight: 500;
+      font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .boot-dots { display: inline-flex; }
+    .boot-dots span {
+      animation: bootDotFade 1.4s ease-in-out infinite;
+      opacity: 0.2;
+    }
+    .boot-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .boot-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bootDotFade {
+      0%, 100% { opacity: 0.2; }
+      40%      { opacity: 1; }
+    }
+    .boot-bar {
+      position: relative; width: 140px; height: 2px; border-radius: 2px;
+      background: var(--tile-border); overflow: hidden;
+    }
+    .boot-bar-fill {
+      height: 100%; width: 0%; border-radius: 2px;
+      background: rgba(var(--accent-rgb),0.85);
+      transition: width 0.4s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .boot-glow, .boot-logo, .boot-dots span { animation: none; }
+    }
+
     /* GLASS */
     .glass {
       background:
@@ -2687,6 +2748,73 @@
   </style>
 </head>
 <body>
+
+<!-- BOOT OVERLAY — masks the page until Matrix/presence/feed's first
+     round trips settle, so nobody sees the half-loaded state that used to
+     read as "images/avatars are just broken" (see the boot tracker script
+     right below, and window.KLAB_BOOT.mark() calls elsewhere in the page
+     scripts). First element in body on purpose — covers everything else
+     from the very first paint, no flash of unstyled content underneath. -->
+<div class="boot-overlay" id="bootOverlay">
+  <div class="boot-glow"></div>
+  <img class="boot-logo" src="klab.png" alt="" />
+  <div class="boot-status" id="bootStatus">Connecting to KLABNET<span class="boot-dots"><span>.</span><span>.</span><span>.</span></span></div>
+  <div class="boot-bar"><div class="boot-bar-fill" id="bootBarFill"></div></div>
+</div>
+<script>
+// Defined here, before anything else runs, so every later script on the
+// page (Matrix connect, first presence poll, first feed fetch) can safely
+// call window.KLAB_BOOT.mark(key) the moment it settles, with no ordering
+// dependency on where in the file that happens to be.
+window.KLAB_BOOT = (function() {
+  const REQUIRED = ['matrix', 'presence', 'feed'];
+  const done = new Set();
+  const startedAt = Date.now();
+  const MIN_MS = 450;   // avoid a one-frame flash on a fast/warm connection — long enough to read as intentional, short enough not to feel like an artificial delay
+  const MAX_MS = 7000;  // safety net — never trap someone behind this if a connection hangs
+  const STATUS_PHRASES = ['Connecting to KLABNET', 'Syncing chat', 'Loading feed', 'Almost there'];
+  let dismissed = false;
+  let phraseTimer = null;
+
+  function updateStatus() {
+    const statusEl = document.getElementById('bootStatus');
+    if (!statusEl) return;
+    const idx = Math.min(done.size, STATUS_PHRASES.length - 1);
+    statusEl.firstChild.textContent = STATUS_PHRASES[idx];
+    const fillEl = document.getElementById('bootBarFill');
+    if (fillEl) fillEl.style.width = Math.round((done.size / REQUIRED.length) * 100) + '%';
+  }
+
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    clearInterval(phraseTimer);
+    const el = document.getElementById('bootOverlay');
+    if (!el) return;
+    el.classList.add('boot-overlay-hide');
+    setTimeout(() => el.remove(), 600);
+  }
+
+  function tryDismiss() {
+    if (dismissed) return;
+    updateStatus();
+    const allDone = REQUIRED.every(k => done.has(k));
+    if (!allDone) return;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= MIN_MS) dismiss();
+    else setTimeout(dismiss, MIN_MS - elapsed);
+  }
+
+  setTimeout(dismiss, MAX_MS);
+  return {
+    mark(key) {
+      if (dismissed || !REQUIRED.includes(key) || done.has(key)) return;
+      done.add(key);
+      tryDismiss();
+    },
+  };
+})();
+</script>
 
 <div class="ambient-glow"></div>
 
@@ -7327,11 +7455,14 @@ function ensureChatLoaded() {
   if (_chatUiLoaded) return;
   _chatUiLoaded = true;
   document.getElementById('chatConnectBtn')?.addEventListener('click', connectChat);
-  if (MatrixChat.client) { showChatApp(); return; }
+  if (MatrixChat.client) { showChatApp(); window.KLAB_BOOT?.mark('matrix'); return; }
   if (MatrixChat.hasSession()) {
     // Returning session — boot silently in the background, no popup and
     // no button click required, so a returning user just sees chat ready.
-    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e));
+    // The boot overlay waits on this specifically because it's the same
+    // reconnect race that used to make feed images/avatars silently never
+    // show up until something else happened to trigger a re-render.
+    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e)).finally(() => window.KLAB_BOOT?.mark('matrix'));
     return;
   }
   // First time ever connecting — login() needs a real SSO popup (see
@@ -7352,6 +7483,10 @@ function ensureChatLoaded() {
   };
   document.addEventListener('pointerdown', autoConnectOnFirstGesture, true);
   document.addEventListener('keydown', autoConnectOnFirstGesture, true);
+  // No existing session means Matrix won't even attempt to connect until
+  // that first gesture (window.open() needs one) — nothing for the boot
+  // overlay to wait on here, or it'd sit stuck until someone clicks.
+  window.KLAB_BOOT?.mark('matrix');
 }
 
 // ══════════════════════════════════════════
@@ -8944,6 +9079,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       renderList(others);
     } catch(e) {
       renderList([]);
+    } finally {
+      window.KLAB_BOOT?.mark('presence');
     }
   }
 
@@ -9199,6 +9336,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     } catch (e) {
     } finally {
       _feedPending = false;
+      window.KLAB_BOOT?.mark('feed');
     }
   }
 
