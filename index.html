@@ -69,6 +69,23 @@
     @media (min-width: 2700px) { html { zoom: 1.2; } }
     @media (min-width: 3400px) { html { zoom: 1.3; } }
 
+    /* ══ SHORT VIEWPORTS — the same idea, run in reverse ══
+       A 1080p laptop at 150% OS scaling reports a viewport well under
+       1080 CSS px tall before the browser's own tabs/toolbar and the OS
+       taskbar take their cut too — often 650px or less by the time the
+       page actually renders, even though the viewport is still plenty
+       wide (this is a height problem, not a "small screen" one, so it's
+       keyed on max-height alone and left independent of the max-width
+       breakpoints below that handle actual narrow/mobile layouts). The
+       page's fixed-size chrome — header padding, tab nav, the player
+       dock — was sized for a normal desktop monitor's vertical room and
+       doesn't shrink on its own just because the viewport got shorter;
+       shrinking the whole page as one unit here is the same fix as the
+       large-display tiers above, just running the other direction. */
+    @media (max-height: 760px) { html { zoom: 0.92; } }
+    @media (max-height: 660px) { html { zoom: 0.84; } }
+    @media (max-height: 580px) { html { zoom: 0.76; } }
+
     /* BASE THEME BACKGROUNDS */
     [data-theme="dark"] {
       --bg: #000000;
@@ -726,6 +743,16 @@
     }
     .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
     .chat-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Which channel/DM has something unread — the Social tab's own badge
+       only ever said how many, not which. Sits right after the (possibly
+       truncated) name rather than in the trailing invited/online-dot/close
+       group on the far right, so it doesn't compete with those for space
+       or get swallowed by the hover-reveals-close-button rule below. */
+    .chat-channel-item.has-unread .chat-channel-name { color: var(--text); font-weight: 700; }
+    .chat-channel-unread-dot {
+      flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(var(--accent-rgb),1); box-shadow: 0 0 5px rgba(var(--accent-rgb),0.6);
+    }
     .chat-channel-invited {
       margin-left: auto; flex-shrink: 0;
       font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
@@ -2646,8 +2673,8 @@
   </div>
 
   <div class="tab-panel" data-tab-panel="social">
-  <div class="sec" data-sec="klabsocial" hidden>
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><span class="type-badge soon">beta</span><div class="sec-line"></div></div>
+  <div class="sec" data-sec="klabsocial">
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><div class="sec-line"></div></div>
     <div class="chat-shell" id="chatShell">
       <div class="chat-connect" id="chatConnect">
         <i class="ti ti-message-circle-2"></i>
@@ -2900,10 +2927,6 @@
           <div class="settings-row">
             <div><div class="settings-row-label">KLABCRAFT</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
             <div class="s-toggle" id="klabcraftToggle"></div>
-          </div>
-          <div class="settings-row">
-            <div><div class="settings-row-label">KLAB SOCIAL</div><div class="settings-row-sub">Matrix-powered chat (in progress)</div></div>
-            <div class="s-toggle" id="klabsocialToggle"></div>
           </div>
         </div>
       </div>
@@ -5514,7 +5537,6 @@ let _settings = {
   scrobble:      true,
   experimentalEnabled: false,
   showKlabcraft: true,
-  showKlabSocial: true,
 };
 
 function loadSettings() {
@@ -5544,18 +5566,21 @@ function applySettings() {
   };
   const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
-  const klabSocialVisible = _settings.experimentalEnabled && _settings.showKlabSocial;
-  showSec('.sec[data-sec="klabsocial"]', klabSocialVisible);
-  if (klabSocialVisible && typeof ensureChatLoaded === 'function') ensureChatLoaded();
 
-  // Tab nav follows the same gates — a disabled section's tab disappears too.
+  // Tab nav follows the same gate — a disabled section's tab disappears too.
   const setTabBtnVisible = (key, visible) => {
     const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
     if (btn) btn.hidden = !visible;
   };
   setTabBtnVisible('klabcraft', klabcraftVisible);
-  setTabBtnVisible('social', klabSocialVisible);
   if (typeof refreshActiveTabAvailability === 'function') refreshActiveTabAvailability();
+
+  // Social is a permanent feature now (no longer gated behind Experimental
+  // Features) — its section/tab are unconditionally visible in the markup,
+  // so this just needs to kick off the actual chat connection. Safe to
+  // call on every applySettings() run: ensureChatLoaded() no-ops itself
+  // after the first call.
+  if (typeof ensureChatLoaded === 'function') ensureChatLoaded();
 }
 
 // ══════════════════════════════════════════
@@ -5620,7 +5645,6 @@ function openSettings() {
     scrobbleToggle:   'scrobble',
     experimentalToggle: 'experimentalEnabled',
     klabcraftToggle:  'showKlabcraft',
-    klabsocialToggle: 'showKlabSocial',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -5651,7 +5675,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
       crossfadeToggle: 'crossfade', loginSongToggle: 'loginSong',
       scrobbleToggle: 'scrobble', experimentalToggle: 'experimentalEnabled',
-      klabcraftToggle: 'showKlabcraft', klabsocialToggle: 'showKlabSocial',
+      klabcraftToggle: 'showKlabcraft',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }
@@ -6156,9 +6180,15 @@ function buildChannelItem(room, icon) {
   // (window.KLAB_ONLINE_USERNAMES) — reused here rather than a second
   // presence source, so a DM shows the same "online" you'd see in the rail.
   const dmOnline = !invited && isDm && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(room));
+  // The Social tab's own badge (updateSocialUnreadBadge()) only ever said
+  // *how many* rooms had something unread, never *which* ones — you had
+  // to click through every channel/DM to find it. Same source of truth
+  // (_chatUnreadRooms), just rendered per-row here too.
+  const hasUnread = _chatUnreadRooms.has(room.roomId);
   const item = document.createElement('div');
-  item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '');
+  item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
   item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
+    (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
     (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot"></span>' : '')) +
     // DMs (only) get a close button, hidden until hover — leaves the
     // room outright rather than just hiding it client-side, so it's
@@ -6232,7 +6262,8 @@ function renderChannelList() {
 
   const listKey = rooms.map(r => {
     const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? '1' : '0';
-    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}`;
+    const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
+    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}`;
   }).join(',') + '|' + _chatActiveRoomId;
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
@@ -6853,6 +6884,14 @@ function updateSocialUnreadBadge() {
   // a title prefix works everywhere (pinned tabs, alt-tab switchers)
   // unlike a favicon overlay, which a lot of browsers just clip/hide.
   document.title = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size}) ${_baseTitle}` : _baseTitle;
+  // Repaint the per-room dots too (buildChannelItem() reads _chatUnreadRooms
+  // directly) — both callers of this function (notifyNewMessage adding a
+  // room, markRoomRead clearing one) change which rooms should show one.
+  // Safe to call from inside a renderChannelList()->renderTimeline()->
+  // markRoomRead() chain: the nested call's own listKey/renderKey diff
+  // guards make this converge in one extra pass rather than loop, same
+  // as the existing renderChannelList()/ensureDmBookkeeping() reentrancy.
+  if (typeof renderChannelList === 'function') renderChannelList();
 }
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
@@ -7038,7 +7077,26 @@ function ensureChatLoaded() {
     // Returning session — boot silently in the background, no popup and
     // no button click required, so a returning user just sees chat ready.
     MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e));
+    return;
   }
+  // First time ever connecting — login() needs a real SSO popup (see
+  // ssoPopupLogin() above), and every browser blocks window.open() unless
+  // it happens synchronously inside a genuine user gesture. Rather than
+  // require everyone to find the Social tab and click Connect by hand,
+  // piggyback on the page's very first click/keypress: Authentik already
+  // has a live session for anyone on this page at all, so — same as the
+  // manual Connect button — the popup should resolve with no visible
+  // interaction. Only wired once; if it fails (popup genuinely blocked,
+  // SSO error) the manual Connect button bound above is still there as a
+  // fallback, same as before this existed.
+  const autoConnectOnFirstGesture = () => {
+    document.removeEventListener('pointerdown', autoConnectOnFirstGesture, true);
+    document.removeEventListener('keydown', autoConnectOnFirstGesture, true);
+    if (MatrixChat.client) return;
+    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] auto-connect failed', e));
+  };
+  document.addEventListener('pointerdown', autoConnectOnFirstGesture, true);
+  document.addEventListener('keydown', autoConnectOnFirstGesture, true);
 }
 
 // ══════════════════════════════════════════
