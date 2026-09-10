@@ -1072,6 +1072,18 @@
     .chat-reply-preview-close { cursor: pointer; color: var(--text-dimmer); flex-shrink: 0; }
     .chat-reply-preview-close:hover { color: var(--text); }
 
+    /* Image attached but not sent yet — confirm/cancel before it goes out,
+       same idea as the feed composer's own image preview. */
+    .chat-image-preview-wrap { position: relative; width: fit-content; margin-bottom: 6px; }
+    .chat-image-preview-wrap[hidden] { display: none; }
+    .chat-image-preview { max-width: 140px; max-height: 140px; border-radius: 8px; display: block; }
+    .chat-image-preview-remove {
+      position: absolute; top: -7px; right: -7px; width: 20px; height: 20px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      cursor: pointer; font-size: 11px;
+    }
+
     .chat-typing {
       height: 18px; padding: 0 1.3rem; font-size: 10.5px; color: var(--text-faint);
       letter-spacing: 0.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
@@ -3096,6 +3108,10 @@ window.KLAB_BOOT = (function() {
             <div class="chat-typing" id="chatTyping"></div>
             <div class="chat-composer">
               <div class="chat-reply-preview" id="chatReplyPreview" hidden></div>
+              <div class="chat-image-preview-wrap" id="chatImagePreviewWrap" hidden>
+                <img class="chat-image-preview" id="chatImagePreview" alt="" />
+                <button class="chat-image-preview-remove" id="chatImagePreviewRemove" title="Remove image"><i class="ti ti-x"></i></button>
+              </div>
               <div class="chat-composer-row">
                 <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
                 <input type="file" accept="image/*" id="chatImageInput" hidden />
@@ -7155,46 +7171,82 @@ function notifyTyping() {
   }, 4000);
 }
 
-function sendChatMessage() {
+let _pendingChatImage = null;
+function clearChatImage() {
+  _pendingChatImage = null;
+  const wrap = document.getElementById('chatImagePreviewWrap');
+  if (wrap) wrap.hidden = true;
+  const input = document.getElementById('chatImageInput');
+  if (input) input.value = '';
+}
+
+async function sendChatMessage() {
   const input = document.getElementById('chatComposerInput');
   const text = input.value.trim();
-  if (!text || !_chatActiveRoomId) return;
+  if ((!text && !_pendingChatImage) || !_chatActiveRoomId) return;
+  const roomId = _chatActiveRoomId;
+  const client = MatrixChat.client;
   input.value = '';
   clearTimeout(_typingStopTimer);
   _isTypingNow = false;
-  MatrixChat.client.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
-  const content = { msgtype: 'm.text', body: text };
-  if (_replyingToEventId) content['m.relates_to'] = { 'm.in_reply_to': { event_id: _replyingToEventId } };
+  client.sendTyping(roomId, false, 4000).catch(() => {});
+  const replyRelation = _replyingToEventId ? { 'm.relates_to': { 'm.in_reply_to': { event_id: _replyingToEventId } } } : null;
   clearReply();
-  MatrixChat.client.sendMessage(_chatActiveRoomId, content).catch(e => {
-    console.error('[chat] send failed', e);
-    input.value = text; // hand the text back so nothing typed is lost
-  });
-}
 
-const CHAT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-function initChatImageSend() {
-  const btn   = document.getElementById('chatImageBtn');
-  const input = document.getElementById('chatImageInput');
-  if (!btn || !input || btn._bound) return;
-  btn._bound = true;
-  btn.addEventListener('click', () => input.click());
-  input.addEventListener('change', async () => {
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file || !_chatActiveRoomId) return;
-    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); return; }
+  const image = _pendingChatImage;
+  clearChatImage();
+  if (image) {
     try {
-      const upload = await MatrixChat.client.uploadContent(file);
-      await MatrixChat.client.sendMessage(_chatActiveRoomId, {
-        msgtype: 'm.image', body: file.name, url: upload.content_uri,
-        info: { mimetype: file.type, size: file.size },
+      const upload = await client.uploadContent(image);
+      // The reply relation (if any) rides on the image message when there's
+      // no separate caption text to attach it to instead.
+      await client.sendMessage(roomId, {
+        msgtype: 'm.image', body: image.name, url: upload.content_uri,
+        info: { mimetype: image.type, size: image.size },
+        ...(!text && replyRelation ? replyRelation : {}),
       });
     } catch (e) {
       console.error('[chat] image send failed', e);
       showToast('Failed to send image');
     }
+  }
+  if (text) {
+    const content = { msgtype: 'm.text', body: text };
+    // Matrix messages have no separate "caption" field — an image with
+    // typed text alongside it goes out as its own follow-up message
+    // (same approach Element and other clients use for this).
+    if (!image && replyRelation) Object.assign(content, replyRelation);
+    client.sendMessage(roomId, content).catch(e => {
+      console.error('[chat] send failed', e);
+      input.value = text; // hand the text back so nothing typed is lost
+    });
+  }
+}
+
+const CHAT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+function initChatImageSend() {
+  const btn        = document.getElementById('chatImageBtn');
+  const input      = document.getElementById('chatImageInput');
+  const wrap       = document.getElementById('chatImagePreviewWrap');
+  const previewImg = document.getElementById('chatImagePreview');
+  const removeBtn  = document.getElementById('chatImagePreviewRemove');
+  if (!btn || !input || btn._bound) return;
+  btn._bound = true;
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); input.value = ''; return; }
+    _pendingChatImage = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      previewImg.src = reader.result;
+      wrap.hidden = false;
+    };
+    reader.readAsDataURL(file);
+    document.getElementById('chatComposerInput')?.focus();
   });
+  removeBtn?.addEventListener('click', clearChatImage);
 }
 
 // ── Browse / Create / DM modal ───────────
