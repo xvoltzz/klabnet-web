@@ -1008,7 +1008,69 @@
     .chat-msg-text { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
     .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
     .chat-msg-edited { font-size: 9.5px; color: var(--text-faint); }
-    .chat-msg-seen { font-size: 9.5px; color: var(--text-faint); text-align: right; padding: 2px 4px 0; }
+    /* Read receipts: readers' avatars, not text — one avatar for a DM,
+       small overlapping stack (+N beyond a handful) for a group room. */
+    .chat-msg-seen { display: flex; justify-content: flex-end; gap: 2px; padding: 3px 4px 0; }
+    .chat-msg-seen-avatar {
+      width: 14px; height: 14px; border-radius: 50%; overflow: hidden;
+      background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 700; text-transform: uppercase;
+      border: 1px solid var(--bg);
+    }
+    .chat-msg-seen-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .chat-msg-seen-avatar + .chat-msg-seen-avatar { margin-left: -6px; }
+    .chat-msg-seen-more { font-size: 8.5px; color: var(--text-faint); align-self: center; margin-left: 2px; }
+
+    /* Hover actions (react / reply) — top-right corner of a message row,
+       revealed on hover so the timeline isn't cluttered by default. */
+    .chat-msg { position: relative; }
+    .chat-msg-actions {
+      position: absolute; top: -6px; right: 8px; display: none; gap: 2px;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+      padding: 2px; box-shadow: 0 2px 8px var(--shadow-20); z-index: 2;
+    }
+    .chat-msg:hover .chat-msg-actions { display: flex; }
+    .chat-msg-action-btn {
+      width: 24px; height: 24px; border-radius: 6px; border: none; background: none;
+      color: var(--text-dim); cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .chat-msg-action-btn:hover { background: var(--tile-bg-h); color: var(--text); }
+
+    /* Reactions — aggregated pills below the message body */
+    .chat-msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chat-msg-reaction-pill {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 10px; cursor: pointer;
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
+      font-size: 11.5px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
+    }
+    .chat-msg-reaction-pill:hover { background: var(--glass-fill-h); }
+    .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
+    .chat-msg-reaction-count { font-size: 9.5px; color: var(--text-dim); font-weight: 600; }
+
+    /* Reply quote — shown above a reply's own bubble, and the composer's
+       "replying to" preview strip above the input row. */
+    .chat-msg-reply-quote {
+      display: flex; align-items: center; gap: 5px; margin-bottom: 3px;
+      font-size: 11px; color: var(--text-dimmer); cursor: pointer;
+      border-left: 2px solid var(--tile-border); padding-left: 6px;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%;
+    }
+    .chat-msg-reply-quote:hover { color: var(--text-dim); }
+    .chat-msg-reply-quote-name { font-weight: 700; flex-shrink: 0; }
+    .chat-reply-preview {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+      padding: 5px 9px; border-radius: 8px; background: var(--glass-fill);
+      border: 1px solid var(--tile-border); font-size: 11px; color: var(--text-dim);
+    }
+    .chat-reply-preview[hidden] { display: none; }
+    .chat-reply-preview-body { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .chat-reply-preview-name { font-weight: 700; color: var(--text); }
+    .chat-reply-preview-close { cursor: pointer; color: var(--text-dimmer); flex-shrink: 0; }
+    .chat-reply-preview-close:hover { color: var(--text); }
 
     .chat-typing {
       height: 18px; padding: 0 1.3rem; font-size: 10.5px; color: var(--text-faint);
@@ -1030,7 +1092,8 @@
        uses for .picker-search input — matching it here. */
     .chat-composer input:focus-visible { outline: none; }
     .chat-composer input::placeholder { color: var(--text-dimmer); }
-    .chat-emoji-btn { flex-shrink: 0; font-size: 17px; }
+    .chat-emoji-btn { flex-shrink: 0; font-size: 21px; }
+    .chat-image-btn { flex-shrink: 0; font-size: 17px; }
     /* gitea#3 emoji request — plain Unicode emoji only, no custom-emoji
        upload/storage (that's a real backend feature, not a v1 fit). */
     .chat-emoji-picker {
@@ -1039,15 +1102,16 @@
       border: 1px solid var(--tile-border); border-radius: 10px;
       padding: 6px; box-shadow: 0 8px 24px var(--shadow-20);
       display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
-      width: 232px; max-height: 180px; overflow-y: auto;
+      width: 264px; max-height: 220px; overflow-y: auto;
     }
     .chat-emoji-picker[hidden] { display: none; }
     .chat-emoji-picker button {
-      background: none; border: none; cursor: pointer; font-size: 17px;
-      line-height: 1; padding: 4px; border-radius: 6px;
+      background: none; border: none; cursor: pointer; font-size: 19px;
+      line-height: 1; padding: 5px; border-radius: 6px;
       transition: background 0.15s;
     }
     .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
+    .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
 
     .chat-channels-toolbar {
       display: flex; justify-content: flex-start; gap: 2px;
@@ -3031,8 +3095,11 @@ window.KLAB_BOOT = (function() {
             <div class="chat-timeline" id="chatTimeline"></div>
             <div class="chat-typing" id="chatTyping"></div>
             <div class="chat-composer">
+              <div class="chat-reply-preview" id="chatReplyPreview" hidden></div>
               <div class="chat-composer-row">
                 <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
+                <input type="file" accept="image/*" id="chatImageInput" hidden />
+                <button class="chat-icon-btn chat-image-btn" id="chatImageBtn" type="button" title="Send an image"><i class="ti ti-photo"></i></button>
                 <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
               </div>
               <div class="chat-emoji-picker" id="chatEmojiPicker" hidden></div>
@@ -6458,7 +6525,9 @@ function ensureMsgAvatarResolved(userId, mxcUrl) {
     // timeline.
     const url = _msgAvatarCache.get(userId);
     if (!url) return;
-    document.querySelectorAll(`.chat-msg-avatar[data-msg-avatar-for="${CSS.escape(userId)}"]`).forEach(avatar => {
+    document.querySelectorAll(
+      `.chat-msg-avatar[data-msg-avatar-for="${CSS.escape(userId)}"], .chat-msg-seen-avatar[data-seen-avatar-for="${CSS.escape(userId)}"]`
+    ).forEach(avatar => {
       if (avatar.querySelector('img')) return;
       avatar.textContent = '';
       const img = document.createElement('img');
@@ -6674,6 +6743,89 @@ function renderTypingLine() {
 let _lastTimelineRenderKey = null;
 const _lastSentReadEventId = new Map(); // roomId -> event id we've already sent a read receipt for
 
+// Reactions (m.reaction) are ordinary room events the SDK already delivers
+// through the same timeline as everything else — they're just filtered out
+// of renderTimeline()'s own `events` list (see the m.room.message check
+// there) so they never render as message rows of their own. This scans the
+// room's full unfiltered timeline and folds them into one map per render
+// instead of tracking incremental add/remove state, which is simple to
+// reason about at this app's message volume and self-corrects from
+// whatever the SDK's local timeline currently holds.
+function computeReactions(room) {
+  const map = new Map(); // targetEventId -> Map(emoji -> {senders:Set, mine:eventId|null})
+  const me = MatrixChat.client.getUserId();
+  room.getLiveTimeline().getEvents().forEach(ev => {
+    if (ev.getType() !== 'm.reaction' || ev.isRedacted()) return;
+    const rel = ev.getContent()['m.relates_to'];
+    if (!rel || rel.rel_type !== 'm.annotation' || !rel.event_id || !rel.key) return;
+    let byEmoji = map.get(rel.event_id);
+    if (!byEmoji) { byEmoji = new Map(); map.set(rel.event_id, byEmoji); }
+    let entry = byEmoji.get(rel.key);
+    if (!entry) { entry = { senders: new Set(), mine: null }; byEmoji.set(rel.key, entry); }
+    entry.senders.add(ev.getSender());
+    if (ev.getSender() === me) entry.mine = ev.getId();
+  });
+  return map;
+}
+
+async function toggleReaction(targetEventId, emoji) {
+  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  if (!room || !targetEventId) return;
+  const mine = computeReactions(room).get(targetEventId)?.get(emoji)?.mine;
+  try {
+    if (mine) {
+      await MatrixChat.client.redactEvent(room.roomId, mine);
+    } else {
+      await MatrixChat.client.sendEvent(room.roomId, 'm.reaction', {
+        'm.relates_to': { rel_type: 'm.annotation', event_id: targetEventId, key: emoji },
+      });
+    }
+  } catch (e) { console.error('[chat] reaction failed', e); }
+}
+
+let _replyingToEventId = null;
+function startReply(eventId) {
+  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  const ev = room?.findEventById(eventId);
+  const preview = document.getElementById('chatReplyPreview');
+  if (!ev || !preview) return;
+  _replyingToEventId = eventId;
+  const senderName = ev.sender?.name || ev.getSender();
+  preview.innerHTML = `<div class="chat-reply-preview-body"><span class="chat-reply-preview-name">${esc(senderName)}</span> ${esc((ev.getContent().body || '').slice(0, 80))}</div><i class="ti ti-x chat-reply-preview-close"></i>`;
+  preview.hidden = false;
+  document.getElementById('chatComposerInput')?.focus();
+}
+function clearReply() {
+  _replyingToEventId = null;
+  const preview = document.getElementById('chatReplyPreview');
+  if (preview) { preview.hidden = true; preview.innerHTML = ''; }
+}
+
+// Chat image messages (m.image) — same lazy-resolve-then-DOM-patch idiom as
+// ensureMsgAvatarResolved() above (never forces a renderTimeline() rebuild
+// on resolve, which is what used to cause the chat flicker bug). Unlike the
+// feed's equivalent cache, there's no need to guard on MatrixChat.client
+// existing here — renderTimeline() itself can't run at all without an
+// already-connected client (it needs one to look up the active room).
+const _chatImageCache   = new Map(); // mxc:// -> blob URL or null
+const _chatImagePending = new Set();
+function ensureChatImageResolved(mxc) {
+  if (!mxc || _chatImageCache.has(mxc) || _chatImagePending.has(mxc)) return;
+  _chatImagePending.add(mxc);
+  MatrixChat.mxcToBlobUrl(mxc, { width: 400, height: 400, method: 'scale' }).then(url => {
+    _chatImageCache.set(mxc, url);
+  }).catch(() => {
+    _chatImageCache.set(mxc, null);
+  }).finally(() => {
+    _chatImagePending.delete(mxc);
+    const url = _chatImageCache.get(mxc);
+    if (!url) return;
+    document.querySelectorAll(`.chat-msg-image[data-mxc="${CSS.escape(mxc)}"]`).forEach(img => {
+      if (!img.src || !img.src.startsWith('blob:')) img.src = url;
+    });
+  });
+}
+
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
@@ -6701,6 +6853,8 @@ function renderTimeline() {
     return ev.getRelation()?.rel_type !== 'm.replace';
   });
 
+  const reactions = computeReactions(room);
+
   // Actually being shown (Social tab open, this room selected) counts as
   // read — same condition notifyNewMessage() uses to decide the reverse.
   // Sending our own read receipt too (gitea#3) so the "Seen" line below
@@ -6726,9 +6880,22 @@ function renderTimeline() {
     }
   }
 
+  // Reactions land as their own timeline events (type m.reaction, filtered
+  // out of `events` above so they never render as message rows of their
+  // own) — folding a digest of them into renderKey is what makes a new/
+  // removed reaction actually trigger a rebuild, the same way an edit or
+  // redaction already does above.
+  let reactionsDigest = [];
+  reactions.forEach((byEmoji, targetId) => {
+    byEmoji.forEach((entry, emoji) => {
+      reactionsDigest.push(`${targetId}:${emoji}:${entry.senders.size}:${entry.mine ? 1 : 0}`);
+    });
+  });
+  reactionsDigest.sort();
+
   const renderKey = room.roomId + '|' + events.map(ev =>
     `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}`
-  ).join(',');
+  ).join(',') + '|' + reactionsDigest.join(',');
   if (!roomChanged && renderKey === _lastTimelineRenderKey) return;
   const wasNearBottom = roomChanged || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   _lastTimelineRenderKey = renderKey;
@@ -6743,6 +6910,16 @@ function renderTimeline() {
 
     const row = document.createElement('div');
     row.className = 'chat-msg';
+    row.dataset.eventId = ev.getId();
+
+    if (!ev.isRedacted()) {
+      const actions = document.createElement('div');
+      actions.className = 'chat-msg-actions';
+      actions.innerHTML = QUICK_REACTIONS.map(e =>
+        `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}">${e}</button>`
+      ).join('') + `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
+      row.appendChild(actions);
+    }
 
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
@@ -6768,21 +6945,65 @@ function renderTimeline() {
       body.appendChild(head);
     }
 
-    const text = document.createElement('div');
-    if (ev.isRedacted()) {
-      text.className = 'chat-msg-text deleted';
-      text.textContent = 'message deleted';
-    } else {
-      text.className = 'chat-msg-text';
-      text.textContent = ev.getContent().body || '';
-      if (ev.replacingEvent && ev.replacingEvent()) {
-        const edited = document.createElement('span');
-        edited.className = 'chat-msg-edited';
-        edited.textContent = ' (edited)';
-        text.appendChild(edited);
+    const content = ev.getContent();
+    const replyToId = !ev.isRedacted() ? content['m.relates_to']?.['m.in_reply_to']?.event_id : null;
+    if (replyToId) {
+      const quote = document.createElement('div');
+      quote.className = 'chat-msg-reply-quote';
+      quote.dataset.parentId = replyToId;
+      const parentEv = room.findEventById(replyToId);
+      if (parentEv) {
+        const parentName = parentEv.sender?.name || parentEv.getSender();
+        quote.innerHTML = `<span class="chat-msg-reply-quote-name" style="color:${chatNameColor(parentEv.getSender())}">${esc(parentName)}</span> ${esc((parentEv.getContent().body || '').slice(0, 60))}`;
+      } else {
+        quote.textContent = 'Replying to a message';
       }
+      body.appendChild(quote);
     }
-    body.appendChild(text);
+
+    if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
+      ensureChatImageResolved(content.url);
+      const img = document.createElement('img');
+      img.className = 'chat-msg-image';
+      img.dataset.mxc = content.url;
+      img.alt = content.body || '';
+      const cachedUrl = _chatImageCache.get(content.url);
+      if (cachedUrl) img.src = cachedUrl;
+      body.appendChild(img);
+    } else {
+      const text = document.createElement('div');
+      if (ev.isRedacted()) {
+        text.className = 'chat-msg-text deleted';
+        text.textContent = 'message deleted';
+      } else {
+        text.className = 'chat-msg-text';
+        text.textContent = content.body || '';
+        if (ev.replacingEvent && ev.replacingEvent()) {
+          const edited = document.createElement('span');
+          edited.className = 'chat-msg-edited';
+          edited.textContent = ' (edited)';
+          text.appendChild(edited);
+        }
+      }
+      body.appendChild(text);
+    }
+
+    const msgReactions = reactions.get(ev.getId());
+    if (msgReactions && msgReactions.size) {
+      const pills = document.createElement('div');
+      pills.className = 'chat-msg-reactions';
+      msgReactions.forEach((entry, emoji) => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '');
+        pill.dataset.targetId = ev.getId();
+        pill.dataset.emoji = emoji;
+        pill.innerHTML = `${emoji} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+        pills.appendChild(pill);
+      });
+      body.appendChild(pills);
+    }
+
     row.append(avatar, body);
     el.appendChild(row);
   });
@@ -6792,34 +7013,62 @@ function renderTimeline() {
   if (wasNearBottom) el.scrollTop = el.scrollHeight;
 }
 
-// gitea#3 read receipts — scoped to DMs only. A busy channel's "seen by
-// 6 people, 2 unread" is real UI work (an avatar stack, etc.) that isn't
-// worth building for a v1; a DM only ever has one other person to ask
-// "have they seen my last message" about.
+// gitea#3 read receipts, upgraded from a DM-only "Seen" text line to
+// readers' avatars, shown for group rooms too — a member cap keeps a large
+// public-style room from turning this into per-member work (see
+// SEEN_LINE_MEMBER_CAP), same spirit as OFFLINE_ROSTER_ROOM_MEMBER_CAP
+// elsewhere in the app.
 //
 // Split out of renderTimeline() so a receipt arriving (which changes only
 // this line, never the messages themselves) can update just this without
 // wiping and rebuilding the whole message list — see the 'receipt'
 // listener below and the comment on _lastSentReadEventId above for why
 // that full rebuild was the actual cause of the chat flicker bug.
+const SEEN_LINE_MEMBER_CAP = 30;
+const SEEN_LINE_AVATAR_MAX = 5;
 function updateSeenLine(room, events) {
   const el = document.getElementById('chatTimeline');
   if (!el || _chatActiveRoomId !== room.roomId) return;
   const existing = el.querySelector('.chat-msg-seen');
   const lastEvent = events[events.length - 1];
-  let shouldShow = false;
-  if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId() && getDmRoomIds().has(room.roomId)) {
-    const otherMember = room.getMembers().find(m => m.userId !== MatrixChat.client.getUserId());
-    shouldShow = !!(otherMember && room.hasUserReadEvent(otherMember.userId, lastEvent.getId()));
+  let readers = [];
+  if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId()) {
+    const members = room.getJoinedMembers().filter(m => m.userId !== MatrixChat.client.getUserId());
+    if (members.length <= SEEN_LINE_MEMBER_CAP) {
+      readers = members.filter(m => room.hasUserReadEvent(m.userId, lastEvent.getId()));
+    }
   }
-  if (shouldShow && !existing) {
-    const seen = document.createElement('div');
-    seen.className = 'chat-msg-seen';
-    seen.textContent = 'Seen';
-    el.appendChild(seen);
-  } else if (!shouldShow && existing) {
-    existing.remove();
+  if (!readers.length) {
+    if (existing) existing.remove();
+    return;
   }
+  const seen = document.createElement('div');
+  seen.className = 'chat-msg-seen';
+  readers.slice(0, SEEN_LINE_AVATAR_MAX).forEach(member => {
+    ensureMsgAvatarResolved(member.userId, member.getMxcAvatarUrl?.());
+    const url = _msgAvatarCache.get(member.userId);
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-msg-seen-avatar';
+    avatar.dataset.seenAvatarFor = member.userId;
+    avatar.title = member.name || member.userId;
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = (member.name || '?').trim().charAt(0).toUpperCase();
+    }
+    seen.appendChild(avatar);
+  });
+  if (readers.length > SEEN_LINE_AVATAR_MAX) {
+    const more = document.createElement('span');
+    more.className = 'chat-msg-seen-more';
+    more.textContent = '+' + (readers.length - SEEN_LINE_AVATAR_MAX);
+    seen.appendChild(more);
+  }
+  if (existing) existing.replaceWith(seen);
+  else el.appendChild(seen);
 }
 
 // gitea#3: page in older history as the user scrolls up, rather than
@@ -6855,9 +7104,14 @@ async function maybeLoadOlderMessages() {
 // upload — that needs real storage/moderation and isn't a v1 fit). A
 // curated common-emoji grid, not a full picker library.
 const CHAT_EMOJIS = [
-  '😀','😂','😅','😊','😍','😘','😎','🤔','😏','😢','😭','😡','🥳','😴','🤯','😱',
-  '👍','👎','👏','🙏','🙌','💪','🤝','👀','🔥','✨','🎉','💯','❤️','💀','🤡','🖕',
+  '😀','😃','😄','😁','😆','😂','🤣','😅','😊','🙂','😉','😍','🥰','😘','😗','😎',
+  '🤩','🤔','🤨','😐','😏','🙄','😬','😴','🤤','😪','😢','😭','😤','😠','😡','🤬',
+  '😱','😨','😰','🥵','🥶','🤯','🥳','🤠','🤡','🤗','🫡','🫠','🤫','🤐','🥱','😷',
+  '👍','👎','👏','🙏','🙌','💪','🤝','🫶','👀','👋','🤙','✌️','🤞','👌','🖕','👊',
+  '🔥','✨','🎉','🎊','💯','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💀','☠️',
+  '👻','🤖','🎃','⭐','🌟','💫','⚡','🌈','☕','🍕','🍔','🍺','🎵','🎮','🏆','💎',
 ];
+const QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
 function initChatEmojiPicker() {
   const btn    = document.getElementById('chatEmojiBtn');
   const picker = document.getElementById('chatEmojiPicker');
@@ -6909,9 +7163,37 @@ function sendChatMessage() {
   clearTimeout(_typingStopTimer);
   _isTypingNow = false;
   MatrixChat.client.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
-  MatrixChat.client.sendTextMessage(_chatActiveRoomId, text).catch(e => {
+  const content = { msgtype: 'm.text', body: text };
+  if (_replyingToEventId) content['m.relates_to'] = { 'm.in_reply_to': { event_id: _replyingToEventId } };
+  clearReply();
+  MatrixChat.client.sendMessage(_chatActiveRoomId, content).catch(e => {
     console.error('[chat] send failed', e);
     input.value = text; // hand the text back so nothing typed is lost
+  });
+}
+
+const CHAT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+function initChatImageSend() {
+  const btn   = document.getElementById('chatImageBtn');
+  const input = document.getElementById('chatImageInput');
+  if (!btn || !input || btn._bound) return;
+  btn._bound = true;
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !_chatActiveRoomId) return;
+    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); return; }
+    try {
+      const upload = await MatrixChat.client.uploadContent(file);
+      await MatrixChat.client.sendMessage(_chatActiveRoomId, {
+        msgtype: 'm.image', body: file.name, url: upload.content_uri,
+        info: { mimetype: file.type, size: file.size },
+      });
+    } catch (e) {
+      console.error('[chat] image send failed', e);
+      showToast('Failed to send image');
+    }
   });
 }
 
@@ -7421,6 +7703,35 @@ function showChatApp() {
     document.getElementById('chatComposerInput')?.addEventListener('input', notifyTyping);
     document.getElementById('chatTimeline')?.addEventListener('scroll', maybeLoadOlderMessages);
     initChatEmojiPicker();
+    initChatImageSend();
+    document.getElementById('chatReplyPreview')?.addEventListener('click', e => {
+      if (e.target.closest('.chat-reply-preview-close')) clearReply();
+    });
+    document.getElementById('chatTimeline')?.addEventListener('click', e => {
+      const reactBtn = e.target.closest('.chat-msg-action-btn[data-action="react"]');
+      if (reactBtn) {
+        toggleReaction(reactBtn.closest('.chat-msg')?.dataset.eventId, reactBtn.dataset.emoji);
+        return;
+      }
+      const replyBtn = e.target.closest('.chat-msg-action-btn[data-action="reply"]');
+      if (replyBtn) {
+        startReply(replyBtn.closest('.chat-msg')?.dataset.eventId);
+        return;
+      }
+      const pill = e.target.closest('.chat-msg-reaction-pill');
+      if (pill) {
+        toggleReaction(pill.dataset.targetId, pill.dataset.emoji);
+        return;
+      }
+      const quote = e.target.closest('.chat-msg-reply-quote');
+      if (quote?.dataset.parentId) {
+        document.querySelector(`.chat-msg[data-event-id="${CSS.escape(quote.dataset.parentId)}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      const img = e.target.closest('.chat-msg-image');
+      if (img && img.src?.startsWith('blob:')) window.open(img.src, '_blank');
+    });
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
     document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
