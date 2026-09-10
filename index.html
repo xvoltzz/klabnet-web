@@ -551,12 +551,39 @@
     .presence-rail {
       width: 240px; flex-shrink: 0;
       position: sticky; top: 1.5rem;
+      /* Fallback only — PRESENCE RAIL SCROLL BOUNDS (JS, near the end of
+         the document) sets an explicit inline max-height instead. This
+         calc() assumes the rail's sticky top offset (1.5rem) is also how
+         far down the page it starts, which is only true once already
+         scrolled enough for position:sticky to engage; at the top of the
+         page it actually starts lower, below the header/tab-nav. With
+         enough listeners to actually reach this cap, the rail's box
+         extended past the viewport bottom even before any scrolling,
+         making the whole PAGE scrollable by that overshoot rather than
+         just the rail scrolling internally — same "measure the real
+         available space instead of guessing" fix the Social tab layout
+         and the scroll-clearance logic elsewhere already use. */
       max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
     }
     .sec-global-presence { margin-bottom: 0; }
     .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
     .presence-rail .presence-grid { grid-template-columns: 1fr; }
+
+    /* "More below" hint — shown only while there's actually more to
+       scroll to (see PRESENCE RAIL SCROLL BOUNDS), and hidden again once
+       scrolled to the true bottom, rather than the list just cutting off
+       with no indication anything's below the fold. */
+    .presence-rail-more {
+      position: sticky; bottom: 0; left: 0; right: 0;
+      height: 28px; margin-top: -28px; /* overlay the last row instead of adding scroll height of its own */
+      display: flex; align-items: flex-end; justify-content: center;
+      padding-bottom: 2px;
+      background: linear-gradient(transparent, var(--bg) 75%);
+      color: var(--text-faint); font-size: 13px;
+      pointer-events: none;
+    }
+    .presence-rail-more[hidden] { display: none; }
 
     @media (max-width: 880px) {
       .dash-body { flex-direction: column; gap: 0; }
@@ -2804,6 +2831,11 @@
   <aside class="sec sec-global-presence presence-rail">
     <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
     <div class="presence-grid" id="presenceList"></div>
+    <!-- Shown/hidden by JS (see PRESENCE RAIL SCROLL BOUNDS) based on
+         whether there's actually more to scroll to, and again as you
+         scroll to the true bottom — enough people online now that this
+         needed to be more than "just cut off with no hint more exist". -->
+    <div class="presence-rail-more" id="presenceRailMore" hidden><i class="ti ti-chevron-down"></i></div>
   </aside>
 
   </div>
@@ -8404,6 +8436,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         seen.add(member.userId);
         const username = member.userId.replace(/^@/, '').split(':')[0];
         if (onlineUsernames.has(username)) continue; // already shown as online above
+        if (username.endsWith('-bot')) continue; // service accounts (klabnet-bot, any future one) aren't "listeners"
         roster.push({ userId: member.userId, username });
       }
     }
@@ -9523,6 +9556,54 @@ function sampleImageColor(imgUrl) {
     await renderFn();
   };
 
+})();
+
+// ══════════════════════════════════════════
+//  PRESENCE RAIL SCROLL BOUNDS
+//  See the comment on .presence-rail's CSS max-height for why this needs
+//  to be measured rather than left as a CSS calc(): enough listeners to
+//  actually approach that cap made the rail's box extend past the
+//  viewport at the page's initial (pre-scroll) layout, so the whole PAGE
+//  became scrollable by the overshoot instead of just the rail scrolling
+//  internally. Also drives the "more below" fade/chevron hint.
+// ══════════════════════════════════════════
+(function() {
+  const rail = document.querySelector('.presence-rail');
+  const more = document.getElementById('presenceRailMore');
+  if (!rail) return;
+  let pending = false;
+  function updateMoreHint() {
+    if (!more) return;
+    const hasMore = rail.scrollHeight > rail.clientHeight + 2
+      && (rail.scrollTop + rail.clientHeight) < rail.scrollHeight - 2;
+    more.hidden = !hasMore;
+  }
+  function update() {
+    pending = false;
+    // The narrow-width breakpoint already sets max-height:none/
+    // position:static via its own media query — don't fight it with an
+    // inline style left over from a wider viewport.
+    if (window.innerWidth <= 880) {
+      rail.style.maxHeight = '';
+    } else {
+      const top = rail.getBoundingClientRect().top;
+      const available = window.innerHeight - top - 24; // ~1.5rem breathing room at the bottom
+      rail.style.maxHeight = Math.max(120, available) + 'px';
+    }
+    updateMoreHint();
+  }
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(update);
+  }
+  window.addEventListener('resize', schedule);
+  window.addEventListener('load', schedule);
+  rail.addEventListener('scroll', updateMoreHint, { passive: true });
+  // New/removed listeners change rail.scrollHeight — recheck the hint
+  // (not the max-height, which only depends on viewport geometry).
+  new MutationObserver(updateMoreHint).observe(rail, { childList: true, subtree: true });
+  schedule();
 })();
 
 // ══════════════════════════════════════════
