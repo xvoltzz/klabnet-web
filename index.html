@@ -8325,20 +8325,42 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (_partyHostId) el.querySelector('.party-banner-text').textContent = `Listening party with ${_partyHostLabel}`;
   }
 
+  // Continuous sync needs the OTHER person's Matrix client to actually be
+  // running (chat is a separate, opt-in "experimental feature" connection —
+  // see ensureChatLoaded() — from just being "online" in presence, which
+  // is a plain klabnet-api heartbeat that doesn't touch Matrix at all). If
+  // they aren't connected right now, sendToDevice() still succeeds (the
+  // homeserver just queues the to-device message for whenever they next
+  // sync) but no tick ever comes back — previously that meant the banner
+  // said "Listening party with X" forever and nothing ever actually
+  // synced, with zero indication anything was wrong. _partyAckTimer turns
+  // "no response within a few seconds" into an explicit failure instead.
+  const PARTY_ACK_TIMEOUT_MS = 6000;
+  let _partyAckTimer = null;
+
   function startParty(username) {
+    const client = MatrixChat.client;
+    if (!client) {
+      showToast('Connect chat in the Social tab to use listening party');
+      return;
+    }
     const hostId = matrixIdFor(username);
-    // No Matrix session, or this klabnet user has none — the one-shot
-    // sync playFromCard() already did still happened, it just won't stay
-    // continuously synced afterward.
     if (!hostId) return;
     _partyHostId = hostId;
     _partyHostLabel = username;
     renderPartyBanner();
+    clearTimeout(_partyAckTimer);
+    _partyAckTimer = setTimeout(() => {
+      if (_partyHostId !== hostId) return; // already left/switched, not a failure
+      showToast(`${username} isn't available for a listening party right now`);
+      leaveParty(false);
+    }, PARTY_ACK_TIMEOUT_MS);
     sendToDeviceEvent(hostId, 'klab.sync_request', {}).catch(() => {});
   }
 
   function leaveParty(notify = true) {
     if (!_partyHostId) return;
+    clearTimeout(_partyAckTimer);
     if (notify) sendToDeviceEvent(_partyHostId, 'klab.sync_stop', {}).catch(() => {});
     _partyHostId = null;
     _partyHostLabel = '';
@@ -8399,6 +8421,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       _partySubscribers.set(sender, Date.now() + PARTY_SUB_TTL_MS);
       broadcastPartyTick(); // catch this subscriber up immediately, don't make them wait for the next 5s tick
     } else if (type === 'klab.sync_tick' && sender === _partyHostId) {
+      clearTimeout(_partyAckTimer); // the host responded — no longer a "did this even work" case
       applyPartyTick(event.getContent());
     } else if (type === 'klab.sync_stop') {
       _partySubscribers.delete(sender);
