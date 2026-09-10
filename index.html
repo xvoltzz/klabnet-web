@@ -336,7 +336,7 @@
        the end of the document. */
     .dash.dash-clearance { padding-bottom: 7rem; }
 
-    /* Social tab: instead of guessing a fixed height for the chat box
+    /* Chat tab: instead of guessing a fixed height for the chat box
        (which either wastes space or still forces page scroll depending
        on screen size), turn .dash into a flex column for just this tab
        so the chat panel fills whatever's actually left after the header,
@@ -362,8 +362,8 @@
        a *minimum*, wins over this height:100% unless overridden too — at
        zoom:1.3 that min-height alone still forces body 30% past the real
        viewport height, re-clipping the composer even with the fix below. */
-    body.tab-social-active { overflow: hidden; height: 100%; min-height: 0; }
-    body.tab-social-active .dash {
+    body.tab-chat-active { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-chat-active .dash {
       display: flex; flex-direction: column; height: 100%; overflow: hidden;
       /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
          toggle above (same specificity, later in the sheet, so this
@@ -371,11 +371,11 @@
          that toggle's own "does the page need to scroll" measurement. */
       padding-bottom: 7rem;
     }
-    body.tab-social-active .dash-body { flex: 1; min-height: 0; }
+    body.tab-chat-active .dash-body { flex: 1; min-height: 0; }
     /* align-self, not the parent's align-items — so only .dash-main
        stretches to fill the row's height; the presence rail next to it
        keeps its normal natural-height, sticky-positioned behavior. */
-    body.tab-social-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    body.tab-chat-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
     /* The rail's own max-height: calc(100vh - 3rem) is sized for the
        normal scrolling-page tabs, where .dash-body's height is whatever
        its content needs. It doesn't know about the flex-fill chain here
@@ -383,15 +383,15 @@
        much .dash-body actually has left after the header/nav took their
        share is exactly what was ballooning the whole page past 100vh
        (mostly empty, since there's rarely enough listeners to fill it). */
-    body.tab-social-active .presence-rail { align-self: stretch; max-height: 100%; }
-    body.tab-social-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    body.tab-social-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
+    body.tab-chat-active .presence-rail { align-self: stretch; max-height: 100%; }
+    body.tab-chat-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-chat-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
     /* .sec-head's global margin-bottom (1.2rem) plus .chat-app-header's
        own top padding (0.9rem) stack into a gap that reads as too much
        air above "connecting…"/"connected" — tightened for this section
        only, same idea as .sec-global-presence's smaller variant below. */
-    body.tab-social-active .sec[data-sec="klabsocial"] .sec-head { margin-bottom: 0.6rem; }
-    body.tab-social-active .chat-shell { flex: 1; min-height: 0; }
+    body.tab-chat-active .sec[data-sec="klabsocial"] .sec-head { margin-bottom: 0.6rem; }
+    body.tab-chat-active .chat-shell { flex: 1; min-height: 0; }
     /* flex:1 (not 0 1 auto) — a fixed, content-independent height, so a
        short conversation doesn't shrink the box down to fit just those
        few messages. .chat-shell (the parent) is already correctly
@@ -402,7 +402,7 @@
        intentionally shrink-to-fit — dropped because it made the chat
        window's size vary by conversation length, which read as broken
        rather than intentional.) */
-    body.tab-social-active .chat-app { height: auto; flex: 1; min-height: 0; }
+    body.tab-chat-active .chat-app { height: auto; flex: 1; min-height: 0; }
 
     /* ══ HEADER ══ */
     .header {
@@ -558,6 +558,9 @@
       max-height: 160px; overflow: hidden;
     }
     .toast-item.visible { opacity: 1; transform: translateX(0) scale(1); }
+    /* Hints there's more to a click than dismissing it — a new-message
+       toast jumps to that chat (see notifyNewMessage/showToast's onClick). */
+    .toast-item.clickable:hover { border-color: rgba(var(--accent-rgb),0.4); }
     .toast-item.leaving {
       opacity: 0; transform: translateX(20px) scale(0.96);
       max-height: 0; margin-bottom: 0; padding-block: 0;
@@ -622,7 +625,7 @@
          extended past the viewport bottom even before any scrolling,
          making the whole PAGE scrollable by that overshoot rather than
          just the rail scrolling internally — same "measure the real
-         available space instead of guessing" fix the Social tab layout
+         available space instead of guessing" fix the Chat tab layout
          and the scroll-clearance logic elsewhere already use. */
       max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
       overscroll-behavior: contain; /* scrolling the rail to its end shouldn't hand off to the page scroll */
@@ -656,7 +659,7 @@
       .presence-rail .presence-grid { grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); }
     }
 
-    /* ══ TAB NAV — top-level Feed/Apps/Social/Music/KLABCRAFT switcher ══ */
+    /* ══ TAB NAV — top-level Feed/Apps/Chat/Music/KLABCRAFT switcher ══ */
     .tab-nav {
       display: flex; gap: 6px;
       flex-wrap: nowrap; overflow-x: auto;
@@ -996,7 +999,7 @@
     }
     .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
     .chat-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    /* Which channel/DM has something unread — the Social tab's own badge
+    /* Which channel/DM has something unread — the Chat tab's own badge
        only ever said how many, not which. Sits right after the (possibly
        truncated) name rather than in the trailing invited/online-dot/close
        group on the far right, so it doesn't compete with those for space
@@ -3064,9 +3067,9 @@ window.KLAB_BOOT = (function() {
   </header>
 
   <nav class="tab-nav" id="tabNav">
-    <button class="tab-nav-btn" data-tab-target="home" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
+    <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
     <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
-    <button class="tab-nav-btn" data-tab-target="social" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
+    <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
     <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
     <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
   </nav>
@@ -3074,7 +3077,7 @@ window.KLAB_BOOT = (function() {
   <div class="dash-body">
   <div class="dash-main">
 
-  <div class="tab-panel" data-tab-panel="home">
+  <div class="tab-panel" data-tab-panel="feed">
   <div class="sec" data-sec="feed">
     <div class="sec-head">
       <span class="sec-label">// feed</span><div class="sec-line"></div>
@@ -3127,9 +3130,9 @@ window.KLAB_BOOT = (function() {
   </div>
   </div>
 
-  <div class="tab-panel" data-tab-panel="social">
+  <div class="tab-panel" data-tab-panel="chat">
   <div class="sec" data-sec="klabsocial">
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab social</span><div class="sec-line"></div></div>
+    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab chat</span><div class="sec-line"></div></div>
     <div class="chat-shell" id="chatShell">
       <div class="chat-connect" id="chatConnect">
         <i class="ti ti-message-circle-2"></i>
@@ -4380,7 +4383,7 @@ pickerBackdrop.addEventListener('click', e => { if (e.target === pickerBackdrop)
 // ── Toast notification flyout — stacked cards hanging off the header
 //    buttons' bottom-right corner instead of a lone bottom-center pill ──
 const TOAST_DEFAULT_MS = 3200;
-function showToast(msg, icon, durationMs, avatarUrl) {
+function showToast(msg, icon, durationMs, avatarUrl, onClick) {
   const host = document.getElementById('toastFlyout');
   if (!host) return;
 
@@ -4391,7 +4394,7 @@ function showToast(msg, icon, durationMs, avatarUrl) {
   while (host.children.length >= 4) dismissToast(host.firstElementChild);
 
   const item = document.createElement('div');
-  item.className = 'toast-item';
+  item.className = 'toast-item' + (onClick ? ' clickable' : '');
   // Chat notifications pass the sender's already-resolved avatar (see
   // notifyNewMessage) so the toast shows who's messaging you rather than
   // a generic icon; everything else still gets the plain Tabler icon.
@@ -4403,7 +4406,10 @@ function showToast(msg, icon, durationMs, avatarUrl) {
   // Double rAF so the enter transition reliably fires on the frame after insertion.
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
 
-  item.addEventListener('click', () => dismissToast(item));
+  // A message notification's onClick (jump to that chat) fires alongside
+  // the normal dismiss, rather than replacing it — clicking any toast
+  // should always at least get it out of the way.
+  item.addEventListener('click', () => { dismissToast(item); onClick?.(); });
   item._hide = setTimeout(() => dismissToast(item), durationMs ?? TOAST_DEFAULT_MS);
 }
 function dismissToast(item) {
@@ -6074,12 +6080,12 @@ function applySettings() {
 }
 
 // ══════════════════════════════════════════
-//  TAB NAV — Feed / Apps / Social / Music / KLABCRAFT router
+//  TAB NAV — Feed / Apps / Chat / Music / KLABCRAFT router
 //  Hash-based so tabs are bookmarkable and back/forward works. The floating
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'apps', 'social', 'music', 'klabcraft'];
+const TABS = ['feed', 'apps', 'chat', 'music', 'klabcraft'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -6087,18 +6093,18 @@ function isTabEnabled(key) {
 }
 
 function setActiveTab(key) {
-  if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
+  if (!TABS.includes(key) || !isTabEnabled(key)) key = 'feed';
   document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
   // Chat wants to feel like its own app screen, not another section on
   // the scrolling dashboard — the hero/MOTD header and the presence rail
-  // (redundant there anyway, Social already shows who's around) collapse
+  // (redundant there anyway, Chat already shows who's around) collapse
   // to give it real room instead of being squeezed into a small fixed box.
-  document.body.classList.toggle('tab-social-active', key === 'social');
-  // Landing on Social with a room already selected but nothing else
+  document.body.classList.toggle('tab-chat-active', key === 'chat');
+  // Landing on Chat with a room already selected but nothing else
   // happening to trigger a re-render (e.g. clicking the nav tab itself)
   // still counts as reading whatever's currently open.
-  if (key === 'social' && typeof _chatActiveRoomId !== 'undefined' && _chatActiveRoomId && typeof markRoomRead === 'function') {
+  if (key === 'chat' && typeof _chatActiveRoomId !== 'undefined' && _chatActiveRoomId && typeof markRoomRead === 'function') {
     markRoomRead(_chatActiveRoomId);
   }
   if (location.hash.slice(1) !== key) location.hash = key;
@@ -6108,18 +6114,18 @@ function setActiveTab(key) {
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
-// active tab back to Home instead of leaving the user on a blank panel.
+// active tab back to Feed instead of leaving the user on a blank panel.
 function refreshActiveTabAvailability() {
-  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
-  if (!isTabEnabled(current)) setActiveTab('home');
+  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'feed';
+  if (!isTabEnabled(current)) setActiveTab('feed');
 }
 
 function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
   });
-  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'home'));
-  setActiveTab(location.hash.slice(1) || 'home');
+  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'feed'));
+  setActiveTab(location.hash.slice(1) || 'feed');
 }
 
 function openSettings() {
@@ -6316,7 +6322,7 @@ function formatBackupSize(bytes) {
 //  Plan: ~/.claude/plans/enumerated-honking-moon.md
 //
 //  Login flow + SDK boot, exposed on window.MatrixChat. Defined ahead of
-//  the KLAB SOCIAL section below (which wires it into the Social tab's
+//  the KLAB SOCIAL section below (which wires it into the Chat tab's
 //  DOM) and ahead of the top-level applySettings() call further down —
 //  MatrixChat is a `const`, so anything that touches it before this
 //  point in the script would hit the temporal-dead-zone, not just an
@@ -6538,7 +6544,7 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 
 // ══════════════════════════════════════════
 //  KLAB SOCIAL — Matrix chat UI wiring
-//  DOM glue for the Social tab: a connect prompt when there's no session,
+//  DOM glue for the Chat tab: a connect prompt when there's no session,
 //  otherwise a Discord-like channel list + timeline + composer for one
 //  space's worth of rooms. Multi-space nav, DMs, typing/presence, and
 //  media are later milestones (see the plan doc referenced above) — this
@@ -6673,7 +6679,7 @@ function buildChannelItem(room, icon) {
   // (window.KLAB_ONLINE_USERNAMES) — reused here rather than a second
   // presence source, so a DM shows the same "online" you'd see in the rail.
   const dmOnline = !invited && isDm && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(room));
-  // The Social tab's own badge (updateSocialUnreadBadge()) only ever said
+  // The Chat tab's own badge (updateSocialUnreadBadge()) only ever said
   // *how many* rooms had something unread, never *which* ones — you had
   // to click through every channel/DM to find it. Same source of truth
   // (_chatUnreadRooms), just rendered per-row here too.
@@ -6918,7 +6924,7 @@ function renderTimeline() {
 
   const reactions = computeReactions(room);
 
-  // Actually being shown (Social tab open, this room selected) counts as
+  // Actually being shown (Chat tab open, this room selected) counts as
   // read — same condition notifyNewMessage() uses to decide the reverse.
   // Sending our own read receipt too (gitea#3) so the "Seen" line below
   // shows up for the other party, and so other Matrix clients we're
@@ -6934,7 +6940,7 @@ function renderTimeline() {
   // event we'd acknowledge has actually changed breaks the loop at the
   // source; the receipt listener no longer force-rebuilding at all (see
   // updateSeenLine()) closes it from the other side too.
-  if (document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')) {
+  if (document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
     markRoomRead(room.roomId);
     const lastEvent = events[events.length - 1];
     if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
@@ -7461,14 +7467,14 @@ async function startDm(userId) {
 // Entry point for the presence-card context menu's "Message" action —
 // resolves a klabnet username to its Matrix user ID (same localpart/
 // server_name convention as the presence-avatar lookup) and jumps to the
-// Social tab to start or resume a DM with them.
+// Chat tab to start or resume a DM with them.
 function messageUser(username) {
   if (!MatrixChat.client) {
-    showToast('Connect chat in the Social tab first');
+    showToast('Connect chat in the Chat tab first');
     return;
   }
   const serverName = MatrixChat.client.getUserId().split(':')[1];
-  setActiveTab('social');
+  setActiveTab('chat');
   startDm(`@${username}:${serverName}`);
 }
 
@@ -7527,7 +7533,7 @@ function openDmModal() {
 // everywhere without a reload.
 async function openProfileModal() {
   const client = MatrixChat.client;
-  if (!client) { showToast('Connect chat in the Social tab first'); return; }
+  if (!client) { showToast('Connect chat in the Chat tab first'); return; }
   const myId = client.getUserId();
   openChatModal('// edit profile', `
     <div class="profile-modal-avatar-row">
@@ -7612,7 +7618,7 @@ let _chatSyncSettled = false;
 
 // ── Unread badge on the Social nav tab ───
 // A room counts unread the same way notifyNewMessage() decides whether to
-// toast for it: you weren't already looking at it (Social tab active AND
+// toast for it: you weren't already looking at it (Chat tab active AND
 // it's the selected room). Cleared the same way — renderTimeline() marks
 // the active room read whenever it's actually being shown.
 const _chatUnreadRooms = new Set();
@@ -7675,7 +7681,7 @@ function notifyNewMessage(event, room) {
   if (event.getType() !== 'm.room.message') return;
   if (event.getRelation()?.rel_type === 'm.replace') return; // an edit, not a new message
   if (event.getSender() === MatrixChat.client.getUserId()) return; // our own message
-  const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="social"]')?.classList.contains('active')
+  const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')
     && room.roomId === _chatActiveRoomId;
   if (onThisRoomAlready) return;
   _chatUnreadRooms.add(room.roomId);
@@ -7695,7 +7701,18 @@ function notifyNewMessage(event, room) {
   // actually read (a name plus a message body) than the usual one-line
   // status toasts, and is more likely to arrive while you're looking
   // elsewhere on the page.
-  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined, TOAST_DEFAULT_MS * 2, avatarUrl);
+  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined, TOAST_DEFAULT_MS * 2, avatarUrl,
+    () => openChatRoom(room.roomId));
+}
+
+// Jumps to the Chat tab with a specific room selected — the notification
+// toast's click target, and equivalent to clicking that room in the
+// channel sidebar (see the identical _chatActiveRoomId/renderChannelList()
+// pairing in the channel-item click handler).
+function openChatRoom(roomId) {
+  setActiveTab('chat');
+  _chatActiveRoomId = roomId;
+  renderChannelList();
 }
 
 // Drag to resize the channel sidebar; double-click the resizer to
@@ -7878,7 +7895,7 @@ function ensureChatLoaded() {
   // First time ever connecting — login() needs a real SSO popup (see
   // ssoPopupLogin() above), and every browser blocks window.open() unless
   // it happens synchronously inside a genuine user gesture. Rather than
-  // require everyone to find the Social tab and click Connect by hand,
+  // require everyone to find the Chat tab and click Connect by hand,
   // piggyback on the page's very first click/keypress: Authentik already
   // has a live session for anyone on this page at all, so — same as the
   // manual Connect button — the popup should resolve with no visible
@@ -9317,7 +9334,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function startParty(username) {
     const client = MatrixChat.client;
     if (!client) {
-      showToast('Connect chat in the Social tab to use listening party');
+      showToast('Connect chat in the Chat tab to use listening party');
       return;
     }
     const hostId = matrixIdFor(username);
@@ -9852,7 +9869,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       let image_mxc = '';
       if (_pendingFile) {
         const client = MatrixChat.client;
-        if (!client) throw new Error('Connect chat in the Social tab first to post images');
+        if (!client) throw new Error('Connect chat in the Chat tab first to post images');
         const upload = await client.uploadContent(_pendingFile);
         image_mxc = upload.content_uri;
       }
@@ -10132,9 +10149,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         closeFS();
       }
       // Picker no longer has its own open/closed state (it's just the Music
-      // tab's content) — with nothing else to back out of, head to Home.
+      // tab's content) — with nothing else to back out of, head to Feed.
       else if (document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active')) {
-        setActiveTab('home');
+        setActiveTab('feed');
         SFX && SFX.play('nav_back');
       }
       else {
