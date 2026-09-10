@@ -973,28 +973,6 @@
     .ctx-item.active-warn { color: var(--warn-color); }
     .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
 
-    /* gitea#2 — persistent indicator while continuously synced to
-       someone's playback (see the "Listening Party" JS section for the
-       actual sync logic); sits just above the dock, same bottom-centered
-       convention. */
-    .party-banner {
-      position: fixed; bottom: calc(1.1rem + 74px); left: 50%; transform: translateX(-50%);
-      z-index: 49; display: flex; align-items: center; gap: 8px;
-      padding: 7px 14px; border-radius: 20px;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h);
-      box-shadow: 0 10px 32px var(--shadow-40);
-      font-family: var(--font-ui); font-size: 11px; color: var(--text);
-    }
-    .party-banner[hidden] { display: none; }
-    .party-banner i { color: rgba(var(--accent-rgb),1); font-size: 14px; }
-    .party-banner-leave {
-      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
-      font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
-      padding: 3px 8px; border-radius: 12px; font-weight: 700;
-      transition: color 0.15s, background 0.15s;
-    }
-    .party-banner-leave:hover { color: var(--text); background: var(--glass-fill-h); }
-
     /* ══ MUSIC PLAYER DOCK — always a floating bar, bottom-centered ══ */
     .player-dock {
       position: fixed;
@@ -1924,6 +1902,20 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.01em; margin-top: 1px;
     }
+    /* gitea#2 — "listening party" status, shown right on the card itself
+       instead of a separate floating banner (which sat just above the
+       player dock and got visually clipped by it). Doubles as the only
+       way anyone sees a listening party at all beyond the two people in
+       it — party state is peer-to-peer over Matrix to-device messages,
+       invisible to a third viewer, so this is only knowable because both
+       sides also report it through their own regular presence post. */
+    .presence-card-party {
+      font-size: 8.5px; color: rgba(var(--accent-rgb),1); margin-top: 3px;
+      display: flex; align-items: center; gap: 4px; letter-spacing: 0.02em;
+    }
+    .presence-card-party i { font-size: 9px; }
+    .presence-card-party-leave { cursor: pointer; transition: opacity 0.15s; }
+    .presence-card-party-leave:hover { opacity: 0.75; }
 
     .presence-section-label {
       font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -2789,12 +2781,6 @@
   </aside>
 
   </div>
-
-    <div class="party-banner" id="partyBanner" hidden>
-      <i class="ti ti-headphones"></i>
-      <span class="party-banner-text"></span>
-      <button class="party-banner-leave" id="partyBannerLeave">Leave</button>
-    </div>
 
     <div class="player-dock" id="playerDock">
       <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
@@ -8271,7 +8257,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   // ── Render helpers ───────────────────────
-  function cardHTML(username, song, artist, isMe, playing, songId) {
+  function cardHTML(username, song, artist, isMe, playing, songId, partyHost) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (username||'?')[0].toUpperCase();
@@ -8307,6 +8293,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // so someone who stops listening just drops back to "Online" rather
     // than looking like they left.
     const showTrack = playing && song;
+    // Only knowable because both sides of a party report it through their
+    // own regular presence post (see postPresence()) — there's no other
+    // channel a third viewer could learn this from, since the actual sync
+    // is peer-to-peer over Matrix to-device messages. Clickable to leave
+    // only on your own card; informational-only on everyone else's.
+    const partyLine = partyHost
+      ? '<div class="presence-card-party' + (isMe ? ' presence-card-party-leave' : '') + '"' +
+          (isMe ? ' title="Leave listening party"' : ' title="Listening together"') + '>' +
+          '<i class="ti ti-headphones"></i> with ' + esc(partyHost) +
+          (isMe ? ' <i class="ti ti-x"></i>' : '') +
+        '</div>'
+      : '';
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         '<span class="presence-card-online"></span>' +
@@ -8315,6 +8313,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<div class="presence-card-name">' + username + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
         '<div class="presence-card-track">' + (showTrack ? song : 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + artist + '</div>' : '') +
+        partyLine +
       '</div>' +
     '</div>';
   }
@@ -8423,10 +8422,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
-      html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing);
+      html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     }
     others.forEach(l => {
-      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId);
+      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
@@ -8516,11 +8515,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     return client.sendToDevice(type, new Map([[userId, new Map([['*', content]])]]));
   }
 
-  function renderPartyBanner() {
-    const el = document.getElementById('partyBanner');
-    if (!el) return;
-    el.hidden = !_partyHostId;
-    if (_partyHostId) el.querySelector('.party-banner-text').textContent = `Listening party with ${_partyHostLabel}`;
+  // "Listening party with X" used to be a floating banner pinned just
+  // above the player dock — close enough to it that on some viewport
+  // sizes it visually clipped against the dock. Showing it as a line on
+  // your own presence card instead (see cardHTML()'s partyLine) needs no
+  // separate positioned element at all, and as a bonus means the *other*
+  // person's card can show the exact same line — the only way anyone
+  // watching sees a listening party from the outside at all, since the
+  // actual sync is peer-to-peer over Matrix and invisible to a third
+  // party otherwise. renderList(_lastOthers) repaints the card
+  // immediately; postPresence() pushes it to the server right away too,
+  // rather than leaving other viewers to wait out the next ~8s poll.
+  function renderPartyState() {
+    renderList(_lastOthers);
+    postPresence();
   }
 
   // Continuous sync needs the OTHER person's Matrix client to actually be
@@ -8529,10 +8537,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // is a plain klabnet-api heartbeat that doesn't touch Matrix at all). If
   // they aren't connected right now, sendToDevice() still succeeds (the
   // homeserver just queues the to-device message for whenever they next
-  // sync) but no tick ever comes back — previously that meant the banner
-  // said "Listening party with X" forever and nothing ever actually
-  // synced, with zero indication anything was wrong. _partyAckTimer turns
-  // "no response within a few seconds" into an explicit failure instead.
+  // sync) but no tick ever comes back — previously that meant the card
+  // said "with X" forever and nothing ever actually synced, with zero
+  // indication anything was wrong. _partyAckTimer turns "no response
+  // within a few seconds" into an explicit failure instead.
   const PARTY_ACK_TIMEOUT_MS = 6000;
   let _partyAckTimer = null;
 
@@ -8546,7 +8554,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (!hostId) return;
     _partyHostId = hostId;
     _partyHostLabel = username;
-    renderPartyBanner();
+    renderPartyState();
     clearTimeout(_partyAckTimer);
     _partyAckTimer = setTimeout(() => {
       if (_partyHostId !== hostId) return; // already left/switched, not a failure
@@ -8562,9 +8570,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (notify) sendToDeviceEvent(_partyHostId, 'klab.sync_stop', {}).catch(() => {});
     _partyHostId = null;
     _partyHostLabel = '';
-    renderPartyBanner();
+    renderPartyState();
   }
-  document.getElementById('partyBannerLeave')?.addEventListener('click', () => { leaveParty(); SFX && SFX.play('click'); });
 
   // Called whenever OUR OWN playback changes (track/play/pause) — pushes
   // a fresh tick to everyone currently following us. A no-op loop over
@@ -8642,6 +8649,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   playerState.audio.addEventListener('pause', broadcastPartyTick);
 
   list.addEventListener('click', e => {
+    if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
     if (meCard) { openProfileModal(); return; }
     const card = e.target.closest('.presence-card.is-playable');
@@ -8694,6 +8702,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           artist:   song?.artist || '',
           songId:   song?.id     ?? '', // nullish, not ||  — a falsy-but-real id like 0 must survive
           playing:  !!song && playerState.playing,
+          partyHost: _partyHostLabel || '',
         })
       }, 6000);
     } catch(e) {}
