@@ -1918,21 +1918,30 @@
     .presence-card-party-leave:hover { opacity: 0.75; }
 
     /* Instagram-Notes-style ephemeral status text (klabnet-api /api/notes,
-       24h TTL) — deliberately styled quieter/dimmer than the party line
-       above (italic, --text-dim not accent) so the two don't visually
-       compete; a note is idle color commentary, not a status. */
+       24h TTL), styled as an actual speech-bubble trailing off the card —
+       NOT literally floating above the avatar the way Instagram positions
+       it, on purpose: .presence-grid's row gap is only 6px, so a bubble
+       escaping the card's own box upward would overlap whoever's in the
+       row above it in anything but a one-person list. The little corner
+       tail (::before) gives the same "trailing off them" read while
+       staying in normal flow, right under their name/status. */
     .presence-card-note {
-      font-size: 9px; color: var(--text-dim); margin-top: 3px; font-style: italic;
-      display: flex; align-items: flex-start; gap: 4px; line-height: 1.35;
-      word-break: break-word;
+      position: relative;
+      margin-top: 8px; margin-left: 3px;
+      padding: 5px 9px;
+      background: var(--glass-fill-h);
+      border: 1px solid var(--glass-border-h);
+      border-radius: 4px 12px 12px 12px;
+      font-size: 9.5px; color: var(--text-dim); line-height: 1.35;
+      word-break: break-word; width: fit-content; max-width: 100%;
     }
-    .presence-card-note i { font-size: 9px; flex-shrink: 0; margin-top: 1px; }
-    .presence-card-note-edit { cursor: pointer; transition: color 0.15s; }
-    .presence-card-note-edit:hover { color: var(--text); }
+    .presence-card-note-edit { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .presence-card-note-edit:hover { background: var(--glass-fill); border-color: rgba(var(--accent-rgb),0.3); }
     /* Always-present invite on your own card when you don't have a note
        yet, rather than the line only appearing once you've used the
-       feature once — faint enough to read as a hint, not a status. */
-    .presence-card-note-empty { color: var(--text-faint); }
+       feature once — dashed border + faint text reads as a hint, not a
+       real note, without needing separate copy for the two states. */
+    .presence-card-note-empty { color: var(--text-faint); border-style: dashed; background: transparent; }
 
     .presence-section-label {
       font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -8330,9 +8339,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const note = _notesCache.get(username);
     const noteLine = isMe
       ? '<div class="presence-card-note presence-card-note-edit' + (note ? '' : ' presence-card-note-empty') + '" title="' + (note ? 'Edit your note' : 'Add a note') + '">' +
-          '<i class="ti ti-message-2"></i> ' + (note ? esc(note) : 'Add a note…') +
+          (note ? esc(note) : 'Add a note…') +
         '</div>'
-      : (note ? '<div class="presence-card-note" title="' + esc(note) + '"><i class="ti ti-message-2"></i> ' + esc(note) + '</div>' : '');
+      : (note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '');
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         '<span class="presence-card-online"></span>' +
@@ -8440,7 +8449,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // same as klabnet-web's "me" card, just always read-only here since
     // nobody offline is ever the viewer.
     const note = _notesCache.get(person.username);
-    const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '"><i class="ti ti-message-2"></i> ' + esc(note) + '</div>' : '';
+    const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '';
     return '<div class="presence-card is-offline">' +
       '<div class="presence-card-avatar">' + avatarInner + '</div>' +
       '<div class="presence-card-info">' +
