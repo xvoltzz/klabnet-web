@@ -459,8 +459,16 @@
        overflow:hidden with no scrollbar anywhere. This is the actual "the
        whole tab won't scroll" bug — extra ancestor qualifier here to
        reliably win instead of just tying. */
+    /* align-items:stretch — .picker-backdrop's base rule (its "modal era"
+       centered-dialog days) sets align-items:center/justify-content:center,
+       never reset for this inline context, so #pickerList (and everything
+       in it — song rows, the album/artist grid) was rendering at its own
+       shrink-to-fit width and getting centered in the leftover space
+       instead of stretching to actually use it. This is the "tiles are
+       centered, not using the free space" bug. */
     body.tab-music-active .tab-panel[data-tab-panel="music"] .picker-backdrop {
       flex: 1; min-height: 0; display: flex; flex-direction: column;
+      align-items: stretch; justify-content: flex-start;
     }
     /* .ap-card's base rule (modal era) is a fixed height:min(88vh,920px) —
        explicit height:auto here, not just flex:1, so there's no ambiguity
@@ -472,9 +480,12 @@
     /* .ap-panel.open (3 class-equivalents) beats the plain .ap-panel.open
        -> display:block rule further down (2) on equal-order grounds — this
        needs to actually win, not just tie, since flex:1/flex-direction
-       depend on display:flex actually taking effect once opened. */
+       depend on display:flex actually taking effect once opened. Same
+       align-items/justify-content/padding reset as .picker-backdrop above,
+       same reason — .ap-panel's own base rule is also modal-era centering. */
     body.tab-music-active .ap-panel.open {
       flex: 1; min-height: 0; display: flex; flex-direction: column;
+      align-items: stretch; justify-content: flex-start; padding: 0;
     }
     body.tab-music-active .picker-list { flex: 1; min-height: 0; max-height: none; }
     body.tab-music-active .ap-scroll { flex: 1; min-height: 0; overflow-y: auto; }
@@ -6126,15 +6137,24 @@ async function loadServerPrefs() {
 
     // Write server values into localStorage
     // (all existing code reads from localStorage — no changes needed elsewhere)
+    //
+    // Deliberately writes an empty array/object too, not just non-empty
+    // ones — this used to skip '[]'/'{}', which meant deleting your only
+    // playlist (or clearing favorites, etc.) on one device never synced to
+    // any other device: the empty array was treated as "nothing to sync"
+    // instead of "synced to nothing", so every other device kept its stale
+    // copy forever, and the next time THAT device auto-saved anything, it
+    // pushed the stale (un-deleted) list straight back to the server,
+    // silently reviving what you'd deleted. The outer `prefs` guard above
+    // already covers the real "nothing saved yet" case — once we know a
+    // real prefs blob exists, an individual field being empty is a
+    // meaningful value (you cleared it), not a missing one.
     const setIfPresent = (lsKey, val) => {
       if (val === undefined || val === null) return;
       if (typeof val === 'string') {
         if (val.length) localStorage.setItem(lsKey, val);
       } else {
-        const s = JSON.stringify(val);
-        if (s !== '[]' && s !== 'null' && s !== '{}') {
-          localStorage.setItem(lsKey, s);
-        }
+        localStorage.setItem(lsKey, JSON.stringify(val));
       }
     };
 
