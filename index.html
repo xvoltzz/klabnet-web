@@ -448,8 +448,18 @@
        same issue, .music-main below) just overflowed .dash's
        overflow:hidden instead of scrolling at all. */
     body.tab-music-active .music-sidebar { flex-shrink: 0; min-height: 0; overflow-y: auto; }
-    body.tab-music-active .music-main,
-    body.tab-music-active .picker-backdrop {
+    body.tab-music-active .music-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    /* Same specificity-tie bug as .ap-panel.open below: the neutralization
+       rule further down (.tab-panel[data-tab-panel="music"] .picker-backdrop)
+       is equally specific (2 class-equivalents) and sits later in the
+       sheet, so its display:block was winning over this display:flex —
+       meaning .picker-list's flex:1 never actually applied (not a flex
+       item at all under display:block), so it just grew to fit all its
+       content with nothing to bound it, silently clipped by .dash's
+       overflow:hidden with no scrollbar anywhere. This is the actual "the
+       whole tab won't scroll" bug — extra ancestor qualifier here to
+       reliably win instead of just tying. */
+    body.tab-music-active .tab-panel[data-tab-panel="music"] .picker-backdrop {
       flex: 1; min-height: 0; display: flex; flex-direction: column;
     }
     /* .ap-card's base rule (modal era) is a fixed height:min(88vh,920px) —
@@ -504,10 +514,15 @@
       color: var(--text-dimmer); font-size: 13px;
     }
     .music-playlist-row-info { flex: 1; min-width: 0; }
-    .music-playlist-row-name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .music-playlist-row-meta { font-size: 9px; color: var(--text-dimmer); margin-top: 1px; }
+    .music-playlist-row-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-playlist-row-meta { font-size: 10px; color: var(--text-dimmer); margin-top: 1px; }
     .music-playlist-row-del {
       flex-shrink: 0; opacity: 0; color: var(--text-dimmer); padding: 4px; border-radius: 6px;
+      /* It's a <button> — without these it keeps browser default button
+         chrome (a light background/border), which is what was showing up
+         as "bright white" instead of a plain icon. */
+      background: none; border: none; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
       transition: opacity 0.15s, color 0.15s, background 0.15s;
     }
     .music-playlist-row:hover .music-playlist-row-del { opacity: 1; }
@@ -2635,7 +2650,7 @@
     /* Hero card — compact, like picker's album header */
     .ap-hero {
       display: flex; align-items: center; gap: 1rem;
-      padding: 1.2rem 1rem;
+      padding: 1.2rem 1rem 0.8rem;
       border-bottom: 1px solid var(--glass-border);
       position: relative; z-index: 1;
     }
@@ -2682,7 +2697,7 @@
     }
 
     /* Actions — same pill style as picker */
-    .ap-actions { display: flex; gap: 7px; padding: 0.7rem 0.7rem 0.2rem; }
+    .ap-actions { display: flex; gap: 7px; padding: 0.4rem 0.7rem 0.2rem; }
     .ap-btn-play {
       display: flex; align-items: center; gap: 6px;
       padding: 6px 16px; border-radius: 6px;
@@ -3421,7 +3436,6 @@ window.KLAB_BOOT = (function() {
         <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
         <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
         <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
-        <button class="picker-tab" data-tab="search"><i class="ti ti-search"></i><span>Search</span></button>
       </div>
       <div class="music-sidebar-divider"></div>
       <div class="music-playlist-nav" id="musicPlaylistNav">
@@ -4611,11 +4625,14 @@ pickerSearchEl.addEventListener('input', () => {
   }
 });
 
-// Switch to search tab when typing
+// Switch to search tab when typing — no dedicated "Search" nav row to mark
+// active any more (the search box itself is the only entry point now, so
+// having a second "Search" button right below it read as two search bars);
+// just clear whichever other row was selected.
 pickerSearchEl.addEventListener('keydown', e => {
   if (e.key !== 'Escape' && pickerTab !== 'search') {
     document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-tab="search"]').classList.add('active');
+    document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
     pickerTab = 'search';
   }
   if (e.key === 'Escape') closePicker();
@@ -6460,7 +6477,7 @@ const sfxVolumeSlider = makeSlider(
 
 // Reset prefs
 document.getElementById('clearPrefsRow').addEventListener('click', async () => { SFX.play('error');
-  if (!confirm('Reset all preferences? This cannot be undone.')) return;
+  if (!(await showConfirmDialog('// reset preferences', 'Reset all preferences? This cannot be undone.', 'Reset'))) return;
   // Clear localStorage
   Object.values(PREF_KEYS).forEach(k => localStorage.removeItem(k));
   localStorage.removeItem(SETTINGS_KEY);
@@ -7702,6 +7719,74 @@ function closeChatModal() {
   document.getElementById('chatModalBackdrop').classList.remove('open');
 }
 
+// ── In-site replacements for prompt()/confirm() — same shared modal shell
+// as everything else above, so a text-entry or yes/no dialog looks like
+// part of the app instead of a jarring native browser popup. Each returns
+// a Promise so a call site just does `const name = await showInputDialog(...)`
+// where it used to do `const name = prompt(...)`.
+// Resolves with the raw (possibly empty) string on OK, or null on Cancel —
+// deliberately NOT collapsing an empty OK to null, since some call sites
+// (clearing a note) treat "OK with nothing typed" as a real, different
+// action from "Cancel, leave it as it was". Callers that should reject a
+// blank value (e.g. a playlist needs a name) check that themselves.
+function showInputDialog(title, message, placeholder, defaultValue) {
+  return new Promise(resolve => {
+    openChatModal(title, `
+      <div class="chat-modal-row-sub" style="margin-bottom:8px;">${esc(message || '')}</div>
+      <input type="text" class="chat-modal-input" id="inputDialogField" placeholder="${esc(placeholder || '')}" autocomplete="off" />
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="chat-modal-row-btn" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
+        <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;">OK</button>
+      </div>
+    `);
+    const field = document.getElementById('inputDialogField');
+    if (defaultValue) field.value = defaultValue;
+    field.focus();
+    field.select();
+    const cleanup = result => { closeChatModal(); resolve(result); };
+    document.getElementById('inputDialogCancel').addEventListener('click', () => cleanup(null));
+    document.getElementById('inputDialogOk').addEventListener('click', () => cleanup(field.value.trim()));
+    field.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('inputDialogOk').click(); });
+  });
+}
+function showConfirmDialog(title, message, confirmLabel) {
+  return new Promise(resolve => {
+    openChatModal(title, `
+      <div class="chat-modal-row-sub" style="margin-bottom:14px;">${esc(message || '')}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="chat-modal-row-btn" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
+        <button class="chat-connect-btn" id="confirmDialogOk" style="flex:1;justify-content:center;color:var(--danger-color);border-color:var(--danger-color);">${esc(confirmLabel || 'Confirm')}</button>
+      </div>
+    `);
+    const cleanup = result => { closeChatModal(); resolve(result); };
+    document.getElementById('confirmDialogCancel').addEventListener('click', () => cleanup(false));
+    document.getElementById('confirmDialogOk').addEventListener('click', () => cleanup(true));
+  });
+}
+// Pick-one-from-a-list dialog (e.g. "add this song to which playlist?") —
+// same .chat-modal-row pattern the channel-browse/DM modals already use.
+function showChoiceDialog(title, items, emptyMessage) {
+  return new Promise(resolve => {
+    openChatModal(title, `<div class="chat-modal-list" id="choiceDialogList"></div>`);
+    const listEl = document.getElementById('choiceDialogList');
+    if (!items.length) {
+      listEl.innerHTML = `<div class="picker-empty">${esc(emptyMessage || 'nothing to choose from')}</div>`;
+    }
+    items.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'chat-modal-row';
+      row.style.cursor = 'pointer';
+      row.innerHTML =
+        '<div class="chat-modal-row-info">' +
+          `<div class="chat-modal-row-name">${esc(item.label)}</div>` +
+          (item.sub ? `<div class="chat-modal-row-sub">${esc(item.sub)}</div>` : '') +
+        '</div>';
+      row.addEventListener('click', () => { closeChatModal(); resolve(i); });
+      listEl.appendChild(row);
+    });
+  });
+}
+
 function openBrowseModal() {
   openChatModal('// browse channels', `
     <div class="chat-modal-search"><i class="ti ti-hash"></i><input type="text" id="chatJoinById" placeholder="or paste a room ID / #alias:server" autocomplete="off" /><button class="chat-modal-row-btn" id="chatJoinByIdBtn">Join</button></div>
@@ -8678,9 +8763,10 @@ function renderPlaylistNav() {
       </div>
       <button class="music-playlist-row-del" title="Delete playlist" type="button"><i class="ti ti-trash"></i></button>
     `;
-    row.querySelector('.music-playlist-row-del').addEventListener('click', e => {
+    row.querySelector('.music-playlist-row-del').addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm(`Delete "${pl.name}"?`)) return;
+      const ok = await showConfirmDialog('// delete playlist', `Delete "${pl.name}"? This can't be undone.`, 'Delete');
+      if (!ok) return;
       savePlaylists(getPlaylists().filter(p => p.id !== pl.id));
       SFX && SFX.play('click');
     });
@@ -8694,12 +8780,12 @@ function renderPlaylistNav() {
     nav.insertBefore(row, newBtn);
   });
 }
-document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', () => {
-  const name = prompt('New playlist name:');
-  if (!name || !name.trim()) return;
-  createPlaylist(name.trim());
+document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', async () => {
+  const name = await showInputDialog('// new playlist', 'Name your new playlist.', 'Playlist name');
+  if (!name) return;
+  createPlaylist(name);
   SFX && SFX.play('star');
-  showToast(`"${name.trim()}" created`);
+  showToast(`"${name}" created`);
 });
 
 function createPlaylist(name) {
@@ -8861,18 +8947,20 @@ function loadPlaylistView(pl) {
 
 // Add to playlist — shared by the picker row button (delegated, below)
 // and the song right-click context menu (SONG CONTEXT MENU, further down).
-function addSongToPlaylistFlow(song) {
+async function addSongToPlaylistFlow(song) {
   const pls = getPlaylists();
   if (!pls.length) {
-    const name = prompt('No playlists yet. Create one:');
+    const name = await showInputDialog('// new playlist', 'No playlists yet — name one to add this song to.', 'Playlist name');
     if (!name) return;
     const pl = createPlaylist(name);
     addSongToPlaylist(pl.id, song);
   } else {
-    const opts = pls.map((p, i) => (i+1) + '. ' + p.name + ' (' + p.songs.length + ' songs)').join('\n');
-    const choice = prompt('Add "' + song.title + '" to playlist:\n\n' + opts + '\n\nEnter number:');
-    const idx = parseInt(choice) - 1;
-    if (!isNaN(idx) && pls[idx]) addSongToPlaylist(pls[idx].id, song);
+    const idx = await showChoiceDialog(
+      `// add "${song.title}" to...`,
+      pls.map(p => ({ label: p.name, sub: `${p.songs.length} song${p.songs.length === 1 ? '' : 's'}` }))
+    );
+    if (idx === null || idx === undefined || !pls[idx]) return;
+    addSongToPlaylist(pls[idx].id, song);
   }
   SFX && SFX.play('queue');
 }
@@ -10252,7 +10340,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;
-    const text = prompt('Share a note — visible to everyone for 24h (max 60 characters):', _notesCache.get(me) || '');
+    const text = await showInputDialog('// share a note', 'Visible to everyone for 24h (max 60 characters).', 'Note text', _notesCache.get(me) || '');
     if (text === null) return; // cancelled
     try {
       const r = await fetchTimeout('/api/notes', {
@@ -10645,7 +10733,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   async function deletePost(id) {
-    if (!confirm('Delete this post?')) return;
+    if (!(await showConfirmDialog('// delete post', 'Delete this post?', 'Delete'))) return;
     try {
       const r = await fetchTimeout('/api/posts/' + id, { method: 'DELETE' }, 8000);
       if (r.ok) {
@@ -11206,7 +11294,11 @@ function sampleImageColor(imgUrl) {
   }, { passive: true });
 
   let _lastApHover = 0;
-  const apSoundTargets = '.ap-track,.ap-disc-card,.ap-sim-chip,.ap-btn-play,.ap-btn-queue,.ap-read-more,.ap-back,.ap-close,.ap-hero-artist-link';
+  // .ap-btn-play/.ap-btn-queue deliberately excluded — they're small
+  // targets sitting right next to each other on every track row, so
+  // hovering around to click one tended to re-trigger the sound rapidly
+  // (every track row itself still gets a hover cue via .ap-track).
+  const apSoundTargets = '.ap-track,.ap-disc-card,.ap-sim-chip,.ap-read-more,.ap-back,.ap-close,.ap-hero-artist-link';
   panel.addEventListener('pointerover', e => {
     const target = e.target.closest(apSoundTargets);
     if (!target || target._apHovered) return;
