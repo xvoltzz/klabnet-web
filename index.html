@@ -7103,6 +7103,14 @@ function renderTimeline() {
   ).join(',') + '|' + reactionsDigest.join(',');
   if (!roomChanged && renderKey === _lastTimelineRenderKey) return;
   const wasNearBottom = roomChanged || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  // Only meaningful in the "reading history" branch below (wasNearBottom
+  // already covers the other case) — el.innerHTML='' unconditionally
+  // zeroes scrollTop, so without saving+restoring this, ANY rebuild that
+  // happens while you're scrolled up (a reaction/edit/redaction elsewhere
+  // in the room, not just your own scrolling) silently dumps you back to
+  // the top of the conversation.
+  const oldScrollTop    = el.scrollTop;
+  const oldScrollHeight = el.scrollHeight;
   _lastTimelineRenderKey = renderKey;
 
   el.innerHTML = '';
@@ -7214,7 +7222,12 @@ function renderTimeline() {
 
   updateSeenLine(room, events);
 
+  // Compensates for any height change (a newly-arrived message added below
+  // your view, grouping shifting slightly, etc.) instead of just
+  // reassigning the old absolute scrollTop, which would drift if the
+  // content above your viewport changed size at all.
   if (wasNearBottom) el.scrollTop = el.scrollHeight;
+  else el.scrollTop = oldScrollTop + (el.scrollHeight - oldScrollHeight);
 }
 
 // gitea#3 read receipts, upgraded from a DM-only "Seen" text line to
@@ -9477,7 +9490,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // nobody offline is ever the viewer.
     const note = _notesCache.get(person.username);
     const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '';
-    return '<div class="presence-card is-offline">' +
+    return '<div class="presence-card is-offline" data-username="' + esc(person.username) + '">' +
       '<div class="presence-card-avatar">' + avatarInner + '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(person.username) + '</div>' +
@@ -9844,14 +9857,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   // ── Poll — runs from page load, pauses when the tab is hidden ──
-  // Chat colors/bios/banners loaded here are read by three separate
-  // renderers (this presence rail, the chat timeline, the feed) — refresh
-  // all three once a fetch actually lands, same "resolve then repaint"
-  // idiom ensureAvatarResolved()/ensureSongColorResolved() already use.
+  // Chat colors/bios/banners loaded here are also read by the chat
+  // timeline and the feed — but unlike this presence rail (which already
+  // fully repaints on every poll tick regardless) and the feed (same,
+  // every 30s), the timeline deliberately does NOT rebuild on a timer:
+  // renderTimeline()'s renderKey guard exists specifically so it only
+  // repaints when the room's actual messages/reactions change, because a
+  // full rebuild while you're scrolled up reading history isn't fully
+  // position-preserving. Forcing it here via _lastTimelineRenderKey=null
+  // on every ~15s profile poll was exactly that: it made the chat panel
+  // constantly re-scroll out from under anyone reading back through a
+  // conversation. A colleague's new chat color just waits for the next
+  // *real* re-render (a new message, reaction, etc.) to show up instead.
   function refreshAfterProfiles() {
     renderList(_lastOthers);
-    _lastTimelineRenderKey = null;
-    renderTimeline();
     window.KLAB_REFRESH_FEED && window.KLAB_REFRESH_FEED();
   }
   function startPoll() {
