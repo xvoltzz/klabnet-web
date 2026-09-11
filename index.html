@@ -441,7 +441,13 @@
     body.tab-music-active .presence-rail { display: none; }
     body.tab-music-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-music-active .music-shell { flex: 1; min-height: 0; }
-    body.tab-music-active .music-sidebar { flex-shrink: 0; }
+    /* min-height:0 is the actual fix here, not just flex-shrink:0 — a flex
+       item's default min-height is auto, which lets it grow past its
+       container instead of clipping/scrolling internally once content
+       exceeds the available height. Without this the sidebar (and by the
+       same issue, .music-main below) just overflowed .dash's
+       overflow:hidden instead of scrolling at all. */
+    body.tab-music-active .music-sidebar { flex-shrink: 0; min-height: 0; overflow-y: auto; }
     body.tab-music-active .music-main,
     body.tab-music-active .picker-backdrop {
       flex: 1; min-height: 0; display: flex; flex-direction: column;
@@ -510,18 +516,31 @@
     .music-main { min-width: 0; position: relative; }
 
     /* Sidebar nav restyle — .picker-tab is Music-only (confirmed), so its
-       base rule can just be repointed at a vertical row look instead of
-       the old horizontal pill-tab strip, no scoping needed. */
+       base rule (and .picker-tabs/.active/:hover, formerly further down
+       near .picker-list — consolidated here, the old horizontal-pill-tab
+       versions of these rules are gone, not just shadowed) can just be
+       repointed at a vertical sidebar-row look, no scoping needed. Sized
+       up from the first pass per feedback that these read too small/
+       cramped next to the (now smaller) search box above them. */
     .picker-tabs { display: flex; flex-direction: column; gap: 2px; overflow: visible; }
     .picker-tab {
-      display: flex; align-items: center; gap: 9px; width: 100%;
-      font-size: 11px; letter-spacing: 0.02em; text-transform: none;
-      padding: 7px 10px; border-radius: 8px; text-align: left;
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      font-size: 13px; letter-spacing: 0.01em; text-transform: none;
+      padding: 9px 12px; border-radius: 8px; text-align: left; cursor: pointer;
       border: 1px solid transparent; color: var(--text-dim); background: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    .picker-tab i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; color: var(--text-dimmer); }
+    .picker-tab i { font-size: 16px; width: 18px; text-align: center; flex-shrink: 0; color: var(--text-dimmer); }
     .picker-tab span { flex: 1; }
+    .picker-tab.active {
+      background: rgba(var(--accent-rgb),0.16);
+      color: var(--text); border-color: rgba(var(--accent-rgb),0.35);
+    }
     .picker-tab.active i { color: rgba(var(--accent-rgb),1); }
+    .picker-tab:hover:not(.active) {
+      background: var(--tile-bg-h); color: var(--text);
+      border-color: var(--tile-border-h);
+    }
 
     /* Albums/Artists grid mode — toggled by loadPickerTab() via
        picker-list-grid on #pickerList, so the existing .picker-item DOM
@@ -1538,22 +1557,30 @@
     .ctx-item.active-warn { color: var(--warn-color); }
     .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
 
-    /* ══ MUSIC PLAYER DOCK — full-width bar flush with the bottom edge ══ */
+    /* ══ MUSIC PLAYER DOCK — back to a floating bar, bottom-centered (the
+       full-width edge-to-edge redesign didn't land — reverted) ══ */
     .player-dock {
       position: fixed;
-      bottom: 0; left: 0; right: 0;
+      bottom: 1.1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      /* A bit wider than the content column — it's a single bar, not a
+         grid, so it can afford to run wider than .dash. Tied to the same
+         --content-w scale so it grows correctly under the zoom tiers too. */
+      width: min(calc(var(--content-w) + 200px), calc(100vw - 3rem));
       z-index: 50;
-      padding: 0.75rem clamp(1rem, 3vw, 3rem);
+      border-radius: 10px;
+      padding: 0.75rem 1.35rem;
       display: flex;
       align-items: center;
       gap: 1.1rem;
       background: var(--modal-bg);
-      border-top: 1px solid var(--glass-border);
-      box-shadow: 0 -8px 30px var(--shadow-30);
-      transition: background 0.2s ease, border-color 0.2s ease;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px var(--shadow-50);
+      transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease;
       font-family: var(--font-ui);
     }
-    .player-dock.hidden { transform: translateY(100%)!important; opacity:0!important; pointer-events:none!important; }
+    .player-dock.hidden { transform: translateX(-50%) translateY(calc(100% + 2.5rem))!important; opacity:0!important; pointer-events:none!important; }
 
     /* Flatten the nested rows into one line */
     .player-main,
@@ -2107,7 +2134,7 @@
     [data-theme="light"] .user-badge   { color: var(--text-dimmer) !important; }
     [data-theme="light"] .picker-section-label { color: var(--text-dimmer); }
     [data-theme="light"] .picker-empty  { color: var(--text-faint); }
-    [data-theme="light"] .picker-tab    { color: var(--text-dim); background: rgba(255,255,255,0.5); border-color: rgba(120,108,92,0.18); }
+    [data-theme="light"] .picker-tab    { color: var(--text-dim); }
     [data-theme="light"] .picker-tab.active { color: rgba(var(--accent-rgb),1); background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
     [data-theme="light"] .picker-search input::placeholder { color: var(--text-faint); }
     [data-theme="light"] .picker-search i  { color: var(--text-dimmer); }
@@ -2880,8 +2907,8 @@
     .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--tile-bg-h); border-color: var(--tile-border-h); }
 
     .picker-search {
-      display: flex; align-items: center; gap: 0.6rem;
-      padding: 0.6rem 1rem; border-radius: 8px;
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 0.7rem; border-radius: 7px;
       background: var(--tile-bg);
       border: 1px solid var(--tile-border);
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -2893,39 +2920,14 @@
       border-color: rgba(var(--accent-rgb),0.5);
       box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
-    .picker-search i { color: var(--text-dimmer); font-size: 14px; flex-shrink: 0; }
+    .picker-search i { color: var(--text-dimmer); font-size: 12px; flex-shrink: 0; }
     .picker-search input {
       background: none; border: none; outline: none;
-      font-family: var(--font-ui); font-size: 0.85rem;
-      color: var(--text); flex: 1; caret-color: var(--text);
+      font-family: var(--font-ui); font-size: 0.75rem;
+      color: var(--text); flex: 1; caret-color: var(--text); min-width: 0;
     }
     .picker-search input:focus-visible { outline: none; }
     .picker-search input::placeholder { color: var(--text-dimmer); }
-
-    .picker-tabs {
-      display: flex; gap: 5px;
-      flex-wrap: nowrap; overflow-x: auto;
-      scrollbar-width: none; -ms-overflow-style: none;
-      padding-bottom: 2px;
-    }
-    .picker-tabs::-webkit-scrollbar { display: none; }
-    .picker-tab {
-      flex-shrink: 0; white-space: nowrap; min-width: max-content;
-      font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
-      padding: 4px 9px; border-radius: 6px; cursor: pointer;
-      border: 1px solid var(--tile-border);
-      color: var(--text-dimmer);
-      background: var(--tile-bg);
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .picker-tab.active {
-      background: rgba(var(--accent-rgb),0.16);
-      color: var(--text); border-color: rgba(var(--accent-rgb),0.35);
-    }
-    .picker-tab:hover:not(.active) {
-      background: var(--tile-bg-h); color: var(--text);
-      border-color: var(--tile-border-h);
-    }
 
     .picker-list {
       overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
