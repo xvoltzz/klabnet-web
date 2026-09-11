@@ -1248,6 +1248,52 @@
     .profile-modal-avatar:hover .profile-modal-avatar-overlay { opacity: 1; }
     .profile-modal-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; display: block; }
 
+    /* Profile-editor additions: banner upload, bio, chat-color swatches. */
+    .profile-modal-banner-row { margin-bottom: 1rem; }
+    .profile-modal-banner {
+      position: relative; width: 100%; height: 84px; border-radius: 8px;
+      overflow: hidden; cursor: pointer; background: rgba(var(--accent-rgb),0.12) center/cover;
+      border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .profile-modal-banner-overlay {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10.5px; letter-spacing: 0.04em; color: var(--text-faint);
+      background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 20px;
+    }
+    .profile-modal-bio-counter { font-size: 9px; color: var(--text-faint); text-align: right; margin-top: 3px; }
+    .profile-modal-color-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .profile-modal-color-swatch {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; box-shadow: 0 0 0 1px var(--tile-border);
+      transition: transform 0.1s;
+    }
+    .profile-modal-color-swatch:hover { transform: scale(1.12); }
+    .profile-modal-color-swatch.selected { border-color: var(--text); }
+    .profile-modal-color-swatch.auto {
+      background: var(--tile-bg); display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--text-faint);
+    }
+    .profile-modal-color-swatch.auto::after { content: 'A'; }
+
+    /* Read-only profile viewer (click a name/avatar in chat/feed/presence). */
+    .profile-view-banner {
+      width: 100%; height: 100px; border-radius: 8px; margin-bottom: -28px;
+      background: linear-gradient(135deg, rgba(var(--accent-rgb),0.3), rgba(var(--accent-rgb),0.08)) center/cover;
+    }
+    .profile-view-avatar-row { display: flex; align-items: flex-end; gap: 10px; padding: 0 4px; }
+    .profile-view-avatar {
+      width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: rgba(var(--accent-rgb),0.15); border: 2px solid var(--bg, var(--tile-bg));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: rgba(var(--accent-rgb),1);
+    }
+    .profile-view-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-view-names { padding-bottom: 4px; overflow: hidden; }
+    .profile-view-displayname { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-view-username { font-size: 10.5px; color: var(--text-faint); }
+    .profile-view-bio { font-size: 12px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; white-space: pre-wrap; }
+
     .tile i {
       font-size: 16px; color: var(--tile-icon);
       transition: color 0.2s;
@@ -3017,6 +3063,7 @@ window.KLAB_BOOT = (function() {
 <div class="ctx-menu" id="presenceCtxMenu">
   <div class="ctx-label" id="presenceCtxLabel">User</div>
   <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen Party</div>
+  <div class="ctx-item" id="presenceCtxProfile"><i class="ti ti-user-circle"></i> View Profile</div>
   <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
 </div>
 
@@ -6578,11 +6625,59 @@ let _chatActiveRoomId = null;
 // readability against both the dark (near-black) and light (warm cream)
 // theme backgrounds, and clear of --danger-color/--success-color so a
 // nametag is never mistaken for an error or online-status hue.
-const CHAT_NAME_COLORS = ['#5b9dd9', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf', '#eab308', '#38bdf8', '#c084fc'];
+// Expanded from the original 8 so the profile color picker below has real
+// choice, still all readability-tested against both theme backgrounds and
+// clear of --danger-color/--success-color.
+const CHAT_NAME_COLORS = ['#5b9dd9', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf', '#eab308', '#38bdf8', '#c084fc',
+  '#4ade80', '#f87171', '#facc15', '#818cf8', '#fb7185', '#22d3ee', '#e879f9', '#a3e635',
+  '#f59e0b', '#6ee7b7', '#93c5fd', '#fda4af'];
 function chatNameColor(id) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
   return CHAT_NAME_COLORS[hash % CHAT_NAME_COLORS.length];
+}
+
+// Mirrors klabnet-api's BIO_MAX_CHARS default — just a UI hint (the server
+// is authoritative and truncates regardless), same soft-duplication as the
+// feed reply input's maxlength="500" mirroring POST_MAX_CHARS.
+const PROFILE_BIO_MAX_CHARS = 160;
+const _HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+// Same @user:server -> username convention used everywhere else (see
+// dmOtherUsername/messageUser) — named here since profileColor() and the
+// profile-view popover both need it from call sites that only have a
+// Matrix ID (e.g. a chat message's senderId), not a plain klabnet username.
+function mxIdToUsername(userId) {
+  return userId ? userId.replace(/^@/, '').split(':')[0] : '';
+}
+
+// Bulk per-user profile data (chat color override, bio, banner) — mirrors
+// _notesCache's "one bulk fetch, no per-card request" shape (see
+// fetchNotes() further down). Keyed by klabnet username, populated by
+// fetchProfiles() (hooked into the presence poll's startPoll()/stopPoll()).
+const _profiles = new Map(); // username -> {chat_color, bio, banner_mxc}
+async function fetchProfiles() {
+  try {
+    const r = await fetchTimeout('/api/profiles', {}, 6000);
+    if (!r.ok) return;
+    const data = await r.json();
+    _profiles.clear();
+    Object.entries(data.profiles || {}).forEach(([username, p]) => _profiles.set(username, p));
+  } catch (e) {}
+}
+
+// Drop-in replacement for chatNameColor() at every render call site: uses
+// the user's own chosen color if they've set one — re-validated here too,
+// not just trusted from the server, since this is about to be interpolated
+// straight into a `style="--name-color:...;"` attribute — else falls back
+// to the same hash default chatNameColor() always used. Accepts either a
+// plain username or a full Matrix ID (chat call sites only have the
+// latter), and always hashes the *username* for the fallback so the same
+// person gets the same auto-color in chat as in the feed/presence rail.
+function profileColor(usernameOrMxId) {
+  const username = usernameOrMxId.startsWith('@') ? mxIdToUsername(usernameOrMxId) : usernameOrMxId;
+  const color = _profiles.get(username)?.chat_color;
+  return (color && _HEX_COLOR_RE.test(color)) ? color : chatNameColor(username);
 }
 
 // Message-avatar cache, keyed by Matrix user ID (unlike the presence
@@ -7050,7 +7145,7 @@ function renderTimeline() {
     if (!grouped) {
       const head = document.createElement('div');
       head.className = 'chat-msg-head';
-      head.innerHTML = `<span class="chat-msg-sender" style="color:${chatNameColor(senderId)}">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+      head.innerHTML = `<span class="chat-msg-sender" data-username="${esc(mxIdToUsername(senderId))}" style="color:${profileColor(senderId)}">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
       body.appendChild(head);
     }
 
@@ -7063,7 +7158,7 @@ function renderTimeline() {
       const parentEv = room.findEventById(replyToId);
       if (parentEv) {
         const parentName = parentEv.sender?.name || parentEv.getSender();
-        quote.innerHTML = `<span class="chat-msg-reply-quote-name" style="color:${chatNameColor(parentEv.getSender())}">${esc(parentName)}</span> ${esc((parentEv.getContent().body || '').slice(0, 60))}`;
+        quote.innerHTML = `<span class="chat-msg-reply-quote-name" data-username="${esc(mxIdToUsername(parentEv.getSender()))}" style="color:${profileColor(parentEv.getSender())}">${esc(parentName)}</span> ${esc((parentEv.getContent().body || '').slice(0, 60))}`;
       } else {
         quote.textContent = 'Replying to a message';
       }
@@ -7583,7 +7678,15 @@ async function openProfileModal() {
   const client = MatrixChat.client;
   if (!client) { showToast('Connect chat in the Chat tab first'); return; }
   const myId = client.getUserId();
+  const myUsername = mxIdToUsername(myId);
+  const myProfile = _profiles.get(myUsername) || { chat_color: '', bio: '', banner_mxc: '' };
   openChatModal('// edit profile', `
+    <div class="profile-modal-banner-row">
+      <div class="profile-modal-banner" id="profileBannerPreview">
+        <div class="profile-modal-banner-overlay"><i class="ti ti-camera"></i> Banner</div>
+      </div>
+      <input type="file" accept="image/*" id="profileBannerFile" hidden />
+    </div>
     <div class="profile-modal-avatar-row">
       <div class="profile-modal-avatar" id="profileAvatarPreview">
         <span id="profileAvatarInitial">${esc((myId.replace(/^@/, '')[0] || '?').toUpperCase())}</span>
@@ -7593,17 +7696,65 @@ async function openProfileModal() {
     </div>
     <span class="profile-modal-label">Display name</span>
     <input type="text" class="chat-modal-input" id="profileNameInput" placeholder="Display name" autocomplete="off" />
+    <span class="profile-modal-label" style="margin-top:10px;">Bio</span>
+    <textarea class="chat-modal-input" id="profileBioInput" placeholder="A short bio…" maxlength="${PROFILE_BIO_MAX_CHARS}" rows="2" style="resize:vertical;"></textarea>
+    <div class="profile-modal-bio-counter" id="profileBioCounter"></div>
+    <span class="profile-modal-label" style="margin-top:10px;">Chat color</span>
+    <div class="profile-modal-color-row" id="profileColorRow">
+      <div class="profile-modal-color-swatch auto" data-color="" title="Auto"></div>
+      ${CHAT_NAME_COLORS.map(c => `<div class="profile-modal-color-swatch" data-color="${c}" style="background:${c}" title="${c}"></div>`).join('')}
+    </div>
     <button class="chat-connect-btn" id="profileSaveBtn" style="margin-top:12px;width:100%;justify-content:center;">Save</button>
     <div class="chat-modal-error" id="profileError" hidden></div>
   `);
 
-  const avatarEl   = document.getElementById('profileAvatarPreview');
-  const initialEl  = document.getElementById('profileAvatarInitial');
-  const fileEl     = document.getElementById('profileAvatarFile');
-  const nameEl     = document.getElementById('profileNameInput');
-  const saveBtn    = document.getElementById('profileSaveBtn');
-  const errEl      = document.getElementById('profileError');
-  let pendingFile  = null;
+  const bannerEl      = document.getElementById('profileBannerPreview');
+  const bannerFileEl  = document.getElementById('profileBannerFile');
+  const avatarEl      = document.getElementById('profileAvatarPreview');
+  const initialEl     = document.getElementById('profileAvatarInitial');
+  const fileEl        = document.getElementById('profileAvatarFile');
+  const nameEl        = document.getElementById('profileNameInput');
+  const bioEl         = document.getElementById('profileBioInput');
+  const bioCounterEl  = document.getElementById('profileBioCounter');
+  const colorRowEl    = document.getElementById('profileColorRow');
+  const saveBtn       = document.getElementById('profileSaveBtn');
+  const errEl         = document.getElementById('profileError');
+  let pendingFile       = null;
+  let pendingBannerFile = null;
+  let selectedColor     = myProfile.chat_color || '';
+
+  bioEl.value = myProfile.bio || '';
+  const updateBioCounter = () => { bioCounterEl.textContent = `${bioEl.value.length}/${PROFILE_BIO_MAX_CHARS}`; };
+  updateBioCounter();
+  bioEl.addEventListener('input', updateBioCounter);
+
+  const highlightColorSwatch = () => {
+    colorRowEl.querySelectorAll('.profile-modal-color-swatch').forEach(sw => {
+      sw.classList.toggle('selected', sw.dataset.color === selectedColor);
+    });
+  };
+  highlightColorSwatch();
+  colorRowEl.addEventListener('click', e => {
+    const swatch = e.target.closest('.profile-modal-color-swatch');
+    if (!swatch) return;
+    selectedColor = swatch.dataset.color;
+    highlightColorSwatch();
+  });
+
+  if (myProfile.banner_mxc) {
+    MatrixChat.mxcToBlobUrl(myProfile.banner_mxc, { width: 640, height: 180, method: 'crop' })
+      .then(url => { if (url) bannerEl.style.backgroundImage = `url(${url})`; })
+      .catch(() => {});
+  }
+  bannerEl.addEventListener('click', () => bannerFileEl.click());
+  bannerFileEl.addEventListener('change', () => {
+    const file = bannerFileEl.files?.[0];
+    if (!file) return;
+    pendingBannerFile = file;
+    const reader = new FileReader();
+    reader.onload = () => { bannerEl.style.backgroundImage = `url(${reader.result})`; };
+    reader.readAsDataURL(file);
+  });
 
   try {
     const info = await client.getProfileInfo(myId);
@@ -7641,6 +7792,27 @@ async function openProfileModal() {
       }
       const newName = nameEl.value.trim();
       if (newName) await client.setDisplayName(newName);
+
+      let bannerMxc = myProfile.banner_mxc || '';
+      if (pendingBannerFile) {
+        const bannerUpload = await client.uploadContent(pendingBannerFile);
+        bannerMxc = bannerUpload.content_uri;
+      }
+      const pr = await fetchTimeout('/api/profiles/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_color: selectedColor, bio: bioEl.value.trim(), banner_mxc: bannerMxc }),
+      }, 8000);
+      if (!pr.ok) {
+        const err = await pr.json().catch(() => null);
+        // Falls into the same catch block below as an avatar/display-name
+        // failure, rather than silently keeping the stale _profiles entry
+        // while still telling the user "Profile updated".
+        throw new Error(err?.error || 'Failed to save profile');
+      }
+      const saved = await pr.json();
+      _profiles.set(myUsername, { chat_color: saved.chat_color, bio: saved.bio, banner_mxc: saved.banner_mxc });
+
       closeChatModal();
       showToast('Profile updated');
       // Presence rail's cache is keyed by username, private to that
@@ -7648,17 +7820,68 @@ async function openProfileModal() {
       // timeline's cache (keyed by Matrix user ID) is in this same
       // global scope, so it's cleared directly.
       window.KLAB_REFRESH_MY_AVATAR && window.KLAB_REFRESH_MY_AVATAR();
-      if (pendingFile) {
-        _msgAvatarCache.delete(myId);
-        _lastTimelineRenderKey = null;
-        renderTimeline();
-      }
+      if (pendingFile) _msgAvatarCache.delete(myId);
+      // Chat color/bio/banner can change even when the avatar doesn't, so
+      // these three surfaces (timeline, feed, presence-rail-via-the-hook
+      // above) always get refreshed, not just on an avatar change.
+      _lastTimelineRenderKey = null;
+      renderTimeline();
+      window.KLAB_REFRESH_FEED && window.KLAB_REFRESH_FEED();
     } catch (e) {
       errEl.textContent = e.message || 'Failed to update profile.';
       errEl.hidden = false;
       saveBtn.disabled = false; saveBtn.textContent = 'Save';
     }
   });
+}
+
+// Read-only counterpart to openProfileModal() — a quick look at someone
+// else's profile (banner, bio, chosen color, avatar) via the same shared
+// modal shell, opened from a name/avatar click in chat/feed or the
+// presence-card context menu's "View Profile" entry. Has its own
+// avatar/displayname lookup rather than reusing any of the three
+// per-module avatar caches (_msgAvatarCache/_feedAvatarCache/_avatarCache)
+// — same one-off approach openProfileModal() already takes for "me".
+async function openProfileView(username) {
+  if (!username) return;
+  const client = MatrixChat.client;
+  const profile = _profiles.get(username) || {};
+  openChatModal(`// @${username}`, `
+    <div class="profile-view-banner" id="profileViewBanner"></div>
+    <div class="profile-view-avatar-row">
+      <div class="profile-view-avatar" id="profileViewAvatar">${esc((username[0] || '?').toUpperCase())}</div>
+      <div class="profile-view-names">
+        <div class="profile-view-displayname" id="profileViewDisplayname">${esc(username)}</div>
+        <div class="profile-view-username">@${esc(username)}</div>
+      </div>
+    </div>
+    ${profile.bio ? `<div class="profile-view-bio">${esc(profile.bio)}</div>` : ''}
+    <button class="chat-connect-btn" id="profileViewMessageBtn" style="margin-top:14px;width:100%;justify-content:center;"><i class="ti ti-message-2-plus"></i> Message</button>
+  `);
+  document.getElementById('profileViewMessageBtn')?.addEventListener('click', () => {
+    closeChatModal();
+    messageUser(username);
+  });
+  if (!client) return;
+  if (profile.banner_mxc) {
+    MatrixChat.mxcToBlobUrl(profile.banner_mxc, { width: 640, height: 180, method: 'crop' })
+      .then(url => {
+        const el = document.getElementById('profileViewBanner');
+        if (url && el) el.style.backgroundImage = `url(${url})`;
+      })
+      .catch(() => {});
+  }
+  try {
+    const serverName = client.getUserId().split(':')[1];
+    const info = await client.getProfileInfo(`@${username}:${serverName}`);
+    const nameEl = document.getElementById('profileViewDisplayname');
+    if (nameEl && info?.displayname) nameEl.textContent = info.displayname;
+    if (info?.avatar_url) {
+      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url);
+      const avatarEl = document.getElementById('profileViewAvatar');
+      if (url && avatarEl) avatarEl.innerHTML = `<img src="${esc(url)}" alt="" />`;
+    }
+  } catch (e) { /* fall back to the initial-letter placeholder / klabnet username */ }
 }
 
 // Set once the first sync reaches PREPARED — see the guard below.
@@ -7892,6 +8115,14 @@ function showChatApp() {
         toggleReaction(pill.dataset.targetId, pill.dataset.emoji);
         return;
       }
+      // Checked before the reply-quote block below (it'd otherwise catch
+      // this click too, since the sender name sits inside that quote for a
+      // reply's parent) — a name click should open their profile, not
+      // scroll to the quoted message.
+      const senderName = e.target.closest('.chat-msg-sender, .chat-msg-reply-quote-name');
+      if (senderName?.dataset.username) { openProfileView(senderName.dataset.username); return; }
+      const avatar = e.target.closest('.chat-msg-avatar[data-msg-avatar-for]');
+      if (avatar) { openProfileView(mxIdToUsername(avatar.dataset.msgAvatarFor)); return; }
       const quote = e.target.closest('.chat-msg-reply-quote');
       if (quote?.dataset.parentId) {
         document.querySelector(`.chat-msg[data-event-id="${CSS.escape(quote.dataset.parentId)}"]`)
@@ -9093,7 +9324,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // wins visually since its CSS rule is more specific.
     let cardVars = '';
     if (!isMe) {
-      cardVars += '--name-color:' + chatNameColor(username) + ';';
+      cardVars += '--name-color:' + profileColor(username) + ';';
       if (playing && songId) {
         ensureSongColorResolved(songId);
         const rgb = _songColorCache.get(songId);
@@ -9163,6 +9394,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _offlineStatusCache = new Map(); // matrix userId -> status text
   let _offlineTimer = null;
   let _notesTimer = null;
+  let _profilesTimer = null;
 
   function fmtAgo(ms) {
     const s = Math.floor(ms / 1000);
@@ -9506,6 +9738,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const listenItem = document.getElementById('presenceCtxListen');
     listenItem.style.display = card.classList.contains('is-playable') ? 'flex' : 'none';
     listenItem.onclick = () => { hidePresenceCtx(); playFromCard(card); };
+    document.getElementById('presenceCtxProfile').onclick = () => { hidePresenceCtx(); openProfileView(username); };
     document.getElementById('presenceCtxMessage').onclick = () => { hidePresenceCtx(); messageUser(username); };
     // See zoomFactor()'s comment above showCtx() — same zoomed-viewport
     // fix-up, needed here too.
@@ -9611,17 +9844,29 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   // ── Poll — runs from page load, pauses when the tab is hidden ──
+  // Chat colors/bios/banners loaded here are read by three separate
+  // renderers (this presence rail, the chat timeline, the feed) — refresh
+  // all three once a fetch actually lands, same "resolve then repaint"
+  // idiom ensureAvatarResolved()/ensureSongColorResolved() already use.
+  function refreshAfterProfiles() {
+    renderList(_lastOthers);
+    _lastTimelineRenderKey = null;
+    renderTimeline();
+    window.KLAB_REFRESH_FEED && window.KLAB_REFRESH_FEED();
+  }
   function startPoll() {
     if (_timer) return;
-    postPresence(); fetchPresence(); refreshOfflineRosterNow(); fetchNotes();
+    postPresence(); fetchPresence(); refreshOfflineRosterNow(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
     _timer = setInterval(() => { postPresence(); fetchPresence(); }, POLL_MS);
     _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
     _notesTimer = setInterval(fetchNotes, OFFLINE_POLL_MS);
+    _profilesTimer = setInterval(() => fetchProfiles().then(refreshAfterProfiles), OFFLINE_POLL_MS);
   }
   function stopPoll() {
     clearInterval(_timer); _timer = null;
     clearInterval(_offlineTimer); _offlineTimer = null;
     clearInterval(_notesTimer); _notesTimer = null;
+    clearInterval(_profilesTimer); _profilesTimer = null;
   }
 
   startPoll();
@@ -9678,7 +9923,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const escaped = esc(rawText);
     return escaped.replace(/(^|[^\w@])@([a-zA-Z0-9_][\w.-]*)/g, (m, pre, name) => {
       const isMe = !!me && name.toLowerCase() === me.toLowerCase();
-      return pre + '<span class="feed-post-mention' + (isMe ? ' is-me' : '') + '" style="color:' + chatNameColor(name.toLowerCase()) + '">@' + name + '</span>';
+      return pre + '<span class="feed-post-mention' + (isMe ? ' is-me' : '') + '" data-username="' + esc(name.toLowerCase()) + '" style="color:' + profileColor(name.toLowerCase()) + '">@' + name + '</span>';
     });
   }
 
@@ -9778,10 +10023,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const avatarUrl = _feedAvatarCache.get(reply.username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (reply.username || '?')[0].toUpperCase();
     return '<div class="feed-post-reply">' +
-      '<div class="feed-post-reply-avatar">' + avatarInner + '</div>' +
+      '<div class="feed-post-reply-avatar" data-username="' + esc(reply.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-reply-body">' +
         '<div class="feed-post-reply-head">' +
-          '<span class="feed-post-reply-name" style="color:' + chatNameColor(reply.username) + '">' + esc(reply.username) + '</span>' +
+          '<span class="feed-post-reply-name" data-username="' + esc(reply.username) + '" style="color:' + profileColor(reply.username) + '">' + esc(reply.username) + '</span>' +
           '<span class="feed-post-reply-time">' + fmtFeedTime(reply.created) + '</span>' +
           (canDelete ? '<span class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply"><i class="ti ti-trash"></i></span>' : '') +
         '</div>' +
@@ -9824,11 +10069,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     ).join('');
     const quickPickerOpen = _openReactionPickers.has(post.id);
     const replyCount = post.reply_count || 0;
-    return '<div class="feed-post" style="--name-color:' + chatNameColor(post.username) + '">' +
-      '<div class="feed-post-avatar">' + avatarInner + '</div>' +
+    return '<div class="feed-post" style="--name-color:' + profileColor(post.username) + '">' +
+      '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
-          '<span class="feed-post-name">' + esc(post.username) + '</span>' +
+          '<span class="feed-post-name" data-username="' + esc(post.username) + '">' + esc(post.username) + '</span>' +
           '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
           (canDelete ? '<span class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post"><i class="ti ti-trash"></i></span>' : '') +
         '</div>' +
@@ -9859,6 +10104,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
   }
+
+  // Exposed so openProfileModal() (defined earlier in this script, KLAB
+  // SOCIAL section) can repaint the feed with a freshly-saved chat
+  // color/bio/banner — renderFeed/listEl are private to this IIFE, same
+  // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
+  window.KLAB_REFRESH_FEED = renderFeed;
 
   async function fetchFeed() {
     if (_feedPending) return;
@@ -10083,6 +10334,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
   loadMoreEl.addEventListener('click', loadOlderPosts);
   listEl.addEventListener('click', (e) => {
+    const nameClick = e.target.closest('.feed-post-name, .feed-post-reply-name, .feed-post-mention, .feed-post-avatar, .feed-post-reply-avatar');
+    if (nameClick?.dataset.username) { openProfileView(nameClick.dataset.username); return; }
     const del = e.target.closest('.feed-post-delete');
     if (del) { deletePost(Number(del.dataset.postId)); return; }
     const pill = e.target.closest('.feed-post-reaction-pill');
