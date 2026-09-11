@@ -8660,6 +8660,28 @@ function initChatResizer() {
 
 let _chatBound = false;
 
+// Onboarding fix: brand-new users had no channels at all until they found
+// and used the "Browse public channels" flow themselves — most never did,
+// so their first impression of Chat was an empty room list. #klabnet is
+// public (join_rule: public, confirmed against the actual room state) and
+// meant to be the one channel everyone's in by default, so auto-join it
+// once per session right when the client's actually ready. joinRoom on an
+// alias you're already a member of is a harmless no-op (200, same as a
+// fresh join) — no need to pre-check membership first.
+const KLABNET_ROOM_ALIAS = '#klabnet:klab.gg';
+let _klabnetJoinAttempted = false;
+async function ensureJoinedToKlabnet() {
+  if (_klabnetJoinAttempted || !MatrixChat.client) return;
+  _klabnetJoinAttempted = true;
+  try {
+    await MatrixChat.client.joinRoom(KLABNET_ROOM_ALIAS);
+    renderChannelList();
+  } catch (e) {
+    _klabnetJoinAttempted = false; // let a later PREPARED retry (e.g. after a reconnect) try again
+    console.warn('[chat] auto-join #klabnet failed', e);
+  }
+}
+
 function showChatApp() {
   document.getElementById('chatConnect').hidden = true;
   document.getElementById('chatApp').hidden = false;
@@ -8682,7 +8704,7 @@ function showChatApp() {
       // The initial sync's own Room.timeline events (the catch-up replay
       // notifyNewMessage() guards against) always arrive before this fires,
       // so it's safe to flip the gate open right here.
-      if (state === 'PREPARED') _chatSyncSettled = true;
+      if (state === 'PREPARED') { _chatSyncSettled = true; ensureJoinedToKlabnet(); }
       renderChannelList();
     });
     MatrixChat.on('memberProfileChanged', userId => invalidateMsgAvatar(userId));
