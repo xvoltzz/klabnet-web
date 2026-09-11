@@ -1018,6 +1018,13 @@
       margin-top: 0.5rem; padding: 0.6rem 1.6rem 0.6rem 0.6rem;
       background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
     }
+    /* display:flex above otherwise permanently wins over the browser's own
+       [hidden]{display:none} default (author CSS beats UA styles
+       regardless of specificity) — this element showed, empty, on every
+       feed visit until this was added. Same fix already applied to every
+       other hidden-but-styled element in this file (.chat-image-preview-
+       wrap[hidden], .chat-emoji-picker[hidden], etc.) */
+    .feed-composer-song-preview[hidden] { display: none; }
     .feed-composer-song-art { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--tile-bg-h); }
     .feed-composer-song-info { flex: 1; min-width: 0; }
     .feed-composer-song-title { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
