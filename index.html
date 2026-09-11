@@ -6456,6 +6456,9 @@ function isTabEnabled(key) {
 
 function setActiveTab(key) {
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'feed';
+  // Captured before the tab-panel/body-class toggles below — used further
+  // down to detect "just arrived on Chat" vs. "already there".
+  const enteringChat = key === 'chat' && !document.body.classList.contains('tab-chat-active');
   document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
   // Chat wants to feel like its own app screen, not another section on
@@ -6479,6 +6482,22 @@ function setActiveTab(key) {
   // still counts as reading whatever's currently open.
   if (key === 'chat' && typeof _chatActiveRoomId !== 'undefined' && _chatActiveRoomId && typeof markRoomRead === 'function') {
     markRoomRead(_chatActiveRoomId);
+  }
+  // renderTimeline()'s own roomChanged check only fires on an actual room
+  // switch — arriving at the Chat tab itself (nav click, hash nav, a
+  // deep link) was a complete no-op for it, since neither the room nor
+  // the message list changed. That meant leaving Chat scrolled up to read
+  // history and coming back later (a different tab in between, or just
+  // reopening the app) landed you exactly where you'd left off instead of
+  // at the most recent message, forever, with no way back to the bottom
+  // short of scrolling there by hand. Forcing a rebuild specifically on
+  // arrival (not on every render — see the timer-based version of this
+  // that got reverted earlier this session for exactly that reason) is
+  // the one moment a hard jump-to-bottom is actually the correct, expected
+  // behavior rather than something yanking the view out from under you.
+  if (enteringChat && typeof renderTimeline === 'function') {
+    _lastTimelineRenderKey = null;
+    renderTimeline();
   }
   if (location.hash.slice(1) !== key) location.hash = key;
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
