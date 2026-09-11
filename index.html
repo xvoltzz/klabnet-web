@@ -4668,6 +4668,7 @@ function renderPickerList(songs, label) {
 // Tab switching
 document.querySelectorAll('.picker-tab').forEach(tab => {
   tab.addEventListener('click', () => {
+    window.closeApPanel?.(); // else the still-open album/artist page just kept covering the browse view
     document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     loadPickerTab(tab.dataset.tab);
@@ -4689,6 +4690,7 @@ pickerSearchEl.addEventListener('input', () => {
 // just clear whichever other row was selected.
 pickerSearchEl.addEventListener('keydown', e => {
   if (e.key !== 'Escape' && pickerTab !== 'search') {
+    window.closeApPanel?.();
     document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
     pickerTab = 'search';
@@ -8594,6 +8596,7 @@ function renderPlaylistNav() {
       SFX && SFX.play('click');
     });
     row.addEventListener('click', () => {
+      window.closeApPanel?.();
       document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
       row.classList.add('active');
@@ -11144,6 +11147,15 @@ function sampleImageColor(imgUrl) {
     scroll.innerHTML = '';
     bg.style.backgroundImage = '';
   }
+  // Exposed so the sidebar (.picker-tab rows, playlist rows, search box —
+  // all defined earlier in the file, outside this IIFE) can close the
+  // detail view when navigating away from it. Without this, clicking a
+  // sidebar nav button while an album/artist page was open silently did
+  // nothing visible: it still loaded new content into #pickerList behind
+  // the scenes, but .picker-backdrop stays display:none while body.ap-open
+  // is set (see the CSS), so you'd just keep looking at the stale open
+  // album/artist page — reading as "the sidebar buttons are broken".
+  window.closeApPanel = panelClose;
   function panelBack() {
     if (_stack.length > 1) {
       _stack.pop();
