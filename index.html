@@ -971,10 +971,14 @@
        own text made transparent (caret-color kept so you still see where
        you're typing) — the overlay is what you actually see. */
     .feed-composer-text-wrap { position: relative; }
+    /* Was 12.5px — noticeably smaller than the 15px a posted .feed-post-text
+       actually renders at, so what you typed looked shrunk the moment you
+       hit post. Matched to chat's composer input size (14px) too, so
+       typing feels the same size in both places. */
     .feed-composer-text, .feed-composer-highlight {
       width: 100%; min-height: 44px; max-height: 220px;
       margin: 0; padding: 0; border: none; box-sizing: border-box;
-      font: inherit; font-size: 12.5px; line-height: 1.5; font-family: var(--font-ui);
+      font: inherit; font-size: 14px; line-height: 1.5; font-family: var(--font-ui);
       white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
     }
     .feed-composer-highlight {
@@ -1316,20 +1320,40 @@
       flex: 1; display: flex; align-items: center; justify-content: center;
       font-size: 12px; color: var(--text-faint); text-align: center; padding: 2rem;
     }
-    .chat-msg { display: flex; gap: 11px; padding: 4px 0; }
+    /* Day divider between messages — "Today"/"Yesterday"/"Month D" label
+       centered on the .sec-line fading-gradient-divider language used
+       elsewhere (chat section labels, feed reply dividers), rather than a
+       plain horizontal rule, so it reads as the same visual family. */
+    .chat-date-sep { display: flex; align-items: center; gap: 10px; margin: 14px 2px 6px; }
+    .chat-date-sep:first-child { margin-top: 2px; }
+    .chat-date-sep-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(var(--accent-rgb),0.22) 50%, transparent 100%);
+    }
+    .chat-date-sep-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--text-dimmer); white-space: nowrap; flex-shrink: 0;
+    }
+    /* Sender/text/avatar sizes bumped to match the feed's own "personal,
+       not list-density" pass (feed-post-avatar/-name/-text) — the two now
+       sit one tab apart and read as different apps at the old, smaller
+       chat scale. Kept a hair under the feed's 46px/15px since chat rows
+       are denser (no card padding, higher message frequency). */
+    .chat-msg { display: flex; gap: 12px; padding: 5px 0; }
+    .chat-msg.grouped { padding-top: 1px; }
     .chat-msg-avatar {
-      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
       display: flex; align-items: center; justify-content: center;
       background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      font-size: 14px; font-weight: 700; text-transform: uppercase;
     }
     .chat-msg-avatar.grouped { visibility: hidden; }
     .chat-msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .chat-msg-body { min-width: 0; flex: 1; }
     .chat-msg-head { display: flex; align-items: baseline; gap: 8px; }
-    .chat-msg-sender { font-size: 12.5px; font-weight: 700; color: var(--text); }
+    .chat-msg-sender { font-size: 13.5px; font-weight: 700; color: var(--text); }
     .chat-msg-time { font-size: 10px; color: var(--text-faint); }
-    .chat-msg-text { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
+    .chat-msg-text { font-size: 14px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
     .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
     .chat-msg-edited { font-size: 9.5px; color: var(--text-faint); }
     /* Read receipts: readers' avatars, not text — one avatar for a DM,
@@ -1349,9 +1373,14 @@
     /* Hover actions (react / reply) — top-right corner of a message row,
        revealed on hover so the timeline isn't cluttered by default. */
     .chat-msg { position: relative; }
+    /* var(--tile-bg) alone is ~5.5% opaque in dark mode — the message text
+       underneath showed straight through this floating toolbar. Same
+       glass-fill + blur treatment as .chat-emoji-picker below, which
+       already reads as solid despite being just as translucent a token. */
     .chat-msg-actions {
       position: absolute; top: -6px; right: 8px; display: none; gap: 2px;
-      background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+      background: var(--glass-fill); backdrop-filter: blur(20px);
+      border: 1px solid var(--tile-border); border-radius: 8px;
       padding: 2px; box-shadow: 0 2px 8px var(--shadow-20); z-index: 2;
     }
     .chat-msg:hover .chat-msg-actions { display: flex; }
@@ -1417,8 +1446,8 @@
     /* No top border — the composer input's own box (see its boxy-glow
        styling below) already visually anchors this area; a wrapper
        divider on top of that just read as a second, redundant line. */
-    .chat-composer { padding: 0.5rem 1.2rem 0.9rem; position: relative; }
-    .chat-composer-row { display: flex; align-items: center; gap: 4px; }
+    .chat-composer { padding: 0.5rem 0.9rem 0.9rem; position: relative; }
+    .chat-composer-row { display: flex; align-items: center; gap: 2px; }
     /* Same boxy-but-rounded + focus-glow language as .picker-search in the
        Music sidebar (background/border tokens, radius, and the layered
        box-shadow glow on focus) — was a plain 20px pill with just a border-
@@ -1426,7 +1455,7 @@
        the rest of the app. */
     .chat-composer input {
       width: 100%; background: var(--tile-bg); border: 1px solid var(--tile-border);
-      border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--text);
+      border-radius: 8px; padding: 10px 16px; font-size: 14px; color: var(--text);
       font-family: var(--font-ui); outline: none;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
@@ -1442,8 +1471,13 @@
        uses for .picker-search input — matching it here. */
     .chat-composer input:focus-visible { outline: none; }
     .chat-composer input::placeholder { color: var(--text-dimmer); }
-    .chat-emoji-btn { flex-shrink: 0; font-size: 21px; }
-    .chat-image-btn { flex-shrink: 0; font-size: 17px; }
+    /* .chat-icon-btn.<x> (2 class-equivalents), not just .<x>, so this
+       reliably outranks the shared .chat-icon-btn base rule's own padding
+       further down (same specificity + later source order would otherwise
+       win) — these two buttons needed bigger/tighter padding than the
+       channel-toolbar icons .chat-icon-btn is also shared with. */
+    .chat-icon-btn.chat-emoji-btn { flex-shrink: 0; font-size: 24px; padding: 4px 3px; }
+    .chat-icon-btn.chat-image-btn { flex-shrink: 0; font-size: 20px; padding: 4px 3px; }
     /* gitea#3 emoji request — plain Unicode emoji only, no custom-emoji
        upload/storage (that's a real backend feature, not a v1 fit). */
     .chat-emoji-picker {
@@ -7040,6 +7074,22 @@ function ensureChatImageResolved(mxc) {
   });
 }
 
+// "Today" / "Yesterday" / "Month D" (add a year only once it's not the
+// current one) — the day-divider label between chat messages, same idea as
+// Discord/iMessage's date rules so history is legible without hovering
+// every timestamp to figure out what day it's from.
+function chatDateLabel(date) {
+  const now = new Date();
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const opts = date.getFullYear() === now.getFullYear()
+    ? { month: 'long', day: 'numeric' }
+    : { month: 'long', day: 'numeric', year: 'numeric' };
+  return date.toLocaleDateString(undefined, opts);
+}
+
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
@@ -7124,14 +7174,26 @@ function renderTimeline() {
 
   el.innerHTML = '';
   let lastSender = null;
+  let lastDayKey = null;
   events.forEach(ev => {
+    const evDate = new Date(ev.getTs());
+    const dayKey = evDate.toDateString();
+    if (dayKey !== lastDayKey) {
+      lastDayKey = dayKey;
+      lastSender = null; // a new day always gets its own sender header, even mid-streak
+      const sep = document.createElement('div');
+      sep.className = 'chat-date-sep';
+      sep.innerHTML = `<span class="chat-date-sep-line"></span><span class="chat-date-sep-label">${esc(chatDateLabel(evDate))}</span><span class="chat-date-sep-line"></span>`;
+      el.appendChild(sep);
+    }
+
     const senderId   = ev.getSender();
     const senderName = ev.sender?.name || senderId;
     const grouped    = senderId === lastSender;
     lastSender = senderId;
 
     const row = document.createElement('div');
-    row.className = 'chat-msg';
+    row.className = 'chat-msg' + (grouped ? ' grouped' : '');
     row.dataset.eventId = ev.getId();
 
     if (!ev.isRedacted()) {
