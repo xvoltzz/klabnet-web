@@ -422,29 +422,14 @@
        column that fills the real viewport height instead of guessing one,
        so whatever's actually left after the header/nav/dock goes straight
        to the tab's own content instead of being wasted or overflowing). ══ */
-    /* Every rule in this block uses !important on its layout-critical
-       properties (display/flex/min-height/max-width — never on colors or
-       anything cosmetic). This isn't the usual reach-for-!important-first
-       shortcut: this exact file has a whole family of older, equally-
-       specific "neutralize the modal chrome for inline embedding" rules
-       further down (search .picker-backdrop, .ap-panel.open, .ap-card)
-       that this tab's flex-fill layout needs to override, and three
-       separate rounds of chasing that with ever-more-specific selectors
-       (body.tab-music-active .foo, then .tab-panel[...] .foo, then
-       .tab-panel[...] .foo.open...) kept surfacing ANOTHER equally-or-
-       more-specific rule elsewhere that still won the tie on source
-       order — most recently .tab-panel[data-tab-panel="music"]
-       .ap-panel.open (4 class-equivalents) silently beating what looked
-       like a fix (3). !important sidesteps needing to keep winning that
-       specificity arms race by hand. */
     body.tab-music-active { overflow: hidden; height: 100%; min-height: 0; }
     body.tab-music-active .dash {
-      display: flex !important; flex-direction: column; height: 100%; overflow: hidden;
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
       padding-bottom: 7rem; /* dock clearance — reclaimed below when the dock is hidden, same as Chat */
       /* Same vw-relative reasoning as Chat's width bump: a library
          sidebar + content grid benefits from real width on a big monitor
          far more than a flat --content-w ever would. */
-      max-width: min(96vw, 2800px) !important;
+      max-width: min(96vw, 2800px);
     }
     body.tab-music-active.player-hidden .dash { padding-bottom: 1.75rem; }
     body.tab-music-active .dash-body { flex: 1; min-height: 0; }
@@ -454,7 +439,7 @@
        rail too would make three competing columns in exactly the layout
        the user asked to widen, so it's hidden here instead of stretched. */
     body.tab-music-active .presence-rail { display: none; }
-    body.tab-music-active .tab-panel.active { display: flex !important; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-music-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-music-active .music-shell { flex: 1; min-height: 0; }
     /* min-height:0 is the actual fix here, not just flex-shrink:0 — a flex
        item's default min-height is auto, which lets it grow past its
@@ -464,38 +449,34 @@
        overflow:hidden instead of scrolling at all. */
     body.tab-music-active .music-sidebar { flex-shrink: 0; min-height: 0; overflow-y: auto; }
     body.tab-music-active .music-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    /* .picker-list's flex:1 only means anything if THIS is actually
-       display:flex — the neutralization rule further down sets
-       display:block at equal-or-greater specificity, so without
-       !important it silently wins and .picker-list falls back to
-       unbounded content height, clipped with no scrollbar by .dash's
-       overflow:hidden above. This was "the whole tab won't scroll". */
-    body.tab-music-active .picker-backdrop {
-      flex: 1; min-height: 0; display: flex !important; flex-direction: column;
+    /* Same specificity-tie bug as .ap-panel.open below: the neutralization
+       rule further down (.tab-panel[data-tab-panel="music"] .picker-backdrop)
+       is equally specific (2 class-equivalents) and sits later in the
+       sheet, so its display:block was winning over this display:flex —
+       meaning .picker-list's flex:1 never actually applied (not a flex
+       item at all under display:block), so it just grew to fit all its
+       content with nothing to bound it, silently clipped by .dash's
+       overflow:hidden with no scrollbar anywhere. This is the actual "the
+       whole tab won't scroll" bug — extra ancestor qualifier here to
+       reliably win instead of just tying. */
+    body.tab-music-active .tab-panel[data-tab-panel="music"] .picker-backdrop {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
     }
-    /* Viewing an album/artist (body.ap-open, toggled alongside
-       tab-music-active — both live on the same <body>) needs the browse
-       list hidden again, not forced back to flex:visible by the
-       !important above — higher specificity than the plain rule two
-       lines up (3 class-equivalents vs 2) so it wins even though both
-       are !important. */
-    body.tab-music-active.ap-open .picker-backdrop { display: none !important; }
     /* .ap-card's base rule (modal era) is a fixed height:min(88vh,920px) —
        explicit height:auto here, not just flex:1, so there's no ambiguity
        about which wins (same belt-and-suspenders style .chat-app already
        uses right above for the same reason). */
     body.tab-music-active .ap-card {
-      height: auto !important; flex: 1; min-height: 0; display: flex !important; flex-direction: column;
+      height: auto; flex: 1; min-height: 0; display: flex; flex-direction: column;
     }
-    /* Same story as .picker-backdrop above, for the artist/album detail
-       view specifically: .tab-panel[data-tab-panel="music"] .ap-panel.open
-       (4 class-equivalents) was beating an earlier, non-!important version
-       of this rule (3) — meaning viewing an album/artist page had the
-       exact same broken-scroll bug as the main browse list. */
+    /* .ap-panel.open (3 class-equivalents) beats the plain .ap-panel.open
+       -> display:block rule further down (2) on equal-order grounds — this
+       needs to actually win, not just tie, since flex:1/flex-direction
+       depend on display:flex actually taking effect once opened. */
     body.tab-music-active .ap-panel.open {
-      flex: 1; min-height: 0; display: flex !important; flex-direction: column;
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
     }
-    body.tab-music-active .picker-list { flex: 1; min-height: 0; max-height: none !important; }
+    body.tab-music-active .picker-list { flex: 1; min-height: 0; max-height: none; }
     body.tab-music-active .ap-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
     .music-shell { display: flex; gap: 1.4rem; }
