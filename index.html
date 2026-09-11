@@ -2109,6 +2109,32 @@
       color: var(--text-dimmer); text-transform: uppercase;
     }
 
+    /* Keyboard-shortcuts hints panel (see #keyHintsBackdrop). */
+    .key-hints-group { margin-bottom: 14px; }
+    .key-hints-group:last-child { margin-bottom: 0; }
+    .key-hints-group-label {
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-dimmer); margin-bottom: 4px;
+    }
+    .key-hints-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 5px 2px; font-size: 11.5px; color: var(--text-dim);
+      border-bottom: 1px solid var(--tile-border);
+    }
+    .key-hints-row:last-child { border-bottom: none; }
+    .key-hints-keys { display: flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 9.5px; color: var(--text-faint); }
+    .key-hint-key {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+      border-radius: 5px; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      box-shadow: 0 1px 0 var(--tile-border);
+      font-family: var(--font-ui); font-size: 10.5px; font-weight: 600; color: var(--text);
+    }
+    .key-hints-note {
+      font-size: 9.5px; color: var(--text-faint); text-align: center;
+      margin-top: 12px; letter-spacing: 0.02em;
+    }
+
     /* ══ LIVE UPDATE BANNER — someone deployed a new commit while this
        tab was open (see the version-poll script near the end of the
        document) ══ */
@@ -3432,6 +3458,7 @@ window.KLAB_BOOT = (function() {
     </nav>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
+      <button class="hdr-btn glass" id="keyHintsBtn" title="Keyboard shortcuts"><i class="ti ti-keyboard"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
@@ -3696,6 +3723,39 @@ window.KLAB_BOOT = (function() {
       <button class="add-app-close" id="chatModalClose"><i class="ti ti-x"></i></button>
     </div>
     <div id="chatModalBody"></div>
+  </div>
+</div>
+
+<!-- KEYBOARD SHORTCUTS HINTS — own dedicated backdrop (not the shared
+     chatModal shell) so its own Escape/open-state handling never has to
+     guess whether some OTHER modal is the one currently open. -->
+<div class="add-app-backdrop" id="keyHintsBackdrop">
+  <div class="add-app-modal" style="width:min(560px, calc(100vw - 2rem));">
+    <div class="add-app-title">
+      <span>// keyboard shortcuts</span>
+      <button class="add-app-close" id="keyHintsClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="key-hints-body">
+      <div class="key-hints-group">
+        <div class="key-hints-group-label">Navigation</div>
+        <div class="key-hints-row"><span>Go to Feed / Chat / Music / Apps / KLABCRAFT</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">f/c/m/a/k</kbd></span></div>
+        <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
+        <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
+        <div class="key-hints-row"><span>Focus search (Music tab)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
+      </div>
+      <div class="key-hints-group">
+        <div class="key-hints-group-label">Playback</div>
+        <div class="key-hints-row"><span>Play / Pause</span><span class="key-hints-keys"><kbd class="key-hint-key">Space</kbd></span></div>
+        <div class="key-hints-row"><span>Next / Previous track</span><span class="key-hints-keys"><kbd class="key-hint-key">n</kbd><kbd class="key-hint-key">p</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
+        <div class="key-hints-row"><span>Mute</span><span class="key-hints-keys"><kbd class="key-hint-key">m</kbd></span></div>
+      </div>
+      <div class="key-hints-group">
+        <div class="key-hints-group-label">General</div>
+        <div class="key-hints-row"><span>Toggle this panel</span><span class="key-hints-keys"><kbd class="key-hint-key">?</kbd></span></div>
+        <div class="key-hints-row"><span>Close panels &amp; dialogs</span><span class="key-hints-keys"><kbd class="key-hint-key">Esc</kbd></span></div>
+      </div>
+      <div class="key-hints-note">Shortcuts are ignored while typing in a text field.</div>
+    </div>
   </div>
 </div>
 
@@ -4027,6 +4087,93 @@ function openBgColorModal() {
   });
 }
 document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModal);
+
+// ══════════════════════════════════════════
+//  KEYBOARD SHORTCUTS — vim-flavored global bindings + a discoverable "?"
+//  hints panel (#keyHintsBackdrop). Every binding is ignored while focus is
+//  in an editable field (input/textarea/contenteditable), and while any
+//  modifier key is held, so normal typing and OS/browser shortcuts are
+//  never hijacked.
+// ══════════════════════════════════════════
+(function() {
+  const GO_TO_TAB = { f: 'feed', c: 'chat', m: 'music', a: 'apps', k: 'klabcraft' };
+  let awaitingG = false;
+  let awaitingGTimer = null;
+
+  function isEditableTarget() {
+    const el = document.activeElement;
+    if (!el) return false;
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
+  }
+
+  // Whichever scrollable pane the active tab actually owns right now —
+  // there's no single "the" scroll container, it depends on which tab
+  // (and, in Music, whether the album/artist detail view is open).
+  function activeScrollPane() {
+    if (document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
+      return document.getElementById('chatTimeline');
+    }
+    if (document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active')) {
+      if (document.getElementById('apPanel')?.classList.contains('open')) return document.getElementById('apScroll');
+      return document.getElementById('pickerList');
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+  function scrollPane(delta) {
+    activeScrollPane()?.scrollBy({ top: delta, behavior: 'smooth' });
+  }
+  function scrollPaneToEdge(toTop) {
+    const pane = activeScrollPane();
+    if (!pane) return;
+    pane.scrollTo({ top: toTop ? 0 : pane.scrollHeight, behavior: 'smooth' });
+  }
+
+  function toggleKeyHints() {
+    document.getElementById('keyHintsBackdrop')?.classList.toggle('open');
+    SFX && SFX.play('click');
+  }
+  document.getElementById('keyHintsBtn')?.addEventListener('click', toggleKeyHints);
+  document.getElementById('keyHintsClose')?.addEventListener('click', toggleKeyHints);
+  document.getElementById('keyHintsBackdrop')?.addEventListener('click', e => {
+    if (e.target.id === 'keyHintsBackdrop') toggleKeyHints();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return; // never fight a browser/OS shortcut
+    if (e.key === 'Escape') {
+      if (document.getElementById('keyHintsBackdrop')?.classList.contains('open')) toggleKeyHints();
+      return; // never swallow Escape — other open panels have their own handlers for it
+    }
+    if (isEditableTarget()) return;
+
+    if (awaitingG) {
+      clearTimeout(awaitingGTimer);
+      awaitingG = false;
+      if (e.key === 'g') { e.preventDefault(); scrollPaneToEdge(true); return; } // gg -> top
+      if (GO_TO_TAB[e.key]) { e.preventDefault(); setActiveTab(GO_TO_TAB[e.key]); return; }
+      return; // unrecognized second key — drop the pending g silently, vim does the same
+    }
+
+    switch (e.key) {
+      case 'g':
+        awaitingG = true;
+        awaitingGTimer = setTimeout(() => { awaitingG = false; }, 700);
+        break;
+      case 'j': e.preventDefault(); scrollPane(90); break;
+      case 'k': e.preventDefault(); scrollPane(-90); break;
+      case 'G': e.preventDefault(); scrollPaneToEdge(false); break;
+      case '/': {
+        const search = document.getElementById('pickerSearch');
+        const onMusic = document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active');
+        if (onMusic && search) { e.preventDefault(); search.focus(); }
+        break;
+      }
+      case 'n': e.preventDefault(); document.getElementById('btnNext')?.click(); break;
+      case 'p': e.preventDefault(); document.getElementById('btnPrev')?.click(); break;
+      case '?': e.preventDefault(); toggleKeyHints(); break;
+    }
+  });
+})();
 
 // ══════════════════════════════════════════
 //  MAINTENANCE
