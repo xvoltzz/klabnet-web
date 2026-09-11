@@ -417,6 +417,140 @@
        rather than intentional.) */
     body.tab-chat-active .chat-app { height: auto; flex: 1; min-height: 0; }
 
+    /* ══ MUSIC — sidebar + content pane, same flex-fill idea as Chat above
+       (see its own comments for the full reasoning: .dash becomes a
+       column that fills the real viewport height instead of guessing one,
+       so whatever's actually left after the header/nav/dock goes straight
+       to the tab's own content instead of being wasted or overflowing). ══ */
+    body.tab-music-active { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-music-active .dash {
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
+      padding-bottom: 7rem; /* dock clearance — reclaimed below when the dock is hidden, same as Chat */
+      /* Same vw-relative reasoning as Chat's width bump: a library
+         sidebar + content grid benefits from real width on a big monitor
+         far more than a flat --content-w ever would. */
+      max-width: min(96vw, 2800px);
+    }
+    body.tab-music-active.player-hidden .dash { padding-bottom: 1.75rem; }
+    body.tab-music-active .dash-body { flex: 1; min-height: 0; }
+    body.tab-music-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    /* Unlike Chat (which just stretches the rail alongside its single
+       content column), Music already has its own left sidebar — a right
+       rail too would make three competing columns in exactly the layout
+       the user asked to widen, so it's hidden here instead of stretched. */
+    body.tab-music-active .presence-rail { display: none; }
+    body.tab-music-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-music-active .music-shell { flex: 1; min-height: 0; }
+    body.tab-music-active .music-sidebar { flex-shrink: 0; }
+    body.tab-music-active .music-main,
+    body.tab-music-active .picker-backdrop {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+    }
+    /* .ap-card's base rule (modal era) is a fixed height:min(88vh,920px) —
+       explicit height:auto here, not just flex:1, so there's no ambiguity
+       about which wins (same belt-and-suspenders style .chat-app already
+       uses right above for the same reason). */
+    body.tab-music-active .ap-card {
+      height: auto; flex: 1; min-height: 0; display: flex; flex-direction: column;
+    }
+    /* .ap-panel.open (3 class-equivalents) beats the plain .ap-panel.open
+       -> display:block rule further down (2) on equal-order grounds — this
+       needs to actually win, not just tie, since flex:1/flex-direction
+       depend on display:flex actually taking effect once opened. */
+    body.tab-music-active .ap-panel.open {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+    }
+    body.tab-music-active .picker-list { flex: 1; min-height: 0; max-height: none; }
+    body.tab-music-active .ap-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+    .music-shell { display: flex; gap: 1.4rem; }
+    .music-sidebar {
+      width: 260px; display: flex; flex-direction: column; gap: 3px;
+      overflow-y: auto; padding-right: 2px;
+      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+    .music-sidebar .picker-search { margin-bottom: 8px; }
+    .music-sidebar-divider { height: 1px; background: var(--glass-border); margin: 10px 6px; flex-shrink: 0; }
+    .music-sidebar-label {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-faint); padding: 4px 10px 6px; flex-shrink: 0;
+    }
+    .music-playlist-nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+    .music-new-playlist-btn {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10.5px; color: var(--text-dimmer); background: none;
+      border: 1px dashed var(--tile-border); border-radius: 8px;
+      padding: 8px 10px; margin-top: 4px; cursor: pointer; font-family: var(--font-ui);
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .music-new-playlist-btn:hover { color: var(--text); border-color: var(--tile-border-h); background: var(--tile-bg-h); }
+    .music-playlist-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .music-playlist-row:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .music-playlist-row.active { background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
+    .music-playlist-row-art {
+      width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0; object-fit: cover;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 13px;
+    }
+    .music-playlist-row-info { flex: 1; min-width: 0; }
+    .music-playlist-row-name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-playlist-row-meta { font-size: 9px; color: var(--text-dimmer); margin-top: 1px; }
+    .music-playlist-row-del {
+      flex-shrink: 0; opacity: 0; color: var(--text-dimmer); padding: 4px; border-radius: 6px;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+    .music-playlist-row:hover .music-playlist-row-del { opacity: 1; }
+    .music-playlist-row-del:hover { color: var(--danger-color); background: var(--glass-fill-h); }
+
+    .music-main { min-width: 0; position: relative; }
+
+    /* Sidebar nav restyle — .picker-tab is Music-only (confirmed), so its
+       base rule can just be repointed at a vertical row look instead of
+       the old horizontal pill-tab strip, no scoping needed. */
+    .picker-tabs { display: flex; flex-direction: column; gap: 2px; overflow: visible; }
+    .picker-tab {
+      display: flex; align-items: center; gap: 9px; width: 100%;
+      font-size: 11px; letter-spacing: 0.02em; text-transform: none;
+      padding: 7px 10px; border-radius: 8px; text-align: left;
+      border: 1px solid transparent; color: var(--text-dim); background: none;
+    }
+    .picker-tab i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; color: var(--text-dimmer); }
+    .picker-tab span { flex: 1; }
+    .picker-tab.active i { color: rgba(var(--accent-rgb),1); }
+
+    /* Albums/Artists grid mode — toggled by loadPickerTab() via
+       picker-list-grid on #pickerList, so the existing .picker-item DOM
+       (art + info + actions, built by renderAlbumList()/renderArtistList()/
+       renderArtistSearchResults() — none of which needed to change) just
+       reflows into cards instead of rows, no JS rewrite required. */
+    .picker-list.picker-list-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px; align-content: start;
+    }
+    .picker-list.picker-list-grid .picker-item {
+      flex-direction: column; align-items: stretch; gap: 8px; padding: 10px;
+      animation: fadeInUp 0.3s ease backwards;
+    }
+    .picker-list.picker-list-grid .picker-item-art,
+    .picker-list.picker-list-grid .picker-item-art-ph {
+      width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; font-size: 28px;
+      transition: transform 0.2s ease;
+    }
+    .picker-list.picker-list-grid .picker-item:hover .picker-item-art,
+    .picker-list.picker-list-grid .picker-item:hover .picker-item-art-ph { transform: scale(1.03); }
+    .picker-list.picker-list-grid .picker-item-info { width: 100%; }
+    .picker-list.picker-list-grid .picker-item-title { white-space: normal; }
+    .picker-list.picker-list-grid .picker-item-artist { white-space: normal; }
+    .picker-list.picker-list-grid .picker-item-actions {
+      width: 100%; justify-content: flex-start; padding-top: 2px;
+    }
+    .picker-list.picker-list-grid .picker-section-label { grid-column: 1 / -1; }
+
     /* ══ HEADER ══ */
     /* Grid (not flex) so .tab-nav can sit in a true center column
        regardless of how wide header-left/header-right happen to be —
@@ -739,11 +873,12 @@
 
     /* The song picker and artist/album panel used to be global fixed-position
        modals (.picker-backdrop, .ap-panel — see their base rules further
-       down). Embedded inline in the Music tab, they should read as normal
-       page content filling the column, not a centered dialog floating over
-       a dimmed backdrop — this scoped override neutralizes that chrome
-       without touching the modal rules themselves (still used for their
-       actual list/track rendering logic, untouched). */
+       down). Embedded inline in the Music tab (inside .music-main, next to
+       the sidebar — see body.tab-music-active further down), they read as
+       normal panel content filling that column, not a centered dialog
+       floating over a dimmed backdrop — this scoped override neutralizes
+       that chrome without touching the modal rules themselves (still used
+       for their actual list/track rendering logic, untouched). */
     .tab-panel[data-tab-panel="music"] .picker-backdrop,
     .tab-panel[data-tab-panel="music"] .ap-panel {
       position: static; inset: auto; z-index: auto;
@@ -756,17 +891,11 @@
        stack below it as a second section you have to scroll past. panelOpen()/
        panelClose() already toggle body.ap-open for this. */
     body.ap-open .tab-panel[data-tab-panel="music"] .picker-backdrop { display: none; }
-    .tab-panel[data-tab-panel="music"] .picker-modal,
     .tab-panel[data-tab-panel="music"] .ap-card {
-      width: 100%; max-width: none; height: auto; max-height: none;
+      width: 100%; max-width: none;
       border: none; background: none; box-shadow: none; padding: 0;
       animation: none; opacity: 1; transform: none; transition: none;
     }
-    /* .ap-card normally clips to its fixed modal height (its child .ap-scroll
-       does the scrolling) — with height:auto above there's no bound to clip
-       to, and any clipping here would just cut content off. */
-    .tab-panel[data-tab-panel="music"] .ap-card { overflow: visible; }
-    .tab-panel[data-tab-panel="music"] .ap-scroll { overflow-y: visible; }
     .music-tab-placeholder {
       font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer);
       padding: 2rem 0;
@@ -1409,29 +1538,22 @@
     .ctx-item.active-warn { color: var(--warn-color); }
     .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
 
-    /* ══ MUSIC PLAYER DOCK — always a floating bar, bottom-centered ══ */
+    /* ══ MUSIC PLAYER DOCK — full-width bar flush with the bottom edge ══ */
     .player-dock {
       position: fixed;
-      bottom: 1.1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      /* A bit wider than the content column — it's a single bar, not a
-         grid, so it can afford to run wider than .dash. Tied to the same
-         --content-w scale so it grows correctly under the zoom tiers too. */
-      width: min(calc(var(--content-w) + 200px), calc(100vw - 3rem));
+      bottom: 0; left: 0; right: 0;
       z-index: 50;
-      border-radius: 10px;
-      padding: 0.75rem 1.35rem;
+      padding: 0.75rem clamp(1rem, 3vw, 3rem);
       display: flex;
       align-items: center;
       gap: 1.1rem;
       background: var(--modal-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px var(--shadow-50);
-      transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease;
+      border-top: 1px solid var(--glass-border);
+      box-shadow: 0 -8px 30px var(--shadow-30);
+      transition: background 0.2s ease, border-color 0.2s ease;
       font-family: var(--font-ui);
     }
-    .player-dock.hidden { transform: translateX(-50%) translateY(calc(100% + 2.5rem))!important; opacity:0!important; pointer-events:none!important; }
+    .player-dock.hidden { transform: translateY(100%)!important; opacity:0!important; pointer-events:none!important; }
 
     /* Flatten the nested rows into one line */
     .player-main,
@@ -3281,42 +3403,47 @@ window.KLAB_BOOT = (function() {
   </div>
 
   <div class="tab-panel" data-tab-panel="music">
-  <div class="picker-backdrop" id="pickerBackdrop">
-    <div class="picker-modal">
-      <div class="picker-header">
-        <span class="picker-title">// song picker</span>
-      </div>
+  <div class="music-shell" id="musicShell">
+    <nav class="music-sidebar" id="musicSidebar">
       <div class="picker-search">
         <i class="ti ti-search"></i>
         <input type="text" id="pickerSearch" placeholder="search songs, artists..." autocomplete="off" />
-        <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i> Sort</button>
+        <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
       </div>
       <div class="picker-tabs">
-        <button class="picker-tab active" data-tab="random">Random</button>
-        <button class="picker-tab" data-tab="recent">Recent</button>
-        <button class="picker-tab" data-tab="songs">Songs</button>
-        <button class="picker-tab" data-tab="albums">Albums</button>
-        <button class="picker-tab" data-tab="artists">Artists</button>
-        <button class="picker-tab" data-tab="genres">Genres</button>
-        <button class="picker-tab" data-tab="playlists">Playlists</button>
-        <button class="picker-tab" data-tab="favorites">Favorites <span id="favCount"></span></button>
-        <button class="picker-tab" data-tab="queue">Queue <span id="queueCount"></span></button>
-        <button class="picker-tab" data-tab="search">Search</button>
+        <button class="picker-tab active" data-tab="random"><i class="ti ti-home"></i><span>Home</span></button>
+        <button class="picker-tab" data-tab="recent"><i class="ti ti-history"></i><span>Recent</span></button>
+        <button class="picker-tab" data-tab="songs"><i class="ti ti-music"></i><span>Songs</span></button>
+        <button class="picker-tab" data-tab="albums"><i class="ti ti-disc"></i><span>Albums</span></button>
+        <button class="picker-tab" data-tab="artists"><i class="ti ti-microphone-2"></i><span>Artists</span></button>
+        <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
+        <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
+        <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
+        <button class="picker-tab" data-tab="search"><i class="ti ti-search"></i><span>Search</span></button>
       </div>
-      <div class="picker-list" id="pickerList">
-        <div class="picker-empty">loading tracks...</div>
+      <div class="music-sidebar-divider"></div>
+      <div class="music-playlist-nav" id="musicPlaylistNav">
+        <div class="music-sidebar-label">Playlists</div>
+        <!-- Individual rows injected by renderPlaylistNav() -->
+        <button class="music-new-playlist-btn" id="musicNewPlaylistBtn" type="button"><i class="ti ti-plus"></i> New Playlist</button>
       </div>
-    </div>
-  </div>
-
-  <div class="ap-panel" id="apPanel">
-    <div class="ap-card">
-      <div class="ap-bg" id="apBg"></div>
-      <div class="ap-topbar">
-        <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
-        <span class="ap-topbar-title" id="apTopbarTitle"></span>
+    </nav>
+    <div class="music-main">
+      <div class="picker-backdrop" id="pickerBackdrop">
+        <div class="picker-list" id="pickerList">
+          <div class="picker-empty">loading tracks...</div>
+        </div>
       </div>
-      <div class="ap-scroll" id="apScroll"></div>
+      <div class="ap-panel" id="apPanel">
+        <div class="ap-card">
+          <div class="ap-bg" id="apBg"></div>
+          <div class="ap-topbar">
+            <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
+            <span class="ap-topbar-title" id="apTopbarTitle"></span>
+          </div>
+          <div class="ap-scroll" id="apScroll"></div>
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -4244,6 +4371,7 @@ function ensureMusicTabLoaded() {
   if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
   else pickerSearchEl.value = pickerQuery;
   loadPickerTab(pickerTab);
+  if (typeof renderPlaylistNav === 'function') renderPlaylistNav();
   _pickerLoaded = true;
 }
 function openPicker() {
@@ -6226,6 +6354,8 @@ function setActiveTab(key) {
   // (redundant there anyway, Chat already shows who's around) collapse
   // to give it real room instead of being squeezed into a small fixed box.
   document.body.classList.toggle('tab-chat-active', key === 'chat');
+  // Same flex-fill idea as Chat, for the same reason — see body.tab-music-active's own CSS comment.
+  document.body.classList.toggle('tab-music-active', key === 'music');
   // Swaps the header's terminal-prompt branding to klab.chat while on
   // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro
   // typing animation already having finished; if it hasn't (a page load
@@ -8515,7 +8645,60 @@ function getPlaylists() {
 function savePlaylists(pls) {
   localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(pls));
   scheduleSave();
+  // Single touch point for every mutation (create/delete/add-song all
+  // funnel through here) — the sidebar just stays in sync automatically
+  // rather than each call site needing to remember to refresh it.
+  if (typeof renderPlaylistNav === 'function') renderPlaylistNav();
 }
+
+// Sidebar playlist rows (see .music-playlist-nav in the Music tab-panel
+// markup) — replaces the old generic "Playlists" tab; each playlist is now
+// its own direct link, same as a real Spotify sidebar. Reuses
+// loadPlaylistView() unchanged for the actual track-list rendering.
+function renderPlaylistNav() {
+  const nav = document.getElementById('musicPlaylistNav');
+  const newBtn = document.getElementById('musicNewPlaylistBtn');
+  if (!nav || !newBtn) return;
+  nav.querySelectorAll('.music-playlist-row').forEach(row => row.remove());
+  getPlaylists().forEach(pl => {
+    const row = document.createElement('div');
+    row.className = 'music-playlist-row';
+    row.dataset.plId = pl.id;
+    const artSong = pl.songs.find(s => s.coverArt);
+    const artHTML = artSong
+      ? `<img class="music-playlist-row-art" src="${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artSong.coverArt)}&size=60&${subsonicParams()}" alt="" loading="lazy" />`
+      : `<div class="music-playlist-row-art"><i class="ti ti-playlist"></i></div>`;
+    row.innerHTML = `
+      ${artHTML}
+      <div class="music-playlist-row-info">
+        <div class="music-playlist-row-name">${esc(pl.name)}</div>
+        <div class="music-playlist-row-meta">${pl.songs.length} song${pl.songs.length === 1 ? '' : 's'}</div>
+      </div>
+      <button class="music-playlist-row-del" title="Delete playlist" type="button"><i class="ti ti-trash"></i></button>
+    `;
+    row.querySelector('.music-playlist-row-del').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm(`Delete "${pl.name}"?`)) return;
+      savePlaylists(getPlaylists().filter(p => p.id !== pl.id));
+      SFX && SFX.play('click');
+    });
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
+      row.classList.add('active');
+      pickerTab = 'playlist';
+      loadPlaylistView(pl);
+    });
+    nav.insertBefore(row, newBtn);
+  });
+}
+document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', () => {
+  const name = prompt('New playlist name:');
+  if (!name || !name.trim()) return;
+  createPlaylist(name.trim());
+  SFX && SFX.play('star');
+  showToast(`"${name.trim()}" created`);
+});
 
 function createPlaylist(name) {
   const pls = getPlaylists();
@@ -8614,14 +8797,19 @@ function renderPlaylistList() {
 
 function loadPlaylistView(pl) {
   hideSortBtn();
+  pickerList.classList.remove('picker-list-grid'); // a track list, not a grid — in case Albums/Artists left it on
   pickerList.innerHTML = '';
+  // Playlists are always one click away in the sidebar now (no more
+  // generic "Playlists" tab to go back to) — this just clears the active
+  // state and returns to Home, same as clicking any other sidebar item.
   const back = document.createElement('button');
   back.className = 'picker-back';
-  back.innerHTML = '<i class="ti ti-arrow-left"></i> Playlists';
+  back.innerHTML = '<i class="ti ti-arrow-left"></i> Back';
   back.addEventListener('click', () => {
+    document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
     document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-tab="playlists"]').classList.add('active');
-    renderPlaylistList();
+    document.querySelector('[data-tab="random"]').classList.add('active');
+    loadPickerTab('random');
   });
   pickerList.appendChild(back);
 
@@ -8894,7 +9082,6 @@ function renderSongsTabSorted() {
 loadPickerTab = async function(tab) {
   if (tab === 'songs')     { pickerTab = tab; await loadAllSongs(); return; }
   if (tab === 'genres')    { pickerTab = tab; await loadGenres(); return; }
-  if (tab === 'playlists') { pickerTab = tab; renderPlaylistList(); return; }
   return _origLoadPickerTabNew(tab);
 };
 
@@ -8903,6 +9090,13 @@ loadPickerTab = async function(tab) {
 const _origLoadPickerTabSort = loadPickerTab;
 loadPickerTab = async function(tab) {
   hideSortBtn();
+  // Outermost wrapper — every tab switch funnels through here regardless
+  // of which inner layer above actually ends up rendering it, so this is
+  // the one place that reliably turns grid mode on/off no matter which
+  // tab you're coming from. Reuses the existing .picker-item DOM
+  // (renderAlbumList()/renderArtistList()/renderArtistSearchResults(),
+  // none of which needed to change) — this just reflows it via CSS.
+  pickerList.classList.toggle('picker-list-grid', tab === 'albums' || tab === 'artists');
   return _origLoadPickerTabSort(tab);
 };
 
