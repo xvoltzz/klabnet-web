@@ -373,11 +373,22 @@
       /* Chat is the one tab where more horizontal room is straightforwardly
          useful (a wider timeline/composer, not a wider tile grid or feed
          reading column) — the presence rail next to it is a fixed 240px,
-         so nearly all of this goes straight to .dash-main. min() keeps it
-         from ever exceeding the viewport, same safety clamp the fullscreen
-         player already uses on --content-w elsewhere. */
-      max-width: min(calc(var(--content-w) + 400px), calc(100vw - 3rem));
+         so nearly all of this goes straight to .dash-main. A flat +Npx
+         bump on --content-w reads as basically nothing on a laptop and
+         way too little on a 4K/ultrawide monitor (this app's userbase
+         genuinely spans that whole range, per --content-w's own tiers
+         above) — a vw-relative width scales with however much room is
+         actually there instead of needing yet more hand-tuned breakpoints.
+         2800px is just a soft ceiling so line length doesn't get silly on
+         a very wide/ultrawide display; tune both numbers against a real
+         4K screen if this over- or under-shoots. */
+      max-width: min(96vw, 2800px);
     }
+    /* The dock's own clearance above is wasted space once it's actually
+       hidden (position:fixed — see setPlayerVisible()'s own comment) —
+       reclaim it back down to the same bottom padding every other tab
+       uses by default (.dash's base rule further up). */
+    body.tab-chat-active.player-hidden .dash { padding-bottom: 1.75rem; }
     body.tab-chat-active .dash-body { flex: 1; min-height: 0; }
     /* align-self, not the parent's align-items — so only .dash-main
        stretches to fill the row's height; the presence rail next to it
@@ -393,11 +404,6 @@
     body.tab-chat-active .presence-rail { align-self: stretch; max-height: 100%; }
     body.tab-chat-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-chat-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
-    /* .sec-head's global margin-bottom (1.2rem) plus .chat-app-header's
-       own top padding (0.9rem) stack into a gap that reads as too much
-       air above "connecting…"/"connected" — tightened for this section
-       only, same idea as .sec-global-presence's smaller variant below. */
-    body.tab-chat-active .sec[data-sec="klabsocial"] .sec-head { margin-bottom: 0.6rem; }
     body.tab-chat-active .chat-shell { flex: 1; min-height: 0; }
     /* flex:1 (not 0 1 auto) — a fixed, content-independent height, so a
        short conversation doesn't shrink the box down to fit just those
@@ -3230,7 +3236,6 @@ window.KLAB_BOOT = (function() {
 
   <div class="tab-panel" data-tab-panel="chat">
   <div class="sec" data-sec="klabsocial">
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klab chat</span><div class="sec-line"></div></div>
     <div class="chat-shell" id="chatShell">
       <div class="chat-connect" id="chatConnect">
         <i class="ti ti-message-circle-2"></i>
@@ -3518,6 +3523,14 @@ window.KLAB_BOOT = (function() {
 //  TERMINAL TYPING ANIMATION
 // ══════════════════════════════════════════
 const FULL_TEXT = 'klabnet>_';
+// Shown instead, while on the Chat tab — klab.chat is a domain the user
+// has picked up with an eye toward possibly spinning Chat out as its own
+// site later; this previews that branding without actually splitting
+// anything yet. Applied by setActiveTab() (see its own comment) once the
+// intro typing animation below has finished, or by this animation itself
+// if it's still mid-typing at that point (e.g. a page load landing
+// directly on the #chat hash).
+const CHAT_PROMPT_TEXT = 'klab.chat>_';
 let typed = 0;
 const promptEl  = document.getElementById('promptText');
 const cursorEl  = document.getElementById('promptCursor');
@@ -3529,6 +3542,7 @@ function typeNext() {
     setTimeout(typeNext, delay);
   } else {
     cursorEl.classList.add('visible');
+    if (document.body.classList.contains('tab-chat-active')) promptEl.textContent = CHAT_PROMPT_TEXT;
   }
 }
 setTimeout(typeNext, 400);
@@ -4534,6 +4548,12 @@ function setPlayerVisible(v) {
   document.getElementById('playerToggleIcon').className = v ? 'ti ti-music' : 'ti ti-music-off';
   document.getElementById('playerToggle').classList.toggle('active', !v);
   localStorage.setItem(PLAYER_VIS_KEY, String(v));
+  // The dock is position:fixed — hiding it just translates it off-screen
+  // (see .player-dock.hidden), so the Chat tab's padding-bottom clearance
+  // for it (see body.tab-chat-active .dash) is pure wasted space once
+  // it's actually hidden, not something that needs preserving for layout
+  // reasons the way it does while the dock is visible and floating on top.
+  document.body.classList.toggle('player-hidden', !v);
 }
 setPlayerVisible(playerVisible);
 document.getElementById('playerToggle').addEventListener('click', () => { setPlayerVisible(!playerVisible); SFX.play('click'); });
@@ -6206,6 +6226,15 @@ function setActiveTab(key) {
   // (redundant there anyway, Chat already shows who's around) collapse
   // to give it real room instead of being squeezed into a small fixed box.
   document.body.classList.toggle('tab-chat-active', key === 'chat');
+  // Swaps the header's terminal-prompt branding to klab.chat while on
+  // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro
+  // typing animation already having finished; if it hasn't (a page load
+  // landing directly on the #chat hash), typeNext()'s own completion
+  // branch applies the right text once it's done instead, rather than
+  // this fighting that in-flight animation.
+  if (typeof promptEl !== 'undefined' && promptEl && typeof typed !== 'undefined' && typed >= FULL_TEXT.length) {
+    promptEl.textContent = key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT;
+  }
   // Landing on Chat with a room already selected but nothing else
   // happening to trigger a re-render (e.g. clicking the nav tab itself)
   // still counts as reading whatever's currently open.
