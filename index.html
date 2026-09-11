@@ -984,6 +984,15 @@
       background: none; outline: none;
       color: transparent; caret-color: var(--text);
     }
+    /* The plain outline:none above loses a same-specificity tie against
+       the global textarea:focus-visible accessibility-ring rule further
+       down the sheet (it sits later, so it wins) — same fix as
+       .chat-composer input's own :focus-visible override, and the actual
+       cause of the "a second box around the text" report: this textarea
+       sits inside .feed-composer, which already glows the whole card on
+       :focus-within, so the browser's own ring on top of that read as a
+       redundant second box drawn tight around the text itself. */
+    .feed-composer-text:focus-visible { outline: none; }
     .feed-composer-text::placeholder { color: var(--text-dimmer); }
     .feed-composer-preview-wrap { position: relative; width: fit-content; margin-top: 0.5rem; }
     .feed-composer-preview { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; }
@@ -1006,11 +1015,13 @@
     .feed-composer-image-btn:hover { border-color: var(--tile-border-h); color: var(--text); }
     .feed-composer-image-btn.has-image { color: rgba(var(--accent-rgb),1); border-color: rgba(var(--accent-rgb),0.4); }
     .feed-composer-error { font-size: 9.5px; color: var(--danger-color); }
+    /* Icon-only, matching the reply-send button's treatment — was a text
+       pill, the one labeled button in a row of otherwise icon-only ones. */
     .feed-composer-post-btn {
-      margin-left: auto;
-      padding: 6px 16px; border-radius: 6px;
-      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
-      cursor: pointer;
+      margin-left: auto; flex-shrink: 0;
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; cursor: pointer;
       background: rgba(var(--accent-rgb),0.15);
       border: 1px solid rgba(var(--accent-rgb),0.35);
       color: rgba(var(--accent-rgb),1);
@@ -1053,38 +1064,46 @@
 
     /* Reactions + replies footer */
     .feed-post-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    /* Reaction emoji/icons sized up from 11.5px/11px/15px — they read as
+       small everywhere (feed and chat both) relative to the rest of the
+       cleanup pass. */
     .feed-post-reaction-pill {
-      display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px;
+      display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 10px;
       cursor: pointer; background: var(--glass-fill); border: 1px solid var(--tile-border);
-      font-size: 11.5px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
+      font-size: 14px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
     }
     .feed-post-reaction-pill:hover { background: var(--glass-fill-h); }
     .feed-post-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
-    .feed-post-reaction-count { font-size: 9.5px; color: var(--text-dim); font-weight: 600; }
+    .feed-post-reaction-count { font-size: 11px; color: var(--text-dim); font-weight: 600; }
     .feed-post-add-reaction {
-      display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px;
+      display: flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 10px;
       cursor: pointer; background: none; border: 1px solid transparent; color: var(--text-dimmer);
-      font-size: 11px; transition: background 0.15s, color 0.15s;
+      font-size: 14px; transition: background 0.15s, color 0.15s;
     }
     .feed-post-add-reaction:hover { background: var(--glass-fill-h); color: var(--text-dim); }
     .feed-post-quick-reactions { display: none; gap: 2px; }
     .feed-post-quick-reactions.open { display: flex; }
     .feed-post-quick-reactions button {
-      background: none; border: none; cursor: pointer; font-size: 15px; padding: 2px 4px; border-radius: 6px;
+      background: none; border: none; cursor: pointer; font-size: 19px; padding: 3px 5px; border-radius: 6px;
     }
     .feed-post-quick-reactions button:hover { background: var(--glass-fill-h); }
 
-    /* Always visible now (no more expand/collapse toggle) — same fading-
-       gradient divider language as .sec-line/.chat-channel-section-label
-       instead of a hard border-top. */
-    .feed-post-replies { margin-top: 10px; padding-top: 10px; position: relative; }
-    .feed-post-replies::before {
+    /* The reply composer itself always stays reachable, but the divider +
+       spacing that makes this read as its own "section" only earns its
+       keep once there's actually something to divide from — a post with
+       no replies just gets a plain compact input, not a whole bordered
+       area for one empty row. .has-replies (set in feedRepliesSectionHTML)
+       adds both back once replies.length > 0. Same fading-gradient
+       language as .sec-line/.chat-channel-section-label, not a hard rule. */
+    .feed-post-replies.has-replies { margin-top: 10px; padding-top: 10px; position: relative; }
+    .feed-post-replies.has-replies::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
       background: linear-gradient(90deg,
         rgba(var(--accent-rgb),0.2) 0%,
         rgba(var(--accent-rgb),0.04) 60%,
         transparent 100%);
     }
+    .feed-post-replies:not(.has-replies) { margin-top: 6px; }
     .feed-post-reply { display: flex; gap: 9px; margin-bottom: 10px; }
     .feed-post-reply-avatar {
       width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
@@ -1111,7 +1130,15 @@
       border-color: rgba(var(--accent-rgb),0.5);
       box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
-    .feed-post-reply-send { font-size: 11px; color: rgba(var(--accent-rgb),1); cursor: pointer; padding: 0 4px; }
+    .feed-post-reply-input:focus-visible { outline: none; } /* see .chat-composer input's own comment on this exact fix */
+    .feed-post-reply-send {
+      flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: rgba(var(--accent-rgb),1); cursor: pointer;
+      background: rgba(var(--accent-rgb),0.12); border: 1px solid rgba(var(--accent-rgb),0.3);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-post-reply-send:hover { background: rgba(var(--accent-rgb),0.22); }
     .feed-mentions-btn {
       position: relative; display: flex; align-items: center; justify-content: center;
       width: 24px; height: 24px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
@@ -1324,9 +1351,11 @@
       padding: 2px; box-shadow: 0 2px 8px var(--shadow-20); z-index: 2;
     }
     .chat-msg:hover .chat-msg-actions { display: flex; }
+    /* Sized up from 24px/13px — same "reaction icons read small everywhere"
+       fix as the feed's reaction pills. */
     .chat-msg-action-btn {
-      width: 24px; height: 24px; border-radius: 6px; border: none; background: none;
-      color: var(--text-dim); cursor: pointer; font-size: 13px;
+      width: 28px; height: 28px; border-radius: 7px; border: none; background: none;
+      color: var(--text-dim); cursor: pointer; font-size: 16px;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.15s, color 0.15s;
     }
@@ -1335,14 +1364,14 @@
     /* Reactions — aggregated pills below the message body */
     .chat-msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     .chat-msg-reaction-pill {
-      display: flex; align-items: center; gap: 4px;
-      padding: 2px 7px; border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 10px; cursor: pointer;
       background: var(--glass-fill); border: 1px solid var(--tile-border);
-      font-size: 11.5px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
+      font-size: 14px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
     }
     .chat-msg-reaction-pill:hover { background: var(--glass-fill-h); }
     .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
-    .chat-msg-reaction-count { font-size: 9.5px; color: var(--text-dim); font-weight: 600; }
+    .chat-msg-reaction-count { font-size: 11px; color: var(--text-dim); font-weight: 600; }
 
     /* Reply quote — shown above a reply's own bubble, and the composer's
        "replying to" preview strip above the input row. */
@@ -3420,7 +3449,7 @@ window.KLAB_BOOT = (function() {
         <input type="file" accept="image/*" id="feedComposerImage" hidden />
         <button class="feed-composer-image-btn" id="feedComposerImageBtn" title="Add an image"><i class="ti ti-photo"></i></button>
         <span class="feed-composer-error" id="feedComposerError" hidden></span>
-        <button class="feed-composer-post-btn" id="feedComposerPostBtn">Post</button>
+        <button class="feed-composer-post-btn" id="feedComposerPostBtn" title="Post"><i class="ti ti-send-2"></i></button>
       </div>
     </div>
     <div class="feed-list" id="feedList"></div>
@@ -10547,6 +10576,35 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
 
+  // Composer placeholder cycles through MOTD_PHRASES (the same curated
+  // list the header splash tag already uses — reusing it here means this
+  // never needs its own separate "silly phrases" list to keep in sync/on-
+  // brand with) with the same char-by-char typewriter reveal as the
+  // header's klabnet>_ prompt, instead of a single static "what's going
+  // on?" that never changes. Placeholders don't render over real content
+  // anyway, so this just keeps ticking in the background rather than
+  // needing its own pause-while-focused/has-text logic.
+  (function typewriterPlaceholder() {
+    if (!textEl || typeof MOTD_PHRASES === 'undefined' || !MOTD_PHRASES.length) return;
+    let phraseIdx = Math.floor(Math.random() * MOTD_PHRASES.length);
+    let charIdx = 0;
+    function tick() {
+      const phrase = MOTD_PHRASES[phraseIdx];
+      if (charIdx <= phrase.length) {
+        textEl.placeholder = phrase.slice(0, charIdx) + (charIdx < phrase.length ? '_' : '');
+        charIdx++;
+        setTimeout(tick, 55 + Math.random() * 45);
+      } else {
+        setTimeout(() => {
+          phraseIdx = (phraseIdx + 1) % MOTD_PHRASES.length;
+          charIdx = 0;
+          tick();
+        }, 2600);
+      }
+    }
+    tick();
+  })();
+
   // @mentions — plain "@name" tokens, not validated against a real user
   // directory (matching Twitter's own composer: it highlights syntactically
   // as you type, same idea here). Shared between the composer's live
@@ -10671,11 +10729,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // below fetches into _repliesCache as each post with replies renders.
   function feedRepliesSectionHTML(post) {
     const replies = _repliesCache.get(post.id) || [];
-    return '<div class="feed-post-replies" data-post-id="' + post.id + '">' +
+    return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + '" data-post-id="' + post.id + '">' +
       replies.map(r => feedReplyHTML(post, r)).join('') +
       '<div class="feed-post-reply-composer">' +
         '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
-        '<span class="feed-post-reply-send" data-post-id="' + post.id + '">Send</span>' +
+        '<button type="button" class="feed-post-reply-send" data-post-id="' + post.id + '" title="Send reply"><i class="ti ti-send-2"></i></button>' +
       '</div>' +
     '</div>';
   }
@@ -10813,7 +10871,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (!text && !_pendingFile) return;
     errEl.hidden = true;
     postBtnEl.disabled = true;
-    postBtnEl.textContent = 'Posting…';
+    postBtnEl.innerHTML = '<i class="ti ti-loader-2 loading-spinner"></i>';
     try {
       let image_mxc = '';
       if (_pendingFile) {
@@ -10839,7 +10897,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       errEl.hidden = false;
     } finally {
       postBtnEl.disabled = false;
-      postBtnEl.textContent = 'Post';
+      postBtnEl.innerHTML = '<i class="ti ti-send-2"></i>';
     }
   }
 
