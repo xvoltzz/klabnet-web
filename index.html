@@ -2001,91 +2001,9 @@
     html, body { scrollbar-width: none; -ms-overflow-style: none; }
     html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
-    /* ── EDIT MODE ── */
-    .edit-banner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 300;
-      background: rgba(251,191,36,0.12);
-
-      border-bottom: 1px solid rgba(251,191,36,0.25);
-      padding: 8px 1.5rem;
-      display: none;
-      align-items: center; justify-content: space-between; gap: 1rem;
-      animation: fadeDown 0.2s ease both;
-    }
-    @keyframes fadeDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
-    .edit-banner.visible { display: flex; }
-    .edit-banner-label {
-      font-size: 9.5px; letter-spacing: 0.22em; color: #fbbf24;
-      text-transform: uppercase; display: flex; align-items: center; gap: 8px;
-    }
-    .edit-banner-label i { font-size: 14px; }
-    .edit-banner-hint {
-      font-size: 8.5px; letter-spacing: 0.12em; color: rgba(251,191,36,0.55);
-      text-transform: uppercase;
-    }
-    .edit-done-btn {
-      font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
-      padding: 5px 14px; border-radius: 100px; cursor: pointer;
-      background: rgba(251,191,36,0.15);
-      border: 1px solid rgba(251,191,36,0.35);
-      color: #fbbf24; transition: all 0.15s;
-    }
-    .edit-done-btn:hover { background: rgba(251,191,36,0.25); }
-
-    /* Edit mode body offset */
-    body.edit-mode { padding-top: 40px; }
-    body.edit-mode .dash { padding-top: 2rem; }
-
-    /* Tile edit overlay */
-    body.edit-mode .tile-wrap {
-      cursor: grab; position: relative;
-    }
-    body.edit-mode .tile-wrap:active { cursor: grabbing; }
-    body.edit-mode .tile {
-      user-select: none;
-      animation: iosShake 1.6s ease-in-out infinite;
-    }
-    @keyframes iosShake {
-      0%, 100% { transform: rotate(0deg); }
-      25%      { transform: rotate(-0.6deg); }
-      75%      { transform: rotate(0.6deg); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      body.edit-mode .tile { animation: none; }
-    }
-
-    /* Drag ghost */
-    .tile-drag-ghost {
-      position: fixed; z-index: 9999; pointer-events: none;
-      opacity: 0.88; transform: scale(1.05) rotate(1.5deg);
-      border-radius: 16px; overflow: hidden;
-      will-change: transform;
-    }
-
-    /* Drop indicator */
-    .tile-wrap.drop-before::before {
-      content: ''; position: absolute;
-      left: -4px; top: 0; bottom: 0; width: 3px;
-      background: #fbbf24; border-radius: 2px;
-      box-shadow: 0 0 8px rgba(251,191,36,0.6);
-    }
-
-    /* Section drag */
-    .sec[draggable="true"] { cursor: grab; }
-    .sec[draggable="true"]:active { cursor: grabbing; }
-    .sec.sec-drag-over {
-      outline: 2px dashed rgba(251,191,36,0.4);
-      outline-offset: 4px; border-radius: 12px;
-    }
-    .sec-drag-handle {
-      display: none; align-items: center; justify-content: center;
-      width: 24px; height: 24px; border-radius: 6px; cursor: grab;
-      color: var(--text-dimmer); font-size: 14px; flex-shrink: 0;
-      background: transparent; border: none;
-      transition: color 0.15s, background 0.15s;
-    }
-    body.edit-mode .sec-drag-handle { display: flex; }
-    .sec-drag-handle:hover { color: #fbbf24; background: rgba(251,191,36,0.1); }
+    /* Edit-mode tile/section drag-to-reorder — removed entirely (see the
+       JS "EDIT MODE" section's own removal note) along with its banner,
+       header toggle button, drag-ghost, and drop-indicator styles. */
 
 
     /* ══ APP MANAGEMENT ══ */
@@ -3297,13 +3215,6 @@ window.KLAB_BOOT = (function() {
 
 <div class="ambient-glow"></div>
 
-<!-- EDIT MODE BANNER -->
-<div class="edit-banner" id="editBanner">
-  <span class="edit-banner-label"><i class="ti ti-pencil"></i> edit mode</span>
-  <span class="edit-banner-hint">drag tiles · hide with eye · drag sections</span>
-  <button class="edit-done-btn" id="editDoneBtn">Done</button>
-</div>
-
 <!-- FULLSCREEN PLAYER -->
 <div class="fs-player" id="fsPlayer">
   <div class="fs-bg" id="fsBgA" style="opacity:0.9;transition:opacity 0.8s ease;"></div>
@@ -3406,15 +3317,14 @@ window.KLAB_BOOT = (function() {
     </div>
     <nav class="tab-nav" id="tabNav">
       <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
-      <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
       <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+      <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
-      <button class="hdr-btn glass" id="editToggle" title="Edit layout"><i class="ti ti-layout-grid" id="editIcon"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
       <a class="hdr-btn glass" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank" title="Source (Gitea)"><i class="ti ti-git-branch"></i></a>
@@ -3459,7 +3369,7 @@ window.KLAB_BOOT = (function() {
 
   <div class="tab-panel" data-tab-panel="apps">
   <div class="sec" data-sec="applications">
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// applications</span><div class="sec-line"></div></div>
+    <div class="sec-head"><span class="sec-label">// applications</span><div class="sec-line"></div></div>
     <div class="grid" id="appGrid">
 
       <div class="tile-wrap"><a class="tile" href="https://immich.klab.gg" data-id="6" data-name="Immich" data-url="https://immich.klab.gg" target="_blank"><span class="tile-dot" id="dot-6"></span><i class="ti ti-photo"></i><span class="tile-name">Immich</span></a>
@@ -3576,7 +3486,7 @@ window.KLAB_BOOT = (function() {
 
   <div class="tab-panel" data-tab-panel="klabcraft">
   <div class="sec" data-sec="klabcraft" hidden>
-    <div class="sec-head"><button class="sec-drag-handle" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></button><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
+    <div class="sec-head"><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
     <div class="grid" id="klabcraftGrid">
       <div class="tile-wrap tile-wrap-auto">
         <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
@@ -5520,13 +5430,6 @@ const SFX = (() => {
   return { play: playGated, setVolume, _getCtx: () => ctx };
 })();
 
-// Block tile navigation in edit mode
-document.getElementById('appGrid').addEventListener('click', e => {
-  if (!editMode) return;
-  const tile = e.target.closest('a.tile');
-  if (tile) { e.preventDefault(); e.stopPropagation(); }
-}, true); // capture phase — runs before tile's own handlers
-
 // Wire SFX to UI elements
 // Tiles — hover chime comes from the delegated pointerover/pointerout
 // system below (hoverSelector includes '.tile'); this used to also bind
@@ -5867,286 +5770,13 @@ updatePlayerUI = function(song) {
   updateDockFavBtn();
 };
 
-// ══════════════════════════════════════════
-//  EDIT MODE — tile drag/reorder, section reorder
-// ══════════════════════════════════════════
-const LAYOUT_KEY   = 'klabnet_tile_order';
-const SECTION_KEY  = 'klabnet_section_order';
-
-let editMode = false;
-
-// ── Load saved state on boot ──
-function loadLayoutState() {
-  // Tile order within grid
-  const order = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '[]');
-  if (order.length) {
-    const grid = document.getElementById('appGrid');
-    if (!grid) return;
-    const wraps = [...grid.querySelectorAll('.tile-wrap')];
-    const map = {};
-    wraps.forEach(w => {
-      const id = w.querySelector('.tile')?.dataset?.id || w.querySelector('[data-tile-id]')?.dataset?.tileId;
-      if (id) map[id] = w;
-    });
-    order.forEach(id => {
-      if (map[id]) grid.appendChild(map[id]);
-    });
-  }
-
-  // Section order — reorder within each section's own parent (its .tab-panel),
-  // not .dash directly, so a restored section doesn't get pulled out of its
-  // tab and become permanently visible/invisible regardless of active tab.
-  const secOrder = JSON.parse(localStorage.getItem(SECTION_KEY) || '[]');
-  if (secOrder.length) {
-    const secs = [...document.querySelectorAll('.sec[data-sec]')];
-    const secMap = {};
-    secs.forEach(s => secMap[s.dataset.sec] = s);
-    secOrder.forEach(key => {
-      const sec = secMap[key];
-      if (sec) sec.parentElement.appendChild(sec);
-    });
-  }
-}
-
-function saveTileOrder() {
-  const grid = document.getElementById('appGrid');
-  if (!grid) return;
-  const ids = [...grid.querySelectorAll('.tile-wrap .tile')].map(t => t.dataset.id).filter(Boolean);
-  localStorage.setItem(LAYOUT_KEY, JSON.stringify(ids));
-}
-
-function saveSectionOrder() {
-  const order = [...document.querySelectorAll('.sec[data-sec]')].map(s => s.dataset.sec);
-  localStorage.setItem(SECTION_KEY, JSON.stringify(order));
-}
-
-// ── Edit mode toggle ──
-function setEditMode(on) {
-  editMode = on;
-  document.body.classList.toggle('edit-mode', on);
-  document.getElementById('editBanner').classList.toggle('visible', on);
-  const btn = document.getElementById('editToggle');
-  btn.classList.toggle('edit-active', on);
-  document.getElementById('editIcon').className = on ? 'ti ti-layout-grid-add' : 'ti ti-layout-grid';
-
-  if (on) {
-    enableTileDrag();
-    enableSectionDrag();
-    SFX && SFX.play('open');
-  } else {
-    disableTileDrag();
-    disableSectionDrag();
-    saveTileOrder();
-    saveSectionOrder();
-    SFX && SFX.play('close');
-  }
-}
-
-document.getElementById('editToggle').addEventListener('click', () => setEditMode(!editMode));
-document.getElementById('editDoneBtn').addEventListener('click', () => setEditMode(false));
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && editMode) setEditMode(false); });
-
-// ── Tile drag-and-drop (mouse + touch) ──
-let dragSrc = null;
-let ghost   = null;
-let ghostOffX = 0, ghostOffY = 0;
-// Set while a drag from tileMouseDown() is in flight, so disableTileDrag()
-// (called from setEditMode(false) — Escape or Done, which can fire with
-// the mouse button still held down mid-drag) can tear it down instead of
-// just stopping *new* drags from starting. Without this, an in-flight
-// drag's own window-level mousemove/mouseup listeners kept running after
-// edit mode turned off: the ghost tile kept following the cursor, and
-// releasing the mouse later still silently committed a reorder the user
-// no longer thought they were making.
-let _cancelActiveTileDrag = null;
-
-function enableTileDrag() {
-  const grid = document.getElementById('appGrid');
-  if (!grid) return;
-  grid.querySelectorAll('.tile-wrap').forEach(wrap => {
-    wrap.addEventListener('mousedown',  tileMouseDown);
-  });
-}
-
-function disableTileDrag() {
-  const grid = document.getElementById('appGrid');
-  if (grid) {
-    grid.querySelectorAll('.tile-wrap').forEach(wrap => {
-      wrap.removeEventListener('mousedown',  tileMouseDown);
-    });
-  }
-  if (_cancelActiveTileDrag) _cancelActiveTileDrag();
-}
-
-function createGhost(wrap, x, y) {
-  const rect = wrap.getBoundingClientRect();
-  ghostOffX = x - rect.left;
-  ghostOffY = y - rect.top;
-  ghost = wrap.cloneNode(true);
-  ghost.classList.add('tile-drag-ghost');
-  ghost.style.width  = rect.width  + 'px';
-  ghost.style.height = rect.height + 'px';
-  // Use viewport coords for position:fixed — straightforward
-  ghost.style.left   = (x - ghostOffX) + 'px';
-  ghost.style.top    = (y - ghostOffY) + 'px';
-  // Append to documentElement to escape any transform stacking contexts
-  document.documentElement.appendChild(ghost);
-  wrap.style.opacity = '0.25';
-  dragSrc = wrap;
-}
-
-function moveGhost(x, y) {
-  if (!ghost) return;
-  ghost.style.left = (x - ghostOffX) + 'px';
-  ghost.style.top  = (y - ghostOffY) + 'px';
-}
-
-function dropGhost(x, y) {
-  if (!ghost) return;
-  if (ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost = null;
-  if (dragSrc) dragSrc.style.opacity = '';
-
-  // Find drop target
-  const grid = document.getElementById('appGrid');
-  const wraps = [...grid.querySelectorAll('.tile-wrap')].filter(w => w !== dragSrc);
-  let target = null;
-  for (const w of wraps) {
-    const r = w.getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-      target = w; break;
-    }
-  }
-  if (target && target !== dragSrc) {
-    const allWraps = [...grid.querySelectorAll('.tile-wrap')];
-    const srcIdx = allWraps.indexOf(dragSrc);
-    const tgtIdx = allWraps.indexOf(target);
-    if (srcIdx < tgtIdx) grid.insertBefore(dragSrc, target.nextSibling);
-    else grid.insertBefore(dragSrc, target);
-    SFX && SFX.play('click');
-  }
-  // clear drop indicators
-  document.querySelectorAll('.tile-wrap.drop-before').forEach(el => el.classList.remove('drop-before'));
-  dragSrc = null;
-}
-
-// Mouse
-function tileMouseDown(e) {
-  if (!editMode) return;
-  e.preventDefault();
-  const wrap = e.currentTarget;
-  createGhost(wrap, e.clientX, e.clientY);
-  // Tile positions don't change mid-drag (the ghost is a fixed-position
-  // clone, the originals just dim), so measure every other tile's rect
-  // once here instead of re-querying the DOM and calling
-  // getBoundingClientRect() on every tile on every raw mousemove.
-  const grid = document.getElementById('appGrid');
-  const dropTargets = [...grid.querySelectorAll('.tile-wrap')]
-    .filter(w => w !== dragSrc)
-    .map(w => ({ el: w, rect: w.getBoundingClientRect() }));
-  let curHighlighted = null;
-  const onMove = ev => {
-    moveGhost(ev.clientX, ev.clientY);
-    // Drop indicator
-    let next = null;
-    for (const { el, rect: r } of dropTargets) {
-      if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
-        next = el; break;
-      }
-    }
-    if (next !== curHighlighted) {
-      if (curHighlighted) curHighlighted.classList.remove('drop-before');
-      if (next) next.classList.add('drop-before');
-      curHighlighted = next;
-    }
-  };
-  const cleanupListeners = () => {
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup',   onUp);
-    _cancelActiveTileDrag = null;
-  };
-  const onUp = ev => {
-    if (curHighlighted) curHighlighted.classList.remove('drop-before');
-    dropGhost(ev.clientX, ev.clientY);
-    cleanupListeners();
-  };
-  // Called by disableTileDrag() if edit mode turns off mid-drag — cancels
-  // rather than drops, so it doesn't commit a reorder the user never
-  // actually released the mouse to confirm.
-  _cancelActiveTileDrag = () => {
-    if (curHighlighted) curHighlighted.classList.remove('drop-before');
-    if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-    ghost = null;
-    if (dragSrc) dragSrc.style.opacity = '';
-    dragSrc = null;
-    cleanupListeners();
-  };
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup',   onUp);
-}
-
-// ── Section drag ──
-let secDragSrc = null;
-
-function enableSectionDrag() {
-  document.querySelectorAll('.sec[data-sec]').forEach(sec => {
-    sec.setAttribute('draggable', 'true');
-    sec.addEventListener('dragstart',   secDragStart);
-    sec.addEventListener('dragover',    secDragOver);
-    sec.addEventListener('dragleave',   secDragLeave);
-    sec.addEventListener('drop',        secDrop);
-    sec.addEventListener('dragend',     secDragEnd);
-  });
-}
-
-function disableSectionDrag() {
-  document.querySelectorAll('.sec[data-sec]').forEach(sec => {
-    sec.removeAttribute('draggable');
-    sec.removeEventListener('dragstart', secDragStart);
-    sec.removeEventListener('dragover',  secDragOver);
-    sec.removeEventListener('dragleave', secDragLeave);
-    sec.removeEventListener('drop',      secDrop);
-    sec.removeEventListener('dragend',   secDragEnd);
-  });
-}
-
-function secDragStart(e) {
-  secDragSrc = e.currentTarget;
-  e.dataTransfer.effectAllowed = 'move';
-  secDragSrc.style.opacity = '0.5';
-}
-function secDragOver(e) {
-  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-  if (e.currentTarget !== secDragSrc) e.currentTarget.classList.add('sec-drag-over');
-}
-function secDragLeave(e) { e.currentTarget.classList.remove('sec-drag-over'); }
-function secDrop(e) {
-  e.preventDefault();
-  const target = e.currentTarget;
-  target.classList.remove('sec-drag-over');
-  if (!secDragSrc || secDragSrc === target) return;
-  // Reorder within the target's own parent (its .tab-panel) — a real drag can
-  // only happen between two currently-visible sections, i.e. sections that
-  // already share a tab-panel, so this stays correct without extra filtering.
-  const secs = [...document.querySelectorAll('.sec[data-sec]')];
-  const srcIdx = secs.indexOf(secDragSrc);
-  const tgtIdx = secs.indexOf(target);
-  if (srcIdx < tgtIdx) target.parentElement.insertBefore(secDragSrc, target.nextSibling);
-  else target.parentElement.insertBefore(secDragSrc, target);
-  SFX && SFX.play('click');
-}
-function secDragEnd() {
-  document.querySelectorAll('.sec[data-sec]').forEach(s => { s.classList.remove('sec-drag-over'); s.style.opacity = ''; });
-  secDragSrc = null;
-}
-
-// ── Init ──
-loadLayoutState();
-
-// Also wire SFX to edit button
-['editToggle'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('click', () => SFX && SFX.play('click'));
-});
+// The "EDIT MODE" tile/section drag-to-reorder system (editMode,
+// loadLayoutState/saveTileOrder/saveSectionOrder, the tile drag-ghost +
+// section HTML5-drag implementations, the edit banner/header toggle)
+// lived here — removed entirely, along with tile_order/section_order from
+// the prefs-sync payload below. Tiles/sections are effectively fixed
+// content now (the custom-app builder that would've made reordering them
+// meaningful was already removed earlier — see APP MANAGEMENT below).
 
 // ══════════════════════════════════════════
 //  SERVER PREFS — identity + persistent preferences
@@ -6156,8 +5786,6 @@ let _prefsSaveTimer = null;
 
 // All keys we sync between localStorage and server
 const PREF_KEYS = {
-  tile_order:    'klabnet_tile_order',
-  section_order: 'klabnet_section_order',
   login_song:    'klabnet_login_song',
   favorites:     'klabnet_favorites',
   play_history:  'klabnet_play_history',
@@ -6257,8 +5885,6 @@ async function loadServerPrefs() {
       }
     };
 
-    setIfPresent(PREF_KEYS.tile_order,    prefs.tile_order);
-    setIfPresent(PREF_KEYS.section_order, prefs.section_order);
     setIfPresent(PREF_KEYS.login_song,    prefs.login_song);
     setIfPresent(PREF_KEYS.favorites,     prefs.favorites);
     setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
@@ -6276,8 +5902,6 @@ async function saveServerPrefs() {
     try { return JSON.parse(localStorage.getItem(k)) || fallback; } catch(e) { return fallback; }
   };
   const prefs = {
-    tile_order:    parse(PREF_KEYS.tile_order,    []),
-    section_order: parse(PREF_KEYS.section_order, []),
     login_song:    parse(PREF_KEYS.login_song,    null),
     favorites:     parse(PREF_KEYS.favorites,     []),
     play_history:  parse(PREF_KEYS.play_history,  []),
@@ -6300,12 +5924,6 @@ function scheduleSave() {
   clearTimeout(_prefsSaveTimer);
   _prefsSaveTimer = setTimeout(saveServerPrefs, 1500);
 }
-
-// Hook into all existing save functions to also schedule a server save
-const _origSaveTileOrder    = saveTileOrder;
-const _origSaveSectionOrder = saveSectionOrder;
-saveTileOrder    = function() { _origSaveTileOrder();    scheduleSave(); };
-saveSectionOrder = function() { _origSaveSectionOrder(); scheduleSave(); };
 
 // Hook theme, login song, favorites changes
 const _origApplyTheme = applyTheme;
@@ -6336,9 +5954,6 @@ document.addEventListener('visibilitychange', () => {
 (async function boot() {
   await fetchMe();           // who am I? (also applies admin state)
   await loadServerPrefs();   // pull their prefs from server into localStorage
-
-  // Re-run layout with server prefs now in localStorage
-  loadLayoutState();
 
   // Re-apply theme with server values
   const savedTheme = localStorage.getItem(PREF_KEYS.theme);
@@ -6476,7 +6091,7 @@ function applySettings() {
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'apps', 'chat', 'music', 'klabcraft'];
+const TABS = ['feed', 'chat', 'music', 'apps', 'klabcraft'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -11131,7 +10746,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
 // ── SFX on remaining interactive elements ────
 [
-  ['editToggle',         'click'],
   ['playerArtWrap',      'click'],
   ['dockFav',            'click'],
   ['dockShuffle',        'click'],
