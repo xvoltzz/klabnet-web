@@ -1547,6 +1547,20 @@
       display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
       background: var(--glass-fill); border: 1px solid var(--tile-border);
     }
+    /* Cover-art thumbnail on a modal row — same idiom as .picker-item-art/
+       -art-ph, just sized down slightly to fit this denser row height.
+       Music request search results (see MUSIC REQUESTS) are the first
+       .chat-modal-row content to actually need art. */
+    .chat-modal-row-art {
+      width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0;
+      object-fit: cover; background: var(--tile-bg); border: 1px solid var(--tile-border);
+    }
+    .chat-modal-row-art-ph {
+      width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg); color: var(--text-dimmer); font-size: 14px;
+      border: 1px solid var(--tile-border);
+    }
     .chat-modal-row-info { flex: 1; min-width: 0; }
     .chat-modal-row-name { font-size: 10.5px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .chat-modal-row-sub { font-size: 9px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1571,6 +1585,18 @@
     }
     .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
     .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
+    /* Album/Song segmented toggle atop the New Request modal. */
+    .music-req-type-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+    .music-req-type-btn {
+      flex: 1; padding: 7px; border-radius: 8px; cursor: pointer;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      color: var(--text-dim); font-size: 11px; font-family: var(--font-ui);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .music-req-type-btn.active {
+      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
+      color: rgba(var(--accent-rgb),1);
+    }
 
     /* Profile-editor modal (avatar + display name, opened from your own
        presence card) — reuses .chat-modal-input/.chat-connect-btn for the
@@ -3061,6 +3087,15 @@
     }
 
     .picker-item-actions { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
+    /* Requester avatar on a music-request row (see MUSIC REQUESTS below) —
+       same small-circle-with-letter-fallback idiom as .feed-post-reply-avatar. */
+    .picker-item-requester {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+    }
+    .picker-item-requester img { width: 100%; height: 100%; object-fit: cover; }
     .picker-action {
       background: none; border: none; cursor: pointer;
       color: rgba(232,228,220,0.55); font-size: 15px;
@@ -3078,6 +3113,9 @@
     [data-theme="light"] .type-badge.song  { color: #a0560a; border-color: rgba(190,110,10,0.35); background: rgba(190,110,10,0.1); }
     [data-theme="light"] .type-badge.album { color: #8a3a18; border-color: rgba(150,70,30,0.35); background: rgba(150,70,30,0.1); }
     [data-theme="light"] .type-badge.soon  { color: #92700a; border-color: rgba(146,112,10,0.4); background: rgba(234,179,8,0.14); }
+    .type-badge.fulfilled { color: var(--success-color); border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.12); }
+    .type-badge.dismissed { color: var(--text-faint); border-color: var(--tile-border); background: var(--tile-bg); }
+    [data-theme="light"] .type-badge.fulfilled { color: #1a7a3e; border-color: rgba(26,122,62,0.35); background: rgba(26,122,62,0.1); }
     .picker-action.fav-active { color: var(--danger-color); }
 
     .picker-empty {
@@ -3497,6 +3535,7 @@ window.KLAB_BOOT = (function() {
         <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
         <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
         <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
+        <button class="picker-tab" data-tab="requests"><i class="ti ti-disc-plus"></i><span>Requests</span> <span id="requestsCount"></span></button>
       </div>
       <div class="music-sidebar-divider"></div>
       <div class="music-playlist-nav" id="musicPlaylistNav">
@@ -4058,6 +4097,21 @@ function esc(s) {
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Swaps a failed cover-art <img> for its placeholder div. Every call site
+// used to inline onerror="this.outerHTML='<div class=\'foo\'>...'" — inside
+// a template literal, \' just collapses to a literal ', so the onerror
+// attribute's actual value ends up with unescaped single quotes breaking
+// its own JS (a SyntaxError the browser swallows silently: the image just
+// stays a broken-image icon forever instead of falling back). A tiny named
+// global sidesteps the quoting entirely instead of re-escaping it correctly
+// inline every time.
+function klabArtFallback(img, placeholderClass, iconClass) {
+  const ph = document.createElement('div');
+  ph.className = placeholderClass;
+  ph.innerHTML = `<i class="ti ${iconClass}"></i>`;
+  img.replaceWith(ph);
+}
+
 const VOLUME_KEY = 'klabnet_volume';
 let playerState = {
   playing: false,
@@ -4444,6 +4498,10 @@ let _pickerLoaded = false;
 // landing on #music directly (see setActiveTab's music-tab hook).
 function ensureMusicTabLoaded() {
   ensurePlDelegate();
+  // Refreshed every time you land on Music (not gated behind _pickerLoaded
+  // below) so the sidebar badge count stays reasonably current across
+  // visits without a dedicated poll — cheap since it's one small GET.
+  if (typeof fetchMusicRequests === 'function') fetchMusicRequests();
   if (_pickerLoaded) return;
   if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
   else pickerSearchEl.value = pickerQuery;
@@ -4565,7 +4623,7 @@ function renderSongItem(song, container) {
   const item = document.createElement('div');
   item.className = 'picker-item' + (isLogin ? ' is-login-song' : '');
   item.innerHTML = `
-    <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="this.outerHTML='<div class=\'picker-item-art-ph\'><i class=\'ti ti-music\'></i></div>'" />
+    <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
     <div class="picker-item-info">
       <div class="picker-item-title">${esc(song.title) || 'Unknown'}</div>
       <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown Artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
@@ -5238,7 +5296,7 @@ function renderQueueList() {
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
-      <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="this.outerHTML='<div class=\'picker-item-art-ph\'><i class=\'ti ti-music\'></i></div>'" />
+      <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
       <div class="picker-item-info" style="min-width:0;flex:1;">
         <div class="picker-item-title">${esc(song.title)||'Unknown'}</div>
         <div class="picker-item-artist">${esc(song.artist||'')} · ${esc(song.album||'')}</div>
@@ -9020,6 +9078,212 @@ loadPickerTab = async function(tab) {
 };
 
 // ══════════════════════════════════════════
+//  MUSIC REQUESTS — "please add this album/song", with MusicBrainz search
+//  for real metadata/cover art instead of a blind text box. Requester shown
+//  via window.klabResolveUserAvatar (see the FEED module's own avatar
+//  cache, exposed there for exactly this kind of outside reuse).
+// ══════════════════════════════════════════
+let _musicRequests = [];
+
+const _origLoadPickerTabRequests = loadPickerTab;
+loadPickerTab = async function(tab) {
+  if (tab === 'requests') {
+    // This patch is the outermost wrapper now (defined after the grid-
+    // toggle/hideSortBtn patch below it in the file), so a request tab
+    // switch never reaches that patch's own bookkeeping — replicated here
+    // rather than delegating, since Requests has no sortable content and
+    // is never a grid view.
+    hideSortBtn();
+    pickerList.classList.remove('picker-list-grid');
+    pickerTab = tab;
+    await loadMusicRequestsTab();
+    return;
+  }
+  return _origLoadPickerTabRequests(tab);
+};
+
+async function fetchMusicRequests() {
+  try {
+    const res = await fetchTimeout('/api/music-requests', {}, 8000);
+    const data = await res.json();
+    _musicRequests = data.requests || [];
+  } catch (e) { /* leave whatever was last fetched in place */ }
+  updateRequestsBadge();
+}
+
+async function loadMusicRequestsTab() {
+  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  await fetchMusicRequests();
+  renderMusicRequestsList();
+}
+
+function updateRequestsBadge() {
+  const el = document.getElementById('requestsCount');
+  if (!el) return;
+  const pending = _musicRequests.filter(r => r.status === 'pending').length;
+  el.textContent = pending ? `(${pending})` : '';
+}
+
+function musicRequestRowHTML(req, avatarUrl) {
+  const isAdmin = !!window.KLAB_USER?.is_admin;
+  const me = window.KLAB_USER?.username;
+  const canDelete = req.username === me || isAdmin;
+  const typeIcon = req.req_type === 'song' ? 'ti-music' : 'ti-disc';
+  const artHTML = req.cover_art_url
+    ? `<img class="picker-item-art" src="${esc(req.cover_art_url)}" alt="" loading="lazy" onerror="klabArtFallback(this,'picker-item-art-ph','${typeIcon}')" />`
+    : `<div class="picker-item-art-ph"><i class="ti ${typeIcon}"></i></div>`;
+  const avatarInner = avatarUrl ? `<img src="${esc(avatarUrl)}" alt="" />` : esc((req.username || '?')[0].toUpperCase());
+  let statusHTML = '';
+  if (req.status === 'fulfilled') statusHTML = '<span class="type-badge fulfilled">fulfilled</span>';
+  else if (req.status === 'dismissed') statusHTML = '<span class="type-badge dismissed">dismissed</span>';
+  let actionsHTML = '';
+  if (req.status === 'pending' && isAdmin) {
+    actionsHTML += `<button class="picker-action" title="Mark fulfilled" data-req-status="fulfilled" data-req-id="${req.id}"><i class="ti ti-check"></i></button>`;
+    actionsHTML += `<button class="picker-action" title="Dismiss" data-req-status="dismissed" data-req-id="${req.id}"><i class="ti ti-x"></i></button>`;
+  }
+  if (canDelete) {
+    actionsHTML += `<button class="picker-action" title="Delete request" data-req-delete="${req.id}"><i class="ti ti-trash"></i></button>`;
+  }
+  return `<div class="picker-item" style="cursor:default;">
+    ${artHTML}
+    <div class="picker-item-info">
+      <div class="picker-item-title">${esc(req.title)} <span class="type-badge ${req.req_type}">${req.req_type}</span> ${statusHTML}</div>
+      <div class="picker-item-artist">${esc(req.artist || 'Unknown artist')}</div>
+    </div>
+    <div class="picker-item-requester" data-username="${esc(req.username)}" title="Requested by ${esc(req.username)}">${avatarInner}</div>
+    <div class="picker-item-actions">${actionsHTML}</div>
+  </div>`;
+}
+
+function renderMusicRequestsList() {
+  updateRequestsBadge();
+  if (pickerTab !== 'requests') return;
+  const newBtnHTML = `<button class="music-new-playlist-btn" id="musicNewRequestBtn" type="button" style="margin-bottom:10px;"><i class="ti ti-plus"></i> New Request</button>`;
+  let anyUnresolvedAvatar = false;
+  const rowsHTML = _musicRequests.map(req => {
+    const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(req.username) : null;
+    if (!avatarUrl) anyUnresolvedAvatar = true;
+    return musicRequestRowHTML(req, avatarUrl);
+  }).join('');
+  pickerList.innerHTML = newBtnHTML + (_musicRequests.length ? rowsHTML : '<div class="picker-empty">no requests yet</div>');
+  document.getElementById('musicNewRequestBtn')?.addEventListener('click', openMusicRequestModal);
+  pickerList.querySelectorAll('[data-req-status]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const res = await fetchTimeout(`/api/music-requests/${btn.dataset.reqId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: btn.dataset.reqStatus }),
+        }, 8000);
+        if (!res.ok) throw new Error('failed');
+        SFX && SFX.play('click');
+        await loadMusicRequestsTab();
+      } catch (e) { showToast('Failed to update request'); }
+    });
+  });
+  pickerList.querySelectorAll('[data-req-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ok = await showConfirmDialog('// delete request', 'Remove this request?', 'Delete');
+      if (!ok) return;
+      try {
+        const res = await fetchTimeout(`/api/music-requests/${btn.dataset.reqDelete}`, { method: 'DELETE' }, 8000);
+        if (!res.ok) throw new Error('failed');
+        await loadMusicRequestsTab();
+      } catch (e) { showToast('Failed to delete request'); }
+    });
+  });
+  // window.klabResolveUserAvatar only re-renders the FEED module on a cache
+  // miss resolving (see its own comment) — this tab needs its own nudge to
+  // pick up a newly-resolved requester avatar instead of showing the
+  // fallback initial forever.
+  if (anyUnresolvedAvatar) setTimeout(() => { if (pickerTab === 'requests') renderMusicRequestsList(); }, 900);
+}
+
+function openMusicRequestModal() {
+  let reqType = 'album';
+  openChatModal('// request music', `
+    <div class="music-req-type-toggle">
+      <button type="button" class="music-req-type-btn active" data-req-type="album">Album</button>
+      <button type="button" class="music-req-type-btn" data-req-type="song">Song</button>
+    </div>
+    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="musicReqSearch" placeholder="search musicbrainz..." autocomplete="off" /></div>
+    <div class="chat-modal-list" id="musicReqResults"></div>
+  `);
+  const searchEl = document.getElementById('musicReqSearch');
+  const listEl   = document.getElementById('musicReqResults');
+  let debounceTimer = null;
+  let searchToken   = 0;
+
+  document.querySelectorAll('.music-req-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.music-req-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      reqType = btn.dataset.reqType;
+      if (searchEl.value.trim()) doSearch(searchEl.value.trim());
+    });
+  });
+
+  async function doSearch(q) {
+    const myToken = ++searchToken;
+    listEl.innerHTML = '<div class="picker-empty">searching...</div>';
+    try {
+      const res = await fetchTimeout(`/api/music-requests/search?q=${encodeURIComponent(q)}&type=${reqType}`, {}, 8000);
+      const data = await res.json();
+      if (myToken !== searchToken) return; // superseded by a newer keystroke/type toggle
+      renderResults(data.results || []);
+    } catch (e) {
+      if (myToken !== searchToken) return;
+      listEl.innerHTML = '<div class="picker-empty">search failed</div>';
+    }
+  }
+
+  function renderResults(results) {
+    if (!results.length) { listEl.innerHTML = '<div class="picker-empty">no results</div>'; return; }
+    listEl.innerHTML = '';
+    const typeIcon = reqType === 'song' ? 'ti-music' : 'ti-disc';
+    results.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'chat-modal-row';
+      row.innerHTML =
+        (r.cover_art_url
+          ? `<img class="chat-modal-row-art" src="${esc(r.cover_art_url)}" alt="" loading="lazy" onerror="klabArtFallback(this,'chat-modal-row-art-ph','${typeIcon}')" />`
+          : `<div class="chat-modal-row-art-ph"><i class="ti ${typeIcon}"></i></div>`) +
+        '<div class="chat-modal-row-info">' +
+          `<div class="chat-modal-row-name">${esc(r.title)}</div>` +
+          `<div class="chat-modal-row-sub">${esc(r.artist)}${r.year ? ' · ' + esc(r.year) : ''}</div>` +
+        '</div>' +
+        '<button class="chat-modal-row-btn" type="button">Request</button>';
+      row.querySelector('button').addEventListener('click', async () => {
+        const btn = row.querySelector('button');
+        btn.disabled = true;
+        try {
+          const res = await fetchTimeout('/api/music-requests', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ req_type: reqType, title: r.title, artist: r.artist, mbid: r.mbid, cover_art_url: r.cover_art_url }),
+          }, 8000);
+          if (!res.ok) throw new Error('failed');
+          closeChatModal();
+          showToast(`Requested "${r.title}"`);
+          SFX && SFX.play('star');
+          await loadMusicRequestsTab();
+        } catch (e) {
+          showToast('Failed to submit request');
+          btn.disabled = false;
+        }
+      });
+      listEl.appendChild(row);
+    });
+  }
+
+  searchEl.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = searchEl.value.trim();
+    if (!q) { listEl.innerHTML = ''; return; }
+    debounceTimer = setTimeout(() => doSearch(q), 400);
+  });
+  searchEl.focus();
+}
+
+// ══════════════════════════════════════════
 //  PICKER SORTING
 // ══════════════════════════════════════════
 const SORT_KEY = 'klabnet_picker_sort';
@@ -10508,6 +10772,18 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
 
+  // Exposed so anything outside this IIFE showing a plain klabnet username
+  // (not a full Matrix ID) can resolve its avatar without duplicating the
+  // Matrix-profile-lookup + blob-URL-cache dance — the Music tab's request
+  // list is the first outside consumer. Kicks off the async lookup if
+  // needed (fire-and-forget, re-renders happen via the caller's own
+  // refresh) and returns whatever's cached right now (null if unresolved
+  // or still pending).
+  window.klabResolveUserAvatar = function(username) {
+    ensureFeedAvatar(username);
+    return _feedAvatarCache.get(username) || null;
+  };
+
   async function fetchFeed() {
     if (_feedPending) return;
     _feedPending = true;
@@ -11294,7 +11570,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${heroUrl
-            ? `<img class="ap-hero-img" src="${heroUrl}" onerror="this.outerHTML='<div class=\'ap-hero-img-ph\'><i class=\'ti ti-user-circle\'></i></div>'" />`
+            ? `<img class="ap-hero-img" src="${heroUrl}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
             : `<div class="ap-hero-img-ph"><i class="ti ti-user-circle"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Artist</span>
@@ -11415,7 +11691,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${artSm
-            ? `<img class="ap-hero-img square" src="${artSm}" onerror="this.outerHTML='<div class=\'ap-hero-img-ph square\'><i class=\'ti ti-vinyl\'></i></div>'" />`
+            ? `<img class="ap-hero-img square" src="${artSm}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
             : `<div class="ap-hero-img-ph square"><i class="ti ti-vinyl"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Album</span>
