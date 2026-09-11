@@ -10576,27 +10576,49 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
 
-  // Composer placeholder cycles through MOTD_PHRASES (the same curated
-  // list the header splash tag already uses — reusing it here means this
-  // never needs its own separate "silly phrases" list to keep in sync/on-
-  // brand with) with the same char-by-char typewriter reveal as the
-  // header's klabnet>_ prompt, instead of a single static "what's going
-  // on?" that never changes. Placeholders don't render over real content
-  // anyway, so this just keeps ticking in the background rather than
-  // needing its own pause-while-focused/has-text logic.
+  // Its own list, separate from the header's MOTD_PHRASES — same crude/
+  // unhinged energy on purpose, just original lines rather than reusing
+  // that list's specific existing inside-jokes verbatim. Edit freely.
+  const FEED_PLACEHOLDER_PHRASES = [
+    "confess your sins",
+    "what did you almost get arrested for",
+    "say something you'll regret",
+    "what's the group chat drama today",
+    "what smells, and why is it you",
+    "narrate your worst decision this week",
+    "who's lying right now",
+    "what did you break, physically or emotionally",
+    "say the unhinged thing you're thinking",
+    "confess something weird",
+    "what's the crime today",
+    "spill something filthy",
+    "what did you do to deserve this",
+    "what's the horniest thing that happened today",
+    "who owes who money, and why",
+    "what did you lie about today",
+    "describe your last fart in detail",
+    "what's the dumbest thing you believed today",
+  ];
+
+  // Composer placeholder types itself out char-by-char and cycles through
+  // the phrases above, same feel as the header's klabnet>_ prompt, instead
+  // of a single static "what's going on?" that never changes. Placeholders
+  // don't render over real content anyway, so this just keeps ticking in
+  // the background rather than needing its own pause-while-focused/has-
+  // text logic.
   (function typewriterPlaceholder() {
-    if (!textEl || typeof MOTD_PHRASES === 'undefined' || !MOTD_PHRASES.length) return;
-    let phraseIdx = Math.floor(Math.random() * MOTD_PHRASES.length);
+    if (!textEl || !FEED_PLACEHOLDER_PHRASES.length) return;
+    let phraseIdx = Math.floor(Math.random() * FEED_PLACEHOLDER_PHRASES.length);
     let charIdx = 0;
     function tick() {
-      const phrase = MOTD_PHRASES[phraseIdx];
+      const phrase = FEED_PLACEHOLDER_PHRASES[phraseIdx];
       if (charIdx <= phrase.length) {
         textEl.placeholder = phrase.slice(0, charIdx) + (charIdx < phrase.length ? '_' : '');
         charIdx++;
         setTimeout(tick, 55 + Math.random() * 45);
       } else {
         setTimeout(() => {
-          phraseIdx = (phraseIdx + 1) % MOTD_PHRASES.length;
+          phraseIdx = (phraseIdx + 1) % FEED_PLACEHOLDER_PHRASES.length;
           charIdx = 0;
           tick();
         }, 2600);
