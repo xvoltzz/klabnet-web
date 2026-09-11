@@ -9521,10 +9521,18 @@ function openMusicRequestModal() {
       const res = await fetchTimeout(`/api/music-requests/search?q=${encodeURIComponent(q)}&type=${reqType}`, {}, 8000);
       const data = await res.json();
       if (myToken !== searchToken) return; // superseded by a newer keystroke/type toggle
+      // res.ok was never checked here — a backend error (502 from a
+      // rate-limited MusicBrainz call, timeout, etc.) still has a JSON
+      // body, just without a `results` key, so `data.results || []`
+      // silently rendered as an empty "no results" state instead of the
+      // "search failed" error message below. This is what a real (but
+      // transient) MusicBrainz 503 looked like from the outside: no error
+      // shown, just nothing found.
+      if (!res.ok) throw new Error(data.error || 'search failed');
       renderResults(data.results || []);
     } catch (e) {
       if (myToken !== searchToken) return;
-      listEl.innerHTML = '<div class="picker-empty">search failed</div>';
+      listEl.innerHTML = '<div class="picker-empty">search failed — try again in a moment</div>';
     }
   }
 
