@@ -6620,8 +6620,18 @@ const MatrixChat = (function () {
   async function mxcToBlobUrl(mxcUrl, opts) {
     const parts = mxcParts(mxcUrl);
     if (!parts || !client) return null;
-    const { width = 64, height = 64, method = 'crop' } = opts || {};
-    const url = `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=${width}&height=${height}&method=${method}`;
+    const { width = 64, height = 64, method = 'crop', full = false } = opts || {};
+    // Synapse's default install only pre-generates a fixed handful of
+    // thumbnail sizes (dynamic_thumbnails is off) and always re-encodes
+    // whatever it serves at its own (fairly aggressive) JPEG quality —
+    // fine for a small avatar crop nobody scrutinizes, but visibly
+    // degrades a profile banner or crop-editor preview: the profile
+    // system's own uploads are already cropped/sized exactly right client
+    // -side (see openImageCropper()), so `full: true` fetches the original
+    // bytes we uploaded instead of paying for a second, lossier re-encode.
+    const url = full
+      ? `${MATRIX_URL}/_matrix/client/v1/media/download/${parts.server}/${parts.mediaId}`
+      : `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=${width}&height=${height}&method=${method}`;
     const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
     if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
     return URL.createObjectURL(await res.blob());
@@ -7906,7 +7916,7 @@ async function openProfileModal() {
   });
 
   if (myProfile.banner_mxc) {
-    MatrixChat.mxcToBlobUrl(myProfile.banner_mxc, { width: 640, height: 180, method: 'crop' })
+    MatrixChat.mxcToBlobUrl(myProfile.banner_mxc, { full: true })
       .then(url => { if (url) bannerEl.style.backgroundImage = `url(${url})`; })
       .catch(() => {});
   }
@@ -7925,7 +7935,7 @@ async function openProfileModal() {
     const info = await client.getProfileInfo(myId);
     nameEl.value = info?.displayname || '';
     if (info?.avatar_url) {
-      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url);
+      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
       // Hide the fallback initial letter once a real photo loads — it's a
       // flex sibling of the <img>, not something the image covers, so
       // without this it stays visible right alongside the photo.
@@ -8028,7 +8038,7 @@ async function openProfileView(username) {
   });
   if (!client) return;
   if (profile.banner_mxc) {
-    MatrixChat.mxcToBlobUrl(profile.banner_mxc, { width: 640, height: 180, method: 'crop' })
+    MatrixChat.mxcToBlobUrl(profile.banner_mxc, { full: true })
       .then(url => {
         const el = document.getElementById('profileViewBanner');
         if (url && el) el.style.backgroundImage = `url(${url})`;
@@ -8041,7 +8051,7 @@ async function openProfileView(username) {
     const nameEl = document.getElementById('profileViewDisplayname');
     if (nameEl && info?.displayname) nameEl.textContent = info.displayname;
     if (info?.avatar_url) {
-      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url);
+      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
       const avatarEl = document.getElementById('profileViewAvatar');
       if (url && avatarEl) avatarEl.innerHTML = `<img src="${esc(url)}" alt="" />`;
     }
