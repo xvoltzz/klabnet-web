@@ -1315,7 +1315,7 @@
     .chat-channel-empty { font-size: 10px; color: var(--text-faint); padding: 0.8rem; line-height: 1.6; }
 
     .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-    .chat-timeline { flex: 1; overflow-y: auto; padding: 1rem 1.3rem; display: flex; flex-direction: column; gap: 3px; }
+    .chat-timeline { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.3rem; display: flex; flex-direction: column; gap: 3px; }
     .chat-timeline-empty {
       flex: 1; display: flex; align-items: center; justify-content: center;
       font-size: 12px; color: var(--text-faint); text-align: center; padding: 2rem;
@@ -2500,12 +2500,15 @@
       box-shadow: 0 0 0 1px rgba(var(--accent-rgb),0.15) inset;
     }
 
+    /* Bumped from 34px/11.5px/9.5px/8.5px, same reason as the chat/feed
+       size pass — this rail sits directly beside both of those tabs and
+       read noticeably smaller/denser than either after they were bumped. */
     .presence-card-avatar {
-      width: 34px; height: 34px; border-radius: 50%;
+      width: 38px; height: 38px; border-radius: 50%;
       background: rgba(255,255,255,0.07);
       border: 1px solid rgba(255,255,255,0.12);
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; color: var(--text-dimmer);
+      font-size: 14px; font-weight: 700; color: var(--text-dimmer);
       flex-shrink: 0; text-transform: uppercase;
       font-family: var(--font-ui);
       position: relative;
@@ -2547,7 +2550,7 @@
     .presence-card-info { flex: 1; min-width: 0; }
     .presence-card-name {
       font-family: var(--font-ui);
-      font-size: 11.5px; font-weight: 600; color: var(--text);
+      font-size: 12.5px; font-weight: 600; color: var(--text);
       letter-spacing: 0.01em; margin-bottom: 2px;
     }
     .presence-card.is-me .presence-card-name { color: rgba(var(--accent-rgb),1); }
@@ -2558,13 +2561,13 @@
     .presence-card:not(.is-me) .presence-card-name { color: var(--name-color, var(--text)); }
     .presence-card-track {
       font-family: var(--font-ui);
-      font-size: 9.5px; color: var(--text-dimmer);
+      font-size: 10.5px; color: var(--text-dimmer);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.01em; line-height: 1.3;
     }
     .presence-card-artist {
       font-family: var(--font-ui);
-      font-size: 8.5px; color: var(--text-faint);
+      font-size: 9.5px; color: var(--text-faint);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.01em; margin-top: 1px;
     }
