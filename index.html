@@ -6534,6 +6534,16 @@ function setActiveTab(key) {
   // behavior rather than something yanking the view out from under you.
   if (enteringChat && typeof renderTimeline === 'function') {
     _lastTimelineRenderKey = null;
+    // Clearing the render key above only forces renderTimeline() to
+    // actually rebuild — it does NOT by itself force the jump-to-bottom
+    // this comment describes. renderTimeline()'s own wasNearBottom check
+    // only treats a genuine ROOM switch as an automatic bottom-jump
+    // (roomChanged); returning to the SAME room you'd left scrolled up in
+    // isn't a room change, so without this flag it rebuilt in place and
+    // left you exactly where you'd left off — the very bug this whole
+    // block exists to fix, still half-open. Part of the "have to keep
+    // scrolling down" report.
+    if (typeof _forceScrollBottomOnNextRender !== 'undefined') _forceScrollBottomOnNextRender = true;
     renderTimeline();
   }
   if (location.hash.slice(1) !== key) location.hash = key;
@@ -7332,6 +7342,13 @@ function renderTypingLine() {
 // this is a fresh room switch) rather than always.
 let _lastTimelineRenderKey = null;
 const _lastSentReadEventId = new Map(); // roomId -> event id we've already sent a read receipt for
+// Set right before forcing a render on Chat-tab arrival (see setActiveTab)
+// — roomChanged alone doesn't catch "same room, just left it scrolled up
+// and came back", which renderTimeline()'s own wasNearBottom check would
+// otherwise leave scrolled up too, contradicting the whole point of that
+// forced-render-on-arrival behavior (see its comment). Consumed once by
+// renderTimeline() and reset, so it never affects any OTHER render.
+let _forceScrollBottomOnNextRender = false;
 
 // Reactions (m.reaction) are ordinary room events the SDK already delivers
 // through the same timeline as everything else — they're just filtered out
@@ -7429,6 +7446,25 @@ function ensureChatImageResolved(mxc) {
   });
 }
 
+// Google Fonts loads with display:swap (see the <link> in <head>) — chat's
+// initial render can happen with fallback-font metrics still in effect (the
+// real webfont hasn't finished downloading yet), then every line reflows
+// the moment it swaps in, moving the bottom of the timeline out from under
+// wherever renderTimeline() just pinned it — with nothing to re-pin it
+// afterward. This is the "have to scroll down, jumps around SOMETIMES" part
+// of the reported bug specifically: it only shows up when the font hasn't
+// already loaded/cached by the time chat first renders, so it's timing-
+// dependent rather than every single time. Same "re-pin if still near the
+// bottom, leave alone if you've since scrolled away" idea as the chat-image
+// load fix below. document.fonts.ready resolves immediately (not just
+// once-ever) if fonts were already loaded by the time this runs, so this
+// is safe to fire unconditionally at script load regardless of whether
+// Chat has even been opened yet.
+document.fonts?.ready?.then(() => {
+  const el = document.getElementById('chatTimeline');
+  if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
+});
+
 // "Today" / "Yesterday" / "Month D" (add a year only once it's not the
 // current one) — the day-divider label between chat messages, same idea as
 // Discord/iMessage's date rules so history is legible without hovering
@@ -7516,7 +7552,8 @@ function renderTimeline() {
     `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}`
   ).join(',') + '|' + reactionsDigest.join(',');
   if (!roomChanged && renderKey === _lastTimelineRenderKey) return;
-  const wasNearBottom = roomChanged || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  const wasNearBottom = roomChanged || _forceScrollBottomOnNextRender || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  _forceScrollBottomOnNextRender = false;
   // Only meaningful in the "reading history" branch below (wasNearBottom
   // already covers the other case) — el.innerHTML='' unconditionally
   // zeroes scrollTop, so without saving+restoring this, ANY rebuild that
@@ -8733,7 +8770,20 @@ function showChatApp() {
       if (room.roomId !== _chatActiveRoomId) return;
       const events = room.getLiveTimeline().getEvents().filter(ev =>
         ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace');
+      // updateSeenLine() inserts/replaces a real, height-bearing element
+      // (the readers' avatar row) at the very bottom of the timeline —
+      // unlike the renderTimeline() call site below it (which re-pins
+      // scroll right after, accounting for whatever height that add just
+      // introduced), this standalone path never did. Someone reading your
+      // last message a moment after you'd scrolled to the bottom yourself
+      // would silently push the true bottom down by that row's height,
+      // leaving you looking not-quite-scrolled-down with no visible cause —
+      // part of the reported "have to keep scrolling down" bug. Same
+      // "re-pin only if you were already there" guard as the image-load fix.
+      const el = document.getElementById('chatTimeline');
+      const wasNearBottom = el && (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
       updateSeenLine(room, events);
+      if (wasNearBottom) el.scrollTop = el.scrollHeight;
     });
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendChatMessage();
