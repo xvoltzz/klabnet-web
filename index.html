@@ -370,6 +370,13 @@
          wins) — this tab always needs room for the dock regardless of
          that toggle's own "does the page need to scroll" measurement. */
       padding-bottom: 7rem;
+      /* Chat is the one tab where more horizontal room is straightforwardly
+         useful (a wider timeline/composer, not a wider tile grid or feed
+         reading column) — the presence rail next to it is a fixed 240px,
+         so nearly all of this goes straight to .dash-main. min() keeps it
+         from ever exceeding the viewport, same safety clamp the fullscreen
+         player already uses on --content-w elsewhere. */
+      max-width: min(calc(var(--content-w) + 400px), calc(100vw - 3rem));
     }
     body.tab-chat-active .dash-body { flex: 1; min-height: 0; }
     /* align-self, not the parent's align-items — so only .dash-main
@@ -405,13 +412,33 @@
     body.tab-chat-active .chat-app { height: auto; flex: 1; min-height: 0; }
 
     /* ══ HEADER ══ */
+    /* Grid (not flex) so .tab-nav can sit in a true center column
+       regardless of how wide header-left/header-right happen to be —
+       flex's space-between only guarantees equal GAPS around a middle
+       item, not that it lands at the row's actual visual center. */
     .header {
-      display: flex; align-items: flex-start; justify-content: space-between;
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: start; column-gap: 1.5rem;
       margin-bottom: 2rem;
       animation: fadeUp 0.6s ease both;
     }
 
-    .header-left { display: flex; align-items: center; gap: 1.1rem; }
+    .header-left  { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 1.1rem; min-width: 0; }
+    .header-right { grid-column: 3; justify-self: end; }
+    /* Reclaims the vertical space .tab-nav used to take as its own row
+       below the header (real gain for the Chat tab's already carefully
+       flex-filled layout — see body.tab-chat-active .dash above) on
+       screens wide enough for it to actually fit centered alongside the
+       logo/title and the icon row without crowding either. Below that,
+       it drops back to being its own full-width row under the header,
+       identical to before this. */
+    .header .tab-nav { grid-column: 2; grid-row: 1; align-self: center; justify-self: center; margin-bottom: 0; }
+    @media (max-width: 1050px) {
+      .header { grid-template-columns: 1fr auto; grid-template-rows: auto auto; row-gap: 1rem; }
+      .header-left       { grid-column: 1; grid-row: 1; }
+      .header-right      { grid-column: 2; grid-row: 1; }
+      .header .tab-nav    { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; }
+    }
 
     .logo {
       width: 44px; height: 44px; object-fit: contain;
@@ -3122,6 +3149,13 @@ window.KLAB_BOOT = (function() {
         </div>
       </div>
     </div>
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
+      <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
+      <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
+      <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+      <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
+    </nav>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
@@ -3137,14 +3171,6 @@ window.KLAB_BOOT = (function() {
       <div class="toast-flyout" id="toastFlyout"></div>
     </div>
   </header>
-
-  <nav class="tab-nav" id="tabNav">
-    <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
-    <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
-    <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
-    <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
-    <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
-  </nav>
 
   <div class="dash-body">
   <div class="dash-main">
