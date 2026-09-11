@@ -1010,6 +1010,19 @@
       background: var(--bg); border: 1px solid var(--tile-border); color: var(--text-dim);
       cursor: pointer; font-size: 11px;
     }
+    /* "Share to feed" song attachment preview — same card language as
+       .picker-item, positioned relative so the shared X-to-remove button
+       (.feed-composer-preview-remove) can sit in its usual top-right spot. */
+    .feed-composer-song-preview {
+      position: relative; display: flex; align-items: center; gap: 0.65rem;
+      margin-top: 0.5rem; padding: 0.6rem 1.6rem 0.6rem 0.6rem;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+    }
+    .feed-composer-song-art { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--tile-bg-h); }
+    .feed-composer-song-info { flex: 1; min-width: 0; }
+    .feed-composer-song-title { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-composer-song-artist { font-size: 10.5px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .feed-composer-song-lyric { font-size: 10.5px; color: var(--text-dim); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .feed-composer-row {
       display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem;
     }
@@ -1069,6 +1082,33 @@
     .feed-post-mention { font-weight: 700; }
     .feed-post-mention.is-me { text-decoration: underline; text-underline-offset: 2px; }
     .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; }
+    /* A shared song — same card language as the composer's own preview
+       (.feed-composer-song-preview) and .picker-item, but clickable to
+       actually play the track (the "deepen the integration" part of the
+       ask) instead of just being a static caption. */
+    .feed-post-song {
+      display: flex; align-items: center; gap: 0.7rem; margin-top: 0.5rem;
+      padding: 0.65rem 0.8rem; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 8px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-post-song:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .feed-post-song-art, .feed-post-song-art-ph {
+      width: 46px; height: 46px; border-radius: 6px; flex-shrink: 0; object-fit: cover;
+      background: var(--tile-bg-h); display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 16px;
+    }
+    .feed-post-song-info { flex: 1; min-width: 0; }
+    .feed-post-song-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-post-song-artist { font-size: 11px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .feed-post-song-lyric { font-size: 11.5px; color: var(--text-dim); font-style: italic; margin-top: 4px; line-height: 1.4; }
+    .feed-post-song-lyric::before, .feed-post-song-lyric::after { content: '"'; }
+    .feed-post-song-play {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+      background: rgba(var(--accent-rgb),0.15); border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1); cursor: pointer;
+    }
+    .feed-post-song:hover .feed-post-song-play { background: rgba(var(--accent-rgb),0.25); }
 
     /* Reactions + replies footer */
     .feed-post-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
@@ -3381,6 +3421,7 @@ window.KLAB_BOOT = (function() {
       <button class="fs-btn fs-btn-sm" id="fsShuffle" title="Shuffle" style="width:34px;height:34px;font-size:16px;opacity:0.5;"><i class="ti ti-arrows-shuffle"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsFav" title="Favorite" style="width:34px;height:34px;font-size:18px;opacity:0.6;"><i class="ti ti-heart" id="fsFavIcon"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsLyrics" title="Lyrics" style="width:34px;height:34px;font-size:15px;opacity:0.5;"><i class="ti ti-microphone-2"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsShare" title="Share to Feed" style="width:34px;height:34px;font-size:15px;opacity:0.5;"><i class="ti ti-share-2"></i></button>
       <span style="flex:1"></span>
       <button class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat" style="width:34px;height:34px;font-size:16px;opacity:0.5;"><i class="ti ti-repeat"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsQueue" title="Music Manager" style="width:34px;height:34px;font-size:16px;opacity:0.5;" onclick="closeFS();openPicker()"><i class="ti ti-music-search"></i></button>
@@ -3495,6 +3536,15 @@ window.KLAB_BOOT = (function() {
       <div class="feed-composer-preview-wrap" id="feedComposerPreviewWrap" hidden>
         <img class="feed-composer-preview" id="feedComposerPreview" alt="" />
         <button class="feed-composer-preview-remove" id="feedComposerPreviewRemove" title="Remove image"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="feed-composer-song-preview" id="feedComposerSongPreview" hidden>
+        <img class="feed-composer-song-art" id="feedComposerSongArt" alt="" />
+        <div class="feed-composer-song-info">
+          <div class="feed-composer-song-title" id="feedComposerSongTitle"></div>
+          <div class="feed-composer-song-artist" id="feedComposerSongArtist"></div>
+          <div class="feed-composer-song-lyric" id="feedComposerSongLyric" hidden></div>
+        </div>
+        <button class="feed-composer-preview-remove" id="feedComposerSongRemove" title="Remove song"><i class="ti ti-x"></i></button>
       </div>
       <div class="feed-composer-row">
         <input type="file" accept="image/*" id="feedComposerImage" hidden />
@@ -3672,6 +3722,7 @@ window.KLAB_BOOT = (function() {
             <button class="ctrl-btn play-btn" id="btnPlay" title="Play/Pause"><i class="ti ti-player-play" id="playIcon"></i></button>
             <button class="ctrl-btn" id="btnNext" title="Next"><i class="ti ti-player-skip-forward"></i></button>
             <button class="ctrl-btn dock-extra" id="dockFav" title="Favorite"><i class="ti ti-heart" id="dockFavIcon"></i></button>
+            <button class="ctrl-btn dock-extra" id="dockShare" title="Share to Feed"><i class="ti ti-share-2"></i></button>
           </div>
         </div>
         <div class="player-scrub-row">
@@ -6143,6 +6194,28 @@ document.getElementById('dockShuffle').addEventListener('click', () => {
   syncShuffleBtns();
   SFX.play('click');
 });
+
+// ══════════════════════════════════════════
+//  SHARE TO FEED — post the currently-playing song, optionally with
+//  whatever lyric line is on screen right now (see window._klabLyrics'
+//  getActiveLine(), exposed by the LYRICS ENGINE module above).
+// ══════════════════════════════════════════
+function shareCurrentSongToFeed() {
+  const song = playerState.currentSong;
+  if (!song) { showToast('Nothing playing to share'); return; }
+  const lyric = window._klabLyrics?.getActiveLine?.() || null;
+  setActiveTab('feed');
+  // window.klabShareSongToFeed is exposed by the FEED module (a separate
+  // IIFE later in the script) — guarded since that module could in theory
+  // fail to init (missing #feedList markup, see its own early return).
+  window.klabShareSongToFeed?.({
+    songId: song.id, title: song.title, artist: song.artist, album: song.album,
+    coverArt: song.coverArt, lyric,
+  });
+  SFX.play('click');
+}
+document.getElementById('dockShare')?.addEventListener('click', shareCurrentSongToFeed);
+document.getElementById('fsShare')?.addEventListener('click', shareCurrentSongToFeed);
 
 // Update dock fav when track changes
 const _prevUpdatePlayerUI = updatePlayerUI;
@@ -10137,8 +10210,15 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   playerState.audio.addEventListener('play',  () => { if (_lyricsOpen && _isSynced) startSync(); });
   playerState.audio.addEventListener('pause', () => stopSync());
 
-  // Expose for external use
-  window._klabLyrics = { toggle: toggleLyrics, load: loadLyrics };
+  // Expose for external use — getActiveLine() lets the "share to feed"
+  // flow (defined much later in the script) offer whatever lyric line is
+  // actually on screen right now as a quotable excerpt, without duplicating
+  // this module's own sync-tracking state.
+  window._klabLyrics = {
+    toggle: toggleLyrics,
+    load: loadLyrics,
+    getActiveLine: () => (_isSynced && _activeIdx >= 0 && _syncedLines[_activeIdx]) ? _syncedLines[_activeIdx].text : null,
+  };
 })();
 
 // ══════════════════════════════════════════
@@ -10840,8 +10920,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
   function startPoll() {
     if (_timer) return;
-    postPresence(); fetchPresence(); refreshOfflineRosterNow(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
-    _timer = setInterval(() => { postPresence(); fetchPresence(); }, POLL_MS);
+    fetchPresence(); refreshOfflineRosterNow(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
+    _timer = setInterval(fetchPresence, POLL_MS);
     _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
     _notesTimer = setInterval(fetchNotes, OFFLINE_POLL_MS);
     _profilesTimer = setInterval(() => fetchProfiles().then(refreshAfterProfiles), OFFLINE_POLL_MS);
@@ -10853,7 +10933,27 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     clearInterval(_profilesTimer); _profilesTimer = null;
   }
 
+  // postPresence() (the heartbeat that keeps YOU marked online, distinct
+  // from fetchPresence() above which just pulls the roster for your own
+  // view) used to live inside the pausable timer above — pausing on
+  // visibilitychange meant merely switching to another browser tab for a
+  // few seconds let PRESENCE_TTL (30s server-side) lapse and dropped you
+  // off everyone else's roster, then picked you back up next time you
+  // looked at klabnet again: the reported "keep seeing them go on and
+  // offline" flicker. Having klabnet open at all — focused or not — should
+  // keep you online, so this heartbeat now runs on its own timer that
+  // visibilitychange never touches. It only actually stops when the page
+  // itself goes away (tab closed, navigated off) and the JS context dies
+  // with it, which is the correct point for the TTL to eventually expire.
+  let _heartbeatTimer = null;
+  function startHeartbeat() {
+    if (_heartbeatTimer) return;
+    postPresence();
+    _heartbeatTimer = setInterval(postPresence, POLL_MS);
+  }
+
   startPoll();
+  startHeartbeat();
   document.addEventListener('visibilitychange', () => {
     document.hidden ? stopPoll() : startPoll();
   });
@@ -10878,6 +10978,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const previewWrapEl = document.getElementById('feedComposerPreviewWrap');
   const previewEl     = document.getElementById('feedComposerPreview');
   const previewRmEl   = document.getElementById('feedComposerPreviewRemove');
+  const songPreviewEl = document.getElementById('feedComposerSongPreview');
+  const songArtEl     = document.getElementById('feedComposerSongArt');
+  const songTitleEl   = document.getElementById('feedComposerSongTitle');
+  const songArtistEl  = document.getElementById('feedComposerSongArtist');
+  const songLyricEl   = document.getElementById('feedComposerSongLyric');
+  const songRemoveEl  = document.getElementById('feedComposerSongRemove');
   const errEl         = document.getElementById('feedComposerError');
   const postBtnEl     = document.getElementById('feedComposerPostBtn');
   const loadMoreEl    = document.getElementById('feedLoadMore');
@@ -10894,6 +11000,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _feedHasMore   = false;
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
   let _pendingFile   = null;
+  let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
@@ -11095,6 +11202,27 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const url = _feedImageCache.get(post.image_mxc);
       if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" alt="" loading="lazy" />';
     }
+    let songHTML = '';
+    if (post.song) {
+      const s = post.song;
+      const artUrl = s.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(s.coverArt)}&size=100&${subsonicParams()}` : '';
+      // encodeURIComponent, not esc() — a title/artist with an apostrophe
+      // would break out of this HTML attribute if just HTML-escaped (esc()
+      // only handles &"<>, not '), same reason renderSongItem's own
+      // data-add-pl attribute uses it for the same kind of JSON payload.
+      const playPayload = encodeURIComponent(JSON.stringify({ id: s.songId, title: s.title, artist: s.artist, album: s.album, coverArt: s.coverArt }));
+      songHTML = '<div class="feed-post-song" data-play-song="' + playPayload + '">' +
+        (artUrl
+          ? '<img class="feed-post-song-art" src="' + esc(artUrl) + '" alt="" loading="lazy" onerror="klabArtFallback(this,\'feed-post-song-art-ph\',\'ti-music\')" />'
+          : '<div class="feed-post-song-art-ph"><i class="ti ti-music"></i></div>') +
+        '<div class="feed-post-song-info">' +
+          '<div class="feed-post-song-title">' + esc(s.title || 'Unknown') + '</div>' +
+          '<div class="feed-post-song-artist">' + esc(s.artist || '') + (s.album ? ' · ' + esc(s.album) : '') + '</div>' +
+          (s.lyric ? '<div class="feed-post-song-lyric">' + esc(s.lyric) + '</div>' : '') +
+        '</div>' +
+        '<button type="button" class="feed-post-song-play" title="Play"><i class="ti ti-player-play"></i></button>' +
+      '</div>';
+    }
     ensureFeedRepliesResolved(post);
     const reactions = post.reactions || {};
     const pillsHTML = Object.entries(reactions).map(([emoji, entry]) =>
@@ -11113,6 +11241,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '</div>' +
         (post.text ? '<div class="feed-post-text">' + mentionHTML(post.text, me) + '</div>' : '') +
         imageHTML +
+        songHTML +
         '<div class="feed-post-footer">' +
           pillsHTML +
           '<button type="button" class="feed-post-add-reaction" data-post-id="' + post.id + '" title="Add reaction"><i class="ti ti-mood-plus"></i></button>' +
@@ -11213,19 +11342,51 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
   }
 
+  // Shows/clears the "share to feed" song attachment preview. Called both
+  // locally (clearComposer, the X button) and from window.klabShareSongToFeed
+  // — the player module (a separate IIFE elsewhere in the file) has no
+  // other way to reach into this closure's composer state.
+  function setPendingSong(song) {
+    _pendingSong = song || null;
+    if (!song) { songPreviewEl.hidden = true; return; }
+    songArtEl.src = song.coverArt
+      ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`
+      : '';
+    songTitleEl.textContent = song.title || 'Unknown';
+    songArtistEl.textContent = song.artist || '';
+    if (song.lyric) {
+      songLyricEl.textContent = `"${song.lyric}"`;
+      songLyricEl.hidden = false;
+    } else {
+      songLyricEl.hidden = true;
+      songLyricEl.textContent = '';
+    }
+    songPreviewEl.hidden = false;
+  }
+  songRemoveEl.addEventListener('click', () => setPendingSong(null));
+  // Entry point for the player dock / fullscreen player's "share to feed"
+  // buttons — they already call setActiveTab('feed') themselves before
+  // this, so focusing the composer here lands the user ready to type a
+  // remark immediately.
+  window.klabShareSongToFeed = function(song) {
+    setPendingSong(song);
+    textEl.focus();
+  };
+
   function clearComposer() {
     textEl.value = '';
     _pendingFile = null;
     fileEl.value = '';
     previewWrapEl.hidden = true;
     imageBtnEl.classList.remove('has-image');
+    setPendingSong(null);
     errEl.hidden = true;
     autoGrowComposer();
   }
 
   async function submitPost() {
     const text = textEl.value.trim();
-    if (!text && !_pendingFile) return;
+    if (!text && !_pendingFile && !_pendingSong) return;
     errEl.hidden = true;
     postBtnEl.disabled = true;
     postBtnEl.innerHTML = '<i class="ti ti-loader-2 loading-spinner"></i>';
@@ -11240,7 +11401,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const r = await fetchTimeout('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, image_mxc }),
+        body: JSON.stringify({ text, image_mxc, song: _pendingSong || null }),
       }, 15000);
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
@@ -11410,6 +11571,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
     const replyDelete = e.target.closest('.feed-post-reply-delete');
     if (replyDelete) { deleteFeedReply(Number(replyDelete.dataset.postId), Number(replyDelete.dataset.replyId)); return; }
+    const songCard = e.target.closest('.feed-post-song');
+    if (songCard) {
+      try {
+        const song = JSON.parse(decodeURIComponent(songCard.dataset.playSong));
+        if (typeof playSong === 'function') playSong(song);
+      } catch (e) {}
+      return;
+    }
   });
   listEl.addEventListener('keydown', (e) => {
     const input = e.target.closest('.feed-post-reply-input');
