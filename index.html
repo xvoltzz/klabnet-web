@@ -1300,7 +1300,7 @@
     .img-crop-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.7);
       display: flex; align-items: center; justify-content: center;
-      z-index: 300; padding: 16px;
+      z-index: 450; padding: 16px; /* above #chatModalBackdrop's z-index:400 (.add-app-backdrop) — this stacks on top of it */
     }
     .img-crop-dialog {
       background: var(--bg); border: 1px solid var(--tile-border); border-radius: 10px;
