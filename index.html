@@ -2072,11 +2072,17 @@
 
     /* ══ APP MANAGEMENT ══ */
     .add-app-backdrop {
-      position: fixed; inset: 0; z-index: 400;
+      position: fixed; inset: 0; z-index: 410;
       background: rgba(0,0,0,0.6);
 
       display: none; align-items: center; justify-content: center; padding: 1rem;
     }
+    /* 410, not tied with .settings-backdrop's 400 — the background-color
+       picker (and any other .add-app-backdrop modal) opens FROM a button
+       inside Settings, so it needs to render on top of it, not lose the
+       stacking tie to whichever one happens to sit later in the DOM (that
+       tie is what caused it to render behind Settings instead). Still well
+       under .img-crop-backdrop's 450, so that relationship is untouched. */
     .add-app-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
     .add-app-modal {
       width: min(480px, calc(100vw - 2rem));
@@ -4028,6 +4034,11 @@ const BG_PALETTE_DARK = [
   { hex: '#0d0f14', label: 'Slate' },
   { hex: '#14100c', label: 'Espresso' },
   { hex: '#05060d', label: 'Midnight' },
+  { hex: '#0f0a14', label: 'Deep Purple' },
+  { hex: '#0a120e', label: 'Forest' },
+  { hex: '#140a0d', label: 'Wine' },
+  { hex: '#061014', label: 'Ocean' },
+  { hex: '#111111', label: 'Graphite' },
 ];
 const BG_PALETTE_LIGHT = [
   { hex: '', label: 'Default (warm white)' },
@@ -4035,6 +4046,11 @@ const BG_PALETTE_LIGHT = [
   { hex: '#eceae5', label: 'Soft Gray' },
   { hex: '#faf3e6', label: 'Cream' },
   { hex: '#eef2f7', label: 'Pale Sky' },
+  { hex: '#f8ecec', label: 'Blush' },
+  { hex: '#eaf5ee', label: 'Mint' },
+  { hex: '#f1eef8', label: 'Lavender' },
+  { hex: '#f6efe0', label: 'Sand' },
+  { hex: '#edf3f5', label: 'Ice' },
 ];
 
 function getCustomBg(theme) {
