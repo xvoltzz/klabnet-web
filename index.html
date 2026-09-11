@@ -2187,6 +2187,35 @@
     .settings-row-sub {
       font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.08em; margin-top: 2px;
     }
+    /* Background-color settings row button — shows the currently-effective
+       --bg as its own fill (see applyCustomBg()) so it doubles as a live
+       swatch, not just a generic icon button. */
+    .bg-color-btn {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+      border: 1px solid var(--tile-border); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 13px; transition: transform 0.1s;
+    }
+    .bg-color-btn:hover { transform: scale(1.08); color: var(--text); }
+    /* Background-palette modal — same swatch-grid language as the profile
+       editor's chat-color picker (.profile-modal-color-swatch), just under
+       its own class since this one applies instantly on click rather than
+       waiting on a form Save. */
+    .bg-palette-group { margin-bottom: 14px; }
+    .bg-palette-group:last-child { margin-bottom: 0; }
+    .bg-palette-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 6px; }
+    .bg-palette-swatch {
+      width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; box-shadow: 0 0 0 1px var(--tile-border);
+      transition: transform 0.1s; position: relative;
+      display: flex; align-items: center; justify-content: center; font-size: 11px;
+    }
+    .bg-palette-swatch:hover { transform: scale(1.12); }
+    .bg-palette-swatch.selected { border-color: rgba(var(--accent-rgb),1); }
+    .bg-palette-swatch.selected::after {
+      content: '\2713'; color: rgba(var(--accent-rgb),1);
+      text-shadow: 0 0 2px rgba(0,0,0,0.7), 0 0 2px rgba(255,255,255,0.7);
+    }
     /* Toggle switch */
     .s-toggle {
       width: 36px; height: 20px; border-radius: 100px; flex-shrink: 0;
@@ -3685,6 +3714,15 @@ window.KLAB_BOOT = (function() {
     </div>
     <div class="settings-body">
 
+      <!-- Appearance -->
+      <div class="settings-section">
+        <span class="settings-section-label">Appearance</span>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Background Color</div><div class="settings-row-sub">Pick a shade for light &amp; dark mode</div></div>
+          <button class="bg-color-btn" id="bgColorBtn" title="Change background color"><i class="ti ti-palette"></i></button>
+        </div>
+      </div>
+
       <!-- Audio -->
       <div class="settings-section">
         <span class="settings-section-label">Audio</span>
@@ -3906,10 +3944,89 @@ function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('themeIcon').className = t === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
   localStorage.setItem(THEME_KEY, t);
+  applyCustomBg(); // re-check the OTHER theme's stored color now that data-theme changed
 }
 
 applyTheme(currentTheme);
 document.getElementById('themeToggle').addEventListener('click', () => { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); SFX.play('click'); });
+
+// ══════════════════════════════════════════
+//  CUSTOM BACKGROUND COLOR — curated palette per theme, not a full color
+//  picker: --bg sits behind every readability-tuned text/border token in
+//  the file, so letting someone pick an arbitrary hex risked breaking
+//  contrast everywhere at once. Same "curated swatches, not free hex" call
+//  already made for the profile chat-color picker (CHAT_NAME_COLORS).
+// ══════════════════════════════════════════
+const BG_KEY_DARK  = 'klabnet_bg_dark';
+const BG_KEY_LIGHT = 'klabnet_bg_light';
+// First entry of each list ('' hex) is "use the theme's own default" —
+// clearing back to whatever [data-theme="..."] already defines for --bg,
+// rather than a swatch of its own that'd drift if that default ever changes.
+const BG_PALETTE_DARK = [
+  { hex: '', label: 'Default (true black)' },
+  { hex: '#0a0a0c', label: 'OLED Charcoal' },
+  { hex: '#0d0f14', label: 'Slate' },
+  { hex: '#14100c', label: 'Espresso' },
+  { hex: '#05060d', label: 'Midnight' },
+];
+const BG_PALETTE_LIGHT = [
+  { hex: '', label: 'Default (warm white)' },
+  { hex: '#ffffff', label: 'Pure White' },
+  { hex: '#eceae5', label: 'Soft Gray' },
+  { hex: '#faf3e6', label: 'Cream' },
+  { hex: '#eef2f7', label: 'Pale Sky' },
+];
+
+function getCustomBg(theme) {
+  try { return localStorage.getItem(theme === 'dark' ? BG_KEY_DARK : BG_KEY_LIGHT) || ''; }
+  catch (e) { return ''; }
+}
+function setCustomBg(theme, hex) {
+  try { localStorage.setItem(theme === 'dark' ? BG_KEY_DARK : BG_KEY_LIGHT, hex || ''); } catch (e) {}
+  if (theme === currentTheme) applyCustomBg();
+  scheduleSave && scheduleSave(); // sync to /api/prefs alongside the other appearance prefs
+}
+function applyCustomBg() {
+  const hex = getCustomBg(currentTheme);
+  if (hex) document.documentElement.style.setProperty('--bg', hex);
+  else document.documentElement.style.removeProperty('--bg'); // falls back to the theme's own default
+  const btn = document.getElementById('bgColorBtn');
+  if (btn) btn.style.background = hex || getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+}
+applyCustomBg();
+
+function openBgColorModal() {
+  const paletteRowHTML = (palette, theme) => palette.map(p => {
+    const selected = getCustomBg(theme) === p.hex;
+    const swatchBg = p.hex || (theme === 'dark' ? '#000000' : '#f5f4f0');
+    return `<div class="bg-palette-swatch${selected ? ' selected' : ''}" data-bg-theme="${theme}" data-bg-hex="${esc(p.hex)}" style="background:${swatchBg}" title="${esc(p.label)}"></div>`;
+  }).join('');
+  openChatModal('// background color', `
+    <div class="bg-palette-group">
+      <div class="settings-row-label">Dark mode</div>
+      <div class="bg-palette-row" data-bg-group="dark">${paletteRowHTML(BG_PALETTE_DARK, 'dark')}</div>
+    </div>
+    <div class="bg-palette-group">
+      <div class="settings-row-label">Light mode</div>
+      <div class="bg-palette-row" data-bg-group="light">${paletteRowHTML(BG_PALETTE_LIGHT, 'light')}</div>
+    </div>
+  `);
+  // Bound to each freshly-rendered swatch (recreated by chatModalBody's
+  // innerHTML replace above every time this opens) rather than delegated
+  // on the persistent #chatModalBody shell itself — that shell never gets
+  // torn down between opens, so a delegated listener there would stack a
+  // new copy on every single open of this modal.
+  document.querySelectorAll('.bg-palette-swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      const theme = swatch.dataset.bgTheme;
+      setCustomBg(theme, swatch.dataset.bgHex);
+      swatch.closest('.bg-palette-row').querySelectorAll('.bg-palette-swatch').forEach(s => s.classList.remove('selected'));
+      swatch.classList.add('selected');
+      SFX && SFX.play('click');
+    });
+  });
+}
+document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModal);
 
 // ══════════════════════════════════════════
 //  MAINTENANCE
@@ -5892,6 +6009,8 @@ const PREF_KEYS = {
   play_history:  'klabnet_play_history',
   theme:         'klabnet_theme',
   playlists:     'klabnet_playlists',
+  bg_dark:       'klabnet_bg_dark',
+  bg_light:      'klabnet_bg_light',
 };
 
 async function fetchMe() {
@@ -5979,8 +6098,13 @@ async function loadServerPrefs() {
     // meaningful value (you cleared it), not a missing one.
     const setIfPresent = (lsKey, val) => {
       if (val === undefined || val === null) return;
+      // A present-but-empty string ('' — e.g. bg_dark/bg_light reset back to
+      // "theme default") is a meaningful, real value once we know a real
+      // prefs blob exists (same reasoning as the empty-array/object case
+      // below) — only genuinely absent (undefined/null, checked above)
+      // means "nothing to sync".
       if (typeof val === 'string') {
-        if (val.length) localStorage.setItem(lsKey, val);
+        localStorage.setItem(lsKey, val);
       } else {
         localStorage.setItem(lsKey, JSON.stringify(val));
       }
@@ -5991,6 +6115,9 @@ async function loadServerPrefs() {
     setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
     setIfPresent(PREF_KEYS.theme,         prefs.theme);
     setIfPresent(PREF_KEYS.playlists,     prefs.playlists);
+    setIfPresent(PREF_KEYS.bg_dark,       prefs.bg_dark);
+    setIfPresent(PREF_KEYS.bg_light,      prefs.bg_light);
+    if (typeof applyCustomBg === 'function') applyCustomBg(); // server prefs may have just changed the active theme's color
 
   } catch(e) {
 
@@ -6008,6 +6135,8 @@ async function saveServerPrefs() {
     play_history:  parse(PREF_KEYS.play_history,  []),
     theme:         localStorage.getItem(PREF_KEYS.theme) || 'dark',
     playlists:     parse(PREF_KEYS.playlists,     []),
+    bg_dark:       localStorage.getItem(PREF_KEYS.bg_dark)  || '',
+    bg_light:      localStorage.getItem(PREF_KEYS.bg_light) || '',
   };
   try {
     await fetchTimeout('/api/prefs', {
