@@ -950,6 +950,16 @@
     .feed-composer {
       background: var(--tile-bg); border: 1px solid var(--tile-border);
       border-radius: 10px; padding: 0.85rem; margin-bottom: 1.4rem;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* The textarea itself has no border of its own (it lives directly in
+       this already-boxed wrapper) — glowing the whole card on focus is the
+       same "the box glows as one unit" language .picker-search/.chat-
+       modal-search use, rather than composing in a box that never
+       visually reacts to being focused at all. */
+    .feed-composer:focus-within {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
     /* Live @mention coloring while typing: a real <textarea> can't render
        inline-styled spans, so the standard trick is an identically-sized
@@ -1014,17 +1024,19 @@
       background: var(--tile-bg); border: 1px solid var(--tile-border);
       border-radius: 10px; padding: 0.85rem; display: flex; gap: 0.7rem;
     }
+    /* Bumped up from 38px/12.5px/13.5px — a feed of posts from people you
+       know reads more personal with real presence, not list-density. */
     .feed-post-avatar {
-      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: var(--tile-bg-h); font-size: 15px; font-weight: 700; color: var(--text-dim);
+      background: var(--tile-bg-h); font-size: 17px; font-weight: 700; color: var(--text-dim);
       overflow: hidden;
     }
     .feed-post-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .feed-post-body { flex: 1; min-width: 0; }
     .feed-post-head { display: flex; align-items: baseline; gap: 0.5rem; }
-    .feed-post-name { font-size: 12.5px; font-weight: 700; color: var(--name-color, var(--text)); }
-    .feed-post-time { font-size: 9.5px; color: var(--text-dimmer); }
+    .feed-post-name { font-size: 14px; font-weight: 700; color: var(--name-color, var(--text)); }
+    .feed-post-time { font-size: 10px; color: var(--text-dimmer); }
     .feed-post-delete {
       margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 13px;
       opacity: 0; transition: opacity 0.15s, color 0.15s;
@@ -1032,7 +1044,7 @@
     .feed-post:hover .feed-post-delete { opacity: 1; }
     .feed-post-delete:hover { color: var(--danger-color); }
     .feed-post-text {
-      font-size: 13.5px; color: var(--text); line-height: 1.55; margin-top: 3px;
+      font-size: 15px; color: var(--text); line-height: 1.55; margin-top: 3px;
       white-space: pre-wrap; word-break: break-word;
     }
     .feed-post-mention { font-weight: 700; }
@@ -1049,12 +1061,12 @@
     .feed-post-reaction-pill:hover { background: var(--glass-fill-h); }
     .feed-post-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
     .feed-post-reaction-count { font-size: 9.5px; color: var(--text-dim); font-weight: 600; }
-    .feed-post-add-reaction, .feed-post-reply-toggle {
+    .feed-post-add-reaction {
       display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px;
       cursor: pointer; background: none; border: 1px solid transparent; color: var(--text-dimmer);
       font-size: 11px; transition: background 0.15s, color 0.15s;
     }
-    .feed-post-add-reaction:hover, .feed-post-reply-toggle:hover { background: var(--glass-fill-h); color: var(--text-dim); }
+    .feed-post-add-reaction:hover { background: var(--glass-fill-h); color: var(--text-dim); }
     .feed-post-quick-reactions { display: none; gap: 2px; }
     .feed-post-quick-reactions.open { display: flex; }
     .feed-post-quick-reactions button {
@@ -1062,28 +1074,43 @@
     }
     .feed-post-quick-reactions button:hover { background: var(--glass-fill-h); }
 
-    .feed-post-replies { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--tile-border); display: none; }
-    .feed-post-replies.open { display: block; }
-    .feed-post-reply { display: flex; gap: 8px; margin-bottom: 8px; }
+    /* Always visible now (no more expand/collapse toggle) — same fading-
+       gradient divider language as .sec-line/.chat-channel-section-label
+       instead of a hard border-top. */
+    .feed-post-replies { margin-top: 10px; padding-top: 10px; position: relative; }
+    .feed-post-replies::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.2) 0%,
+        rgba(var(--accent-rgb),0.04) 60%,
+        transparent 100%);
+    }
+    .feed-post-reply { display: flex; gap: 9px; margin-bottom: 10px; }
     .feed-post-reply-avatar {
-      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-      background: var(--tile-bg-h); font-size: 10px; font-weight: 700; color: var(--text-dim);
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      background: var(--tile-bg-h); font-size: 12px; font-weight: 700; color: var(--text-dim);
       display: flex; align-items: center; justify-content: center;
     }
     .feed-post-reply-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .feed-post-reply-body { flex: 1; min-width: 0; }
     .feed-post-reply-head { display: flex; align-items: baseline; gap: 6px; }
-    .feed-post-reply-name { font-size: 11px; font-weight: 700; }
-    .feed-post-reply-time { font-size: 8.5px; color: var(--text-dimmer); }
+    .feed-post-reply-name { font-size: 12px; font-weight: 700; }
+    .feed-post-reply-time { font-size: 9px; color: var(--text-dimmer); }
     .feed-post-reply-delete { margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 11px; }
     .feed-post-reply-delete:hover { color: var(--danger-color); }
-    .feed-post-reply-text { font-size: 12px; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .feed-post-reply-composer { display: flex; gap: 6px; margin-top: 4px; }
+    .feed-post-reply-text { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .feed-post-reply-composer { display: flex; gap: 6px; margin-top: 6px; }
+    /* Same boxy + focus-glow language as .picker-search/.chat-composer
+       input, not a 14px pill on var(--glass-fill). */
     .feed-post-reply-input {
-      flex: 1; background: var(--glass-fill); border: 1px solid var(--tile-border); border-radius: 14px;
-      padding: 6px 12px; font-size: 12px; color: var(--text); font-family: var(--font-ui); outline: none;
+      flex: 1; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+      padding: 7px 12px; font-size: 12px; color: var(--text); font-family: var(--font-ui); outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .feed-post-reply-input:focus { border-color: rgba(var(--accent-rgb),0.4); }
+    .feed-post-reply-input:focus {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
     .feed-post-reply-send { font-size: 11px; color: rgba(var(--accent-rgb),1); cursor: pointer; padding: 0 4px; }
     .feed-mentions-btn {
       position: relative; display: flex; align-items: center; justify-content: center;
@@ -1107,7 +1134,7 @@
     .feed-load-more:hover { background: var(--tile-bg-h); color: var(--text); }
     @media (max-width: 560px) {
       .feed-post { flex-direction: column; }
-      .feed-post-avatar { width: 30px; height: 30px; }
+      .feed-post-avatar { width: 36px; height: 36px; }
     }
 
     /* ══ APP GRID ══ */
@@ -10497,8 +10524,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
   let _pendingFile   = null;
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
-  const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily on first expand
-  const _expandedReplies    = new Set(); // postIds with their replies panel open
+  const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
+  const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
 
   // @mentions — plain "@name" tokens, not validated against a real user
@@ -10621,17 +10648,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     '</div>';
   }
 
+  // Always shown now (no more expand/collapse click) — ensureFeedRepliesResolved()
+  // below fetches into _repliesCache as each post with replies renders.
   function feedRepliesSectionHTML(post) {
-    const open = _expandedReplies.has(post.id);
     const replies = _repliesCache.get(post.id) || [];
-    return '<div class="feed-post-replies' + (open ? ' open' : '') + '" data-post-id="' + post.id + '">' +
-      (open ? replies.map(r => feedReplyHTML(post, r)).join('') : '') +
-      (open ? (
-        '<div class="feed-post-reply-composer">' +
-          '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
-          '<span class="feed-post-reply-send" data-post-id="' + post.id + '">Send</span>' +
-        '</div>'
-      ) : '') +
+    return '<div class="feed-post-replies" data-post-id="' + post.id + '">' +
+      replies.map(r => feedReplyHTML(post, r)).join('') +
+      '<div class="feed-post-reply-composer">' +
+        '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
+        '<span class="feed-post-reply-send" data-post-id="' + post.id + '">Send</span>' +
+      '</div>' +
     '</div>';
   }
 
@@ -10647,6 +10673,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const url = _feedImageCache.get(post.image_mxc);
       if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" alt="" loading="lazy" />';
     }
+    ensureFeedRepliesResolved(post);
     const reactions = post.reactions || {};
     const pillsHTML = Object.entries(reactions).map(([emoji, entry]) =>
       '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + esc(emoji) + '">' +
@@ -10654,7 +10681,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       '</button>'
     ).join('');
     const quickPickerOpen = _openReactionPickers.has(post.id);
-    const replyCount = post.reply_count || 0;
     return '<div class="feed-post" style="--name-color:' + profileColor(post.username) + '">' +
       '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-body">' +
@@ -10671,7 +10697,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           '<span class="feed-post-quick-reactions' + (quickPickerOpen ? ' open' : '') + '" data-post-id="' + post.id + '">' +
             FEED_QUICK_REACTIONS.map(e => '<button type="button" data-post-id="' + post.id + '" data-emoji="' + e + '">' + e + '</button>').join('') +
           '</span>' +
-          '<button type="button" class="feed-post-reply-toggle" data-post-id="' + post.id + '"><i class="ti ti-message-circle"></i> ' + (replyCount ? replyCount + (replyCount === 1 ? ' reply' : ' replies') : 'Reply') + '</button>' +
         '</div>' +
         feedRepliesSectionHTML(post) +
       '</div>' +
@@ -10873,18 +10898,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const data = await r.json();
       _repliesCache.set(postId, data.replies || []);
       renderFeed();
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      _repliesPending.delete(postId);
+    }
   }
 
-  function toggleFeedReplies(postId) {
-    if (_expandedReplies.has(postId)) {
-      _expandedReplies.delete(postId);
-      renderFeed();
-    } else {
-      _expandedReplies.add(postId);
-      renderFeed();
-      if (!_repliesCache.has(postId)) fetchFeedReplies(postId);
-    }
+  // Replies are always shown now — same resolve-then-rerender idiom as
+  // ensureFeedAvatar()/ensureFeedImage() above, called from postHTML() on
+  // every render. Skips posts with no replies at all (the common case)
+  // rather than firing a fetch for every single post in the feed.
+  function ensureFeedRepliesResolved(post) {
+    if (!post.reply_count || _repliesCache.has(post.id) || _repliesPending.has(post.id)) return;
+    _repliesPending.add(post.id);
+    fetchFeedReplies(post.id);
   }
 
   async function submitFeedReply(postId, input) {
@@ -10940,8 +10967,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       toggleFeedReaction(postId, quickEmoji.dataset.emoji);
       return;
     }
-    const replyToggle = e.target.closest('.feed-post-reply-toggle');
-    if (replyToggle) { toggleFeedReplies(Number(replyToggle.dataset.postId)); return; }
     const replySend = e.target.closest('.feed-post-reply-send');
     if (replySend) {
       const postId = Number(replySend.dataset.postId);
