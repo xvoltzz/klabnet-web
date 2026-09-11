@@ -1294,6 +1294,31 @@
     .profile-view-username { font-size: 10.5px; color: var(--text-faint); }
     .profile-view-bio { font-size: 12px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; white-space: pre-wrap; }
 
+    /* Pan/zoom cropper — its own standalone overlay (not the shared
+       #chatModalBody shell) since it needs to stack on top of the
+       profile-edit modal that's still open underneath it. */
+    .img-crop-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 300; padding: 16px;
+    }
+    .img-crop-dialog {
+      background: var(--bg); border: 1px solid var(--tile-border); border-radius: 10px;
+      padding: 16px; width: 100%; max-width: 360px;
+    }
+    .img-crop-title { font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 10px; text-transform: uppercase; }
+    .img-crop-stage {
+      position: relative; width: 100%; overflow: hidden; border-radius: 8px;
+      background: #000; cursor: grab; touch-action: none;
+    }
+    .img-crop-stage:active { cursor: grabbing; }
+    .img-crop-stage.is-circle { aspect-ratio: 1 / 1; border-radius: 50%; }
+    .img-crop-stage.is-rect { aspect-ratio: 3.5556 / 1; }
+    .img-crop-img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; pointer-events: none; }
+    .img-crop-zoom { width: 100%; margin-top: 12px; }
+    .img-crop-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .img-crop-actions .chat-connect-btn, .img-crop-actions .chat-modal-row-btn { flex: 1; justify-content: center; }
+
     .tile i {
       font-size: 16px; color: var(--tile-icon);
       transition: color 0.2s;
@@ -7026,7 +7051,20 @@ function ensureChatImageResolved(mxc) {
     const url = _chatImageCache.get(mxc);
     if (!url) return;
     document.querySelectorAll(`.chat-msg-image[data-mxc="${CSS.escape(mxc)}"]`).forEach(img => {
-      if (!img.src || !img.src.startsWith('blob:')) img.src = url;
+      if (!img.src || !img.src.startsWith('blob:')) {
+        img.src = url;
+        // This image has no reserved height, so it pops in well after
+        // renderTimeline() already pinned scrollTop to the bottom (that
+        // measurement ran before this async fetch even started) — growing
+        // the content below the fold without anything re-pinning it. If
+        // you're still (or again) near the bottom by the time it actually
+        // loads, follow it back down; if you've since scrolled away to
+        // read history, leave you alone.
+        img.addEventListener('load', () => {
+          const el = document.getElementById('chatTimeline');
+          if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
+        }, { once: true });
+      }
     });
   });
 }
@@ -7679,6 +7717,119 @@ function openDmModal() {
   searchEl.focus();
 }
 
+// Pan/zoom cropper for the profile avatar (circle) and banner (wide strip)
+// uploads below — without it, an arbitrary source photo just got blindly
+// center-cropped into whatever shape the CSS forced it into, "botching"
+// anything not already framed for that exact aspect ratio. Its own
+// standalone overlay rather than the shared #chatModalBody shell (see
+// openChatModal()'s own comment on why there's only one of those) since
+// this needs to stack on top of the profile-edit modal that opened it.
+// Resolves with a cropped JPEG Blob at the requested output size, or null
+// if the user cancels.
+function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeight = 480 } = {}) {
+  return new Promise(resolve => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'img-crop-backdrop';
+      backdrop.innerHTML = `
+        <div class="img-crop-dialog">
+          <div class="img-crop-title">// crop image</div>
+          <div class="img-crop-stage ${shape === 'circle' ? 'is-circle' : 'is-rect'}">
+            <img class="img-crop-img" src="${objectUrl}" alt="" draggable="false" />
+          </div>
+          <input type="range" class="img-crop-zoom" min="0" max="100" value="0" />
+          <div class="img-crop-actions">
+            <button type="button" class="chat-modal-row-btn" id="imgCropCancel">Cancel</button>
+            <button type="button" class="chat-connect-btn" id="imgCropUse">Use Photo</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(backdrop);
+
+      const stage     = backdrop.querySelector('.img-crop-stage');
+      const stageImg  = backdrop.querySelector('.img-crop-img');
+      const zoomEl    = backdrop.querySelector('.img-crop-zoom');
+      // Measured once on open — the stage's own size never changes after
+      // that (only the image's pan/zoom does), so there's no need to
+      // re-measure on every drag/zoom step.
+      const stageRect = stage.getBoundingClientRect();
+      const stageW = stageRect.width, stageH = stageRect.height;
+      // The smallest scale where the image still fully covers the stage
+      // in both dimensions — never let it shrink past that, or the crop
+      // would include empty space beyond the photo's edges.
+      const minScale = Math.max(stageW / img.naturalWidth, stageH / img.naturalHeight);
+      const maxScale = minScale * 4;
+      let scale = minScale;
+      let tx = (stageW - img.naturalWidth * scale) / 2;
+      let ty = (stageH - img.naturalHeight * scale) / 2;
+
+      function clamp() {
+        const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+        tx = Math.min(0, Math.max(stageW - w, tx));
+        ty = Math.min(0, Math.max(stageH - h, ty));
+      }
+      function apply() {
+        clamp();
+        stageImg.style.transformOrigin = '0 0';
+        stageImg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      }
+      apply();
+
+      zoomEl.addEventListener('input', () => {
+        const oldScale = scale;
+        scale = minScale + (Number(zoomEl.value) / 100) * (maxScale - minScale);
+        // Anchor the zoom on the stage's visual center rather than the
+        // image's top-left corner, so zooming in doesn't feel like it's
+        // dragging the photo off to one side.
+        const cx = stageW / 2, cy = stageH / 2;
+        tx = cx - (cx - tx) * (scale / oldScale);
+        ty = cy - (cy - ty) * (scale / oldScale);
+        apply();
+      });
+
+      let dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
+      stage.addEventListener('pointerdown', e => {
+        dragging = true; startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty;
+        stage.setPointerCapture(e.pointerId);
+      });
+      stage.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        tx = startTx + (e.clientX - startX);
+        ty = startTy + (e.clientY - startY);
+        apply();
+      });
+      stage.addEventListener('pointerup', () => { dragging = false; });
+      stage.addEventListener('pointercancel', () => { dragging = false; });
+
+      function cleanup(result) {
+        backdrop.remove();
+        URL.revokeObjectURL(objectUrl);
+        resolve(result);
+      }
+      backdrop.querySelector('#imgCropCancel').addEventListener('click', () => cleanup(null));
+      backdrop.addEventListener('click', e => { if (e.target === backdrop) cleanup(null); });
+      backdrop.querySelector('#imgCropUse').addEventListener('click', () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        // Maps the visible stage viewport back to natural image pixels:
+        // at the current pan/zoom, stage-space (0,0)-(stageW,stageH)
+        // corresponds to this source rect (a plain rectangle either way —
+        // the circle shape only ever affects the CSS clipping, not this
+        // underlying math).
+        const sx = -tx / scale, sy = -ty / scale;
+        const sw = stageW / scale, sh = stageH / scale;
+        canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
+        canvas.toBlob(blob => cleanup(blob), 'image/jpeg', 0.92);
+      });
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+    img.src = objectUrl;
+  });
+}
+
 // ── Edit your own profile (avatar + display name) from inside klabnet,
 // instead of needing Element or another Matrix client — opened by
 // clicking your own presence card. Uploads go straight to the
@@ -7760,13 +7911,14 @@ async function openProfileModal() {
       .catch(() => {});
   }
   bannerEl.addEventListener('click', () => bannerFileEl.click());
-  bannerFileEl.addEventListener('change', () => {
+  bannerFileEl.addEventListener('change', async () => {
     const file = bannerFileEl.files?.[0];
+    bannerFileEl.value = ''; // lets the same file be re-picked after a cancelled crop
     if (!file) return;
-    pendingBannerFile = file;
-    const reader = new FileReader();
-    reader.onload = () => { bannerEl.style.backgroundImage = `url(${reader.result})`; };
-    reader.readAsDataURL(file);
+    const cropped = await openImageCropper(file, { shape: 'rect', outputWidth: 960, outputHeight: 270 });
+    if (!cropped) return;
+    pendingBannerFile = new File([cropped], 'banner.jpg', { type: 'image/jpeg' });
+    bannerEl.style.backgroundImage = `url(${URL.createObjectURL(cropped)})`;
   });
 
   try {
@@ -7782,17 +7934,16 @@ async function openProfileModal() {
   } catch (e) { /* fall back to the initial-letter placeholder */ }
 
   avatarEl.addEventListener('click', () => fileEl.click());
-  fileEl.addEventListener('change', () => {
+  fileEl.addEventListener('change', async () => {
     const file = fileEl.files?.[0];
+    fileEl.value = ''; // lets the same file be re-picked after a cancelled crop
     if (!file) return;
-    pendingFile = file;
-    const reader = new FileReader();
-    reader.onload = () => {
-      avatarEl.querySelectorAll('img').forEach(img => img.remove());
-      initialEl.style.display = 'none';
-      avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(reader.result)}" alt="" />`);
-    };
-    reader.readAsDataURL(file);
+    const cropped = await openImageCropper(file, { shape: 'circle', outputWidth: 480, outputHeight: 480 });
+    if (!cropped) return;
+    pendingFile = new File([cropped], 'avatar.jpg', { type: 'image/jpeg' });
+    avatarEl.querySelectorAll('img').forEach(img => img.remove());
+    initialEl.style.display = 'none';
+    avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(URL.createObjectURL(cropped))}" alt="" />`);
   });
 
   saveBtn.addEventListener('click', async () => {
