@@ -477,13 +477,17 @@
     body.tab-music-active .ap-card {
       height: auto; flex: 1; min-height: 0; display: flex; flex-direction: column;
     }
-    /* .ap-panel.open (3 class-equivalents) beats the plain .ap-panel.open
-       -> display:block rule further down (2) on equal-order grounds — this
-       needs to actually win, not just tie, since flex:1/flex-direction
-       depend on display:flex actually taking effect once opened. Same
-       align-items/justify-content/padding reset as .picker-backdrop above,
-       same reason — .ap-panel's own base rule is also modal-era centering. */
-    body.tab-music-active .ap-panel.open {
+    /* Same specificity-tie bug as .picker-backdrop above: the neutralization
+       rule further down, .tab-panel[data-tab-panel="music"] .ap-panel.open
+       (4 class-equivalents: .tab-panel + [data-tab-panel] + .ap-panel +
+       .open), OUTRANKS a plain "body.tab-music-active .ap-panel.open" (3),
+       so its display:block was winning over this display:flex — .ap-card
+       (height:auto + flex:1 below) never got a bounded flex-parent height
+       to stretch within, so it just grew to fit all its content with
+       nothing to clip/scroll it. This is the "can't scroll inside an
+       album" bug. Extra ancestor qualifier here to reliably outrank it,
+       same fix as .picker-backdrop's. */
+    body.tab-music-active .tab-panel[data-tab-panel="music"] .ap-panel.open {
       flex: 1; min-height: 0; display: flex; flex-direction: column;
       align-items: stretch; justify-content: flex-start; padding: 0;
     }
