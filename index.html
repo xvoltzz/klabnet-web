@@ -4735,7 +4735,17 @@ document.getElementById('calTodayBtn')?.addEventListener('click', () => {
   renderCalendarGrid();
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('calendarOverlay')?.classList.contains('open')) closeCalendarOverlay();
+  if (e.key !== 'Escape') return;
+  if (!document.getElementById('calendarOverlay')?.classList.contains('open')) return;
+  // The New Event / event-detail popup (openEventModal/openEventDetailModal)
+  // sits on top of this overlay using the shared chatModal shell, which has
+  // no Escape handler of its own — without this check, Escape always fell
+  // through to closing the WHOLE calendar out from under whichever small
+  // popup was actually open, instead of just dismissing that popup like
+  // you'd expect. Close only the topmost thing.
+  const chatModal = document.getElementById('chatModalBackdrop');
+  if (chatModal?.classList.contains('open')) { closeChatModal(); return; }
+  closeCalendarOverlay();
 });
 
 // invitee is a plain username to send a booking request to, or falsy for a
