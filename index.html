@@ -1791,7 +1791,28 @@
     .ctx-item.warn { color: var(--warn-color); }
     .ctx-item.warn:hover { color: var(--warn-color); background: var(--warn-bg); transform: translateX(2px); }
     .ctx-item.active-warn { color: var(--warn-color); }
+    /* .ctx-item sets display:flex above, which always wins over the
+       browser's own [hidden]{display:none} default regardless of
+       specificity (author CSS beats UA styles) — without this, a
+       hidden .ctx-item (the header overflow menu's Leaderboard row when
+       that experimental feature is off) would show anyway, empty of
+       function. Same bug/fix already needed for .feed-composer-song-preview. */
+    .ctx-item[hidden] { display: none; }
     .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
+
+    /* Header overflow ("more") menu — same look as .ctx-menu (background/
+       border/shadow/entrance animation), just anchored under the header
+       button that opens it instead of positioned at a right-click point,
+       so plain position:absolute within .header-right's own relative
+       positioning is enough — no JS coordinate math needed. */
+    .hdr-more-menu {
+      position: absolute; top: calc(100% + 10px); right: 0; z-index: 60;
+      min-width: 210px; padding: 6px; border-radius: 8px; display: none;
+      animation: ctxIn 0.15s ease both;
+      background: var(--modal-bg); border: 1px solid var(--glass-border-h);
+      box-shadow: 0 8px 32px var(--shadow-40);
+    }
+    .hdr-more-menu.visible { display: block; }
 
     /* ══ MUSIC PLAYER DOCK — back to a floating bar, bottom-centered (the
        full-width edge-to-edge redesign didn't land — reverted) ══ */
@@ -3552,14 +3573,24 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
-      <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
-      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
-      <button class="hdr-btn glass" id="keyHintsBtn" title="Keyboard shortcuts"><i class="ti ti-keyboard"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
-      <a class="hdr-btn glass" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank" title="Source (Gitea)"><i class="ti ti-git-branch"></i></a>
-      <a class="hdr-btn glass" id="accountBtn" href="https://auth.klab.gg" target="_blank" title="Account"><i class="ti ti-user-circle"></i></a>
+      <!-- Overflow menu — motdRefresh/leaderboardBtn/keyHintsBtn/repoBtn/
+           accountBtn used to sit directly in this row as bare icon buttons;
+           moved in here (same ids, so their existing click-handler wiring
+           elsewhere in the script needs no changes) once the row grew to 8
+           icons and started feeling cramped. Settings/player/theme stay
+           direct since they're the ones actually reached for often. -->
+      <button class="hdr-btn glass" id="headerMoreBtn" title="More"><i class="ti ti-menu-2"></i></button>
+      <div class="hdr-more-menu" id="headerMoreMenu">
+        <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
+        <div class="ctx-item" id="leaderboardBtn" hidden><i class="ti ti-trophy"></i> Leaderboard</div>
+        <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
+        <div class="ctx-divider"></div>
+        <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
+        <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank"><i class="ti ti-user-circle"></i> Account</a>
+      </div>
       <div class="sys-badge glass">
         <span class="hb-dot" id="headerDot"></span>
         <span id="headerStatus">LOADING</span>
@@ -4299,7 +4330,9 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 //  LEADERBOARD (experimental) — minutes listened, posts, reactions given,
 //  music requests. Gated behind Settings > Experimental Features, off by
 //  default for anyone who hasn't opted in. Opened as a modal from the
-//  header's trophy button (#leaderboardBtn), not its own tab. Server-
+//  header's overflow menu (#leaderboardBtn, a trophy row in
+//  #headerMoreMenu — see the header-overflow-menu wiring for that), not
+//  its own tab. Server-
 //  computed (klabnet-api's /api/leaderboard aggregates posts/post_reactions/
 //  music_requests, plus a listening_stats table it accumulates from the
 //  existing presence heartbeat) — nothing tracked client-side here beyond
@@ -4365,7 +4398,8 @@ function renderLeaderboardList() {
   }, 900);
 }
 
-// Opened from the header's trophy button (#leaderboardBtn), same shared
+// Opened from the trophy row in the header's overflow menu (#leaderboardBtn,
+// see #headerMoreMenu), same shared
 // modal shell as the music-request search/DM list/etc — chatModalBody gets
 // torn down and rebuilt on every open, so the metric-button listeners are
 // (re)bound fresh each time rather than once, same reason the bg-color
@@ -6686,9 +6720,10 @@ function applySettings() {
   };
   const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
-  // Leaderboard isn't a tab — just a header icon button that opens it as a
-  // modal (see openLeaderboardModal()) — so it only needs its own hidden
-  // state toggled, no .sec/tab-panel visibility to manage.
+  // Leaderboard isn't a tab — just a row in the header's overflow menu
+  // (#headerMoreMenu) that opens it as a modal (see openLeaderboardModal())
+  // — so it only needs its own hidden state toggled, no .sec/tab-panel
+  // visibility to manage.
   const leaderboardBtn = document.getElementById('leaderboardBtn');
   if (leaderboardBtn) leaderboardBtn.hidden = !(_settings.experimentalEnabled && _settings.showLeaderboard);
 
@@ -6878,6 +6913,29 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   showToast('preferences reset — reloading...');
   setTimeout(() => location.reload(), 1500);
 });
+
+// Header overflow ("more") menu — toggled by its own button, closed by an
+// outside click, Escape, or clicking any item inside it (motdRefresh/
+// leaderboardBtn/keyHintsBtn/repoBtn/accountBtn keep their own separately-
+// wired click handlers elsewhere in the script; this only owns opening/
+// closing the menu chrome around them).
+(function() {
+  const btn  = document.getElementById('headerMoreBtn');
+  const menu = document.getElementById('headerMoreMenu');
+  if (!btn || !menu) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    menu.classList.toggle('visible');
+    SFX && SFX.play('click');
+  });
+  menu.addEventListener('click', e => { if (e.target.closest('.ctx-item')) menu.classList.remove('visible'); });
+  document.addEventListener('click', e => {
+    if (menu.classList.contains('visible') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.classList.remove('visible');
+    }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.classList.remove('visible'); });
+})();
 
 document.getElementById('settingsBtn').addEventListener('click', () => { openSettings(); });
 document.getElementById('settingsClose').addEventListener('click', () => { closeSettings(); });
