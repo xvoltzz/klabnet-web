@@ -1214,6 +1214,12 @@
       cursor: pointer;
     }
     .feed-load-more:hover { background: var(--tile-bg-h); color: var(--text); }
+    /* Same [hidden]-vs-display bug found twice already this session —
+       .feed-load-more sets display:block unconditionally, so the button
+       showed regardless of whether there was actually more history to
+       load, or while filtered to mentions-only (see loadMoreEl.hidden's
+       own assignment). Pre-existing, not something from this session. */
+    .feed-load-more[hidden] { display: none; }
     @media (max-width: 560px) {
       .feed-post { flex-direction: column; }
       .feed-post-avatar { width: 36px; height: 36px; }
@@ -1969,6 +1975,14 @@
     }
     .hdr-btn:hover { color:var(--text); background:var(--glass-fill-h); border-color:rgba(var(--accent-rgb),0.35); }
     .hdr-btn.active { color:var(--text); background:var(--glass-fill-h); }
+    /* .hdr-btn sets display:flex above, which always wins over the browser's
+       own [hidden]{display:none} default regardless of specificity (author
+       CSS beats UA styles) — #leaderboardBtn moving back to being a plain
+       .hdr-btn (from a .tab-nav-btn, which already has this same override)
+       silently broke its Experimental-Features gating this exact way. Same
+       bug/fix already needed twice elsewhere this session
+       (.feed-composer-song-preview, .ctx-item). */
+    .hdr-btn[hidden] { display: none; }
 
     /* ══ FULLSCREEN PLAYER ══ */
     /* Fully opaque — never see-through to the page behind it.
