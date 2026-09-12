@@ -3549,11 +3549,11 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
       <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
-      <button class="tab-nav-btn" data-tab-target="leaderboard" title="Leaderboard" hidden><i class="ti ti-trophy"></i><span>Leaderboard</span></button>
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
       <button class="hdr-btn glass" id="motdRefresh" title="New splash text"><i class="ti ti-refresh"></i></button>
+      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
       <button class="hdr-btn glass" id="keyHintsBtn" title="Keyboard shortcuts"><i class="ti ti-keyboard"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
@@ -3733,19 +3733,6 @@ window.KLAB_BOOT = (function() {
         <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
       </div>
     </div>
-  </div>
-  </div>
-
-  <div class="tab-panel" data-tab-panel="leaderboard">
-  <div class="sec" data-sec="leaderboard" hidden>
-    <div class="sec-head"><span class="sec-label">// leaderboard</span><span class="type-badge soon">experimental</span><div class="sec-line"></div></div>
-    <div class="lb-metric-row">
-      <button class="lb-metric-btn active" data-metric="seconds_listened" type="button"><i class="ti ti-headphones"></i> Minutes Listened</button>
-      <button class="lb-metric-btn" data-metric="posts_count" type="button"><i class="ti ti-news"></i> Posts</button>
-      <button class="lb-metric-btn" data-metric="reactions_given_count" type="button"><i class="ti ti-mood-plus"></i> Reactions Given</button>
-      <button class="lb-metric-btn" data-metric="requests_count" type="button"><i class="ti ti-disc-plus"></i> Requests</button>
-    </div>
-    <div class="lb-list" id="leaderboardList"><div class="picker-empty">loading...</div></div>
   </div>
   </div>
 
@@ -4311,13 +4298,14 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 // ══════════════════════════════════════════
 //  LEADERBOARD (experimental) — minutes listened, posts, reactions given,
 //  music requests. Gated behind Settings > Experimental Features, off by
-//  default for anyone who hasn't opted in. Server-computed (klabnet-api's
-//  /api/leaderboard aggregates posts/post_reactions/music_requests, plus a
-//  listening_stats table it accumulates from the existing presence
-//  heartbeat) — nothing tracked client-side here beyond displaying it.
+//  default for anyone who hasn't opted in. Opened as a modal from the
+//  header's trophy button (#leaderboardBtn), not its own tab. Server-
+//  computed (klabnet-api's /api/leaderboard aggregates posts/post_reactions/
+//  music_requests, plus a listening_stats table it accumulates from the
+//  existing presence heartbeat) — nothing tracked client-side here beyond
+//  displaying it.
 // ══════════════════════════════════════════
 let _leaderboardData   = [];
-let _leaderboardBound  = false;
 let _leaderboardMetric = 'seconds_listened';
 
 function fmtLeaderboardValue(metric, value) {
@@ -4367,27 +4355,43 @@ function renderLeaderboardList() {
   }).join('');
   // Same "nudge a re-render once resolved" idea as the music-requests list —
   // window.klabResolveUserAvatar only re-renders the FEED module itself on
-  // a cache-miss resolving.
+  // a cache-miss resolving. Guarded on the modal still actually being the
+  // one open (it could've been closed, or replaced by an unrelated
+  // openChatModal() call, by the time this fires).
   if (anyUnresolvedAvatar) setTimeout(() => {
-    if (document.querySelector('.tab-panel[data-tab-panel="leaderboard"]')?.classList.contains('active')) renderLeaderboardList();
+    if (document.getElementById('chatModalBackdrop')?.classList.contains('open') && document.getElementById('leaderboardList')) {
+      renderLeaderboardList();
+    }
   }, 900);
 }
 
-function ensureLeaderboardLoaded() {
-  if (!_leaderboardBound) {
-    _leaderboardBound = true;
-    document.querySelectorAll('.lb-metric-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.lb-metric-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        _leaderboardMetric = btn.dataset.metric;
-        renderLeaderboardList();
-        SFX && SFX.play('click');
-      });
+// Opened from the header's trophy button (#leaderboardBtn), same shared
+// modal shell as the music-request search/DM list/etc — chatModalBody gets
+// torn down and rebuilt on every open, so the metric-button listeners are
+// (re)bound fresh each time rather than once, same reason the bg-color
+// picker's swatches are (see its own comment on that).
+function openLeaderboardModal() {
+  openChatModal('// leaderboard', `
+    <div class="lb-metric-row">
+      <button class="lb-metric-btn${_leaderboardMetric === 'seconds_listened' ? ' active' : ''}" data-metric="seconds_listened" type="button"><i class="ti ti-headphones"></i> Minutes Listened</button>
+      <button class="lb-metric-btn${_leaderboardMetric === 'posts_count' ? ' active' : ''}" data-metric="posts_count" type="button"><i class="ti ti-news"></i> Posts</button>
+      <button class="lb-metric-btn${_leaderboardMetric === 'reactions_given_count' ? ' active' : ''}" data-metric="reactions_given_count" type="button"><i class="ti ti-mood-plus"></i> Reactions Given</button>
+      <button class="lb-metric-btn${_leaderboardMetric === 'requests_count' ? ' active' : ''}" data-metric="requests_count" type="button"><i class="ti ti-disc-plus"></i> Requests</button>
+    </div>
+    <div class="lb-list" id="leaderboardList"><div class="picker-empty">loading...</div></div>
+  `);
+  document.querySelectorAll('.lb-metric-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.lb-metric-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _leaderboardMetric = btn.dataset.metric;
+      renderLeaderboardList();
+      SFX && SFX.play('click');
     });
-  }
+  });
   fetchLeaderboard();
 }
+document.getElementById('leaderboardBtn')?.addEventListener('click', openLeaderboardModal);
 
 // ══════════════════════════════════════════
 //  MAINTENANCE
@@ -6682,9 +6686,11 @@ function applySettings() {
   };
   const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
-  const leaderboardVisible = _settings.experimentalEnabled && _settings.showLeaderboard;
-  showSec('.sec[data-sec="leaderboard"]', leaderboardVisible);
-  if (leaderboardVisible && typeof ensureLeaderboardLoaded === 'function') ensureLeaderboardLoaded();
+  // Leaderboard isn't a tab — just a header icon button that opens it as a
+  // modal (see openLeaderboardModal()) — so it only needs its own hidden
+  // state toggled, no .sec/tab-panel visibility to manage.
+  const leaderboardBtn = document.getElementById('leaderboardBtn');
+  if (leaderboardBtn) leaderboardBtn.hidden = !(_settings.experimentalEnabled && _settings.showLeaderboard);
 
   // Tab nav follows the same gate — a disabled section's tab disappears too.
   const setTabBtnVisible = (key, visible) => {
@@ -6692,7 +6698,6 @@ function applySettings() {
     if (btn) btn.hidden = !visible;
   };
   setTabBtnVisible('klabcraft', klabcraftVisible);
-  setTabBtnVisible('leaderboard', leaderboardVisible);
   if (typeof refreshActiveTabAvailability === 'function') refreshActiveTabAvailability();
 
   // Social is a permanent feature now (no longer gated behind Experimental
@@ -6709,7 +6714,7 @@ function applySettings() {
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'chat', 'music', 'apps', 'leaderboard', 'klabcraft'];
+const TABS = ['feed', 'chat', 'music', 'apps', 'klabcraft'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -6775,7 +6780,6 @@ function setActiveTab(key) {
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') ensureMusicTabLoaded();
-  if (key === 'leaderboard' && typeof ensureLeaderboardLoaded === 'function') ensureLeaderboardLoaded();
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
