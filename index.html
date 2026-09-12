@@ -806,19 +806,6 @@
       .toast-item.leaving { max-height: none; }
     }
 
-    .sys-badge {
-      font-size: 10px; letter-spacing: 0.18em; color: var(--text-dim);
-      padding: 6px 12px; text-transform: uppercase;
-      display: flex; align-items: center; gap: 8px; border-radius: 6px;
-    }
-
-    .hb-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--text-dimmer);
-      animation: pulse 2s ease infinite; flex-shrink: 0; transition: background 0.5s;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
     /* ══ SECTIONS ══ */
     .sec { margin-bottom: 3rem; }
     .sec-head { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1.2rem; }
@@ -2371,13 +2358,11 @@
 
     /* ── Light theme overrides ── */
     [data-theme="light"] .sec-line  { background: rgba(90,78,62,0.15); }
-    [data-theme="light"] #headerStatus { color: var(--text-dim); }
     [data-theme="light"] .prompt-text  { color: var(--text); }
     [data-theme="light"] .picker-item-title  { color: var(--text); }
     [data-theme="light"] .picker-item-artist { color: var(--text-dimmer); }
     [data-theme="light"] .picker-search input { color: var(--text); }
     [data-theme="light"] .sec-label { color: var(--text-dim); letter-spacing: 0.2em; }
-    [data-theme="light"] .sys-badge { color: var(--text-dim); background: rgba(255,255,255,0.6); border-color: rgba(120,108,92,0.2); }
     [data-theme="light"] .hdr-btn   { color: var(--text-dim); }
     [data-theme="light"] .hdr-btn:hover { color: var(--text); background: rgba(130,112,88,0.1); }
     [data-theme="light"] .user-badge   { color: var(--text-dimmer) !important; }
@@ -3606,10 +3591,6 @@ window.KLAB_BOOT = (function() {
         <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
         <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank"><i class="ti ti-user-circle"></i> Account</a>
       </div>
-      <div class="sys-badge glass">
-        <span class="hb-dot" id="headerDot"></span>
-        <span id="headerStatus">LOADING</span>
-      </div>
       <div class="toast-flyout" id="toastFlyout"></div>
     </div>
   </header>
@@ -4461,10 +4442,11 @@ function applyDot(id,status){
   if(!el)return;
   el.className='tile-dot '+(isMaint(id)?'maintenance':status===1?'up':'down');
 }
-function updateHeader(allUp){
-  document.getElementById('headerDot').style.background=allUp?'var(--success-color)':'var(--danger-color)';
-  document.getElementById('headerStatus').textContent=allUp?'ONLINE':'DEGRADED';
-}
+// The header used to show an aggregate ONLINE/DEGRADED/STATUS UNAVAILABLE
+// badge (updateHeader(), fed by the allUp flag below) right next to the
+// icon row — removed per feedback, nobody needed a second status readout
+// up there. Individual app tiles' up/down dots (applyDot()/TILE_DOTS,
+// still very much used in the Apps grid) are untouched.
 let lastBeats={};
 async function fetchStatus(){
   try{
@@ -4472,18 +4454,12 @@ async function fetchStatus(){
     if(!res.ok)throw new Error(res.status);
     const data=await res.json();
     lastBeats=data.heartbeatList;
-    let allUp=true;
     for(const[id,list]of Object.entries(lastBeats)){
       if(!list||!list.length)continue;
       const latest=list[list.length-1],numId=parseInt(id);
       applyDot(numId,latest.status);
-      if(TILE_DOTS[numId]&&latest.status!==1&&!isMaint(numId))allUp=false;
     }
-    updateHeader(allUp);
-  }catch(e){
-    document.getElementById('headerDot').style.background='var(--text-dimmer)';
-    document.getElementById('headerStatus').textContent='STATUS UNAVAILABLE';
-  }
+  }catch(e){}
   // Gitea: ping with Image() — works cross-origin, no CORS needed
   checkGitea();
 }
@@ -10629,9 +10605,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // resuming doesn't need to wait a poll cycle) — but that's stale once
     // they're not actually playing it, so the card only shows it while
     // `playing` is true. The online dot above isn't gated on this at all,
-    // so someone who stops listening just drops back to a bare name card
-    // (see the removed "Online" fallback below) rather than looking like
-    // they left.
+    // so someone who stops listening just drops back to "Online" rather
+    // than looking like they left.
     const showTrack = playing && song;
     // Only knowable because both sides of a party report it through their
     // own regular presence post (see postPresence()) — there's no other
@@ -10662,11 +10637,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
-        // The literal word "Online" here was pure redundancy with the dot
-        // right above it (see this function's own comment on that dot) —
-        // dropped per feedback once Chat gave presence a real home; the
-        // line just doesn't render at all when there's no track to show.
-        (showTrack ? '<div class="presence-card-track">' + esc(song) + '</div>' : '') +
+        '<div class="presence-card-track">' + (showTrack ? esc(song) : 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
         noteLine +
