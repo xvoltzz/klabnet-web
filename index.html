@@ -10741,7 +10741,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // nobody offline is ever the viewer.
     const note = _notesCache.get(person.username);
     const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '';
-    return '<div class="presence-card is-offline" data-username="' + esc(person.username) + '">' +
+    // Was missing entirely — cardHTML() (the online roster right above)
+    // sets --name-color from profileColor(), but this offline/"elsewhere"
+    // variant never did, so anyone showing up here always rendered in
+    // plain default text color regardless of their chosen chat color. Now
+    // that more people show up in this roster (auto-joining everyone to
+    // #klabnet put more accounts in shared rooms), it's a lot more visible.
+    const cardStyle = ' style="--name-color:' + profileColor(person.username) + ';"';
+    return '<div class="presence-card is-offline" data-username="' + esc(person.username) + '"' + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner + '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(person.username) + '</div>' +
