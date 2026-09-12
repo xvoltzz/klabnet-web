@@ -605,7 +605,20 @@
        regardless of how wide header-left/header-right happen to be —
        flex's space-between only guarantees equal GAPS around a middle
        item, not that it lands at the row's actual visual center. */
+    /* position:relative + an explicit z-index — without this, the fadeUp
+       entrance animation below (it animates opacity/transform) silently
+       makes .header its own CSS stacking context, which then paints
+       wherever plain DOM order puts it relative to .dash-body — i.e.
+       BEHIND it, since .dash-body comes later in the document and neither
+       had an explicit stacking order before this. Any z-indexed thing
+       living inside .header (the new #headerMoreMenu dropdown) only ever
+       wins ties *within* that trapped local context, never against
+       .dash-body's own content sitting on top of the whole header — this
+       is what read as "the menu background is transparent, I can click
+       through it": the menu was actually rendering correctly, just
+       underneath the page's real content the whole time. */
     .header {
+      position: relative; z-index: 30;
       display: grid; grid-template-columns: 1fr auto 1fr;
       align-items: start; column-gap: 1.5rem;
       margin-bottom: 2rem;
@@ -3573,19 +3586,21 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
+      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
-      <!-- Overflow menu — motdRefresh/leaderboardBtn/keyHintsBtn/repoBtn/
-           accountBtn used to sit directly in this row as bare icon buttons;
-           moved in here (same ids, so their existing click-handler wiring
-           elsewhere in the script needs no changes) once the row grew to 8
-           icons and started feeling cramped. Settings/player/theme stay
-           direct since they're the ones actually reached for often. -->
+      <!-- Overflow menu — motdRefresh/keyHintsBtn/repoBtn/accountBtn used to
+           sit directly in this row as bare icon buttons; moved in here
+           (same ids, so their existing click-handler wiring elsewhere in
+           the script needs no changes) once the row grew to 8 icons and
+           started feeling cramped. Leaderboard came back OUT of the menu —
+           kept visible on purpose, to actually encourage using it — and
+           Account went further IN (no title tooltip even) since it's
+           rarely the thing anyone's reaching for. -->
       <button class="hdr-btn glass" id="headerMoreBtn" title="More"><i class="ti ti-menu-2"></i></button>
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
-        <div class="ctx-item" id="leaderboardBtn" hidden><i class="ti ti-trophy"></i> Leaderboard</div>
         <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
         <div class="ctx-divider"></div>
         <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
@@ -4330,9 +4345,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 //  LEADERBOARD (experimental) — minutes listened, posts, reactions given,
 //  music requests. Gated behind Settings > Experimental Features, off by
 //  default for anyone who hasn't opted in. Opened as a modal from the
-//  header's overflow menu (#leaderboardBtn, a trophy row in
-//  #headerMoreMenu — see the header-overflow-menu wiring for that), not
-//  its own tab. Server-
+//  header's own trophy button (#leaderboardBtn, kept directly visible
+//  rather than tucked in the overflow menu — the whole point of a
+//  leaderboard is encouraging people to actually go look at it), not its
+//  own tab. Server-
 //  computed (klabnet-api's /api/leaderboard aggregates posts/post_reactions/
 //  music_requests, plus a listening_stats table it accumulates from the
 //  existing presence heartbeat) — nothing tracked client-side here beyond
@@ -4398,8 +4414,7 @@ function renderLeaderboardList() {
   }, 900);
 }
 
-// Opened from the trophy row in the header's overflow menu (#leaderboardBtn,
-// see #headerMoreMenu), same shared
+// Opened from the header's own trophy button (#leaderboardBtn), same shared
 // modal shell as the music-request search/DM list/etc — chatModalBody gets
 // torn down and rebuilt on every open, so the metric-button listeners are
 // (re)bound fresh each time rather than once, same reason the bg-color
@@ -6720,10 +6735,9 @@ function applySettings() {
   };
   const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
-  // Leaderboard isn't a tab — just a row in the header's overflow menu
-  // (#headerMoreMenu) that opens it as a modal (see openLeaderboardModal())
-  // — so it only needs its own hidden state toggled, no .sec/tab-panel
-  // visibility to manage.
+  // Leaderboard isn't a tab — just a header icon button that opens it as a
+  // modal (see openLeaderboardModal()) — so it only needs its own hidden
+  // state toggled, no .sec/tab-panel visibility to manage.
   const leaderboardBtn = document.getElementById('leaderboardBtn');
   if (leaderboardBtn) leaderboardBtn.hidden = !(_settings.experimentalEnabled && _settings.showLeaderboard);
 
@@ -10615,8 +10629,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // resuming doesn't need to wait a poll cycle) — but that's stale once
     // they're not actually playing it, so the card only shows it while
     // `playing` is true. The online dot above isn't gated on this at all,
-    // so someone who stops listening just drops back to "Online" rather
-    // than looking like they left.
+    // so someone who stops listening just drops back to a bare name card
+    // (see the removed "Online" fallback below) rather than looking like
+    // they left.
     const showTrack = playing && song;
     // Only knowable because both sides of a party report it through their
     // own regular presence post (see postPresence()) — there's no other
@@ -10647,7 +10662,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
-        '<div class="presence-card-track">' + (showTrack ? esc(song) : 'Online') + '</div>' +
+        // The literal word "Online" here was pure redundancy with the dot
+        // right above it (see this function's own comment on that dot) —
+        // dropped per feedback once Chat gave presence a real home; the
+        // line just doesn't render at all when there's no track to show.
+        (showTrack ? '<div class="presence-card-track">' + esc(song) + '</div>' : '') +
         (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
         noteLine +
