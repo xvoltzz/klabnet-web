@@ -8367,8 +8367,22 @@ function renderTimeline() {
   // your view, grouping shifting slightly, etc.) instead of just
   // reassigning the old absolute scrollTop, which would drift if the
   // content above your viewport changed size at all.
-  if (wasNearBottom) el.scrollTop = el.scrollHeight;
-  else el.scrollTop = oldScrollTop + (el.scrollHeight - oldScrollHeight);
+  if (wasNearBottom) {
+    el.scrollTop = el.scrollHeight;
+    // Catches layout that settles a frame late — a font swap, an image or
+    // avatar with no reserved size finishing its load, anything not fully
+    // sized yet at the instant the line above ran. This file already
+    // special-cased two specific culprits (document.fonts.ready and each
+    // chat image's own load event) after they were reported one at a time;
+    // re-asserting the same "you should be at the bottom" intent once more
+    // after a real paint has happened, generically, is more robust than
+    // finding every future culprit the same reactive way.
+    requestAnimationFrame(() => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight > 4) el.scrollTop = el.scrollHeight;
+    });
+  } else {
+    el.scrollTop = oldScrollTop + (el.scrollHeight - oldScrollHeight);
+  }
 }
 
 // gitea#3 read receipts, upgraded from a DM-only "Seen" text line to
