@@ -3231,6 +3231,47 @@
       text-transform: uppercase; text-align: center; padding: 2rem;
     }
 
+    /* ══ LEADERBOARD (experimental) ══ */
+    .lb-metric-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 1rem; }
+    .lb-metric-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 12px; border-radius: 20px; cursor: pointer;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      color: var(--text-dim); font-size: 11px; font-family: var(--font-ui);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .lb-metric-btn:hover { border-color: var(--tile-border-h); }
+    .lb-metric-btn.active {
+      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
+      color: rgba(var(--accent-rgb),1);
+    }
+    .lb-list { display: flex; flex-direction: column; gap: 4px; margin-top: 0.9rem; }
+    .lb-row {
+      display: flex; align-items: center; gap: 0.8rem;
+      padding: 0.6rem 0.8rem; border-radius: 8px;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+    }
+    .lb-rank {
+      width: 22px; flex-shrink: 0; text-align: center;
+      font-size: 12px; font-weight: 700; color: var(--text-dimmer); font-family: var(--font-ui);
+    }
+    /* Top 3 get a medal instead of a bare number — the whole point of a
+       leaderboard is that the top spots feel like something, not just
+       another row in a list. */
+    .lb-row.lb-rank-1 .lb-rank, .lb-row.lb-rank-2 .lb-rank, .lb-row.lb-rank-3 .lb-rank { font-size: 15px; }
+    .lb-row.lb-rank-1 { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.08); }
+    .lb-row.lb-rank-2 { border-color: rgba(148,163,184,0.35); background: rgba(148,163,184,0.08); }
+    .lb-row.lb-rank-3 { border-color: rgba(180,120,60,0.35); background: rgba(180,120,60,0.08); }
+    .lb-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+    }
+    .lb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .lb-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lb-value { flex-shrink: 0; font-size: 12px; font-weight: 700; color: rgba(var(--accent-rgb),1); font-family: var(--font-ui); }
+
     ::selection {
       color: var(--bg);
       background: rgba(var(--accent-rgb),0.82);
@@ -3508,6 +3549,7 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
       <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
+      <button class="tab-nav-btn" data-tab-target="leaderboard" title="Leaderboard" hidden><i class="ti ti-trophy"></i><span>Leaderboard</span></button>
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
@@ -3691,6 +3733,19 @@ window.KLAB_BOOT = (function() {
         <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
       </div>
     </div>
+  </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="leaderboard">
+  <div class="sec" data-sec="leaderboard" hidden>
+    <div class="sec-head"><span class="sec-label">// leaderboard</span><span class="type-badge soon">experimental</span><div class="sec-line"></div></div>
+    <div class="lb-metric-row">
+      <button class="lb-metric-btn active" data-metric="seconds_listened" type="button"><i class="ti ti-headphones"></i> Minutes Listened</button>
+      <button class="lb-metric-btn" data-metric="posts_count" type="button"><i class="ti ti-news"></i> Posts</button>
+      <button class="lb-metric-btn" data-metric="reactions_given_count" type="button"><i class="ti ti-mood-plus"></i> Reactions Given</button>
+      <button class="lb-metric-btn" data-metric="requests_count" type="button"><i class="ti ti-disc-plus"></i> Requests</button>
+    </div>
+    <div class="lb-list" id="leaderboardList"><div class="picker-empty">loading...</div></div>
   </div>
   </div>
 
@@ -3899,6 +3954,10 @@ window.KLAB_BOOT = (function() {
           <div class="settings-row">
             <div><div class="settings-row-label">KLABCRAFT</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
             <div class="s-toggle" id="klabcraftToggle"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-row-label">Leaderboard</div><div class="settings-row-sub">Minutes listened, posts, reactions, requests</div></div>
+            <div class="s-toggle" id="leaderboardToggle"></div>
           </div>
         </div>
       </div>
@@ -4248,6 +4307,87 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     }
   });
 })();
+
+// ══════════════════════════════════════════
+//  LEADERBOARD (experimental) — minutes listened, posts, reactions given,
+//  music requests. Gated behind Settings > Experimental Features, off by
+//  default for anyone who hasn't opted in. Server-computed (klabnet-api's
+//  /api/leaderboard aggregates posts/post_reactions/music_requests, plus a
+//  listening_stats table it accumulates from the existing presence
+//  heartbeat) — nothing tracked client-side here beyond displaying it.
+// ══════════════════════════════════════════
+let _leaderboardData   = [];
+let _leaderboardBound  = false;
+let _leaderboardMetric = 'seconds_listened';
+
+function fmtLeaderboardValue(metric, value) {
+  if (metric !== 'seconds_listened') return String(value);
+  const mins = Math.round(value / 60);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+async function fetchLeaderboard() {
+  const listEl = document.getElementById('leaderboardList');
+  if (!listEl) return;
+  try {
+    const res = await fetchTimeout('/api/leaderboard', {}, 8000);
+    const data = await res.json();
+    _leaderboardData = data.leaderboard || [];
+  } catch (e) {
+    listEl.innerHTML = '<div class="picker-empty">failed to load</div>';
+    return;
+  }
+  renderLeaderboardList();
+}
+
+function renderLeaderboardList() {
+  const listEl = document.getElementById('leaderboardList');
+  if (!listEl) return;
+  const ranked = _leaderboardData
+    .filter(u => (u[_leaderboardMetric] || 0) > 0)
+    .sort((a, b) => (b[_leaderboardMetric] || 0) - (a[_leaderboardMetric] || 0));
+  if (!ranked.length) {
+    listEl.innerHTML = '<div class="picker-empty">nobody yet</div>';
+    return;
+  }
+  let anyUnresolvedAvatar = false;
+  listEl.innerHTML = ranked.map((u, i) => {
+    const rank = i + 1;
+    const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u.username) : null;
+    if (!avatarUrl) anyUnresolvedAvatar = true;
+    const avatarInner = avatarUrl ? `<img src="${esc(avatarUrl)}" alt="" />` : esc((u.username || '?')[0].toUpperCase());
+    const rankInner = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+    return `<div class="lb-row${rank <= 3 ? ' lb-rank-' + rank : ''}">
+      <div class="lb-rank">${rankInner}</div>
+      <div class="lb-avatar" title="${esc(u.username)}">${avatarInner}</div>
+      <div class="lb-name" style="color:${profileColor(u.username)}">${esc(u.username)}</div>
+      <div class="lb-value">${fmtLeaderboardValue(_leaderboardMetric, u[_leaderboardMetric] || 0)}</div>
+    </div>`;
+  }).join('');
+  // Same "nudge a re-render once resolved" idea as the music-requests list —
+  // window.klabResolveUserAvatar only re-renders the FEED module itself on
+  // a cache-miss resolving.
+  if (anyUnresolvedAvatar) setTimeout(() => {
+    if (document.querySelector('.tab-panel[data-tab-panel="leaderboard"]')?.classList.contains('active')) renderLeaderboardList();
+  }, 900);
+}
+
+function ensureLeaderboardLoaded() {
+  if (!_leaderboardBound) {
+    _leaderboardBound = true;
+    document.querySelectorAll('.lb-metric-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.lb-metric-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _leaderboardMetric = btn.dataset.metric;
+        renderLeaderboardList();
+        SFX && SFX.play('click');
+      });
+    });
+  }
+  fetchLeaderboard();
+}
 
 // ══════════════════════════════════════════
 //  MAINTENANCE
@@ -6512,6 +6652,7 @@ let _settings = {
   scrobble:      true,
   experimentalEnabled: false,
   showKlabcraft: true,
+  showLeaderboard: true,
 };
 
 function loadSettings() {
@@ -6541,6 +6682,9 @@ function applySettings() {
   };
   const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
   showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
+  const leaderboardVisible = _settings.experimentalEnabled && _settings.showLeaderboard;
+  showSec('.sec[data-sec="leaderboard"]', leaderboardVisible);
+  if (leaderboardVisible && typeof ensureLeaderboardLoaded === 'function') ensureLeaderboardLoaded();
 
   // Tab nav follows the same gate — a disabled section's tab disappears too.
   const setTabBtnVisible = (key, visible) => {
@@ -6548,6 +6692,7 @@ function applySettings() {
     if (btn) btn.hidden = !visible;
   };
   setTabBtnVisible('klabcraft', klabcraftVisible);
+  setTabBtnVisible('leaderboard', leaderboardVisible);
   if (typeof refreshActiveTabAvailability === 'function') refreshActiveTabAvailability();
 
   // Social is a permanent feature now (no longer gated behind Experimental
@@ -6564,7 +6709,7 @@ function applySettings() {
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'chat', 'music', 'apps', 'klabcraft'];
+const TABS = ['feed', 'chat', 'music', 'apps', 'leaderboard', 'klabcraft'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -6630,6 +6775,7 @@ function setActiveTab(key) {
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') ensureMusicTabLoaded();
+  if (key === 'leaderboard' && typeof ensureLeaderboardLoaded === 'function') ensureLeaderboardLoaded();
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
@@ -6660,6 +6806,7 @@ function openSettings() {
     scrobbleToggle:   'scrobble',
     experimentalToggle: 'experimentalEnabled',
     klabcraftToggle:  'showKlabcraft',
+    leaderboardToggle: 'showLeaderboard',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -6690,7 +6837,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
       crossfadeToggle: 'crossfade', loginSongToggle: 'loginSong',
       scrobbleToggle: 'scrobble', experimentalToggle: 'experimentalEnabled',
-      klabcraftToggle: 'showKlabcraft',
+      klabcraftToggle: 'showKlabcraft', leaderboardToggle: 'showLeaderboard',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }
