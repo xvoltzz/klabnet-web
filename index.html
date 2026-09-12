@@ -8576,13 +8576,16 @@ function initChatImageSend() {
   const wrap       = document.getElementById('chatImagePreviewWrap');
   const previewImg = document.getElementById('chatImagePreview');
   const removeBtn  = document.getElementById('chatImagePreviewRemove');
+  const composer   = document.getElementById('chatComposerInput');
   if (!btn || !input || btn._bound) return;
   btn._bound = true;
-  btn.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => {
-    const file = input.files?.[0];
+  // Shared by the file-picker button and Ctrl/Cmd+V paste below — picking
+  // a file was the ONLY way in before; pasting a screenshot straight from
+  // the clipboard is the much more natural flow for "share this image" and
+  // wasn't wired up at all.
+  function attachChatImage(file) {
     if (!file) return;
-    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); input.value = ''; return; }
+    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); return; }
     _pendingChatImage = file;
     const reader = new FileReader();
     reader.onload = () => {
@@ -8590,9 +8593,25 @@ function initChatImageSend() {
       wrap.hidden = false;
     };
     reader.readAsDataURL(file);
-    document.getElementById('chatComposerInput')?.focus();
+    composer?.focus();
+  }
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    attachChatImage(file);
+    input.value = '';
   });
   removeBtn?.addEventListener('click', clearChatImage);
+  // Clipboard image paste — only intercepted when the clipboard actually
+  // contains image data, so normal text paste into the composer (a link,
+  // pasted message text, etc.) is completely unaffected.
+  composer?.addEventListener('paste', e => {
+    const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    attachChatImage(item.getAsFile());
+  });
 }
 
 // ── Browse / Create / DM modal ───────────
@@ -12048,15 +12067,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     } catch (e) {}
   }
 
-  imageBtnEl.addEventListener('click', () => fileEl.click());
-  fileEl.addEventListener('change', () => {
-    const file = fileEl.files?.[0];
+  // Shared by the file-picker button and Ctrl/Cmd+V paste below — picking
+  // a file was the ONLY way in before; pasting a screenshot straight from
+  // the clipboard is the much more natural flow for "share this image" and
+  // wasn't wired up at all.
+  function attachFeedImage(file) {
     if (!file) return;
     errEl.hidden = true;
     if (file.size > FEED_MAX_IMAGE_BYTES) {
       errEl.textContent = 'Image too large (max 8MB)';
       errEl.hidden = false;
-      fileEl.value = '';
       return;
     }
     _pendingFile = file;
@@ -12067,6 +12087,24 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       previewWrapEl.hidden = false;
     };
     reader.readAsDataURL(file);
+  }
+
+  imageBtnEl.addEventListener('click', () => fileEl.click());
+  fileEl.addEventListener('change', () => {
+    const file = fileEl.files?.[0];
+    if (!file) return;
+    attachFeedImage(file);
+    if (file.size > FEED_MAX_IMAGE_BYTES) fileEl.value = ''; // let the same file be reselected after fixing the error
+  });
+  // Clipboard image paste (e.g. a screenshot copied straight from the OS,
+  // or an image copied from another page) — only intercepted when the
+  // clipboard actually contains image data, so normal text paste into the
+  // composer is completely unaffected.
+  textEl.addEventListener('paste', e => {
+    const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    attachFeedImage(item.getAsFile());
   });
   previewRmEl.addEventListener('click', () => {
     _pendingFile = null;
