@@ -1794,6 +1794,15 @@
     .ctx-item:hover { background: var(--glass-fill-h); color: var(--text); transform: translateX(2px); }
     .ctx-item:active { transform: scale(0.96); }
     .ctx-item i { font-size: 15px; }
+    /* Pending-booking count on the "My Calendar" menu row — :empty avoids
+       the whole [hidden]-vs-display trap this file keeps hitting elsewhere
+       (same idiom #socialUnreadBadge already uses for chat's own count). */
+    #calendarPendingBadge {
+      margin-left: auto; font-size: 8.5px; font-weight: 700;
+      color: rgba(var(--accent-rgb),1); background: rgba(var(--accent-rgb),0.15);
+      padding: 1px 6px; border-radius: 10px;
+    }
+    #calendarPendingBadge:empty { display: none; }
     .ctx-item.warn { color: var(--warn-color); }
     .ctx-item.warn:hover { color: var(--warn-color); background: var(--warn-bg); transform: translateX(2px); }
     .ctx-item.active-warn { color: var(--warn-color); }
@@ -3545,6 +3554,7 @@ window.KLAB_BOOT = (function() {
   <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen Party</div>
   <div class="ctx-item" id="presenceCtxProfile"><i class="ti ti-user-circle"></i> View Profile</div>
   <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
+  <div class="ctx-item" id="presenceCtxBook"><i class="ti ti-calendar-plus"></i> Book With</div>
 </div>
 
 <div class="ctx-menu" id="songCtxMenu">
@@ -3600,6 +3610,7 @@ window.KLAB_BOOT = (function() {
       <button class="hdr-btn glass" id="headerMoreBtn" title="More"><i class="ti ti-menu-2"></i></button>
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
+        <div class="ctx-item" id="calendarBtn"><i class="ti ti-calendar"></i> My Calendar <span id="calendarPendingBadge"></span></div>
         <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
         <div class="ctx-divider"></div>
         <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
@@ -4436,6 +4447,197 @@ function openLeaderboardModal() {
   fetchLeaderboard();
 }
 document.getElementById('leaderboardBtn')?.addEventListener('click', openLeaderboardModal);
+
+// ══════════════════════════════════════════
+//  CALENDAR — personal events + "book with" requests. Deliberately minimal
+//  on purpose: no recurrence, no availability rules, no external sync — v1
+//  is exactly "propose a time, they accept or not" (see klabnet-api's
+//  routers/calendar.py for the actual rules). Entry points: "Book With" in
+//  the presence right-click menu (openEventModal(username)), and "My
+//  Calendar" in the header overflow menu (openCalendarModal()).
+// ══════════════════════════════════════════
+let _calendarEvents = [];
+
+async function fetchCalendarEvents() {
+  try {
+    const res = await fetchTimeout('/api/calendar', {}, 8000);
+    const data = await res.json();
+    _calendarEvents = data.events || [];
+  } catch (e) { /* leave whatever was last fetched in place */ }
+  updateCalendarBadge();
+}
+
+function updateCalendarBadge() {
+  const el = document.getElementById('calendarPendingBadge');
+  if (!el) return;
+  const me = window.KLAB_USER?.username;
+  const pending = _calendarEvents.filter(e => e.invitee === me && e.status === 'pending').length;
+  el.textContent = pending ? String(pending) : '';
+}
+
+// datetime-local's own value format (YYYY-MM-DDTHH:MM, no seconds/zone) —
+// used to turn the JS Date computed from start+duration back into a string
+// the same shape the backend already accepts from the start field itself.
+function toDatetimeLocalValue(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fmtEventTime(startIso, endIso) {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const dateStr = start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const t = d => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} · ${t(start)}–${t(end)}`;
+}
+
+function calendarEventRowHTML(ev) {
+  const me = window.KLAB_USER?.username;
+  const isInvitee = ev.invitee === me;
+  const otherParty = ev.invitee ? (isInvitee ? ev.requester : ev.invitee) : null;
+  const canRespond = isInvitee && ev.status === 'pending';
+  // Reusing the music-requests status badges rather than inventing new
+  // colors — "soon" (amber, "awaiting") already reads as pending, and
+  // "dismissed" (faded gray) already reads as a request that didn't go
+  // anywhere, which is exactly what a declined booking is.
+  const statusBadge = ev.status === 'pending' ? '<span class="type-badge soon">pending</span>'
+    : ev.status === 'declined' ? '<span class="type-badge dismissed">declined</span>' : '';
+  let actionsHTML = '';
+  if (canRespond) {
+    actionsHTML += `<button class="picker-action" title="Accept" data-cal-respond="accepted" data-cal-id="${ev.id}"><i class="ti ti-check"></i></button>`;
+    actionsHTML += `<button class="picker-action" title="Decline" data-cal-respond="declined" data-cal-id="${ev.id}"><i class="ti ti-x"></i></button>`;
+  }
+  actionsHTML += `<button class="picker-action" title="Remove" data-cal-delete="${ev.id}"><i class="ti ti-trash"></i></button>`;
+  return `<div class="picker-item" style="cursor:default;">
+    <div class="picker-item-info">
+      <div class="picker-item-title">${esc(ev.title)} ${statusBadge}</div>
+      <div class="picker-item-artist">${esc(fmtEventTime(ev.start_time, ev.end_time))}${otherParty ? ' · with ' + esc(otherParty) : ''}</div>
+      ${ev.notes ? '<div class="picker-item-artist" style="margin-top:2px;font-style:italic;">' + esc(ev.notes) + '</div>' : ''}
+    </div>
+    <div class="picker-item-actions">${actionsHTML}</div>
+  </div>`;
+}
+
+function renderCalendarList() {
+  const listEl = document.getElementById('calendarList');
+  if (!listEl) return;
+  // A declined booking has nothing left to act on and no ongoing meaning
+  // once you've seen the outcome — dropped from the list rather than
+  // lingering as clutter (same reasoning music-requests' own list keeps
+  // dismissed rows visible for, actually doesn't apply here: that list is
+  // shared/admin-facing, this one is just yours).
+  const visible = _calendarEvents.filter(e => e.status !== 'declined');
+  if (!visible.length) {
+    listEl.innerHTML = '<div class="picker-empty">nothing on the calendar</div>';
+    return;
+  }
+  let lastDayKey = null;
+  const rowsHTML = visible.map(ev => {
+    const dayKey = new Date(ev.start_time).toDateString();
+    let sepHTML = '';
+    if (dayKey !== lastDayKey) {
+      lastDayKey = dayKey;
+      sepHTML = `<div class="chat-date-sep"><span class="chat-date-sep-line"></span><span class="chat-date-sep-label">${esc(chatDateLabel(new Date(ev.start_time)))}</span><span class="chat-date-sep-line"></span></div>`;
+    }
+    return sepHTML + calendarEventRowHTML(ev);
+  }).join('');
+  listEl.innerHTML = rowsHTML;
+  listEl.querySelectorAll('[data-cal-respond]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const res = await fetchTimeout(`/api/calendar/${btn.dataset.calId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: btn.dataset.calRespond }),
+        }, 8000);
+        if (!res.ok) throw new Error('failed');
+        SFX && SFX.play(btn.dataset.calRespond === 'accepted' ? 'star' : 'click');
+        await fetchCalendarEvents();
+        renderCalendarList();
+      } catch (e) { showToast('Failed to update event'); }
+    });
+  });
+  listEl.querySelectorAll('[data-cal-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ok = await showConfirmDialog('// remove event', 'Remove this from your calendar?', 'Remove');
+      if (!ok) return;
+      try {
+        const res = await fetchTimeout(`/api/calendar/${btn.dataset.calDelete}`, { method: 'DELETE' }, 8000);
+        if (!res.ok) throw new Error('failed');
+        await fetchCalendarEvents();
+        renderCalendarList();
+      } catch (e) { showToast('Failed to remove event'); }
+    });
+  });
+}
+
+// Opened from the header's overflow menu ("My Calendar") — same shared
+// modal shell as the leaderboard/music-requests/etc, so the list and its
+// row-button listeners are rebuilt fresh each open (chatModalBody gets torn
+// down every time regardless of who last used it).
+function openCalendarModal() {
+  openChatModal('// my calendar', `
+    <button class="music-new-playlist-btn" id="calendarNewBtn" type="button" style="margin-bottom:10px;width:100%;justify-content:center;"><i class="ti ti-plus"></i> New Event</button>
+    <div class="lb-list" id="calendarList"><div class="picker-empty">loading...</div></div>
+  `);
+  document.getElementById('calendarNewBtn')?.addEventListener('click', () => openEventModal(null));
+  fetchCalendarEvents().then(renderCalendarList);
+}
+document.getElementById('calendarBtn')?.addEventListener('click', openCalendarModal);
+
+// invitee is a plain username to send a booking request to, or falsy for a
+// plain personal event nobody needs to approve.
+function openEventModal(invitee) {
+  const isBooking = !!invitee;
+  openChatModal(isBooking ? `// book with ${invitee}` : '// new event', `
+    <input type="text" class="chat-modal-input" id="calEventTitle" placeholder="What's this about?" autocomplete="off" />
+    <input type="datetime-local" class="chat-modal-input" id="calEventStart" style="margin-top:8px;" />
+    <select class="chat-modal-input" id="calEventDuration" style="margin-top:8px;">
+      <option value="30">30 minutes</option>
+      <option value="60" selected>1 hour</option>
+      <option value="90">1.5 hours</option>
+      <option value="120">2 hours</option>
+    </select>
+    <textarea class="chat-modal-input" id="calEventNotes" placeholder="Notes (optional)" rows="2" style="margin-top:8px;resize:vertical;"></textarea>
+    <div class="chat-modal-error" id="calEventError" hidden></div>
+    <button class="chat-connect-btn" id="calEventSubmit" style="width:100%;justify-content:center;margin-top:10px;">${isBooking ? 'Send Request' : 'Add Event'}</button>
+  `);
+  const titleEl  = document.getElementById('calEventTitle');
+  const startEl  = document.getElementById('calEventStart');
+  const durEl    = document.getElementById('calEventDuration');
+  const notesEl  = document.getElementById('calEventNotes');
+  const errEl    = document.getElementById('calEventError');
+  const submitEl = document.getElementById('calEventSubmit');
+  titleEl.focus();
+  submitEl.addEventListener('click', async () => {
+    errEl.hidden = true;
+    const title = titleEl.value.trim();
+    const startVal = startEl.value;
+    if (!title) { errEl.textContent = 'Give it a title.'; errEl.hidden = false; return; }
+    if (!startVal) { errEl.textContent = 'Pick a start time.'; errEl.hidden = false; return; }
+    const start = new Date(startVal);
+    const end = new Date(start.getTime() + parseInt(durEl.value, 10) * 60000);
+    submitEl.disabled = true;
+    try {
+      const res = await fetchTimeout('/api/calendar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title, invitee: invitee || '', notes: notesEl.value.trim(),
+          start_time: startVal, end_time: toDatetimeLocalValue(end),
+        }),
+      }, 8000);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      closeChatModal();
+      showToast(isBooking ? `Sent to ${invitee}` : 'Event added');
+      SFX && SFX.play('star');
+      fetchCalendarEvents();
+    } catch (e) {
+      errEl.textContent = e.message || 'Failed to save';
+      errEl.hidden = false;
+      submitEl.disabled = false;
+    }
+  });
+}
 
 // ══════════════════════════════════════════
 //  MAINTENANCE
@@ -10673,6 +10875,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _offlineTimer = null;
   let _notesTimer = null;
   let _profilesTimer = null;
+  let _calendarTimer = null;
 
   function fmtAgo(ms) {
     const s = Math.floor(ms / 1000);
@@ -11025,6 +11228,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     listenItem.onclick = () => { hidePresenceCtx(); playFromCard(card); };
     document.getElementById('presenceCtxProfile').onclick = () => { hidePresenceCtx(); openProfileView(username); };
     document.getElementById('presenceCtxMessage').onclick = () => { hidePresenceCtx(); messageUser(username); };
+    document.getElementById('presenceCtxBook').onclick = () => { hidePresenceCtx(); openEventModal(username); };
     // See zoomFactor()'s comment above showCtx() — same zoomed-viewport
     // fix-up, needed here too.
     const z = zoomFactor();
@@ -11148,16 +11352,19 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function startPoll() {
     if (_timer) return;
     fetchPresence(); refreshOfflineRosterNow(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
+    if (typeof fetchCalendarEvents === 'function') fetchCalendarEvents();
     _timer = setInterval(fetchPresence, POLL_MS);
     _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
     _notesTimer = setInterval(fetchNotes, OFFLINE_POLL_MS);
     _profilesTimer = setInterval(() => fetchProfiles().then(refreshAfterProfiles), OFFLINE_POLL_MS);
+    if (typeof fetchCalendarEvents === 'function') _calendarTimer = setInterval(fetchCalendarEvents, OFFLINE_POLL_MS);
   }
   function stopPoll() {
     clearInterval(_timer); _timer = null;
     clearInterval(_offlineTimer); _offlineTimer = null;
     clearInterval(_notesTimer); _notesTimer = null;
     clearInterval(_profilesTimer); _profilesTimer = null;
+    clearInterval(_calendarTimer); _calendarTimer = null;
   }
 
   // postPresence() (the heartbeat that keeps YOU marked online, distinct
