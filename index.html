@@ -3340,20 +3340,6 @@
       text-transform: uppercase; text-align: center; padding: 2rem;
     }
 
-    /* ══ SPOTIFY TAB ══ */
-    .picker-tab[data-tab="spotify"].active { color: #1DB954; border-color: rgba(29,185,84,0.4); background: rgba(29,185,84,0.12); }
-    .spotify-connect-empty {
-      display: flex; flex-direction: column; align-items: center; gap: 0.9rem;
-      padding: 3rem 1.5rem; text-transform: none; letter-spacing: normal;
-    }
-    .spotify-connect-empty i { font-size: 34px; color: #1DB954; }
-    .spotify-connect-empty p { font-size: 13px; color: var(--text-dim); max-width: 320px; margin: 0; }
-    .spotify-search { margin-bottom: 0.5rem; }
-    .spotify-disconnect-row { padding: 0.75rem 0; display: flex; justify-content: center; }
-    .spotify-disconnect-row .picker-action {
-      width: auto; padding: 6px 14px; gap: 6px; font-size: 11px; color: var(--text-dim);
-    }
-
     /* ══ LEADERBOARD (experimental) ══ */
     .lb-metric-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 1rem; }
     .lb-metric-btn {
@@ -3827,7 +3813,6 @@ window.KLAB_BOOT = (function() {
         <button class="picker-tab" data-tab="albums"><i class="ti ti-disc"></i><span>Albums</span></button>
         <button class="picker-tab" data-tab="artists"><i class="ti ti-microphone-2"></i><span>Artists</span></button>
         <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
-        <button class="picker-tab" data-tab="spotify"><i class="ti ti-brand-spotify"></i><span>Spotify</span></button>
         <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
         <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
         <button class="picker-tab" data-tab="requests"><i class="ti ti-disc-plus"></i><span>Requests</span> <span id="requestsCount"></span></button>
@@ -4955,14 +4940,6 @@ const ND_URL  = 'https://music.klab.gg';
 const ND_USER = 'klabservice';
 const ND_SALT = 'klabnet2024';
 
-// Personal Spotify connections — search/play anything not on the shared
-// Navidrome library, streamed through each user's own Premium account via
-// the Web Playback SDK. See SPOTIFY INTEGRATION below for the full module;
-// these three live up here so they're easy to find/rotate.
-const SPOTIFY_CLIENT_ID    = '48d7db805e8745d0b4ac7ac8e87bd13e';
-const SPOTIFY_REDIRECT_URI = location.origin + '/';
-const SPOTIFY_SCOPES       = 'streaming user-read-email user-read-private';
-
 function md5(str) {
   // Simple MD5 for Subsonic token auth
   function safeAdd(x,y){let lsw=(x&0xFFFF)+(y&0xFFFF);let msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xFFFF);}
@@ -5049,14 +5026,7 @@ let playerState = {
   playlistIndex: 0,
   audio: new Audio(),
   duration: 0,
-  volume: parseFloat(localStorage.getItem(VOLUME_KEY) || '0.8'),
-  // Position/duration for a Spotify-sourced track (seconds) — kept in sync
-  // by the SDK's player_state_changed event + a local ticker between
-  // events (see SPOTIFY INTEGRATION below). playerState.audio's own
-  // currentTime/duration stay meaningless while a Spotify track plays,
-  // since it never receives a src for one.
-  spotifyPosition: 0,
-  spotifyDuration: 0
+  volume: parseFloat(localStorage.getItem(VOLUME_KEY) || '0.8')
 };
 playerState.audio.volume = playerState.volume;
 playerState.audio.addEventListener('play', () => {
@@ -5067,36 +5037,6 @@ playerState.audio.addEventListener('pause', () => {
   playerState.playing = false;
   setPlayIcon(false);
 });
-
-// ── Source-agnostic playback helpers ──────────────────────
-// Every dock/fullscreen/media-session/lyrics touch point below used to
-// reach directly into playerState.audio for the current position, and
-// into playerState.audio.play()/.pause()/.currentTime for control — all
-// fine for Navidrome, meaningless for a Spotify track (whose real player
-// is the Web Playback SDK, controlled separately). These four are the one
-// seam every one of those call sites goes through instead, branching on
-// currentSong.source so neither playback engine has to know the other
-// exists.
-function isSpotifyActive() { return playerState.currentSong?.source === 'spotify'; }
-function playerCurrentTime() { return isSpotifyActive() ? playerState.spotifyPosition : playerState.audio.currentTime; }
-function playerDuration()    { return isSpotifyActive() ? playerState.spotifyDuration : playerState.audio.duration; }
-function playerSeek(sec) {
-  if (isSpotifyActive()) { window._spotifyPlayback?.seek(sec * 1000); playerState.spotifyPosition = sec; }
-  else playerState.audio.currentTime = sec;
-}
-function setPlayerVolume(vol) {
-  playerState.audio.volume = vol;
-  window._spotifyPlayback?.setVolume(vol);
-}
-// Same coverArt-URL construction was hand-repeated at every art render
-// site — Navidrome art is an id resolved through Subsonic's getCoverArt,
-// Spotify's is already a direct https URL from their API, so this is the
-// one place that distinction has to be made.
-function coverArtUrl(song, size) {
-  if (!song) return '';
-  if (song.source === 'spotify') return song.coverArt || '';
-  return `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=${size}&${subsonicParams()}`;
-}
 
 // Keeps the "now playing" highlight in any open album/artist track list
 // in sync with playback — needed because tracks also advance without a
@@ -5173,7 +5113,7 @@ function updatePlayerUI(song) {
   }
 
   // Album art — DOM construction avoids innerHTML escaping bugs
-  const artUrl = coverArtUrl(song, 300);
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=300&${subsonicParams()}`;
   const ph = document.createElement('div');
   ph.className = 'picker-item-art-ph';
   ph.innerHTML = '<i class="ti ti-music"></i>';
@@ -5210,25 +5150,6 @@ async function loadRandomSongs() {
 
 async function playSong(song) {
   if (!song) return;
-  // Switching sources — stop whichever engine was actually running so two
-  // playback sources are never both live at once (a Spotify track starting
-  // while the <audio> element is mid-stream, or vice versa).
-  if (song.source === 'spotify') {
-    if (!isSpotifyActive()) playerState.audio.pause();
-    playerState.currentSong = song;
-    updatePlayerUI(song);
-    try {
-      const playback = await ensureSpotifyPlayback();
-      await playback.setVolume(playerState.volume);
-      await playback.playUri(song.spotifyUri);
-      if (typeof _repeatOn !== 'undefined' && _repeatOn) playback.setRepeat('track');
-      playerState.playing = true;
-      setPlayIcon(true);
-      updateMediaSession(song);
-    } catch(e) { console.warn('Spotify playback failed', e); showToast?.('Spotify playback failed — try reconnecting'); }
-    return;
-  }
-  if (isSpotifyActive()) window._spotifyPlayback?.pause().catch(() => {});
   playerState.currentSong = song;
   updatePlayerUI(song);
   const streamUrl = `${ND_URL}/rest/stream?id=${song.id}&${subsonicParams()}`;
@@ -5243,10 +5164,6 @@ async function playSong(song) {
 }
 
 async function togglePlay() {
-  if (isSpotifyActive()) {
-    try { await window._spotifyPlayback?.toggle(); } catch(e) {}
-    return;
-  }
   if (playerState.playing) {
     playerState.audio.pause();
     playerState.playing = false;
@@ -5267,9 +5184,7 @@ async function togglePlay() {
 }
 
 async function nextSong() {
-  // Check external queue first — already source-agnostic (playSong()
-  // dispatches per-item), so a Spotify track dropped into the queue via
-  // "Add to queue" advances exactly like a Navidrome one does.
+  // Check external queue first
   if (typeof queue !== "undefined" && queue.length) {
     const next = queue.shift();
     updateQueueBadge();
@@ -5279,11 +5194,7 @@ async function nextSong() {
   // Advance playlist index
   const nextIndex = playerState.playlistIndex + 1;
   if (!playerState.playlist.length || nextIndex >= playerState.playlist.length) {
-    // End of playlist/queue with nothing else lined up — refill with a
-    // fresh Navidrome batch, same as always. There's no Spotify-native
-    // equivalent (playUri() never hands Spotify a context/queue of its
-    // own to fall back on), so this is what "next" does for a Spotify
-    // track that's run out of a real next item too.
+    // End of playlist — load a fresh batch seamlessly
     const fresh = await loadRandomSongs();
     if (fresh.length) {
       playerState.playlist = fresh;
@@ -5299,8 +5210,8 @@ async function nextSong() {
 async function prevSong() {
   if (!playerState.playlist.length) return;
   // If we're past 3 seconds, restart the current song
-  if (playerCurrentTime() > 3) {
-    playerSeek(0);
+  if (playerState.audio.currentTime > 3) {
+    playerState.audio.currentTime = 0;
     return;
   }
   // Otherwise, go to the previous song
@@ -5314,12 +5225,12 @@ async function prevSong() {
 // to also duplicate that same work unconditionally on every tick
 // regardless of FS being visible at all.
 playerState.audio.addEventListener('timeupdate', () => {
-  if (isSpotifyActive() || !playerState.audio.duration) return;
+  if (!playerState.audio.duration) return;
   const pct = playerState.audio.currentTime / playerState.audio.duration;
   if (typeof progSlider !== 'undefined') progSlider.setPct(pct);
 });
 
-playerState.audio.addEventListener('ended', () => { if (!isSpotifyActive()) nextSong(); });
+playerState.audio.addEventListener('ended', nextSong);
 
 // ── SLIDER UTILITY ──
 function makeSlider(trackEl, fillEl, dotEl, onChange) {
@@ -5375,7 +5286,7 @@ const progSlider = makeSlider(
   document.getElementById('playerProgress'),
   document.getElementById('playerProgressFill'),
   document.getElementById('playerProgressDot'),
-  pct => { const dur = playerDuration(); if (dur) playerSeek(pct * dur); }
+  pct => { if (playerState.audio.duration) playerState.audio.currentTime = pct * playerState.audio.duration; }
 );
 
 // Volume slider
@@ -5386,7 +5297,7 @@ const volSlider = makeSlider(
   pct => {
     clearInterval(_loginFadeInterval);
     playerState.volume = pct;
-    setPlayerVolume(pct);
+    playerState.audio.volume = pct;
     localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
     // fsVolSlider isn't defined yet at setup time (declared further down),
     // but is by the time a user can actually drag this and trigger the
@@ -5404,7 +5315,7 @@ const fsProgSlider = makeSlider(
   document.getElementById('fsProg'),
   document.getElementById('fsProgFill'),
   document.getElementById('fsProgDot'),
-  pct => { const dur = playerDuration(); if (dur) playerSeek(pct * dur); }
+  pct => { if (playerState.audio.duration) playerState.audio.currentTime = pct * playerState.audio.duration; }
 );
 
 // FS volume
@@ -5415,7 +5326,7 @@ const fsVolSlider = makeSlider(
   pct => {
     clearInterval(_loginFadeInterval);
     playerState.volume = pct;
-    setPlayerVolume(pct);
+    playerState.audio.volume = pct;
     volSlider.setPct(pct);
   }
 );
@@ -5451,14 +5362,14 @@ let _loginFadeInterval = null;
 async function tryPlayLoginSong() {
   const song = getLoginSong();
   if (!song) return;
-  setPlayerVolume(0);
+  playerState.audio.volume = 0;
   await playSong(song);
   // Fade in over 2s
   let vol = 0;
   clearInterval(_loginFadeInterval);
   _loginFadeInterval = setInterval(() => {
     vol = Math.min(playerState.volume, vol + 0.02);
-    setPlayerVolume(vol);
+    playerState.audio.volume = vol;
     if (vol >= playerState.volume) clearInterval(_loginFadeInterval);
   }, 40);
 }
@@ -5498,8 +5409,8 @@ function ensureMusicTabLoaded() {
   // visits without a dedicated poll — cheap since it's one small GET.
   if (typeof fetchMusicRequests === 'function') fetchMusicRequests();
   if (_pickerLoaded) return;
-  if (pickerTab !== 'search' && pickerTab !== 'spotify') { pickerSearchEl.value = ''; pickerQuery = ''; }
-  else if (pickerTab === 'search') pickerSearchEl.value = pickerQuery;
+  if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
+  else pickerSearchEl.value = pickerQuery;
   loadPickerTab(pickerTab);
   if (typeof renderPlaylistNav === 'function') renderPlaylistNav();
   _pickerLoaded = true;
@@ -5597,9 +5508,6 @@ async function loadPickerTab(tab) {
     } else if (tab === 'search') {
       pickerList.innerHTML = '<div class="picker-empty">type to search</div>';
       return;
-    } else if (tab === 'spotify') {
-      renderSpotifyTab();
-      return;
     }
   } catch(e) {
     if (myLoadToken !== _pickerLoadToken) return;
@@ -5637,7 +5545,7 @@ function renderSongItem(song, container) {
       <button class="picker-action" title="Add to queue" data-queue>
         <i class="ti ti-playlist-add"></i>
       </button>
-      <button class="picker-action" title="Add to playlist" data-add-pl="${encodeURIComponent(JSON.stringify({id:song.id,title:song.title,artist:song.artist,album:song.album,coverArt:song.coverArt,source:song.source||'navidrome',spotifyUri:song.spotifyUri}))}">
+      <button class="picker-action" title="Add to playlist" data-add-pl="${encodeURIComponent(JSON.stringify({id:song.id,title:song.title,artist:song.artist,album:song.album,coverArt:song.coverArt}))}">
         <i class="ti ti-playlist"></i>
       </button>
       <button class="picker-action" title="Play now" data-play>
@@ -5723,65 +5631,6 @@ function renderPickerList(songs, label) {
   }
   songs.forEach(song => renderSongItem(song, pickerList));
 }
-
-// ── Spotify tab — its own little self-contained view instead of piggy-
-// backing on #pickerSearch, since typing anywhere in that box already
-// hard-switches you to the Navidrome 'search' tab (see the keydown
-// listener below) — reusing it here would mean every keystroke fought
-// that behavior instead of searching Spotify.
-let _spotifyQuery = '';
-let _spotifyDebounce = null;
-let _spotifySearchToken = 0;
-
-function renderSpotifyTab() {
-  if (!SpotifyAuth.isConnected()) {
-    pickerList.innerHTML =
-      '<div class="picker-empty spotify-connect-empty">' +
-        '<i class="ti ti-brand-spotify"></i>' +
-        '<p>Connect your Spotify Premium account to search and play anything not on Navidrome.</p>' +
-        '<button class="chat-connect-btn" id="spotifyConnectBtn" type="button">Connect Spotify</button>' +
-      '</div>';
-    document.getElementById('spotifyConnectBtn').addEventListener('click', () => SpotifyAuth.login());
-    return;
-  }
-  pickerList.innerHTML =
-    '<div class="picker-search spotify-search">' +
-      '<i class="ti ti-search"></i>' +
-      '<input type="text" id="spotifySearchInput" placeholder="search Spotify..." autocomplete="off" value="' + esc(_spotifyQuery) + '" />' +
-    '</div>' +
-    '<div id="spotifyResults"></div>' +
-    '<div class="spotify-disconnect-row"><button class="picker-action" id="spotifyDisconnectBtn"><i class="ti ti-logout"></i> Disconnect Spotify</button></div>';
-  const input = document.getElementById('spotifySearchInput');
-  input.addEventListener('input', () => {
-    _spotifyQuery = input.value;
-    clearTimeout(_spotifyDebounce);
-    _spotifyDebounce = setTimeout(runSpotifySearch, 400);
-  });
-  document.getElementById('spotifyDisconnectBtn').addEventListener('click', () => {
-    SpotifyAuth.logout();
-    showToast('Spotify disconnected');
-    renderSpotifyTab();
-  });
-  runSpotifySearch();
-}
-
-async function runSpotifySearch() {
-  const resultsEl = document.getElementById('spotifyResults');
-  if (!resultsEl) return;
-  const q = _spotifyQuery.trim();
-  if (!q) { resultsEl.innerHTML = '<div class="picker-empty">type to search Spotify</div>'; return; }
-  resultsEl.innerHTML = '<div class="picker-empty">searching...</div>';
-  const myToken = ++_spotifySearchToken;
-  const tracks = await SpotifyAPI.searchTracks(q);
-  if (myToken !== _spotifySearchToken) return; // superseded by a newer query
-  if (!tracks.length) { resultsEl.innerHTML = '<div class="picker-empty">no results</div>'; return; }
-  pickerSongs = tracks; // same "currently displayed list" var renderSongItem's play/queue handlers already use
-  resultsEl.innerHTML = '';
-  tracks.forEach(song => renderSongItem(song, resultsEl));
-}
-
-document.addEventListener('spotify-connected', () => { if (pickerTab === 'spotify') renderSpotifyTab(); });
-document.addEventListener('spotify-disconnected', () => { if (pickerTab === 'spotify') renderSpotifyTab(); });
 
 // Tab switching
 document.querySelectorAll('.picker-tab').forEach(tab => {
@@ -5937,14 +5786,14 @@ function updateFSUI(song) {
     fsAlbumEl.appendChild(bl);
   } else { fsAlbumEl.textContent = song.album || ''; }
 
-  const artUrl = coverArtUrl(song, 800);
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=800&${subsonicParams()}`;
   // Background is stretched across the whole viewport, so it needs a source
   // sized to the actual screen — a fixed size (this used to be a flat 1600)
   // is fine on a 1080p laptop but visibly blocky once stretched across a
   // 4K/5K/8K display. Scale the request with the real viewport and DPR,
   // capped so a stray 8K + browser zoom combo doesn't request something wild.
   const bgSize = Math.min(3200, Math.round(Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1)));
-  const bgUrl  = coverArtUrl(song, bgSize);
+  const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=${bgSize}&${subsonicParams()}`;
 
   // Crossfade FS background — preload before swap.
   // Skipping tracks faster than the art can download (real risk off-LAN)
@@ -5998,10 +5847,8 @@ if (playerState.audio) {
   const _fsDurEl       = document.getElementById('fsDur');
   const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
   window._syncFSProgress = function() {
-    const dur = playerDuration();
-    if (!dur) return;
-    const cur = playerCurrentTime();
-    const pct = (cur / dur) * 100;
+    if (!playerState.audio.duration) return;
+    const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
     _fsProgFillEl.style.width = pct + '%';
     // fsProgSlider (makeSlider()'s wrapper around this same fill+dot pair)
     // used to be what kept the dot in sync, called from the OTHER
@@ -6011,8 +5858,8 @@ if (playerState.audio) {
     // already skips all its work while FS is closed) replaces that
     // without reintroducing the always-on duplicate.
     _fsProgDotEl.style.left = pct + '%';
-    _fsCurEl.textContent = formatTime(cur);
-    _fsDurEl.textContent = formatTime(dur);
+    _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
+    _fsDurEl.textContent = formatTime(playerState.audio.duration);
     _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
   };
   playerState.audio.addEventListener('timeupdate', () => {
@@ -6020,10 +5867,7 @@ if (playerState.audio) {
     // entirely when the fullscreen view isn't even visible. openFS()
     // calls _syncFSProgress() once directly so the view isn't stale
     // for the ~1 tick it'd otherwise take to catch up after opening.
-    // Also skip while a Spotify track is active — its own state-changed
-    // ticker (see SPOTIFY INTEGRATION) drives this same function instead,
-    // since this idle <audio> element never actually ticks during that.
-    if (isSpotifyActive() || !_fsPlayerEl.classList.contains('open')) return;
+    if (!_fsPlayerEl.classList.contains('open')) return;
     window._syncFSProgress();
   });
 }
@@ -6710,7 +6554,7 @@ function updateMediaSession(song) {
     return;
   }
 
-  const artUrl = coverArtUrl(song, 512);
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=512&${subsonicParams()}`;
 
   navigator.mediaSession.metadata = new MediaMetadata({
     title:  song.title  || 'Unknown',
@@ -6721,16 +6565,14 @@ function updateMediaSession(song) {
     ]
   });
 
-  // Wire hardware/OS media keys — all routed through the same
-  // source-agnostic controls the dock buttons use, so a headset/lock-screen
-  // play/pause/seek works identically for a Spotify track.
-  navigator.mediaSession.setActionHandler('play',  () => togglePlay());
-  navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+  // Wire hardware/OS media keys
+  navigator.mediaSession.setActionHandler('play',  () => { playerState.audio.play(); playerState.playing = true; setPlayIcon(true); });
+  navigator.mediaSession.setActionHandler('pause', () => { playerState.audio.pause(); playerState.playing = false; setPlayIcon(false); navigator.mediaSession.playbackState = 'paused'; });
   navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
   navigator.mediaSession.setActionHandler('nexttrack',     () => nextSong());
-  navigator.mediaSession.setActionHandler('seekto',       e => { if (playerDuration()) playerSeek(e.seekTime); });
-  navigator.mediaSession.setActionHandler('seekbackward', e => { playerSeek(Math.max(0, playerCurrentTime() - (e.seekOffset || 10))); });
-  navigator.mediaSession.setActionHandler('seekforward',  e => { playerSeek(Math.min(playerDuration() || 0, playerCurrentTime() + (e.seekOffset || 10))); });
+  navigator.mediaSession.setActionHandler('seekto',       e => { if (playerState.audio.duration) playerState.audio.currentTime = e.seekTime; });
+  navigator.mediaSession.setActionHandler('seekbackward', e => { playerState.audio.currentTime = Math.max(0, playerState.audio.currentTime - (e.seekOffset || 10)); });
+  navigator.mediaSession.setActionHandler('seekforward',  e => { playerState.audio.currentTime = Math.min(playerState.audio.duration || 0, playerState.audio.currentTime + (e.seekOffset || 10)); });
 
   navigator.mediaSession.playbackState = 'playing';
 }
@@ -6738,7 +6580,7 @@ function updateMediaSession(song) {
 // Keep position state in sync (for scrubbers in OS media overlays)
 playerState.audio.addEventListener('timeupdate', () => {
   if (!('mediaSession' in navigator)) return;
-  if (isSpotifyActive() || !playerState.audio.duration) return;
+  if (!playerState.audio.duration) return;
   try {
     navigator.mediaSession.setPositionState({
       duration:     playerState.audio.duration,
@@ -6872,8 +6714,8 @@ document.getElementById('fsRepeat').addEventListener('click', () => {
   btn.style.opacity = _repeatOn ? '1' : '0.5';
   btn.style.color = _repeatOn ? 'rgba(var(--accent-rgb),1)' : '';
   SFX.play('click');
-  playerState.audio.loop = _repeatOn;
-  if (isSpotifyActive()) window._spotifyPlayback?.setRepeat(_repeatOn ? 'track' : 'off');
+  if (_repeatOn) playerState.audio.loop = true;
+  else playerState.audio.loop = false;
 });
 
 // Update FS fav button when track changes
@@ -6943,293 +6785,12 @@ function shareCurrentSongToFeed() {
   // fail to init (missing #feedList markup, see its own early return).
   window.klabShareSongToFeed?.({
     songId: song.id, title: song.title, artist: song.artist, album: song.album,
-    coverArt: song.coverArt, lyric, source: song.source || 'navidrome',
+    coverArt: song.coverArt, lyric,
   });
   SFX.play('click');
 }
 document.getElementById('dockShare')?.addEventListener('click', shareCurrentSongToFeed);
 document.getElementById('fsShare')?.addEventListener('click', shareCurrentSongToFeed);
-
-// ══════════════════════════════════════════
-//  SPOTIFY INTEGRATION — connect a personal Spotify Premium account and
-//  stream anything not on the shared Navidrome library through it.
-//  Client-side OAuth (Authorization Code + PKCE — Spotify's accounts
-//  service supports CORS for this, so the whole exchange happens in the
-//  browser with no backend involved) plus the Web Playback SDK for actual
-//  audio output. A Spotify track is normalized into the same "song" shape
-//  Navidrome tracks already use (title/artist/album/coverArt/id), which is
-//  what lets every existing player feature — favorites, queue, playlists,
-//  login song, share-to-feed, listening party — work on it unchanged; see
-//  playerCurrentTime()/playerSeek()/coverArtUrl() etc. above for the
-//  handful of spots that needed an explicit branch instead.
-// ══════════════════════════════════════════
-
-// ── PKCE + token storage ──────────────────
-const SPOTIFY_TOKEN_KEY    = 'klabnet_spotify_tokens';
-const SPOTIFY_VERIFIER_KEY = 'klabnet_spotify_pkce_verifier';
-
-function _spotifyRandomString(len) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const rand = crypto.getRandomValues(new Uint8Array(len));
-  let out = '';
-  for (let i = 0; i < len; i++) out += chars[rand[i] % chars.length];
-  return out;
-}
-async function _spotifyCodeChallenge(verifier) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-const SpotifyAuth = (function() {
-  function getTokens() { try { return JSON.parse(localStorage.getItem(SPOTIFY_TOKEN_KEY)); } catch(e) { return null; } }
-  function setTokens(t) { localStorage.setItem(SPOTIFY_TOKEN_KEY, JSON.stringify(t)); }
-  function clearTokens() { localStorage.removeItem(SPOTIFY_TOKEN_KEY); }
-  function isConnected() { return !!getTokens()?.refresh_token; }
-
-  async function login() {
-    const verifier = _spotifyRandomString(64);
-    localStorage.setItem(SPOTIFY_VERIFIER_KEY, verifier);
-    const challenge = await _spotifyCodeChallenge(verifier);
-    const params = new URLSearchParams({
-      client_id: SPOTIFY_CLIENT_ID, response_type: 'code', redirect_uri: SPOTIFY_REDIRECT_URI,
-      scope: SPOTIFY_SCOPES, code_challenge_method: 'S256', code_challenge: challenge,
-    });
-    location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
-  }
-
-  function logout() {
-    clearTokens();
-    try { window._spotifyPlayer?.disconnect(); } catch(e) {}
-    window._spotifyPlayer = null;
-    window._spotifyPlayback = null;
-    window._spotifyDeviceId = null;
-    window._ensureSpotifyPlaybackPromise = null;
-    document.dispatchEvent(new CustomEvent('spotify-disconnected'));
-  }
-
-  async function exchangeCode(code) {
-    const verifier = localStorage.getItem(SPOTIFY_VERIFIER_KEY);
-    if (!verifier) return false;
-    try {
-      const res = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'authorization_code', code, redirect_uri: SPOTIFY_REDIRECT_URI, code_verifier: verifier }),
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      setTokens({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Date.now() + data.expires_in * 1000 - 30000 });
-      localStorage.removeItem(SPOTIFY_VERIFIER_KEY);
-      return true;
-    } catch(e) { return false; }
-  }
-
-  async function refresh() {
-    const tokens = getTokens();
-    if (!tokens?.refresh_token) return null;
-    try {
-      const res = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ client_id: SPOTIFY_CLIENT_ID, grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
-      });
-      if (!res.ok) { if (res.status === 400) clearTokens(); return null; }
-      const data = await res.json();
-      const next = { access_token: data.access_token, refresh_token: data.refresh_token || tokens.refresh_token, expires_at: Date.now() + data.expires_in * 1000 - 30000 };
-      setTokens(next);
-      return next.access_token;
-    } catch(e) { return null; }
-  }
-
-  async function getAccessToken() {
-    const tokens = getTokens();
-    if (!tokens) return null;
-    if (Date.now() < tokens.expires_at) return tokens.access_token;
-    return await refresh();
-  }
-
-  async function handleRedirectCallback() {
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
-    if (!code) return;
-    // Clean the URL immediately regardless of outcome — a one-time auth
-    // code shouldn't linger visibly in the address bar or risk being
-    // resubmitted on a manual refresh.
-    history.replaceState({}, '', location.pathname + location.hash);
-    if (await exchangeCode(code)) {
-      showToast?.('Spotify connected 🎧');
-      document.dispatchEvent(new CustomEvent('spotify-connected'));
-    } else {
-      showToast?.('Spotify connect failed — try again');
-    }
-  }
-
-  return { isConnected, login, logout, getAccessToken, handleRedirectCallback };
-})();
-SpotifyAuth.handleRedirectCallback();
-
-// ── Web API (search, track lookup) ────────
-const SpotifyAPI = (function() {
-  async function api(path, opts) {
-    const token = await SpotifyAuth.getAccessToken();
-    if (!token) throw new Error('not connected');
-    const res = await fetchTimeout(`https://api.spotify.com/v1${path}`, {
-      ...opts, headers: { Authorization: `Bearer ${token}`, ...(opts?.headers || {}) },
-    }, 8000);
-    if (!res.ok) throw new Error('spotify api ' + res.status);
-    return res.json();
-  }
-  async function searchTracks(query) {
-    if (!query.trim()) return [];
-    try {
-      const data = await api(`/search?type=track&limit=20&q=${encodeURIComponent(query)}`);
-      return (data?.tracks?.items || []).map(spotifyTrackToSong);
-    } catch(e) { return []; }
-  }
-  async function getTrack(id) {
-    try { return await api(`/tracks/${encodeURIComponent(id)}`); } catch(e) { return null; }
-  }
-  return { isConnected: SpotifyAuth.isConnected, searchTracks, getTrack };
-})();
-window.SpotifyAPI = SpotifyAPI;
-
-// ── Normalization — a Spotify track becomes the same "song" shape
-// Navidrome tracks already use everywhere else in the player.
-// artistId/albumId stay unset on purpose: there's no klabnet album/artist
-// page for Spotify content, and every render site that links to one
-// already falls back to plain, non-clickable text when the id is missing.
-function spotifyTrackToSong(track) {
-  const uri = track.uri || ('spotify:track:' + track.id);
-  return {
-    source: 'spotify',
-    id: uri,
-    spotifyId: track.id,
-    spotifyUri: uri,
-    title: track.name,
-    artist: (track.artists || []).map(a => a.name).join(', ') || 'Unknown Artist',
-    album: track.album?.name || '',
-    coverArt: track.album?.images?.[0]?.url || '',
-    duration: (track.duration_ms || 0) / 1000,
-    artistId: null,
-    albumId: null,
-  };
-}
-window.spotifyTrackToSong = spotifyTrackToSong;
-
-// ── Web Playback SDK wrapper ──────────────
-function loadSpotifySDK() {
-  return new Promise(resolve => {
-    if (window.Spotify) { resolve(); return; }
-    const prevReady = window.onSpotifyWebPlaybackSDKReady;
-    window.onSpotifyWebPlaybackSDKReady = () => { prevReady?.(); resolve(); };
-    if (document.getElementById('spotify-sdk-script')) return;
-    const script = document.createElement('script');
-    script.id = 'spotify-sdk-script';
-    script.src = 'https://sdk.scdn.co/spotify-player.js';
-    document.head.appendChild(script);
-  });
-}
-
-// Lazily creates (once) and connects the SDK player, resolving with a
-// small control surface. playSong() calls this on the first Spotify track
-// of the session — nothing spins up before that.
-function ensureSpotifyPlayback() {
-  if (window._spotifyPlayback) return Promise.resolve(window._spotifyPlayback);
-  if (window._ensureSpotifyPlaybackPromise) return window._ensureSpotifyPlaybackPromise;
-  window._ensureSpotifyPlaybackPromise = (async () => {
-    await loadSpotifySDK();
-    return new Promise((resolve, reject) => {
-      const player = new Spotify.Player({
-        name: 'klabnet',
-        getOAuthToken: cb => { SpotifyAuth.getAccessToken().then(t => cb(t || '')); },
-        volume: playerState.volume,
-      });
-      async function callWebApi(path, method, body) {
-        const token = await SpotifyAuth.getAccessToken();
-        return fetchTimeout(`https://api.spotify.com/v1${path}`, {
-          method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: body ? JSON.stringify(body) : undefined,
-        }, 8000);
-      }
-      player.addListener('ready', ({ device_id }) => {
-        window._spotifyDeviceId = device_id;
-        window._spotifyPlayback = {
-          playUri: uri => callWebApi(`/me/player/play?device_id=${device_id}`, 'PUT', { uris: [uri] }),
-          toggle:  () => player.togglePlay(),
-          resume:  () => player.resume(),
-          pause:   () => player.pause(),
-          seek:    ms => player.seek(ms),
-          setVolume: vol => player.setVolume(vol).catch(() => {}),
-          setRepeat: state => callWebApi(`/me/player/repeat?state=${state}&device_id=${device_id}`, 'PUT').catch(() => {}),
-        };
-        resolve(window._spotifyPlayback);
-      });
-      player.addListener('not_ready', () => {});
-      player.addListener('initialization_error', ({ message }) => { console.warn('Spotify init error', message); reject(new Error(message)); });
-      player.addListener('authentication_error', ({ message }) => { console.warn('Spotify auth error', message); SpotifyAuth.logout(); reject(new Error(message)); });
-      player.addListener('account_error', ({ message }) => { console.warn('Spotify account error', message); showToast?.('Spotify playback needs a Premium account'); reject(new Error(message)); });
-      player.addListener('playback_error', ({ message }) => console.warn('Spotify playback error', message));
-      player.addListener('player_state_changed', onSpotifyStateChanged);
-      window._spotifyPlayer = player;
-      player.connect();
-    });
-  })();
-  return window._ensureSpotifyPlaybackPromise;
-}
-
-// Drives every dock/fullscreen/media-session/lyrics/presence/party touch
-// point that would otherwise have listened for playerState.audio's own
-// 'play'/'pause'/'timeupdate' events — none of which ever fire for a
-// Spotify track, since it's never given a src.
-function onSpotifyStateChanged(state) {
-  if (!state) return;
-  const oldSong = playerState.currentSong;
-  const wasPlaying = playerState.playing;
-  const playing = !state.paused;
-
-  playerState.playing = playing;
-  playerState.spotifyPosition = (state.position || 0) / 1000;
-  playerState.spotifyDuration = (state.duration || 0) / 1000;
-
-  setPlayIcon(playing);
-  document.body.classList.toggle('is-playing', playing);
-  refreshTimeDisplay?.();
-  window._syncFSProgress?.();
-  if (typeof progSlider !== 'undefined' && state.duration) progSlider.setPct(state.position / state.duration);
-
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
-    try { navigator.mediaSession.setPositionState({ duration: playerState.spotifyDuration, playbackRate: 1, position: playerState.spotifyPosition }); } catch(e) {}
-  }
-
-  window._klabPostPresence?.();
-  window._klabBroadcastPartyTick?.();
-  if (window._klabLyrics?.isOpen?.() && window._klabLyrics?.isSynced?.()) {
-    if (playing && !wasPlaying) window._klabLyrics.startSync();
-    if (!playing && wasPlaying) window._klabLyrics.stopSync();
-  }
-
-  const t = state.track_window?.current_track;
-  const trackChanged = t && oldSong?.spotifyId !== t.id;
-  if (trackChanged) {
-    // The track under us changed without going through playSong() —
-    // someone else controlling the same Spotify Connect device, or
-    // Spotify's own queue/autoplay advancing it on its own.
-    const song = spotifyTrackToSong(t);
-    playerState.currentSong = song;
-    updatePlayerUI(song);
-    updateFSUI(song);
-    updateMediaSession(song);
-    updateDockFavBtn();
-    addToPlayHistory(song);
-  } else if (wasPlaying && !playing && (state.position || 0) < 1000) {
-    // The SDK has no distinct "track ended" event — a track finishing on
-    // its own (with nothing next in a Spotify-side context, since
-    // playUri() never gives it one) looks identical to this: was playing,
-    // now paused, position snapped back near zero, same track still
-    // showing. Advance through klabnet's own queue/playlist, same as the
-    // <audio> element's 'ended' listener does for Navidrome.
-    nextSong();
-  }
-}
 
 // Update dock fav when track changes
 const _prevUpdatePlayerUI = updatePlayerUI;
@@ -10153,7 +9714,7 @@ function renderPlaylistNav() {
     row.dataset.plId = pl.id;
     const artSong = pl.songs.find(s => s.coverArt);
     const artHTML = artSong
-      ? `<img class="music-playlist-row-art" src="${coverArtUrl(artSong, 60)}" alt="" loading="lazy" />`
+      ? `<img class="music-playlist-row-art" src="${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artSong.coverArt)}&size=60&${subsonicParams()}" alt="" loading="lazy" />`
       : `<div class="music-playlist-row-art"><i class="ti ti-playlist"></i></div>`;
     row.innerHTML = `
       ${artHTML}
@@ -11002,7 +10563,8 @@ playSong = async function(song) {
   document.getElementById('fsPlayIcon').className = 'ti ti-player-pause';
   addToPlayHistory(song);
   if (song?.coverArt) {
-    extractAlbumColor(coverArtUrl(song, 300));
+    const url = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=300&${subsonicParams()}`;
+    extractAlbumColor(url);
   } else {
     _resetAccent();
   }
@@ -11077,8 +10639,8 @@ if (_timeEl) {
 }
 function refreshTimeDisplay() {
   if (!_timeEl) return;
-  const cur = playerCurrentTime();
-  const dur = playerDuration();
+  const cur = playerState.audio.currentTime;
+  const dur = playerState.audio.duration;
   if (_showRemaining && isFinite(dur)) {
     _timeEl.textContent = '-' + _fmtTime(dur - cur);
   } else {
@@ -11090,9 +10652,7 @@ function _fmtTime(s) {
   const m = Math.floor(s / 60), sec = Math.floor(s % 60);
   return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
-// Hook into timeupdate (playerState.audio already exists) — the Spotify
-// ticker calls this directly too (see SPOTIFY INTEGRATION), since this
-// idle <audio> element's own timeupdate never fires during that playback.
+// Hook into timeupdate (playerState.audio already exists)
 playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
 // ══════════════════════════════════════════
@@ -11164,7 +10724,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       } else {
         // Click to seek
         el.addEventListener('click', () => {
-          playerSeek(_syncedLines[i].time);
+          const t = _syncedLines[i].time;
+          playerState.audio.currentTime = t;
           SFX && SFX.play('click');
         });
       }
@@ -11200,7 +10761,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (!_lyricsOpen || !_isSynced || !_syncedLines.length) return;
     _rafId = requestAnimationFrame(syncLoop);
 
-    const cur = playerCurrentTime();
+    const cur = playerState.audio.currentTime;
     let idx = 0;
     for (let i = 0; i < _syncedLines.length; i++) {
       if (_syncedLines[i].time <= cur) idx = i;
@@ -11295,14 +10856,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     toggle: toggleLyrics,
     load: loadLyrics,
     getActiveLine: () => (_isSynced && _activeIdx >= 0 && _syncedLines[_activeIdx]) ? _syncedLines[_activeIdx].text : null,
-    // Spotify's own play/pause doesn't touch playerState.audio, so its
-    // state-changed handler (see SPOTIFY INTEGRATION) drives this sync
-    // loop directly instead of relying on the audio 'play'/'pause'
-    // listeners below.
-    isOpen: () => _lyricsOpen,
-    isSynced: () => _isSynced,
-    startSync,
-    stopSync,
   };
 })();
 
@@ -11435,15 +10988,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     _songColorPending.add(songId);
     (async () => {
       try {
-        // A friend's Spotify-sourced now-playing card — only resolvable if
-        // THIS viewer also has Spotify connected (it's their own token
-        // doing the lookup, not the other person's session).
-        if (typeof songId === 'string' && songId.startsWith('spotify:track:')) {
-          const track = window.SpotifyAPI?.isConnected() ? await window.SpotifyAPI.getTrack(songId.slice('spotify:track:'.length)) : null;
-          const art = track?.album?.images?.[0]?.url;
-          _songColorCache.set(songId, art ? await sampleImageColor(art) : null);
-          return;
-        }
         const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${songId}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         const coverArt = data['subsonic-response']?.song?.coverArt;
@@ -11686,11 +11230,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const artist   = card.dataset.songArtist;
     try {
       let song = null;
-      if (songId && songId.startsWith('spotify:track:')) {
-        if (!window.SpotifyAPI?.isConnected()) { showToast(`Connect Spotify to sync "${title}"`); return; }
-        const track = await window.SpotifyAPI.getTrack(songId.slice('spotify:track:'.length));
-        song = track ? window.spotifyTrackToSong(track) : null;
-      } else if (songId) {
+      if (songId) {
         const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${songId}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         song = data['subsonic-response']?.song || null;
@@ -11819,12 +11359,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const song = playerState.currentSong;
     const content = {
       songId: song?.id ?? '', title: song?.title || '', artist: song?.artist || '',
-      source: song?.source || 'navidrome',
-      position: playerCurrentTime() || 0, playing: !!song && playerState.playing,
+      position: playerState.audio.currentTime || 0, playing: !!song && playerState.playing,
     };
     for (const userId of _partySubscribers.keys()) sendToDeviceEvent(userId, 'klab.sync_tick', content).catch(() => {});
   }
-  window._klabBroadcastPartyTick = broadcastPartyTick;
   setInterval(broadcastPartyTick, 5000);
   // Renew our own subscription with the host we're following every 60s —
   // PARTY_SUB_TTL_MS on their end is longer than this on purpose, so a
@@ -11836,28 +11374,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     const song = playerState.currentSong;
     _applyingPartyTick = true;
     try {
-      if (content.source === 'spotify') {
-        // The host's Spotify session isn't ours to control — this plays
-        // the SAME track independently on the follower's own account, same
-        // as the Navidrome branch below plays the same file from the
-        // shared server. Needs the follower to also have Spotify connected.
-        if (!window.SpotifyAPI?.isConnected()) {
-          if (content.songId && content.songId !== song?.id) showToast('Connect Spotify to follow this listening party');
-          return;
-        }
-        if (content.songId && content.songId !== song?.id) {
-          const track = await window.SpotifyAPI.getTrack(content.songId.slice('spotify:track:'.length));
-          if (track) {
-            await playSong(window.spotifyTrackToSong(track));
-            playerSeek(content.position || 0);
-          }
-        } else if (song?.source === 'spotify') {
-          if (Math.abs(playerCurrentTime() - (content.position || 0)) > PARTY_DRIFT_S) playerSeek(content.position || 0);
-          if (content.playing && !playerState.playing) await window._spotifyPlayback?.resume();
-          if (!content.playing && playerState.playing) await window._spotifyPlayback?.pause();
-        }
-        return;
-      }
       if (content.songId && content.songId !== song?.id) {
         const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${content.songId}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
@@ -12093,9 +11609,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   });
   playerState.audio.addEventListener('play',  postPresence);
   playerState.audio.addEventListener('pause', postPresence);
-  // Spotify play/pause never touches playerState.audio — its state-changed
-  // handler (see SPOTIFY INTEGRATION) calls this directly instead.
-  window._klabPostPresence = postPresence;
 })();
 
 // ══════════════════════════════════════════
@@ -12342,16 +11855,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     let songHTML = '';
     if (post.song) {
       const s = post.song;
-      const isSpotifySong = s.source === 'spotify';
-      const artUrl = !s.coverArt ? '' : isSpotifySong ? s.coverArt : `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(s.coverArt)}&size=100&${subsonicParams()}`;
+      const artUrl = s.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(s.coverArt)}&size=100&${subsonicParams()}` : '';
       // encodeURIComponent, not esc() — a title/artist with an apostrophe
       // would break out of this HTML attribute if just HTML-escaped (esc()
       // only handles &"<>, not '), same reason renderSongItem's own
       // data-add-pl attribute uses it for the same kind of JSON payload.
-      const playPayload = encodeURIComponent(JSON.stringify({
-        id: s.songId, title: s.title, artist: s.artist, album: s.album, coverArt: s.coverArt,
-        source: isSpotifySong ? 'spotify' : 'navidrome', spotifyUri: isSpotifySong ? s.songId : undefined,
-      }));
+      const playPayload = encodeURIComponent(JSON.stringify({ id: s.songId, title: s.title, artist: s.artist, album: s.album, coverArt: s.coverArt }));
       songHTML = '<div class="feed-post-song" data-play-song="' + playPayload + '">' +
         (artUrl
           ? '<img class="feed-post-song-art" src="' + esc(artUrl) + '" alt="" loading="lazy" onerror="klabArtFallback(this,\'feed-post-song-art-ph\',\'ti-music\')" />'
@@ -12490,9 +11999,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function setPendingSong(song) {
     _pendingSong = song || null;
     if (!song) { songPreviewEl.hidden = true; return; }
-    songArtEl.src = !song.coverArt ? '' : song.source === 'spotify'
-      ? song.coverArt
-      : `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`;
+    songArtEl.src = song.coverArt
+      ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`
+      : '';
     songTitleEl.textContent = song.title || 'Unknown';
     songArtistEl.textContent = song.artist || '';
     if (song.lyric) {
