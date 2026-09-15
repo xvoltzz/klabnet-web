@@ -39,7 +39,12 @@
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
        is real latency, so warm the connection before the first request. -->
   <link rel="preconnect" href="https://music.klab.gg" />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <!-- Cormorant Garamond dropped entirely — was loaded but never referenced
+       anywhere in the CSS. JetBrains Mono trimmed to weight 700 only (its
+       one consumer, .prompt-text, never uses 400/500/italic). Inter gained
+       700-italic (.motd is bold+italic but only 400-italic was loaded
+       before, forcing the browser to synthesize/fake-bold it). -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     html { font-size: 19px; height: 100%; }
@@ -4024,16 +4029,8 @@ window.KLAB_BOOT = (function() {
       <div class="settings-section">
         <span class="settings-section-label">Player</span>
         <div class="settings-row">
-          <div><div class="settings-row-label">Crossfade</div><div class="settings-row-sub">Fade between tracks</div></div>
-          <div class="s-toggle" id="crossfadeToggle"></div>
-        </div>
-        <div class="settings-row">
           <div><div class="settings-row-label">Login Song</div><div class="settings-row-sub">Play a song on page load</div></div>
           <div class="s-toggle on" id="loginSongToggle"></div>
-        </div>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Scrobble History</div><div class="settings-row-sub">Track recently played locally</div></div>
-          <div class="s-toggle on" id="scrobbleToggle"></div>
         </div>
       </div>
 
@@ -4540,6 +4537,7 @@ function applyDot(id,status){
 // still very much used in the Apps grid) are untouched.
 let lastBeats={};
 async function fetchStatus(){
+  if (document.hidden) return;
   try{
     const res=await fetchTimeout('/api/status-page/heartbeat/main', {}, 8000);
     if(!res.ok)throw new Error(res.status);
@@ -4576,6 +4574,7 @@ function checkGitea() {
 }
 fetchStatus();
 setInterval(fetchStatus,60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchStatus(); });
 Object.keys(maintenance).forEach(id=>applyDot(parseInt(id),0));
 
 // ══════════════════════════════════════════
@@ -4741,7 +4740,6 @@ let playerState = {
   playlist: [],
   playlistIndex: 0,
   audio: new Audio(),
-  duration: 0,
   volume: parseFloat(localStorage.getItem(VOLUME_KEY) || '0.8')
 };
 playerState.audio.volume = playerState.volume;
@@ -4829,7 +4827,9 @@ function updatePlayerUI(song) {
   }
 
   // Album art — DOM construction avoids innerHTML escaping bugs
-  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=300&${subsonicParams()}`;
+  // size=100 (~2x the 46px dock art box, 36px on mobile) — was 300,
+  // fetching/decoding ~6x more pixels than this ever displays.
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=100&${subsonicParams()}`;
   const ph = document.createElement('div');
   ph.className = 'picker-item-art-ph';
   ph.innerHTML = '<i class="ti ti-music"></i>';
@@ -5076,6 +5076,9 @@ function clearLoginSong() {
 let _loginFadeInterval = null;
 
 async function tryPlayLoginSong() {
+  // Was ignored entirely — a login song played unconditionally regardless
+  // of this toggle's state, the one settings row that didn't do anything.
+  if (!_settings.loginSong) return;
   const song = getLoginSong();
   if (!song) return;
   playerState.audio.volume = 0;
@@ -5241,7 +5244,9 @@ function renderSongItem(song, container) {
   const loginSong = getLoginSong();
   const isLogin = loginSong && loginSong.id === song.id;
   const isFav = isFavorite(song.id);
-  const artUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=150&${subsonicParams()}`;
+  // size=80 (~2x the 36px list-mode row art) — was 150, oversized for the
+  // song picker's always-list-mode rows (songs never render in grid mode).
+  const artUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}`;
   const item = document.createElement('div');
   item.className = 'picker-item' + (isLogin ? ' is-login-song' : '');
   item.innerHTML = `
@@ -5846,7 +5851,9 @@ async function loadArtistView(artist) {
     lbl.className = 'picker-section-label'; lbl.textContent = 'Albums';
     pickerList.appendChild(lbl);
     albums.forEach(album => {
-      const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=150&${subsonicParams()}`;
+      // size=80 — same list-mode-row sizing fix as renderSongItem() above; this
+      // is a fallback list view (openArtistPage unavailable), not the grid.
+      const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=80&${subsonicParams()}`;
       const item = document.createElement('div');
       item.className = 'picker-item';
       const img = document.createElement('img');
@@ -5914,7 +5921,8 @@ function renderQueueList() {
   clearRow.appendChild(clearBtn);
   pickerList.appendChild(clearRow);
   queue.forEach((song, idx) => {
-    const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=150&${subsonicParams()}`;
+    // size=80 — same list-mode-row sizing fix as renderSongItem() above.
+    const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}`;
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
@@ -6129,11 +6137,6 @@ const SFX = (() => {
     _sfxVol = Math.max(0, Math.min(1, v));
     if (masterGain && ctx) {
       masterGain.gain.setTargetAtTime(_sfxVol, ctx.currentTime, 0.02);
-    }
-  }
-  function setEnabled(on) {
-    if (masterGain && ctx) {
-      masterGain.gain.setTargetAtTime(on ? _sfxVol : 0, ctx.currentTime, 0.02);
     }
   }
   function playGated(type) {
@@ -6756,8 +6759,16 @@ const KLABNET_VERSION = 'v2026.09.09.1';
 // and reading the KLABNET_VERSION string back out of it. Shows a
 // persistent banner rather than auto-reloading, so nobody mid-message
 // loses what they were typing.
-const UPDATE_CHECK_MS = 90000;
+// Was every 90s with no visibility guard — re-downloading the whole ~600KB
+// page that often, including in a backgrounded tab nobody's looking at,
+// was the single largest unconditional network cost in the app. 5 minutes
+// plus skipping entirely while hidden cuts that by >95%; the existing
+// visibilitychange listener below still re-checks immediately the moment
+// a hidden tab becomes visible again, so detection latency in practice
+// barely changes.
+const UPDATE_CHECK_MS = 5 * 60 * 1000;
 async function checkForUpdate() {
+  if (document.hidden) return;
   try {
     const res = await fetchTimeout(location.pathname || '/', { cache: 'no-store' }, 8000);
     const html = await res.text();
@@ -6785,9 +6796,7 @@ let _settings = {
   sfxEnabled:    true,
   sfxVolume:     0.7,
   notifSound:    true,
-  crossfade:     false,
   loginSong:     true,
-  scrobble:      true,
   experimentalEnabled: false,
   showKlabcraft: true,
   showLeaderboard: true,
@@ -6939,9 +6948,7 @@ function openSettings() {
   const toggleMap = {
     sfxToggle:        'sfxEnabled',
     notifSoundToggle: 'notifSound',
-    crossfadeToggle:  'crossfade',
     loginSongToggle:  'loginSong',
-    scrobbleToggle:   'scrobble',
     experimentalToggle: 'experimentalEnabled',
     klabcraftToggle:  'showKlabcraft',
     leaderboardToggle: 'showLeaderboard',
@@ -6973,8 +6980,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
     // Map toggle id back to settings key
     const map = {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
-      crossfadeToggle: 'crossfade', loginSongToggle: 'loginSong',
-      scrobbleToggle: 'scrobble', experimentalToggle: 'experimentalEnabled',
+      loginSongToggle: 'loginSong', experimentalToggle: 'experimentalEnabled',
       klabcraftToggle: 'showKlabcraft', leaderboardToggle: 'showLeaderboard',
     };
     const key = map[toggle.id];
@@ -10240,7 +10246,11 @@ playSong = async function(song) {
   document.getElementById('fsPlayIcon').className = 'ti ti-player-pause';
   addToPlayHistory(song);
   if (song?.coverArt) {
-    const url = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=300&${subsonicParams()}`;
+    // size=64 — matches sampleImageColor()'s own sampling size elsewhere;
+    // averaging pixel color for an accent tint doesn't benefit from a
+    // higher-res source, so the previous 300 was pure waste on every song
+    // change.
+    const url = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=64&${subsonicParams()}`;
     extractAlbumColor(url);
   } else {
     _resetAccent();
@@ -11609,6 +11619,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
   async function fetchFeed() {
     if (_feedPending) return;
+    // Was polled every 30s unconditionally, including in a backgrounded
+    // tab — matches the visibility-guard pattern already used for
+    // presence/notes/profiles polling elsewhere in the app.
+    if (document.hidden) return;
     _feedPending = true;
     const isFirstLoad = _feedPosts.length === 0;
     // Nothing rendered yet on the very first load — a blank panel with no
@@ -11946,6 +11960,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const FEED_POLL_MS = 30000; // same cadence as notes/offline-roster — a feed doesn't need second-by-second freshness
   fetchFeed();
   setInterval(fetchFeed, FEED_POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchFeed(); });
 
   // The very first fetchFeed() above almost always lands before Matrix has
   // finished (re)connecting — ensureFeedAvatar()/ensureFeedImage() correctly
@@ -12394,8 +12409,9 @@ function sampleImageColor(imgUrl) {
   // ── Track row builder ────────────────────
   function buildTrack(song, idx, songs, showArt) {
     const isNow = playerState?.currentSong?.id === song.id;
+    // size=80 — ~2.3x the 34px .ap-track-art box, was 150.
     const artUrl = showArt && song.coverArt
-      ? `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=150&${subsonicParams()}` : '';
+      ? `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}` : '';
     const row = document.createElement('div');
     row.className = 'ap-track' + (isNow ? ' ap-now' : '');
     row.dataset.songId = song.id;
