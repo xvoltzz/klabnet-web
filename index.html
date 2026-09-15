@@ -983,10 +983,9 @@
       border: none; background: none; box-shadow: none; padding: 0;
       animation: none; opacity: 1; transform: none; transition: none;
     }
-    .music-tab-placeholder {
-      font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer);
-      padding: 2rem 0;
-    }
+    /* .music-tab-placeholder removed — styled, never rendered by any JS;
+       .picker-empty (used throughout the picker for "no albums"/"no
+       favorites yet"/etc.) already covers this tab's empty states. */
 
     /* ══ FEED — Home tab, text/image posts ══ */
     .feed-composer {
@@ -2516,25 +2515,9 @@
     .s-slider-val { font-size: 9px; color: var(--text-dimmer); width: 28px; text-align: right; letter-spacing: 0.08em; }
 
     /* ══ PLAYLIST STYLES ══ */
-    .pl-item {
-      display: flex; align-items: center; gap: 0.6rem;
-      padding: 0.55rem 0.7rem; border-radius: 10px; cursor: pointer;
-      transition: background 0.12s; border: 1px solid transparent;
-    }
-    .pl-item:hover { background: linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 100%); border-color: rgba(255,255,255,0.14); }
-    .pl-icon { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-dimmer); }
-    .pl-info { flex: 1; min-width: 0; }
-    .pl-name { font-size: 11px; color: var(--text); letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pl-meta { font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.08em; margin-top: 1px; }
-    .pl-new-input {
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-      border-top-color: rgba(255,255,255,0.2); border-radius: 10px; padding: 0.6rem 0.9rem;
-      font-family: var(--font-ui); font-size: 11px; color: var(--text);
-      outline: none; width: 100%; transition: border-color 0.2s;
-    }
-    .pl-new-input:focus { border-color: rgba(255,255,255,0.35); }
-    .pl-new-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment */
-    .pl-new-input::placeholder { color: var(--text-dimmer); }
+    /* .pl-item/.pl-icon/.pl-info/.pl-name/.pl-meta/.pl-new-input removed —
+       only ever used by the dead renderPlaylistList() (see its own removal
+       note near loadPlaylistView()). */
 
     /* ── Light theme overrides ── */
     [data-theme="light"] .sec-line  { background: rgba(90,78,62,0.15); }
@@ -2560,10 +2543,6 @@
     [data-theme="light"] .picker-back   { color: var(--tile-icon); }
     [data-theme="light"] .picker-back:hover { color: var(--text); }
     [data-theme="light"] .tile-name     { color: var(--tile-icon); }
-    [data-theme="light"] .edit-banner   { background: rgba(251,191,36,0.12); border-color: rgba(180,120,0,0.25); }
-    [data-theme="light"] .edit-banner-label { color: #7a4a00; }
-    [data-theme="light"] .edit-banner-hint  { color: rgba(120,70,0,0.55); }
-    [data-theme="light"] .edit-done-btn     { color: #7a4a00; border-color: rgba(180,120,0,0.3); background: rgba(251,191,36,0.1); }
     [data-theme="light"] .ctx-item { color: var(--text-dim); }
     [data-theme="light"] .ctx-item:hover { background: rgba(130,112,88,0.08); color: var(--text); }
     [data-theme="light"] .ctx-divider { background: rgba(130,112,88,0.1); }
@@ -2576,9 +2555,6 @@
     [data-theme="light"] .s-toggle.on { background: rgba(var(--accent-rgb),0.45); border-color: rgba(var(--accent-rgb),0.6); }
     [data-theme="light"] .s-toggle.on::after { background: #fff; }
     [data-theme="light"] .settings-title   { color: var(--text-dimmer); }
-    [data-theme="light"] .pl-name  { color: var(--text); }
-    [data-theme="light"] .pl-meta  { color: var(--text-dimmer); }
-    [data-theme="light"] .pl-icon  { color: var(--tile-icon); background: rgba(130,112,88,0.1); border-color: rgba(130,112,88,0.18); }
     [data-theme="light"] .add-app-label  { color: var(--text-dimmer); }
     [data-theme="light"] .add-app-title  { color: var(--text-dimmer); }
 
@@ -2633,13 +2609,6 @@
     /* Player dock — colored accent border on top */
     .player-dock {
       border-top: 1px solid rgba(var(--accent-rgb),0.3) !important;
-    }
-
-    /* hdr-btn active state — accent outline */
-    .hdr-btn.edit-active {
-      color: rgba(var(--accent-rgb),1) !important;
-      background: rgba(var(--accent-rgb),0.12) !important;
-      border-color: rgba(var(--accent-rgb),0.5) !important;
     }
 
     .fs-link { color: inherit; }
@@ -3279,33 +3248,13 @@
       animation: backdropIn 0.22s ease both;
     }
     @keyframes backdropIn { from{opacity:0} to{opacity:1} }
-
-    .picker-modal {
-      width: min(860px, calc(100vw - 2rem));
-      border-radius: 10px;
-      padding: 1.2rem;
-      max-height: 78vh;
-      display: flex; flex-direction: column; gap: 0.8rem;
-      animation: pickerUp 0.2s ease both;
-      position: relative;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 24px 70px var(--shadow-55);
-    }
     @keyframes pickerUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
 
-    .picker-header {
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .picker-title {
-      font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer); text-transform: uppercase;
-    }
-    .picker-close {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-dimmer); font-size: 18px; padding: 2px 6px; border-radius: 6px;
-      transition: color 0.15s, background 0.15s;
-    }
-    .picker-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    /* .picker-modal/.picker-header/.picker-title/.picker-close removed —
+       a fully-styled second dialog shell (title bar + close button) that
+       was never instantiated anywhere in markup or JS. The picker's real
+       shell is .picker-backdrop below; .settings-close/.add-app-close
+       cover the app's actual close-button needs. */
 
     /* Deliberately NOT icon-only — an icon-webfont glyph that fails to load
        (blocked CDN, stale cached font, ad-block rule) leaves a background:none
@@ -6666,7 +6615,7 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
   setPlayingClass();
 
   let lastPremiumHover = 0;
-  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn, .tile, .pl-item';
+  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn, .tile';
   document.addEventListener('pointerover', e => {
     const el = e.target.closest(hoverSelector);
     if (!el || el._premiumHovered) return;
@@ -7153,20 +7102,14 @@ document.addEventListener('visibilitychange', () => {
 // The custom-app builder (add/edit/delete tile via /api/apps, icon
 // picker, group-restriction picker) was removed — app tiles are now
 // hardcoded in #appGrid's HTML only. window.KLAB_USER.is_admin is kept
-// around (and still toggles body.admin-user below) since it's generic
-// identity info, not part of that feature specifically.
-
-// ── Set admin class on body ──
-function applyAdminState(isAdmin) {
-  document.body.classList.toggle('admin-user', !!isAdmin);
-}
-
-// ── Patch fetchMe — apply admin state once identity is known ──
-const _origFetchMe = fetchMe;
-fetchMe = async function() {
-  await _origFetchMe();
-  applyAdminState(window.KLAB_USER && window.KLAB_USER.is_admin);
-};
+// around since it's generic identity info, not part of that feature
+// specifically — every real is_admin check (feed/reply delete, music
+// request approve/delete) reads it straight off window.KLAB_USER, not
+// off a CSS class. A body.admin-user toggle + a fetchMe() monkey-patch
+// used to exist solely to set that class, but nothing ever selected on
+// it — removed as dead weight along with this comment's own "still
+// toggles body.admin-user below" claim, which was no longer true of
+// anything downstream of it.
 
 // The old "TILE EDIT SYSTEM" (admin, edit mode) lived here: a shared
 // modal for both creating/editing custom app tiles (POST/PUT /api/apps)
@@ -9945,83 +9888,12 @@ function addSongToPlaylist(plId, song) {
   showToast(`Added to "${pl.name}"`);
 }
 
-function renderPlaylistList() {
-  const pls = getPlaylists();
-  pickerList.innerHTML = '';
-
-  const hdr = document.createElement('div');
-  hdr.className = 'picker-section-label';
-  hdr.textContent = `Playlists (${pls.length})`;
-  pickerList.appendChild(hdr);
-
-  // New playlist button
-  const newRow = document.createElement('div');
-  newRow.style.cssText = 'padding:0.5rem 0.2rem;display:flex;gap:8px;align-items:center;margin-bottom:4px;';
-  newRow.innerHTML = `<input class="pl-new-input" placeholder="New playlist name..." />
-    <button class="picker-action" title="Create" style="flex-shrink:0;width:32px;height:32px;"><i class="ti ti-plus"></i></button>`;
-  newRow.querySelector('[title="Create"]').addEventListener('click', () => {
-    const name = newRow.querySelector('input').value.trim();
-    if (!name) return;
-    createPlaylist(name);
-    renderPlaylistList();
-    SFX && SFX.play('star');
-    showToast(`"${name}" created`);
-  });
-  newRow.querySelector('input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') newRow.querySelector('[title="Create"]').click();
-  });
-  pickerList.appendChild(newRow);
-
-  if (!pls.length) {
-    const empty = document.createElement('div');
-    empty.className = 'picker-empty';
-    empty.textContent = 'no playlists yet';
-    pickerList.appendChild(empty);
-    return;
-  }
-
-  showSortBtn('playlists');
-  applySort(pls, 'playlists').forEach(pl => {
-    const item = document.createElement('div');
-    item.className = 'pl-item';
-    item.innerHTML = `
-      <div class="pl-icon"><i class="ti ti-playlist"></i></div>
-      <div class="pl-info">
-        <div class="pl-name">${esc(pl.name)}</div>
-        <div class="pl-meta">${pl.songs.length} songs</div>
-      </div>
-      <div class="picker-item-actions" style="flex-shrink:0;display:flex;gap:2px;">
-        <button class="picker-action" title="Play playlist"><i class="ti ti-player-play"></i></button>
-        <button class="picker-action" title="Queue playlist"><i class="ti ti-playlist-add"></i></button>
-        <button class="picker-action" title="Delete playlist" style="color:var(--danger-color);"><i class="ti ti-trash"></i></button>
-      </div>`;
-
-    item.querySelector('[title="Play playlist"]').addEventListener('click', async e => {
-      e.stopPropagation();
-      if (!pl.songs.length) { showToast('playlist is empty'); return; }
-      queue = pl.songs.slice(1); updateQueueBadge();
-      await playSong(pl.songs[0]);
-      showToast(`Playing "${pl.name}"`); SFX && SFX.play('play');
-    });
-
-    item.querySelector('[title="Queue playlist"]').addEventListener('click', e => {
-      e.stopPropagation();
-      queue.push(...pl.songs); updateQueueBadge();
-      showToast(`Queued "${pl.name}" (${pl.songs.length} songs)`); SFX && SFX.play('queue');
-    });
-
-    item.querySelector('[title="Delete playlist"]').addEventListener('click', e => {
-      e.stopPropagation();
-      if (!confirm(`Delete "${pl.name}"?`)) return;
-      const updated = getPlaylists().filter(p => p.id !== pl.id);
-      savePlaylists(updated); renderPlaylistList();
-      SFX && SFX.play('click');
-    });
-
-    item.addEventListener('click', () => loadPlaylistView(pl));
-    pickerList.appendChild(item);
-  });
-}
+// renderPlaylistList() (the old generic "Playlists" browse tab) removed —
+// unreachable dead code. renderPlaylistNav() replaced it: each playlist is
+// now its own direct link in the sidebar, and no UI path sets
+// pickerTab === 'playlists' any more (confirmed: no such tab button
+// exists, only random/recent/songs/albums/artists/genres/favorites/
+// queue/requests do).
 
 function loadPlaylistView(pl) {
   hideSortBtn();
@@ -10606,7 +10478,6 @@ function rerenderSortedTab() {
   if (pickerTab === 'songs')          loadAllSongs();
   else if (pickerTab === 'albums')    renderAlbumList(applySort(_albumsCache || [], 'albums'));
   else if (pickerTab === 'favorites') loadPickerTab('favorites');
-  else if (pickerTab === 'playlists') renderPlaylistList();
   else if (pickerTab === 'genres')    loadGenres();
 }
 
