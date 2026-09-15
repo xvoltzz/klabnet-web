@@ -59,6 +59,37 @@
       --success-color: #4ade80;
     }
 
+    /* ══ SCALE TOKENS — type / spacing / radius ══
+       Unlike color/shadow/border above, these were never tokenized, so
+       ~230 font-size and ~400 spacing/radius declarations drifted into
+       one-off half-pixel values over many separate feature passes (e.g.
+       8.5/9/9.5/10/10.5/11px all doing the same "micro-label" job). This
+       is the real intended scale, named after the value itself (same
+       convention as --shadow-20 etc.) so a call site's literal
+       `font-size: 11px` maps mechanically onto `var(--fs-11)` — same
+       number, no semantic renaming to relearn. Same size/theme in both
+       [data-theme] variants, so these live on plain :root. */
+    :root {
+      --fs-9: 9px; --fs-10: 10px; --fs-11: 11px; --fs-12: 12px;
+      --fs-13: 13px; --fs-14: 14px; --fs-15: 15px; --fs-16: 16px;
+      --fs-18: 18px; --fs-20: 20px; --fs-22: 22px; --fs-26: 26px;
+      --fs-32: 32px; --fs-44: 44px;
+
+      --space-2: 2px; --space-4: 4px; --space-6: 6px; --space-8: 8px;
+      --space-10: 10px; --space-12: 12px; --space-16: 16px; --space-20: 20px;
+
+      /* Role-based, not a fine scale — "small control" vs "card", plus
+         the deliberate 50%/pill special cases stay literal since they're
+         shape choices, not steps on this scale. */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+
+      /* The exact focus-ring box-shadow recipe, previously hand-copied
+         identically across 5+ separate rules. */
+      --focus-ring: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+
     /* ══ LARGE / HIGH-RES DISPLAYS ══
        Everything on this site is sized for a normal desktop monitor, so on a
        4K screen at 100% OS scaling it renders tiny. `zoom` scales the whole
