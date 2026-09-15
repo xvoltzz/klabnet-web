@@ -1120,12 +1120,18 @@
     .feed-post-head { display: flex; align-items: baseline; gap: 0.5rem; }
     .feed-post-name { font-size: 14px; font-weight: 700; color: var(--name-color, var(--text)); }
     .feed-post-time { font-size: 10px; color: var(--text-dimmer); }
+    /* Was a <span> — not keyboard-focusable/activatable at all, so a
+       keyboard user couldn't delete a post. Now a real <button>; the reset
+       properties strip default button chrome (same fix .music-playlist-
+       row-del already needed), and the hover-reveal also fires on
+       :focus-within so tabbing to it doesn't tab to something invisible. */
     .feed-post-delete {
       margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 13px;
       opacity: 0; transition: opacity 0.15s, color 0.15s;
+      background: none; border: none; font-family: inherit; padding: 0;
     }
-    .feed-post:hover .feed-post-delete { opacity: 1; }
-    .feed-post-delete:hover { color: var(--danger-color); }
+    .feed-post:hover .feed-post-delete, .feed-post:focus-within .feed-post-delete { opacity: 1; }
+    .feed-post-delete:hover, .feed-post-delete:focus-visible { color: var(--danger-color); }
     .feed-post-text {
       font-size: 15px; color: var(--text); line-height: 1.55; margin-top: 3px;
       white-space: pre-wrap; word-break: break-word;
@@ -1214,8 +1220,12 @@
     .feed-post-reply-head { display: flex; align-items: baseline; gap: 6px; }
     .feed-post-reply-name { font-size: 12px; font-weight: 700; }
     .feed-post-reply-time { font-size: 9px; color: var(--text-dimmer); }
-    .feed-post-reply-delete { margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 11px; }
-    .feed-post-reply-delete:hover { color: var(--danger-color); }
+    /* Same <span> -> <button> fix as .feed-post-delete above. */
+    .feed-post-reply-delete {
+      margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 11px;
+      background: none; border: none; font-family: inherit; padding: 0;
+    }
+    .feed-post-reply-delete:hover, .feed-post-reply-delete:focus-visible { color: var(--danger-color); }
     .feed-post-reply-text { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
     .feed-post-reply-composer { display: flex; gap: 6px; margin-top: 6px; }
     /* Same boxy + focus-glow language as .picker-search/.chat-composer
@@ -3756,11 +3766,11 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
-      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
-      <button class="hdr-btn glass" id="calendarBtn" title="My Calendar"><i class="ti ti-calendar"></i><span class="hdr-btn-dot" id="calendarPendingDot" hidden></span></button>
-      <button class="hdr-btn glass" id="settingsBtn" title="Settings"><i class="ti ti-settings"></i></button>
-      <button class="hdr-btn glass" id="playerToggle" title="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
-      <button class="hdr-btn glass" id="themeToggle" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
+      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" aria-label="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
+      <button class="hdr-btn glass" id="calendarBtn" title="My Calendar" aria-label="My Calendar"><i class="ti ti-calendar"></i><span class="hdr-btn-dot" id="calendarPendingDot" hidden></span></button>
+      <button class="hdr-btn glass" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
+      <button class="hdr-btn glass" id="playerToggle" title="Toggle player" aria-label="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
+      <button class="hdr-btn glass" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
       <!-- Overflow menu — motdRefresh/keyHintsBtn/repoBtn/accountBtn used to
            sit directly in this row as bare icon buttons; moved in here
            (same ids, so their existing click-handler wiring elsewhere in
@@ -3769,7 +3779,7 @@ window.KLAB_BOOT = (function() {
            visible on purpose — the whole point of either is people actually
            noticing and using it — and Account went further IN (no title
            tooltip even) since it's rarely the thing anyone's reaching for. -->
-      <button class="hdr-btn glass" id="headerMoreBtn" title="More"><i class="ti ti-menu-2"></i></button>
+      <button class="hdr-btn glass" id="headerMoreBtn" title="More" aria-label="More"><i class="ti ti-menu-2"></i></button>
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
         <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
@@ -3940,7 +3950,10 @@ window.KLAB_BOOT = (function() {
 
   <div class="tab-panel" data-tab-panel="klabcraft">
   <div class="sec" data-sec="klabcraft" hidden>
-    <div class="sec-head"><span class="sec-label">// klabcraft</span><span class="type-badge soon">coming soon!</span><div class="sec-line"></div></div>
+    <!-- Badge was "coming soon!" — stale: the backup browser this opens is
+         fully functional (real /api/klabcraft/backups list/download), it's
+         just gated behind the Experimental Features toggle like Leaderboard. -->
+    <div class="sec-head"><span class="sec-label">// klabcraft</span><span class="type-badge soon">experimental</span><div class="sec-line"></div></div>
     <div class="grid" id="klabcraftGrid">
       <div class="tile-wrap tile-wrap-auto">
         <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
@@ -4089,14 +4102,14 @@ window.KLAB_BOOT = (function() {
 <div class="cal-overlay" id="calendarOverlay">
   <div class="cal-header">
     <div class="cal-header-left">
-      <button class="hdr-btn glass" id="calPrevMonth" title="Previous month"><i class="ti ti-chevron-left"></i></button>
+      <button class="hdr-btn glass" id="calPrevMonth" title="Previous month" aria-label="Previous month"><i class="ti ti-chevron-left"></i></button>
       <span class="cal-month-label" id="calMonthLabel"></span>
-      <button class="hdr-btn glass" id="calNextMonth" title="Next month"><i class="ti ti-chevron-right"></i></button>
+      <button class="hdr-btn glass" id="calNextMonth" title="Next month" aria-label="Next month"><i class="ti ti-chevron-right"></i></button>
       <button class="cal-today-btn" id="calTodayBtn" type="button">Today</button>
     </div>
     <div class="cal-header-right">
       <button class="chat-connect-btn" id="calNewEventBtn" type="button"><i class="ti ti-plus"></i> New Event</button>
-      <button class="hdr-btn glass" id="calCloseBtn" title="Close"><i class="ti ti-x"></i></button>
+      <button class="hdr-btn glass" id="calCloseBtn" title="Close" aria-label="Close calendar"><i class="ti ti-x"></i></button>
     </div>
   </div>
   <div class="cal-weekdays">
@@ -4586,7 +4599,14 @@ function renderLeaderboardList() {
     const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u.username) : null;
     if (!avatarUrl) anyUnresolvedAvatar = true;
     const avatarInner = avatarUrl ? `<img src="${esc(avatarUrl)}" alt="" />` : esc((u.username || '?')[0].toUpperCase());
-    const rankInner = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+    // Icon-font trophy instead of an emoji medal — everywhere else in the
+    // app's chrome (including the header button that opens this panel)
+    // uses ti-* icons; the emoji reaction picker is the one deliberate
+    // exception (see its own comment), not this. Colored to match each
+    // rank's existing row-tint (.lb-rank-1/2/3 below).
+    const rankInner = rank <= 3
+      ? `<i class="ti ti-trophy" style="color:${rank === 1 ? '#eab308' : rank === 2 ? '#94a3b8' : '#b4783c'}"></i>`
+      : String(rank);
     return `<div class="lb-row${rank <= 3 ? ' lb-rank-' + rank : ''}">
       <div class="lb-rank">${rankInner}</div>
       <div class="lb-avatar" title="${esc(u.username)}">${avatarInner}</div>
@@ -6692,7 +6712,7 @@ function updateMediaSession(song) {
   });
 
   // Wire hardware/OS media keys
-  navigator.mediaSession.setActionHandler('play',  () => { playerState.audio.play(); playerState.playing = true; setPlayIcon(true); });
+  navigator.mediaSession.setActionHandler('play',  () => { playerState.audio.play(); playerState.playing = true; setPlayIcon(true); navigator.mediaSession.playbackState = 'playing'; });
   navigator.mediaSession.setActionHandler('pause', () => { playerState.audio.pause(); playerState.playing = false; setPlayIcon(false); navigator.mediaSession.playbackState = 'paused'; });
   navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
   navigator.mediaSession.setActionHandler('nexttrack',     () => nextSong());
@@ -8037,7 +8057,7 @@ function buildChannelItem(room, icon) {
   item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
   item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
     (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
-    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot"></span>' : '')) +
+    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot" title="Online" aria-label="Online"></span>' : '')) +
     // DMs (only) get a close button, hidden until hover — leaves the
     // room outright rather than just hiding it client-side, so it's
     // actually gone rather than reappearing on the next sync.
@@ -8053,6 +8073,11 @@ function buildChannelItem(room, icon) {
   });
   item.querySelector('.chat-channel-close')?.addEventListener('click', async e => {
     e.stopPropagation(); // don't also select the room we're about to leave
+    // Fired immediately with zero confirmation before — per the comment
+    // above this actually leaves the room outright, not a client-side
+    // hide, so it deserves the same confirm() every other permanent-delete
+    // action in the app already gets.
+    if (!(await showConfirmDialog('// close DM', 'Close this conversation? You can start a new one, but this closes it for good.', 'Close'))) return;
     try {
       await MatrixChat.client.leave(room.roomId);
       if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
@@ -8646,8 +8671,14 @@ function initChatEmojiPicker() {
   });
 }
 
-let _typingStopTimer = null;
-let _isTypingNow = false;
+// Keyed by roomId, not a single shared flag/timer — the deferred "stop
+// typing" callback used to read the *live* _chatActiveRoomId instead of
+// the room typing actually started in, so switching rooms mid-cycle could
+// send a stray "stopped typing" into the new room, or (since the single
+// shared _isTypingNow was already true from the old room) silently
+// suppress the "started typing" signal there entirely.
+const _typingStopTimers  = new Map(); // roomId -> timeout handle
+const _typingActiveRooms = new Set(); // roomIds currently reporting "typing" to the server
 
 // Called on every composer keystroke, but only actually sends on the
 // false->true transition — the 4s refresh timer (re-armed each keystroke)
@@ -8655,15 +8686,16 @@ let _isTypingNow = false;
 // character.
 function notifyTyping() {
   if (!_chatActiveRoomId || !MatrixChat.client) return;
-  clearTimeout(_typingStopTimer);
-  if (!_isTypingNow) {
-    _isTypingNow = true;
-    MatrixChat.client.sendTyping(_chatActiveRoomId, true, 4000).catch(() => {});
+  const roomId = _chatActiveRoomId;
+  clearTimeout(_typingStopTimers.get(roomId));
+  if (!_typingActiveRooms.has(roomId)) {
+    _typingActiveRooms.add(roomId);
+    MatrixChat.client.sendTyping(roomId, true, 4000).catch(() => {});
   }
-  _typingStopTimer = setTimeout(() => {
-    _isTypingNow = false;
-    MatrixChat.client?.sendTyping(_chatActiveRoomId, false, 4000).catch(() => {});
-  }, 4000);
+  _typingStopTimers.set(roomId, setTimeout(() => {
+    _typingActiveRooms.delete(roomId);
+    MatrixChat.client?.sendTyping(roomId, false, 4000).catch(() => {});
+  }, 4000));
 }
 
 let _pendingChatImage = null;
@@ -8682,8 +8714,8 @@ async function sendChatMessage() {
   const roomId = _chatActiveRoomId;
   const client = MatrixChat.client;
   input.value = '';
-  clearTimeout(_typingStopTimer);
-  _isTypingNow = false;
+  clearTimeout(_typingStopTimers.get(roomId));
+  _typingActiveRooms.delete(roomId);
   client.sendTyping(roomId, false, 4000).catch(() => {});
   const replyRelation = _replyingToEventId ? { 'm.relates_to': { 'm.in_reply_to': { event_id: _replyingToEventId } } } : null;
   clearReply();
@@ -11211,7 +11243,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       : (note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '');
     return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
-        '<span class="presence-card-online"></span>' +
+        '<span class="presence-card-online" title="Online" aria-label="Online"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
@@ -11966,7 +11998,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<div class="feed-post-reply-head">' +
           '<span class="feed-post-reply-name" data-username="' + esc(reply.username) + '" style="color:' + profileColor(reply.username) + '">' + esc(reply.username) + '</span>' +
           '<span class="feed-post-reply-time">' + fmtFeedTime(reply.created) + '</span>' +
-          (canDelete ? '<span class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply"><i class="ti ti-trash"></i></span>' : '') +
+          (canDelete ? '<button type="button" class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply" aria-label="Delete reply"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         '<div class="feed-post-reply-text">' + mentionHTML(reply.text, me) + '</div>' +
       '</div>' +
@@ -12033,7 +12065,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<div class="feed-post-head">' +
           '<span class="feed-post-name" data-username="' + esc(post.username) + '">' + esc(post.username) + '</span>' +
           '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
-          (canDelete ? '<span class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post"><i class="ti ti-trash"></i></span>' : '') +
+          (canDelete ? '<button type="button" class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         (post.text ? '<div class="feed-post-text">' + mentionHTML(post.text, me) + '</div>' : '') +
         imageHTML +
@@ -12085,9 +12117,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (_feedPending) return;
     _feedPending = true;
     const isFirstLoad = _feedPosts.length === 0;
+    // Nothing rendered yet on the very first load — a blank panel with no
+    // indication anything is happening. Every other panel in the app
+    // (picker, leaderboard, requests) already shows a "loading…" state;
+    // the feed just never got one.
+    if (isFirstLoad) listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
     try {
       const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
-      if (!r.ok) return;
+      if (!r.ok) throw new Error('bad status');
       const data = await r.json();
       const fresh = data.posts || [];
       // Merge the newest page into whatever's already loaded instead of
@@ -12104,6 +12141,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       if (isFirstLoad) _feedHasMore = fresh.length === FEED_PAGE_SIZE;
       renderFeed();
     } catch (e) {
+      // Only the first load needs a visible error — a background 30s poll
+      // failing after posts are already showing just leaves the last-known
+      // feed on screen (same pattern presence's own poll failure uses),
+      // rather than yanking already-read content out from under someone.
+      if (isFirstLoad) {
+        listEl.innerHTML = '<div class="feed-empty">Couldn\'t load the feed.<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
+        document.getElementById('feedRetryBtn')?.addEventListener('click', fetchFeed);
+      }
     } finally {
       _feedPending = false;
       window.KLAB_BOOT?.mark('feed');
@@ -12344,6 +12389,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   async function deleteFeedReply(postId, replyId) {
+    // Fired immediately with zero confirmation before — deletePost() just
+    // above already confirms; a reply is the same class of destructive,
+    // hard-to-undo action.
+    if (!(await showConfirmDialog('// delete reply', 'Delete this reply?', 'Delete'))) return;
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/replies/${replyId}`, { method: 'DELETE' }, 8000);
       if (!r.ok) return;
