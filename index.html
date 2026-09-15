@@ -1325,12 +1325,18 @@
     /* Canonical accent "pill" CTA recipe — same beveled-glass treatment as
        .ap-btn-play (identical values, kept as two rules since they sit in
        very different parts of the file, but both should be read as one
-       component). .ap-btn-queue is this recipe's neutral sibling. */
+       component). .ap-btn-queue is this recipe's neutral sibling.
+       Fixed height (not just padding) — was 6px-padding-derived (~27px),
+       read as a short, cramped pill next to the app's other controls and
+       could visibly mismatch height against a neighboring icon button
+       depending on font metrics. 36px roughly matches .tab-nav-btn's own
+       rendered height without copying its exact recipe. */
     .chat-connect-btn {
       margin-top: 0.4rem;
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 16px; border-radius: var(--radius-sm);
-      font-size: var(--fs-9); letter-spacing: 0.14em; text-transform: uppercase;
+      height: 36px;
+      display: flex; align-items: center; gap: 7px;
+      padding: 0 20px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
       cursor: pointer; font-weight: 700;
       background: rgba(var(--accent-rgb),0.15);
       border: 1px solid rgba(var(--accent-rgb),0.35);
@@ -1800,7 +1806,11 @@
     .img-crop-img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; pointer-events: none; }
     .img-crop-zoom { width: 100%; margin-top: 12px; }
     .img-crop-actions { display: flex; gap: 8px; margin-top: 12px; }
-    .img-crop-actions .chat-connect-btn, .img-crop-actions .chat-modal-row-btn { flex: 1; justify-content: center; }
+    /* Was .chat-modal-row-btn for Cancel — a small dense-list-row pill
+       sitting next to .chat-connect-btn's full CTA size (36px) looked
+       exactly like the "one button taller, one shorter" mismatch; swapped
+       to .ap-btn-queue, the same size as .chat-connect-btn but neutral. */
+    .img-crop-actions .chat-connect-btn, .img-crop-actions .ap-btn-queue { flex: 1; justify-content: center; margin-top: 0; }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -3071,14 +3081,13 @@
        near the rest of the picker component's base rules. */
 
     /* Actions — same pill style as picker */
-    .ap-actions { display: flex; gap: 7px; padding: 0.4rem 0.7rem 0.2rem; }
-    /* Same recipe as .chat-connect-btn (see its comment) — kept as its own
-       rule since it lives in a different part of the file, not because
-       the values differ. */
+    .ap-actions { display: flex; gap: 8px; padding: 0.5rem 0.7rem 0.3rem; }
+    /* Same recipe as .chat-connect-btn (see its comment, including why
+       these are bigger now — was a short/cramped 6px-padding pill). */
     .ap-btn-play {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 16px; border-radius: var(--radius-sm);
-      font-size: var(--fs-9); letter-spacing: 0.14em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 7px;
+      height: 36px; padding: 0 20px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
       cursor: pointer; font-weight: 700;
       background: rgba(var(--accent-rgb),0.15);
       border: 1px solid rgba(var(--accent-rgb),0.35);
@@ -3089,9 +3098,9 @@
     }
     .ap-btn-play:hover { background: rgba(var(--accent-rgb),0.25); }
     .ap-btn-queue {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 14px; border-radius: var(--radius-sm);
-      font-size: var(--fs-9); letter-spacing: 0.14em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 7px;
+      height: 36px; padding: 0 18px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
       cursor: pointer;
       background: var(--glass-fill); border: 1px solid var(--glass-border);
       border-top-color: rgba(255,255,255,0.16); color: var(--text-dim);
@@ -4669,10 +4678,10 @@ function openEventDetailModal(ev) {
     ${ev.notes ? '<div class="chat-modal-row-sub" style="margin-top:8px;font-style:italic;font-size:11px;">' + esc(ev.notes) + '</div>' : ''}
     <div style="display:flex;gap:8px;margin-top:14px;">
       ${canRespond ? `
-        <button class="chat-connect-btn" id="calDetailAccept" style="flex:1;justify-content:center;">Accept</button>
-        <button class="chat-modal-row-btn" id="calDetailDecline" style="flex:1;justify-content:center;">Decline</button>
+        <button class="chat-connect-btn" id="calDetailAccept" style="flex:1;justify-content:center;margin-top:0;">Accept</button>
+        <button class="ap-btn-queue" id="calDetailDecline" style="flex:1;justify-content:center;">Decline</button>
       ` : ''}
-      <button class="chat-modal-row-btn" id="calDetailDelete" style="flex:1;justify-content:center;"><i class="ti ti-trash"></i> Remove</button>
+      <button class="ap-btn-queue" id="calDetailDelete" style="flex:1;justify-content:center;"><i class="ti ti-trash"></i> Remove</button>
     </div>
   `);
   document.getElementById('calDetailAccept')?.addEventListener('click', () => respondToCalendarEvent(ev.id, 'accepted'));
@@ -8775,8 +8784,8 @@ function showInputDialog(title, message, placeholder, defaultValue) {
       <div class="chat-modal-row-sub" style="margin-bottom:8px;">${esc(message || '')}</div>
       <input type="text" class="chat-modal-input" id="inputDialogField" placeholder="${esc(placeholder || '')}" autocomplete="off" />
       <div style="display:flex;gap:8px;margin-top:14px;">
-        <button class="chat-modal-row-btn" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
-        <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;">OK</button>
+        <button class="ap-btn-queue" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
+        <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;margin-top:0;">OK</button>
       </div>
     `);
     const field = document.getElementById('inputDialogField');
@@ -8794,8 +8803,8 @@ function showConfirmDialog(title, message, confirmLabel) {
     openChatModal(title, `
       <div class="chat-modal-row-sub" style="margin-bottom:14px;">${esc(message || '')}</div>
       <div style="display:flex;gap:8px;">
-        <button class="chat-modal-row-btn" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
-        <button class="chat-connect-btn" id="confirmDialogOk" style="flex:1;justify-content:center;color:var(--danger-color);border-color:var(--danger-color);">${esc(confirmLabel || 'Confirm')}</button>
+        <button class="ap-btn-queue" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
+        <button class="chat-connect-btn" id="confirmDialogOk" style="flex:1;justify-content:center;margin-top:0;color:var(--danger-color);border-color:var(--danger-color);">${esc(confirmLabel || 'Confirm')}</button>
       </div>
     `);
     const cleanup = result => { closeChatModal(); resolve(result); };
@@ -9063,7 +9072,7 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
           </div>
           <input type="range" class="img-crop-zoom" min="0" max="100" value="0" />
           <div class="img-crop-actions">
-            <button type="button" class="chat-modal-row-btn" id="imgCropCancel">Cancel</button>
+            <button type="button" class="ap-btn-queue" id="imgCropCancel">Cancel</button>
             <button type="button" class="chat-connect-btn" id="imgCropUse">Use Photo</button>
           </div>
         </div>
@@ -9998,14 +10007,21 @@ function ensurePlDelegate() {
 // ══════════════════════════════════════════
 const songCtxMenu = document.getElementById('songCtxMenu');
 function hideSongCtx() { songCtxMenu.classList.remove('visible'); }
-function showSongCtx(x, y, song) {
+// contextSongs (optional): the list `song` actually belongs to, for
+// setting up the right queue/playlist context on "Play" — defaults to the
+// picker's own pickerSongs since most callers open this from the main
+// song list. The album/artist detail view's own track rows pass their
+// local `songs` array instead, since those tracks were never in
+// pickerSongs to begin with.
+function showSongCtx(x, y, song, contextSongs) {
   if (!song) return;
   document.getElementById('songCtxLabel').textContent = song.title || 'Song';
 
   document.getElementById('songCtxPlay').onclick = async () => {
     hideSongCtx();
-    if (Array.isArray(pickerSongs) && pickerSongs.includes(song)) {
-      playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
+    const list = contextSongs || pickerSongs;
+    if (Array.isArray(list) && list.includes(song)) {
+      playerState.playlist = list; playerState.playlistIndex = list.indexOf(song);
     }
     await playSong(song);
   };
@@ -12791,6 +12807,14 @@ function sampleImageColor(imgUrl) {
       playSong(song);
       SFX && SFX.play('click');
     });
+    // Every other song row in the app (the main library, favorites, queue,
+    // playlists — anything built via renderSongItem()) has right-click for
+    // play/queue/favorite/add-to-playlist/etc.; this track list was the one
+    // place that didn't.
+    row.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      showSongCtx(e.clientX, e.clientY, song, songs);
+    });
     return row;
   }
 
@@ -12985,6 +13009,12 @@ function sampleImageColor(imgUrl) {
         const actions = document.createElement('div'); actions.className = 'ap-actions';
         const playBtn  = document.createElement('button'); playBtn.className = 'ap-btn-play';
         playBtn.innerHTML = '<i class="ti ti-player-play"></i> Play';
+        // Reuses the same global shuffle the dock/fullscreen-player shuffle
+        // buttons already use (_shuffleOn + syncShuffleBtns()), not a
+        // separate one-off shuffle just for this button — stays in sync
+        // with those icons and with how "next track" behaves afterward.
+        const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'ap-btn-queue';
+        shuffleBtn.innerHTML = '<i class="ti ti-arrows-shuffle"></i> Shuffle';
         const queueBtn = document.createElement('button'); queueBtn.className = 'ap-btn-queue';
         queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i> Queue all';
         playBtn.addEventListener('click', () => {
@@ -12992,10 +13022,18 @@ function sampleImageColor(imgUrl) {
           playerState.playlist = songs; playerState.playlistIndex = 0;
           playSong(songs[0]); SFX && SFX.play('click');
         });
+        shuffleBtn.addEventListener('click', () => {
+          if (!songs.length) return;
+          playerState.playlist = songs;
+          _shuffleOn = true; syncShuffleBtns();
+          const i = Math.floor(Math.random() * songs.length);
+          playerState.playlistIndex = i;
+          playSong(songs[i]); SFX && SFX.play('click');
+        });
         queueBtn.addEventListener('click', () => {
           songs.forEach(s => addToQueue(s)); SFX && SFX.play('queue');
         });
-        actions.append(playBtn, queueBtn);
+        actions.append(playBtn, shuffleBtn, queueBtn);
         body.appendChild(actions);
 
         // Tracks
