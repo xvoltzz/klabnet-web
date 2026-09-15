@@ -612,17 +612,24 @@
       display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 14px; align-content: start;
     }
+    /* Card-lift on hover (translateY, matches .ap-disc-card in the
+       album/artist viewer) rather than this grid's previous own idiom of
+       scaling just the art image — one hover language for "album/artist
+       tile" everywhere instead of two. */
     .picker-list.picker-list-grid .picker-item {
       flex-direction: column; align-items: stretch; gap: 8px; padding: 10px;
       animation: fadeInUp 0.3s ease backwards;
+      transition: transform 0.2s cubic-bezier(0.2,0.8,0.2,1), background 0.15s, border-color 0.15s;
     }
+    .picker-list.picker-list-grid .picker-item:hover { transform: translateY(-2px); }
     .picker-list.picker-list-grid .picker-item-art,
     .picker-list.picker-list-grid .picker-item-art-ph {
       width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; font-size: 28px;
-      transition: transform 0.2s ease;
     }
-    .picker-list.picker-list-grid .picker-item:hover .picker-item-art,
-    .picker-list.picker-list-grid .picker-item:hover .picker-item-art-ph { transform: scale(1.03); }
+    /* Same circle/square split as the list-mode rule below, re-declared at
+       matching specificity so it isn't lost to the grid override above. */
+    .picker-list.picker-list-grid .picker-item-art.artist,
+    .picker-list.picker-list-grid .picker-item-art-ph.artist { border-radius: 50%; }
     .picker-list.picker-list-grid .picker-item-info { width: 100%; }
     .picker-list.picker-list-grid .picker-item-title { white-space: normal; }
     .picker-list.picker-list-grid .picker-item-artist { white-space: normal; }
@@ -2135,7 +2142,14 @@
     .fs-close:hover { color:#fff; background:rgba(255,255,255,0.14); }
 
     /* ══ PICKER EXTRAS ══ */
-    .picker-section-label { font-size:8.5px; letter-spacing:0.22em; color:var(--text-dimmer); text-transform:uppercase; padding:6px 8px 4px; }
+    /* Shared with .ap-sec-label (the album/artist viewer's own section
+       labels) — previously two hand-copied rules whose comments claimed
+       equivalence but whose padding had quietly drifted (0.8rem vs 8px). */
+    .picker-section-label, .ap-sec-label {
+      font-size: var(--fs-9); letter-spacing: 0.22em; color: var(--text-dimmer);
+      text-transform: uppercase; font-family: var(--font-ui);
+      padding: 6px 8px 4px; display: block; margin-top: 0.5rem;
+    }
     .picker-back { background:none; border:none; cursor:pointer; color:var(--text-dimmer); font-size:11px; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; letter-spacing:0.1em; text-transform:uppercase; transition:color 0.15s,background 0.15s; margin-bottom:4px; flex-shrink:0; }
     .picker-back:hover { color:var(--text); background:var(--glass-fill-h); }
     .picker-action.login-active { color: var(--success-color); }
@@ -3074,12 +3088,8 @@
     /* Body */
     .ap-body { padding: 0 0.3rem; }
 
-    /* Section labels — matches picker-section-label */
-    .ap-sec-label {
-      font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--text-dimmer); font-family: var(--font-ui);
-      padding: 6px 0.8rem 4px; display: block; margin-top: 0.5rem;
-    }
+    /* .ap-sec-label now defined together with .picker-section-label, up
+       near the rest of the picker component's base rules. */
 
     /* Actions — same pill style as picker */
     .ap-actions { display: flex; gap: 7px; padding: 0.4rem 0.7rem 0.2rem; }
@@ -3132,16 +3142,10 @@
     }
     .ap-read-more:hover { color: var(--text); }
 
-    /* Track rows — matches .picker-item exactly */
-    .ap-track {
-      display: flex; align-items: center; gap: 0.65rem;
-      padding: 0.55rem 0.7rem; border-radius: 8px; cursor: pointer;
-      transition: background 0.15s, border-color 0.15s; border: 1px solid transparent;
-    }
-    .ap-track:hover {
-      background: var(--tile-bg-h);
-      border-color: var(--glass-border);
-    }
+    /* Base row layout/hover now shared with .picker-item (see its rule) —
+       the comment here claimed they matched "exactly" but padding
+       (0.55rem/0.7rem vs 0.6rem/0.8rem) and hover border-color
+       (--glass-border vs --tile-border-h) had quietly drifted apart. */
     .ap-track.ap-now {
       background: rgba(var(--accent-rgb),0.1);
       border-color: rgba(var(--accent-rgb),0.2);
@@ -3338,13 +3342,14 @@
       scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
     }
 
-    .picker-item {
+    /* Shared with .ap-track (the album/artist viewer's own track rows). */
+    .picker-item, .ap-track {
       display: flex; align-items: center; gap: 0.65rem;
       padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer;
       transition: background 0.15s, border-color 0.15s; border: 1px solid transparent;
       animation: fadeInUp 0.4s ease backwards;
     }
-    .picker-item:hover {
+    .picker-item:hover, .ap-track:hover {
       background: var(--tile-bg-h);
       border-color: var(--tile-border-h);
     }
@@ -3361,6 +3366,11 @@
       background: var(--tile-bg); color: var(--text-dimmer); font-size: 14px;
       border: 1px solid var(--tile-border);
     }
+    /* Artist art reads as a person/entity, distinct from an album's square
+       cover — matches .ap-hero-img's existing circle/square split in the
+       detail viewer (see its own .square modifier), which the browse-list
+       grid previously didn't. */
+    .picker-item-art.artist, .picker-item-art-ph.artist { border-radius: 50%; }
 
     .picker-item-info { flex: 1; min-width: 0; }
     .picker-item-title {
@@ -6137,7 +6147,7 @@ function renderArtistSearchResults(artists) {
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
-      <div class="picker-item-art-ph"><i class="ti ti-user-circle"></i></div>
+      <div class="picker-item-art-ph artist"><i class="ti ti-user-circle"></i></div>
       <div class="picker-item-info">
         <div class="picker-item-title">${esc(artistName)}</div>
         <div class="picker-item-artist">${artist.albumCount || 0} albums</div>
@@ -6178,7 +6188,7 @@ async function hydrateArtistThumb(item, artistId) {
     }
     if (!url || !ph.isConnected) return;
     const img = new Image();
-    img.className = 'picker-item-art';
+    img.className = 'picker-item-art artist';
     img.alt = '';
     img.loading = 'lazy';
     img.onload = () => { if (ph.isConnected) ph.replaceWith(img); };
@@ -6199,7 +6209,7 @@ function renderArtistList(indexes) {
       const item = document.createElement('div');
       item.className = 'picker-item';
       item.innerHTML = `
-        <div class="picker-item-art-ph"><i class="ti ti-user-circle"></i></div>
+        <div class="picker-item-art-ph artist"><i class="ti ti-user-circle"></i></div>
         <div class="picker-item-info">
           <div class="picker-item-title">${esc(artist.name)||'Unknown'}</div>
           <div class="picker-item-artist">${artist.albumCount||0} albums</div>
