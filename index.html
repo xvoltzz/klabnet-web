@@ -4718,6 +4718,21 @@ function trapFocusWithin(container, isOpenFn) {
   });
 }
 
+// Keeps a mxc/username -> blob-URL Map from growing for the life of the
+// tab — a busy chat/feed session can show hundreds of distinct images
+// over many hours, and every one was permanently pinning a blob URL (and
+// its decoded bitmap) in memory with nothing ever evicted. FIFO eviction
+// (Maps preserve insertion order) rather than true LRU — good enough for
+// "don't leak forever" without tracking access times on every read.
+function capBlobCache(cache, maxSize) {
+  while (cache.size > maxSize) {
+    const oldestKey = cache.keys().next().value;
+    const oldestUrl = cache.get(oldestKey);
+    if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+    cache.delete(oldestKey);
+  }
+}
+
 // Swaps a failed cover-art <img> for its placeholder div. Every call site
 // used to inline onerror="this.outerHTML='<div class=\'foo\'>...'" — inside
 // a template literal, \' just collapses to a literal ', so the onerror
@@ -7538,6 +7553,12 @@ function ensureMsgAvatarResolved(userId) {
 // already-rendered row for the rest of the page's life.
 function invalidateMsgAvatar(userId) {
   if (!userId || !_msgAvatarCache.has(userId)) return;
+  // The old blob URL used to just get dropped here with no revoke — every
+  // avatar change (not exactly rare over a long session) permanently
+  // leaked its previous photo. Safe to revoke immediately: the <img>s
+  // using it are removed in this same synchronous block, right below.
+  const oldUrl = _msgAvatarCache.get(userId);
+  if (oldUrl) URL.revokeObjectURL(oldUrl);
   _msgAvatarCache.delete(userId);
   document.querySelectorAll(
     `.chat-msg-avatar[data-msg-avatar-for="${CSS.escape(userId)}"], .chat-msg-seen-avatar[data-seen-avatar-for="${CSS.escape(userId)}"]`
@@ -7828,6 +7849,7 @@ function clearReply() {
 // already-connected client (it needs one to look up the active room).
 const _chatImageCache   = new Map(); // mxc:// -> blob URL or null
 const _chatImagePending = new Set();
+const CHAT_IMAGE_CACHE_MAX = 120; // see capBlobCache()'s own comment
 function ensureChatImageResolved(mxc) {
   if (!mxc || _chatImageCache.has(mxc) || _chatImagePending.has(mxc)) return;
   _chatImagePending.add(mxc);
@@ -7837,6 +7859,7 @@ function ensureChatImageResolved(mxc) {
     _chatImageCache.set(mxc, null);
   }).finally(() => {
     _chatImagePending.delete(mxc);
+    capBlobCache(_chatImageCache, CHAT_IMAGE_CACHE_MAX);
     const url = _chatImageCache.get(mxc);
     if (!url) return;
     document.querySelectorAll(`.chat-msg-image[data-mxc="${CSS.escape(mxc)}"]`).forEach(img => {
@@ -8790,7 +8813,15 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
 // keyed by Matrix user ID) are invalidated afterward via
 // window.KLAB_REFRESH_MY_AVATAR so the new photo shows up immediately
 // everywhere without a reload.
+// Blob URLs created by the banner/avatar previews below (both the stored-
+// photo preview and the crop-picker preview) used to just leak — a fresh
+// blob on every single modal open or photo pick, forever. Revoking
+// whatever the *previous* open created, right before this one creates its
+// own, caps it at one generation outstanding instead of one per click.
+let _profileModalBlobUrls = [];
 async function openProfileModal() {
+  _profileModalBlobUrls.forEach(u => URL.revokeObjectURL(u));
+  _profileModalBlobUrls = [];
   const client = MatrixChat.client;
   if (!client) { showToast('Connect chat in the Chat tab first'); return; }
   const myId = client.getUserId();
@@ -8859,7 +8890,7 @@ async function openProfileModal() {
 
   if (myProfile.banner_mxc) {
     MatrixChat.mxcToBlobUrl(myProfile.banner_mxc, { full: true })
-      .then(url => { if (url) bannerEl.style.backgroundImage = `url(${url})`; })
+      .then(url => { if (url) { _profileModalBlobUrls.push(url); bannerEl.style.backgroundImage = `url(${url})`; } })
       .catch(() => {});
   }
   bannerEl.addEventListener('click', () => bannerFileEl.click());
@@ -8870,7 +8901,9 @@ async function openProfileModal() {
     const cropped = await openImageCropper(file, { shape: 'rect', outputWidth: 960, outputHeight: 270 });
     if (!cropped) return;
     pendingBannerFile = new File([cropped], 'banner.jpg', { type: 'image/jpeg' });
-    bannerEl.style.backgroundImage = `url(${URL.createObjectURL(cropped)})`;
+    const previewUrl = URL.createObjectURL(cropped);
+    _profileModalBlobUrls.push(previewUrl);
+    bannerEl.style.backgroundImage = `url(${previewUrl})`;
   });
 
   try {
@@ -8881,7 +8914,7 @@ async function openProfileModal() {
       // Hide the fallback initial letter once a real photo loads — it's a
       // flex sibling of the <img>, not something the image covers, so
       // without this it stays visible right alongside the photo.
-      if (url) { initialEl.style.display = 'none'; avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`); }
+      if (url) { _profileModalBlobUrls.push(url); initialEl.style.display = 'none'; avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`); }
     }
   } catch (e) { /* fall back to the initial-letter placeholder */ }
 
@@ -8895,7 +8928,9 @@ async function openProfileModal() {
     pendingFile = new File([cropped], 'avatar.jpg', { type: 'image/jpeg' });
     avatarEl.querySelectorAll('img').forEach(img => img.remove());
     initialEl.style.display = 'none';
-    avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(URL.createObjectURL(cropped))}" alt="" />`);
+    const previewUrl = URL.createObjectURL(cropped);
+    _profileModalBlobUrls.push(previewUrl);
+    avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(previewUrl)}" alt="" />`);
   });
 
   saveBtn.addEventListener('click', async () => {
@@ -8958,7 +8993,13 @@ async function openProfileModal() {
 // avatar/displayname lookup rather than reusing any of the three
 // per-module avatar caches (_msgAvatarCache/_feedAvatarCache/_avatarCache)
 // — same one-off approach openProfileModal() already takes for "me".
+// Same leak-capping pattern as _profileModalBlobUrls above — this popover
+// had no cache at all, so clicking around profiles leaked a fresh blob URL
+// on every single click, not just once per distinct person.
+let _profileViewBlobUrls = [];
 async function openProfileView(username) {
+  _profileViewBlobUrls.forEach(u => URL.revokeObjectURL(u));
+  _profileViewBlobUrls = [];
   if (!username) return;
   const client = MatrixChat.client;
   const profile = _profiles.get(username) || {};
@@ -8983,7 +9024,7 @@ async function openProfileView(username) {
     MatrixChat.mxcToBlobUrl(profile.banner_mxc, { full: true })
       .then(url => {
         const el = document.getElementById('profileViewBanner');
-        if (url && el) el.style.backgroundImage = `url(${url})`;
+        if (url && el) { _profileViewBlobUrls.push(url); el.style.backgroundImage = `url(${url})`; }
       })
       .catch(() => {});
   }
@@ -8995,7 +9036,7 @@ async function openProfileView(username) {
     if (info?.avatar_url) {
       const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
       const avatarEl = document.getElementById('profileViewAvatar');
-      if (url && avatarEl) avatarEl.innerHTML = `<img src="${esc(url)}" alt="" />`;
+      if (url && avatarEl) { _profileViewBlobUrls.push(url); avatarEl.innerHTML = `<img src="${esc(url)}" alt="" />`; }
     }
   } catch (e) { /* fall back to the initial-letter placeholder / klabnet username */ }
 }
@@ -10657,7 +10698,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // way in from outside.
   window.KLAB_REFRESH_MY_AVATAR = function() {
     const me = window.KLAB_USER?.username;
-    if (me) { _avatarCache.delete(me); clearPersistedAvatar(me); }
+    if (me) {
+      // Same "revoke before dropping the cache entry" fix as
+      // invalidateMsgAvatar() — this used to leak the old blob URL here too.
+      const oldUrl = _avatarCache.get(me);
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+      _avatarCache.delete(me); clearPersistedAvatar(me);
+    }
     renderList(_lastOthers);
   };
 
@@ -11430,6 +11477,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _feedAvatarPending = new Set();
   const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
   const _feedImagePending  = new Set();
+  const FEED_IMAGE_CACHE_MAX = 60; // see capBlobCache()'s own comment — smaller than chat's cap since these are 800x800 (4x the pixel area of chat's 400x400 crop)
 
   function ensureFeedAvatar(username) {
     if (!username || _feedAvatarCache.has(username) || _feedAvatarPending.has(username)) return;
@@ -11469,6 +11517,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         _feedImageCache.set(mxc, null);
       } finally {
         _feedImagePending.delete(mxc);
+        capBlobCache(_feedImageCache, FEED_IMAGE_CACHE_MAX);
         renderFeed();
       }
     })();
