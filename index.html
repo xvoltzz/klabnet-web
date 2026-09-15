@@ -11372,10 +11372,21 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
 
   const FEED_MAX_IMAGE_BYTES = 8 * 1024 * 1024; // client-side sanity cap — Matrix's own content-repo limit is the real backstop
   const FEED_PAGE_SIZE = 50;
+  const FEED_MAX_LOADED = 300; // caps how many posts loadOlderPosts() keeps resident — see its own comment
   const MENTIONS_SEEN_KEY = 'klabnet_feed_mentions_seen_v1'; // { username: highest post id already seen mentioning them }
   const FEED_QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
 
   let _feedPosts     = [];   // newest-first
+  // Fingerprint of the last _feedPosts merge that actually triggered a
+  // render — lets fetchFeed()'s own poll skip renderFeed() when a 30s
+  // tick comes back with nothing new, without touching any of the other
+  // ~13 call sites (reactions/replies/deletes/avatar-resolve/etc.), all
+  // of which still call renderFeed() unconditionally as before. Built
+  // from id+reply_count+reactions only — text/image/song never change
+  // after a post is created, so they don't need to be in it for this to
+  // stay correct; a new/deleted post or reaction/reply changes the ids,
+  // counts, or reactions blob, which this does capture.
+  let _lastFeedPostsSignature = null;
   let _feedHasMore   = false;
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
   let _pendingFile   = null;
@@ -11696,7 +11707,17 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       // has started — only the very first load should derive it from this
       // top-page fetch.
       if (isFirstLoad) _feedHasMore = fresh.length === FEED_PAGE_SIZE;
-      renderFeed();
+      const signature = _feedPosts.map(p => `${p.id}:${p.reply_count || 0}:${JSON.stringify(p.reactions || {})}`).join('|');
+      // Most 30s polls come back with nothing actually new — skip the full
+      // list rebuild when this fetch changed nothing. Every other trigger
+      // (posting, reacting, replying, deleting, avatar/image resolving)
+      // still calls renderFeed() directly and unconditionally elsewhere;
+      // this only short-circuits the specific "just refetched, nothing
+      // changed" case, regardless of which caller triggered the fetch.
+      if (signature !== _lastFeedPostsSignature) {
+        _lastFeedPostsSignature = signature;
+        renderFeed();
+      }
     } catch (e) {
       // Only the first load needs a visible error — a background 30s poll
       // failing after posts are already showing just leaves the last-known
@@ -11722,6 +11743,22 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       const data = await r.json();
       const older = data.posts || [];
       _feedPosts = _feedPosts.concat(older);
+      // Was unbounded — "Load older" had no cap, so a long session that
+      // scrolled back far enough kept every post (and its cached replies/
+      // avatar/image blobs, see _repliesCache/_feedImageCache) resident
+      // forever, each one re-serialized into renderFeed()'s full rebuild
+      // every time. Trimming the oldest tail beyond FEED_MAX_LOADED can
+      // leave a small gap in *very* old scrollback if someone loads past
+      // this cap and then loads older still in the same sitting — a
+      // reasonable trade for not growing without limit; a fresh page load
+      // re-paginates cleanly from the top regardless.
+      if (_feedPosts.length > FEED_MAX_LOADED) {
+        // Also drop the trimmed posts' cached replies — otherwise
+        // _repliesCache keeps growing by post id forever even though
+        // _feedPosts itself is now capped.
+        _feedPosts.slice(FEED_MAX_LOADED).forEach(p => { _repliesCache.delete(p.id); _repliesPending.delete(p.id); });
+        _feedPosts.length = FEED_MAX_LOADED;
+      }
       _feedHasMore = older.length === FEED_PAGE_SIZE;
       renderFeed();
     } catch (e) {
