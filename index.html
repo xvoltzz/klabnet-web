@@ -2231,8 +2231,16 @@
        tie is what caused it to render behind Settings instead). Still well
        under .img-crop-backdrop's 450, so that relationship is untouched. */
     .add-app-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
+    /* max-height/overflow added to match .settings-modal (the only other
+       consumer of this shell that had a height cap) — openChatModal()'s
+       #chatModalBody is the one truly generic content slot here (used by
+       9+ features with wildly different content lengths: a short confirm
+       dialog, a long channel list, the leaderboard, a calendar form), so
+       it's the one that gets the scroll rule. klabcraftList/key-hints-body
+       already self-cap their own content and don't need it. */
     .add-app-modal {
       width: min(480px, calc(100vw - 2rem));
+      max-height: 80vh; overflow: hidden;
       border-radius: 10px; padding: 1.6rem;
       display: flex; flex-direction: column; gap: 1rem;
       animation: pickerUp 0.2s ease both;
@@ -2240,10 +2248,12 @@
       border: 1px solid var(--glass-border);
       box-shadow: 0 20px 60px var(--shadow-50);
     }
+    #chatModalBody { overflow-y: auto; min-height: 0; }
     .add-app-title {
       font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer);
       text-transform: uppercase;
       display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
     }
     .add-app-close {
       background: none; border: none; cursor: pointer;
@@ -4468,6 +4478,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   }
   document.getElementById('keyHintsBtn')?.addEventListener('click', toggleKeyHints);
   document.getElementById('keyHintsClose')?.addEventListener('click', toggleKeyHints);
+  trapFocusWithin(
+    document.querySelector('#keyHintsBackdrop .add-app-modal'),
+    () => !!document.getElementById('keyHintsBackdrop')?.classList.contains('open')
+  );
   document.getElementById('keyHintsBackdrop')?.addEventListener('click', e => {
     if (e.target.id === 'keyHintsBackdrop') toggleKeyHints();
   });
@@ -4793,6 +4807,10 @@ function openCalendarOverlay() {
 function closeCalendarOverlay() {
   document.getElementById('calendarOverlay')?.classList.remove('open');
 }
+trapFocusWithin(
+  document.getElementById('calendarOverlay'),
+  () => !!document.getElementById('calendarOverlay')?.classList.contains('open')
+);
 document.getElementById('calendarBtn')?.addEventListener('click', openCalendarOverlay);
 document.getElementById('calCloseBtn')?.addEventListener('click', closeCalendarOverlay);
 document.getElementById('calNewEventBtn')?.addEventListener('click', () => openEventModal(null));
@@ -5075,6 +5093,30 @@ function fetchTimeout(url, opts, ms) {
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Keeps Tab/Shift+Tab cycling within an open modal instead of leaking
+// focus out to the page behind it — none of the modals had this before.
+// Call once per modal at setup time with its content container and an
+// isOpenFn (reusing whatever `.classList.contains('open')` check the
+// modal already has). isOpenFn is re-checked on every Tab press, so
+// there's nothing to "release" on close paths (X button, Escape,
+// click-outside, Cancel/Use-Photo, ...) — it just stops acting the
+// moment the modal's own open-state says it's closed. Doesn't touch
+// initial focus placement; several modals already .focus() a specific
+// field on open and this leaves that alone.
+function trapFocusWithin(container, isOpenFn) {
+  if (!container) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !isOpenFn()) return;
+    const focusables = Array.from(container.querySelectorAll(
+      'input, textarea, button, [href], select, [tabindex]:not([tabindex="-1"])'
+    )).filter(el => !el.disabled && el.offsetParent !== null);
+    if (!focusables.length || !container.contains(document.activeElement)) return;
+    const first = focusables[0], last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 }
 
 // Swaps a failed cover-art <img> for its placeholder div. Every call site
@@ -7405,6 +7447,15 @@ document.getElementById('settingsClose').addEventListener('click', () => { close
 document.getElementById('settingsBackdrop').addEventListener('click', e => {
   if (e.target === document.getElementById('settingsBackdrop')) closeSettings();
 });
+// Had click-outside but no Escape — every other backdrop-modal in the app
+// already closes on Escape, this one just got missed.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('open')) closeSettings();
+});
+trapFocusWithin(
+  document.querySelector('#settingsBackdrop .settings-modal'),
+  () => document.getElementById('settingsBackdrop').classList.contains('open')
+);
 
 // ══════════════════════════════════════════
 //  KLABCRAFT — world backup browser (WIP)
@@ -7501,11 +7552,15 @@ function formatBackupSize(bytes) {
     SFX && SFX.play('close');
     backdrop.classList.remove('open');
   }
+  trapFocusWithin(backdrop.querySelector('.add-app-modal'), () => backdrop.classList.contains('open'));
 
   btn.addEventListener('click', () => { SFX && SFX.play('click'); openKlabcraftBrowser(); });
   closeBtn && closeBtn.addEventListener('click', closeKlabcraftBrowser);
   refresh && refresh.addEventListener('click', () => { SFX && SFX.play('click'); loadBackups(); });
   backdrop.addEventListener('click', e => { if (e.target === backdrop) closeKlabcraftBrowser(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && backdrop.classList.contains('open')) closeKlabcraftBrowser();
+  });
 })();
 
 // ══════════════════════════════════════════
@@ -8714,6 +8769,10 @@ function openChatModal(title, bodyHTML) {
 function closeChatModal() {
   document.getElementById('chatModalBackdrop').classList.remove('open');
 }
+trapFocusWithin(
+  document.querySelector('#chatModalBackdrop .add-app-modal'),
+  () => document.getElementById('chatModalBackdrop').classList.contains('open')
+);
 
 // ── In-site replacements for prompt()/confirm() — same shared modal shell
 // as everything else above, so a text-entry or yes/no dialog looks like
@@ -9083,9 +9142,12 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
 
       function cleanup(result) {
         backdrop.remove();
+        document.removeEventListener('keydown', onEscape);
         URL.revokeObjectURL(objectUrl);
         resolve(result);
       }
+      function onEscape(e) { if (e.key === 'Escape') cleanup(null); }
+      document.addEventListener('keydown', onEscape);
       backdrop.querySelector('#imgCropCancel').addEventListener('click', () => cleanup(null));
       backdrop.addEventListener('click', e => { if (e.target === backdrop) cleanup(null); });
       backdrop.querySelector('#imgCropUse').addEventListener('click', () => {
@@ -12735,6 +12797,7 @@ function sampleImageColor(imgUrl) {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && panel.classList.contains('open')) panelClose();
   });
+  trapFocusWithin(panel.querySelector('.ap-card'), () => panel.classList.contains('open'));
   scroll.addEventListener('scroll', () => {
     titleEl.classList.toggle('vis', scroll.scrollTop > 160);
   }, { passive: true });
