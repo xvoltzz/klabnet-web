@@ -77,7 +77,6 @@
        these live on :root rather than duplicated per-theme like --warn-color. */
     :root {
       --danger-color: #f87171;
-      --danger-bg:    rgba(248,113,113,0.15);
       --success-color: #4ade80;
     }
 
@@ -94,11 +93,9 @@
     :root {
       --fs-9: 9px; --fs-10: 10px; --fs-11: 11px; --fs-12: 12px;
       --fs-13: 13px; --fs-14: 14px; --fs-15: 15px; --fs-16: 16px;
-      --fs-18: 18px; --fs-20: 20px; --fs-22: 22px; --fs-26: 26px;
-      --fs-32: 32px; --fs-44: 44px;
+      --fs-18: 18px; --fs-22: 22px;
 
-      --space-2: 2px; --space-4: 4px; --space-6: 6px; --space-8: 8px;
-      --space-10: 10px; --space-12: 12px; --space-16: 16px; --space-20: 20px;
+      --space-4: 4px;
 
       /* Role-based, not a fine scale — "small control" vs "card", plus
          the deliberate 50%/pill special cases stay literal since they're
@@ -107,9 +104,6 @@
       --radius-md: 8px;
       --radius-lg: 10px;
 
-      /* The exact focus-ring box-shadow recipe, previously hand-copied
-         identically across 5+ separate rules. */
-      --focus-ring: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
 
     /* ══ LARGE / HIGH-RES DISPLAYS ══
@@ -150,7 +144,6 @@
       --accent-rgb: 200,195,188;
       /* Elevation shadows — pure black reads fine against a black page */
       --shadow-20: rgba(0,0,0,0.2);
-      --shadow-25: rgba(0,0,0,0.25);
       --shadow-30: rgba(0,0,0,0.3);
       --shadow-35: rgba(0,0,0,0.35);
       --shadow-40: rgba(0,0,0,0.4);
@@ -162,7 +155,6 @@
       /* Same shadow tiers, but soft and low-alpha — the same black shadow
          used on a black page reads as a harsh smudge on a light one. */
       --shadow-20: rgba(90,78,62,0.06);
-      --shadow-25: rgba(90,78,62,0.07);
       --shadow-30: rgba(90,78,62,0.08);
       --shadow-35: rgba(90,78,62,0.09);
       --shadow-40: rgba(90,78,62,0.1);
@@ -185,7 +177,6 @@
       --glass-shadow:   rgba(0,0,0,0.6);
       --glass-inner-t:  rgba(255,252,248,0.14);
       --glass-inner-b:  rgba(0,0,0,0.25);
-      --grain-opacity:  0.09;
       /* Tiles — more lifted, more presence */
       --tile-bg:        rgba(255,252,248,0.055);
       --tile-bg-h:      rgba(255,252,248,0.11);
@@ -196,7 +187,6 @@
       --tile-border:    rgba(255,252,248,0.1);
       --tile-border-h:  rgba(255,252,248,0.28);
       --tile-inner-t:   rgba(255,252,248,0.16);
-      --tile-inner-b:   rgba(0,0,0,0.28);
       --tile-shadow:    rgba(0,0,0,0.5);
       --warn-color:     #fbbf24;
       --warn-bg:        rgba(251,191,36,0.1);
@@ -225,7 +215,6 @@
       --glass-shadow:   rgba(90,78,62,0.07);
       --glass-inner-t:  rgba(255,255,253,0.85);
       --glass-inner-b:  rgba(90,78,62,0.035);
-      --grain-opacity:  0.03;
 
       /* ── Tiles ── */
       --tile-bg:        rgba(255,255,253,0.55);
@@ -237,7 +226,6 @@
       --tile-border:    rgba(130,112,88,0.2);
       --tile-border-h:  rgba(120,108,92,0.4);
       --tile-inner-t:   rgba(255,255,253,0.85);
-      --tile-inner-b:   rgba(90,78,62,0.03);
       --tile-shadow:    rgba(90,78,62,0.06);
 
       /* ── Status / warn ── */
@@ -267,7 +255,12 @@
         radial-gradient(ellipse 65% 55% at 18% 12%, rgba(var(--accent-rgb),0.22), transparent 60%),
         radial-gradient(ellipse 60% 60% at 88% 85%, rgba(var(--accent-rgb),0.16), transparent 60%),
         radial-gradient(ellipse 50% 45% at 50% 100%, rgba(var(--accent-rgb),0.12), transparent 65%);
-      transition: opacity 1.6s ease, background 1s ease;
+      /* No `background` transition: these gradients are built from
+         --accent-rgb, which tweenAccentRgb() already animates frame by
+         frame, so transitioning it as well restarted a 1s interpolation of
+         three stacked gradients across the whole viewport on every one of
+         those frames — duplicated work for an identical result. */
+      transition: opacity 1.6s ease;
     }
     body.is-playing .ambient-glow { opacity: 1; }
     html[data-theme="light"] .ambient-glow { opacity: 0 !important; }
@@ -2639,10 +2632,8 @@
 
     /* ── Smooth loading spinner ── */
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    @keyframes glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes fadeInSoft { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes itemFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-1px); } }
 
     .loading-spinner { animation: spin 0.8s linear infinite; }
     .song-fading { animation: fadeInSoft 0.35s ease; }
@@ -5407,7 +5398,10 @@ function makeSlider(trackEl, fillEl, dotEl, onChange) {
   trackEl.addEventListener('mousedown', start);
   trackEl.addEventListener('wheel', e => {
     e.preventDefault();
-    const r = trackEl.getBoundingClientRect();
+    // No getBoundingClientRect here: the value was never read, but the call
+    // still forced a synchronous layout on every wheel tick inside a
+    // non-passive handler — i.e. on the scroll-blocking path, over four
+    // sliders. Same forced-reflow fix the drag path already got above.
     const cur = parseFloat(fillEl.style.width || '0') / 100;
     const delta = e.deltaY < 0 ? 0.05 : -0.05;
     const pct = Math.max(0, Math.min(1, cur + delta));
@@ -5451,7 +5445,9 @@ const volSlider = makeSlider(
 volSlider.setPct(playerState.volume);
 
 // FS progress
-const fsProgSlider = makeSlider(
+// Not bound to a name: _syncFSProgress writes the fill/dot directly now,
+// but this call still installs #fsProg's own mousedown/wheel handlers.
+makeSlider(
   document.getElementById('fsProg'),
   document.getElementById('fsProgFill'),
   document.getElementById('fsProgDot'),
@@ -5481,16 +5477,26 @@ document.getElementById('btnPrev').addEventListener('click', prevSong);
 // ══════════════════════════════════════════
 const LOGIN_SONG_KEY = 'klabnet_login_song';
 
+// Memoized for the same reason as getFavorites(): renderSongItem() calls
+// this once per row, so a 100-song page meant 100 localStorage reads and
+// JSON.parses of the same value. `_loginSongCache === undefined` means
+// "not read yet"; null is a real, cacheable answer.
+let _loginSongCache;
+function invalidateLoginSongCache() { _loginSongCache = undefined; }
 function getLoginSong() {
-  try { return JSON.parse(localStorage.getItem(LOGIN_SONG_KEY)); } catch(e) { return null; }
+  if (_loginSongCache !== undefined) return _loginSongCache;
+  try { _loginSongCache = JSON.parse(localStorage.getItem(LOGIN_SONG_KEY)); } catch(e) { _loginSongCache = null; }
+  return _loginSongCache;
 }
 
 function setLoginSong(song) {
   localStorage.setItem(LOGIN_SONG_KEY, JSON.stringify(song));
+  invalidateLoginSongCache();
 }
 
 function clearLoginSong() {
   localStorage.removeItem(LOGIN_SONG_KEY);
+  invalidateLoginSongCache();
 }
 
 // Play login song on load with fade-in
@@ -5642,7 +5648,7 @@ async function loadPickerTab(tab) {
         sngLbl.textContent = `Songs (${foundSongs.length})`;
         pickerList.appendChild(sngLbl);
         pickerSongs = foundSongs;
-        foundSongs.forEach(song => renderSongItem(song, pickerList));
+        renderSongItems(foundSongs, pickerList);
       }
       if (!foundArtists.length && !foundAlbums.length && !foundSongs.length) {
         pickerList.innerHTML = '<div class="picker-empty">no results</div>';
@@ -5762,6 +5768,16 @@ function renderSongItem(song, container) {
   container.appendChild(item);
 }
 
+// Batch helper: renderSongItem() appends straight into whatever container
+// it's given, so a page of 100 songs meant 100 separate insertions into the
+// live #pickerList. Building into a fragment and inserting once is the same
+// rows for one DOM mutation.
+function renderSongItems(songs, container) {
+  const frag = document.createDocumentFragment();
+  songs.forEach(song => renderSongItem(song, frag));
+  container.appendChild(frag);
+}
+
 function renderPickerList(songs, label) {
   if (!songs.length) {
     pickerList.innerHTML = '<div class="picker-empty">no tracks found</div>';
@@ -5774,7 +5790,7 @@ function renderPickerList(songs, label) {
     lbl.textContent = label;
     pickerList.appendChild(lbl);
   }
-  songs.forEach(song => renderSongItem(song, pickerList));
+  renderSongItems(songs, pickerList);
 }
 
 // Tab switching
@@ -5894,7 +5910,12 @@ function formatTime(s) {
   return m + ':' + (sec<10?'0':'') + sec;
 }
 
-function openFS() { document.getElementById('fsPlayer').classList.add('open'); }
+function openFS() {
+  document.getElementById('fsPlayer').classList.add('open');
+  // Pick up the artwork updateFSUI() skipped while this was closed. The
+  // class goes on first, so the call below sees an open panel and proceeds.
+  if (_fsArtPending) updateFSUI(_fsArtPending);
+}
 function closeFS() { document.getElementById('fsPlayer').classList.remove('open'); }
 
 document.getElementById('fsClose').addEventListener('click', closeFS);
@@ -5904,6 +5925,7 @@ document.getElementById('fsPlayer').addEventListener('click', e => { if (e.targe
 
 let _fsBgActive = 'A'; // crossfade layer tracker
 let _fsBgToken = 0;    // guards against a stale, slow-loading image winning a race
+let _fsArtPending = null; // song whose artwork updateFSUI() deferred while FS was closed
 
 function updateFSUI(song) {
   if (!song) {
@@ -5938,6 +5960,17 @@ function updateFSUI(song) {
     bl.addEventListener('click', () => { closeFS(); goToMusicDetail(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))); });
     fsAlbumEl.appendChild(bl);
   } else { fsAlbumEl.textContent = song.album || ''; }
+
+  // Everything above is cheap text/DOM so the panel is correct the instant
+  // it opens. Everything below downloads artwork — a viewport-sized
+  // background (up to 3200px) plus an 800px cover — and .fs-player is
+  // display:none until .open, so on every single track change this was
+  // fetching two large images nobody could see. Defer them to openFS().
+  if (!document.getElementById('fsPlayer').classList.contains('open')) {
+    _fsArtPending = song;
+    return;
+  }
+  _fsArtPending = null;
 
   const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=800&${subsonicParams()}`;
   // Background is stretched across the whole viewport, so it needs a source
@@ -6768,18 +6801,32 @@ playerState.audio.addEventListener('timeupdate', () => {
 //  FAVORITES SYSTEM
 // ══════════════════════════════════════════
 const FAV_KEY = 'klabnet_favorites';
+// Cached parse + an id Set. renderSongItem() calls isFavorite() once per
+// row, and that used to mean a localStorage read, a JSON.parse of up to 200
+// favourites and a linear scan — per row, for every row of a 100-song page.
+// invalidateFavCache() must be called by anything that writes FAV_KEY,
+// which is this file's add/remove plus loadServerPrefs()'s bulk restore.
+let _favCache = null;
+let _favIdSet = null;
+function invalidateFavCache() { _favCache = null; _favIdSet = null; }
 function getFavorites() {
-  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; }
+  if (_favCache) return _favCache;
+  try { _favCache = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { _favCache = []; }
+  if (!Array.isArray(_favCache)) _favCache = [];
+  _favIdSet = new Set(_favCache.map(s => s && s.id));
+  return _favCache;
 }
-function isFavorite(id) { return getFavorites().some(s => s.id === id); }
+function isFavorite(id) { getFavorites(); return _favIdSet.has(id); }
 function addFavorite(song) {
   const favs = getFavorites();
   if (!isFavorite(song.id)) { favs.unshift(song); localStorage.setItem(FAV_KEY, JSON.stringify(favs.slice(0,200))); }
+  invalidateFavCache();
   updateFavBadge();
 }
 function removeFavorite(id) {
   const favs = getFavorites().filter(s => s.id !== id);
   localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+  invalidateFavCache();
   updateFavBadge();
 }
 function updateFavBadge() {
@@ -6827,7 +6874,7 @@ loadPickerTab = async function(tab) {
     lbl.textContent = 'Favorites (' + sorted.length + ')';
     pickerList.appendChild(lbl);
     pickerSongs = sorted;
-    sorted.forEach(song => renderSongItem(song, pickerList));
+    renderSongItems(sorted, pickerList);
     showSortBtn('favorites');
     return;
   }
@@ -7102,6 +7149,10 @@ async function loadServerPrefs() {
     setIfPresent(PREF_KEYS.playlists,     prefs.playlists);
     setIfPresent(PREF_KEYS.bg_dark,       prefs.bg_dark);
     setIfPresent(PREF_KEYS.bg_light,      prefs.bg_light);
+    // These writes go straight to localStorage, behind the memoized
+    // getFavorites()/getLoginSong() readers' backs.
+    if (typeof invalidateFavCache === 'function') invalidateFavCache();
+    if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
     if (typeof applyCustomBg === 'function') applyCustomBg(); // server prefs may have just changed the active theme's color
 
   } catch(e) {
@@ -10235,7 +10286,7 @@ async function loadGenres() {
           pickerList.appendChild(lbl);
 
           pickerSongs = songs;
-          songs.forEach(song => renderSongItem(song, pickerList));
+          renderSongItems(songs, pickerList);
           showToast(`${genre.value} — ${songs.length} songs`);
         } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
       };
@@ -10571,7 +10622,7 @@ async function loadSongsIncremental() {
 
   const first = await _fetchSongsPage(0);
   pickerSongs = [...first];
-  first.forEach(s => renderSongItem(s, pickerList));
+  renderSongItems(first, pickerList);
   _songsOffset = first.length;
 
   if (first.length < _SONGS_PER_PAGE) { lbl.textContent = `All Songs (${_songsOffset})`; return; }
@@ -10587,7 +10638,7 @@ async function loadSongsIncremental() {
     if (!more.length) { sentinel.remove(); lbl.textContent = `All Songs (${_songsOffset})`; return; }
     pickerSongs = [...pickerSongs, ...more];
     sentinel.remove();
-    more.forEach(s => renderSongItem(s, pickerList));
+    renderSongItems(more, pickerList);
     _songsOffset += more.length;
     if (more.length === _SONGS_PER_PAGE) { pickerList.appendChild(sentinel); _songsObserver.observe(sentinel); }
     else lbl.textContent = `All Songs (${_songsOffset})`;
@@ -10615,7 +10666,7 @@ function renderSongsTabSorted() {
 
   const renderChunk = () => {
     const next = sorted.slice(rendered, rendered + _SONGS_PER_PAGE);
-    next.forEach(s => renderSongItem(s, pickerList));
+    renderSongItems(next, pickerList);
     rendered += next.length;
     if (rendered >= sorted.length) { if (sentinel.isConnected) sentinel.remove(); return; }
     pickerList.appendChild(sentinel);
@@ -10993,7 +11044,6 @@ document.getElementById('pickerList').addEventListener('click', e => {
     return;
   }
   if (link.dataset.goAlbum && link.dataset.albumName) {
-    const backFn = () => pickerList.scrollTop = 0; // simple — just let user use back tab
     const _curTab = pickerTab || 'random'; loadAlbumView(link.dataset.goAlbum, link.dataset.albumName, () => { document.querySelectorAll('.picker-tab').forEach(t=>t.classList.remove('active')); const tab=document.querySelector('[data-tab="'+_curTab+'"]'); if(tab){tab.classList.add('active');} loadPickerTab(_curTab); });
     return;
   }
@@ -11009,6 +11059,7 @@ document.getElementById('pickerList').addEventListener('click', e => {
 // used on song change and play/pause so every accent-tinted surface
 // (borders, dock, seek bar, text) eases into the new hue together.
 let _accentTweenId = null;
+let _lastAccentStr = null; // last value actually written to --accent-rgb (see step())
 function _currentAccentRgb() {
   const raw = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
   const parts = raw.split(',').map(n => parseFloat(n));
@@ -11025,7 +11076,16 @@ function tweenAccentRgb(target, duration, onDone) {
     const r = Math.round(start[0] + (target[0]-start[0]) * e);
     const g = Math.round(start[1] + (target[1]-start[1]) * e);
     const b = Math.round(start[2] + (target[2]-start[2]) * e);
-    document.documentElement.style.setProperty('--accent-rgb', `${r},${g},${b}`);
+    // --accent-rgb is read by ~154 rules, so every write invalidates style
+    // for the whole document. The channels are rounded to integers, so most
+    // frames of a tween compute the same triple as the frame before —
+    // writing only on an actual change skips a large share of those
+    // document-wide recalcs for free.
+    const next = `${r},${g},${b}`;
+    if (next !== _lastAccentStr) {
+      _lastAccentStr = next;
+      document.documentElement.style.setProperty('--accent-rgb', next);
+    }
     if (p < 1) {
       _accentTweenId = requestAnimationFrame(step);
     } else if (onDone) {
@@ -11173,7 +11233,6 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _lyricsToken  = 0;    // guards against a slow-loading fetch for a since-skipped track winning a race
 
   const scroll     = document.getElementById('lyricsScroll');
-  const statusEl   = document.getElementById('lyricsStatus');
   const lyricsBtn  = document.getElementById('fsLyrics');
 
   if (!scroll || !lyricsBtn) return;
@@ -12100,17 +12159,32 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // visibilitychange never touches. It only actually stops when the page
   // itself goes away (tab closed, navigated off) and the JS context dies
   // with it, which is the correct point for the TTL to eventually expire.
+  // Self-rescheduling rather than a fixed interval, so a backgrounded tab
+  // can back off without ever stopping: PRESENCE_TTL is 30s, so 12s still
+  // leaves a 2.5x margin while cutting a hidden tab from 450 to 300 POSTs
+  // an hour. Coming back to the tab fires an immediate beat below, so the
+  // longer gap is never visible to anyone.
   let _heartbeatTimer = null;
+  function beat() {
+    postPresence();
+    _heartbeatTimer = setTimeout(beat, document.hidden ? POLL_MS * 1.5 : POLL_MS);
+  }
   function startHeartbeat() {
     if (_heartbeatTimer) return;
-    postPresence();
-    _heartbeatTimer = setInterval(postPresence, POLL_MS);
+    beat();
   }
 
   startPoll();
   startHeartbeat();
   document.addEventListener('visibilitychange', () => {
     document.hidden ? stopPoll() : startPoll();
+    // Re-beat immediately on return so the backed-off gap can't leave a
+    // stale presence record visible to anyone else.
+    if (!document.hidden) {
+      clearTimeout(_heartbeatTimer);
+      _heartbeatTimer = null;
+      startHeartbeat();
+    }
   });
   playerState.audio.addEventListener('play',  postPresence);
   playerState.audio.addEventListener('pause', postPresence);
@@ -13752,10 +13826,20 @@ function sampleImageColor(imgUrl) {
   }
   window.addEventListener('resize', schedule);
   window.addEventListener('load', schedule);
-  rail.addEventListener('scroll', updateMoreHint, { passive: true });
+  // updateMoreHint reads scrollHeight/clientHeight/scrollTop and then writes
+  // `hidden`, which invalidates layout — so the next scroll event's read
+  // forces a fresh synchronous reflow, once per scroll event. Coalescing
+  // into a frame is the same treatment update() above already gets.
+  let hintPending = false;
+  function scheduleMoreHint() {
+    if (hintPending) return;
+    hintPending = true;
+    requestAnimationFrame(() => { hintPending = false; updateMoreHint(); });
+  }
+  rail.addEventListener('scroll', scheduleMoreHint, { passive: true });
   // New/removed listeners change rail.scrollHeight — recheck the hint
   // (not the max-height, which only depends on viewport geometry).
-  new MutationObserver(updateMoreHint).observe(rail, { childList: true, subtree: true });
+  new MutationObserver(scheduleMoreHint).observe(rail, { childList: true, subtree: true });
   schedule();
 })();
 
