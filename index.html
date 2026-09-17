@@ -9080,6 +9080,7 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
   const pts = new Map();
   let startTx = 0, startTy = 0, startX = 0, startY = 0;
   let pinchDist = 0, pinchScale = 1;
+  let downOnImage = false;
 
   function pinchMid() {
     const [a, b] = [...pts.values()];
@@ -9093,6 +9094,10 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
 
   stage.addEventListener('pointerdown', e => {
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Read the real target BEFORE capturing: once stage has pointer
+    // capture the browser retargets the follow-up click to stage itself,
+    // so the click handler can't tell the photo from the backdrop.
+    if (pts.size === 1) downOnImage = e.target === imgEl;
     stage.setPointerCapture(e.pointerId);
     if (pts.size === 1) {
       startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty;
@@ -9154,10 +9159,13 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
     // but only if it wasn't the tail end of a drag.
     if (e.target === backdrop) close();
   });
-  // Clicking the empty area around a fitted image should close too; a drag
-  // that ends there shouldn't.
+  // Clicking the empty area around the photo closes; clicking the photo
+  // itself never does. e.target is useless here (pointer capture retargets
+  // the click to stage), so this goes on where the pointer actually went
+  // down, and a click that travelled more than a few px was a drag.
   stage.addEventListener('click', e => {
-    if (e.target === stage && Math.abs(e.clientX - startX) < 4 && Math.abs(e.clientY - startY) < 4) close();
+    if (downOnImage) return;
+    if (Math.abs(e.clientX - startX) < 4 && Math.abs(e.clientY - startY) < 4) close();
   });
 
   requestAnimationFrame(() => {
