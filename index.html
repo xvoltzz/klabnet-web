@@ -932,7 +932,13 @@
     .presence-rail-more[hidden] { display: none; }
 
     @media (max-width: 880px) {
-      .dash-body { flex-direction: column; gap: 0; }
+      /* align-items:flex-start comes from the base rule, where it keeps the
+         presence rail at its natural height beside the main column. Once
+         this flips to a column it means "don't stretch to my width", so
+         .dash-main collapsed to its content width — the feed composer and
+         posts rendered at roughly half the screen. The chat tab hid the
+         bug by setting align-self:stretch on .dash-main itself. */
+      .dash-body { flex-direction: column; gap: 0; align-items: stretch; }
       .presence-rail {
         width: 100%; position: static; max-height: none; overflow: visible;
         margin-top: 2.5rem;
@@ -3601,9 +3607,22 @@
       body.tab-chat-active .dash { padding-bottom: 5.5rem; max-width: 100%; }
       body.tab-chat-active.player-hidden .dash { padding-bottom: 1rem; }
 
-      .header { margin-bottom: 1.1rem; row-gap: 0.6rem; }
-      .logo { width: 34px; height: 34px; }
-      .header-left { gap: 0.7rem; }
+      /* The header was spending ~130px of an 844px screen on branding: a
+         44px logo, the "powered by" kicker, and a 1.55rem monospace
+         wordmark that ran the full width. All of it is decoration, and on
+         a phone it was pushing the actual app below the fold. */
+      .header { margin-bottom: 0.9rem; row-gap: 0.5rem; }
+      .logo { width: 30px; height: 30px; }
+      .header-left { gap: 0.6rem; }
+      .prompt-prefix { display: none; }
+      .prompt-text { font-size: 1.05rem; letter-spacing: 0.02em; }
+      .prompt-cursor { height: 0.95rem; }
+      .header-meta { display: none; }
+      /* Absolutely positioned at left:100% off the wordmark, which at this
+         width lands it directly on top of the header's icon row. It's a
+         splash-text gag; there's nowhere for it to go on a phone. */
+      .motd { display: none; }
+      .hdr-btn { width: 34px; height: 34px; }
       .sec { margin-bottom: 1.75rem; }
       .tab-nav { margin-bottom: 1rem; gap: 4px; }
       .tab-nav-btn { padding: 0.5rem 0.7rem; }
@@ -3618,6 +3637,11 @@
       input:not([type]), textarea { font-size: 16px; }
 
       .presence-rail { margin-top: 1.5rem; }
+      /* The rail stacks *below* the chat at this width (see the 880px
+         rule), so on the chat tab it's a strip of dead height under the
+         composer that squeezes the timeline for something you can't even
+         see. Chat owns the screen here; the roster is still on Feed. */
+      body.tab-chat-active .presence-rail { display: none; }
       .grid { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); }
 
       /* ── Chat: one pane at a time ──
@@ -3658,6 +3682,11 @@
       }
 
       .chat-timeline { padding: 0.7rem 0.8rem; }
+      /* Anchor a short conversation to the composer instead of leaving it
+         stranded at the top with a screen of dead space under it. Done via
+         the first child rather than justify-content:flex-end, which clips
+         the top of the list once it actually overflows. */
+      .chat-timeline > :first-child { margin-top: auto; }
       .chat-msg { gap: 8px; }
       .chat-msg-avatar { width: 32px; height: 32px; }
       .chat-msg-image { max-width: 100%; }
@@ -3673,6 +3702,21 @@
 
     /* ── Narrow phones ── */
     @media (max-width: 480px) {
+      /* Below ~400px the wordmark (nowrap) and the icon row both want more
+         room than exists and the two drew on top of each other. The player
+         toggle goes because the dock it toggles is right there on screen. */
+      #playerToggle { display: none; }
+      .hdr-btn { width: 30px; height: 30px; }
+      .prompt-text { font-size: 0.85rem; }
+      .prompt-cursor { height: 0.8rem; }
+      .header-text, .terminal-prompt { min-width: 0; overflow: hidden; }
+
+      /* One more tier of the dock's progressive drop (see the 860/760/520
+         rules above): the seek bar's 80px minimum is what tips the dock
+         into overflowing at this width. Seeking is still in the fullscreen
+         player. */
+      .player-dock .player-progress { display: none !important; }
+
       .dash { padding: 1.1rem 0.7rem 1.25rem; }
       .grid { grid-template-columns: repeat(auto-fill, minmax(132px,1fr)); }
       .chat-timeline { padding: 0.6rem 0.55rem; }
