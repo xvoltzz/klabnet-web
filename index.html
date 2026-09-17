@@ -1142,7 +1142,7 @@
     }
     .feed-post-mention { font-weight: 700; }
     .feed-post-mention.is-me { text-decoration: underline; text-underline-offset: 2px; }
-    .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; }
+    .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; cursor: zoom-in; }
 
     /* Autolinked URLs in user text (feed posts, replies, chat messages).
        Always underlined, not colour-only: --accent-rgb is sampled from album
@@ -1635,7 +1635,7 @@
       transition: background 0.15s;
     }
     .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
-    .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
+    .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: zoom-in; }
 
     .chat-channels-toolbar {
       display: flex; justify-content: flex-start; gap: 2px;
@@ -1836,6 +1836,51 @@
        exactly like the "one button taller, one shorter" mismatch; swapped
        to .ap-btn-queue, the same size as .chat-connect-btn but neutral. */
     .img-crop-actions .chat-connect-btn, .img-crop-actions .ap-btn-queue { flex: 1; justify-content: center; margin-top: 0; }
+
+    /* ── Image viewer (openImageViewer) — the zoom/pan lightbox feed and
+          chat photos open into. Sits at 600: above .img-crop-backdrop's 450
+          and the 500 tier (.toast-flyout, .update-banner, the player dock),
+          below .ctx-menu's 999 so a right-click menu still wins. ── */
+    .img-view-backdrop {
+      position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.92);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.18s ease;
+      touch-action: none; /* we drive pan/pinch ourselves via pointer events */
+    }
+    .img-view-backdrop.open { opacity: 1; }
+    .img-view-stage {
+      position: absolute; inset: 0; overflow: hidden;
+      cursor: zoom-out; touch-action: none;
+    }
+    .img-view-stage.is-zoomed { cursor: grab; }
+    .img-view-stage.is-zoomed:active { cursor: grabbing; }
+    .img-view-img {
+      position: absolute; top: 0; left: 0; max-width: none;
+      user-select: none; -webkit-user-drag: none; will-change: transform;
+    }
+    .img-view-bar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+      padding: 12px 14px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+    }
+    .img-view-btn {
+      width: 34px; height: 34px; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(0,0,0,0.4); color: #f2efe9; cursor: pointer;
+      font-size: 16px; transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .img-view-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
+    .img-view-hint {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      z-index: 2; padding: 5px 10px; border-radius: 999px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(242,239,233,0.75); font-size: 11px; letter-spacing: 0.04em;
+      pointer-events: none; opacity: 0; transition: opacity 0.25s ease;
+    }
+    .img-view-backdrop.show-hint .img-view-hint { opacity: 1; }
+    @media (max-width: 640px) { .img-view-hint { display: none; } }
 
     .tile i {
       font-size: 16px; color: var(--tile-icon);
@@ -8902,6 +8947,225 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
   });
 }
 
+// ── Image viewer ─────────────────────────────────────────────────────
+// Zoom/pan lightbox for feed and chat photos. Both surfaces only ever
+// render a downscaled thumbnail (800px in the feed, 400px in chat), so
+// `mxc` is taken separately and the original bytes are fetched in the
+// background via mxcToBlobUrl's `full: true`; the thumbnail shows
+// instantly and the full-res image swaps in underneath the current
+// pan/zoom without moving anything the viewer is looking at.
+//
+// Pan/zoom follows openImageCropper()'s transform model (origin at 0 0,
+// translate-then-scale, zoom anchored on a point so it doesn't drag the
+// image sideways) — the difference is the anchor is the cursor/pinch
+// midpoint rather than a fixed centre, and the image is allowed to be
+// smaller than the stage (it centres instead of clamping to an edge).
+let _imgViewerOpen = false;
+function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
+  if (_imgViewerOpen || !thumbSrc) return;
+  _imgViewerOpen = true;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'img-view-backdrop';
+  backdrop.innerHTML =
+    '<div class="img-view-stage">' +
+      '<img class="img-view-img" alt="' + esc(alt) + '" draggable="false" />' +
+    '</div>' +
+    '<div class="img-view-bar">' +
+      '<button type="button" class="img-view-btn" data-act="zoomout" title="Zoom out" aria-label="Zoom out"><i class="ti ti-minus"></i></button>' +
+      '<button type="button" class="img-view-btn" data-act="zoomin" title="Zoom in" aria-label="Zoom in"><i class="ti ti-plus"></i></button>' +
+      '<button type="button" class="img-view-btn" data-act="open" title="Open original in a new tab" aria-label="Open original in a new tab"><i class="ti ti-external-link"></i></button>' +
+      '<button type="button" class="img-view-btn" data-act="close" title="Close (Esc)" aria-label="Close"><i class="ti ti-x"></i></button>' +
+    '</div>' +
+    '<div class="img-view-hint">scroll to zoom · drag to pan · double-click to reset</div>';
+  document.body.appendChild(backdrop);
+
+  const stage = backdrop.querySelector('.img-view-stage');
+  const imgEl = backdrop.querySelector('.img-view-img');
+
+  let vw = 0, vh = 0;          // stage viewport size
+  let natW = 0, natH = 0;      // natural size of whatever is currently loaded
+  let fitScale = 1, scale = 1; // fitScale = "whole image visible"
+  let tx = 0, ty = 0;
+  // Only URLs this viewer created get revoked on close — the thumbnail
+  // belongs to _feedImageCache/_chatImageCache and is still in use by the
+  // timeline behind us.
+  let ownedUrl = null;
+  const willFetchFull = !!(mxc && window.MatrixChat?.client);
+  let haveFull = false;
+
+  const maxScale = () => Math.max(fitScale * 8, 1);
+  const clampScale = s => Math.min(maxScale(), Math.max(fitScale, s));
+
+  function clamp() {
+    const w = natW * scale, h = natH * scale;
+    tx = w <= vw ? (vw - w) / 2 : Math.min(0, Math.max(vw - w, tx));
+    ty = h <= vh ? (vh - h) / 2 : Math.min(0, Math.max(vh - h, ty));
+  }
+  function apply() {
+    clamp();
+    imgEl.style.transformOrigin = '0 0';
+    imgEl.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')';
+    stage.classList.toggle('is-zoomed', scale > fitScale * 1.001);
+  }
+  // Zoom about a point in stage coordinates, keeping whatever pixel is
+  // under it pinned there.
+  function zoomAt(nextScale, cx, cy) {
+    const prev = scale;
+    scale = clampScale(nextScale);
+    if (scale === prev) return;
+    tx = cx - (cx - tx) * (scale / prev);
+    ty = cy - (cy - ty) * (scale / prev);
+    apply();
+  }
+  // Image-space point (normalised 0..1) currently at the stage centre —
+  // used to hold position across a relayout.
+  function centreNorm() {
+    if (!natW || !natH) return { x: 0.5, y: 0.5 };
+    return { x: (vw / 2 - tx) / (natW * scale), y: (vh / 2 - ty) / (natH * scale) };
+  }
+  function relayout(preserve) {
+    const rel = preserve && fitScale ? scale / fitScale : 1;
+    const centre = preserve ? centreNorm() : { x: 0.5, y: 0.5 };
+    const r = stage.getBoundingClientRect();
+    vw = r.width; vh = r.height;
+    natW = imgEl.naturalWidth || vw;
+    natH = imgEl.naturalHeight || vh;
+    fitScale = Math.min(vw / natW, vh / natH);
+    // Never blow a small image up past 1:1 — but only once we're showing
+    // the real thing. While the 400/800px thumbnail stands in for it, it
+    // has to be laid out at full fit size (upscaled and soft) so the
+    // swap to full-res doesn't visibly resize the photo under the cursor.
+    if (haveFull || !willFetchFull) fitScale = Math.min(fitScale, 1);
+    scale = clampScale(fitScale * rel);
+    tx = vw / 2 - centre.x * natW * scale;
+    ty = vh / 2 - centre.y * natH * scale;
+    apply();
+  }
+
+  imgEl.addEventListener('load', () => relayout(natW > 0));
+  imgEl.src = thumbSrc;
+
+  // Swap in the original bytes once they arrive. Guarded on the viewer
+  // still being open so a slow fetch can't resurrect a closed overlay or
+  // leak the blob it just made.
+  let closed = false;
+  if (willFetchFull) {
+    MatrixChat.mxcToBlobUrl(mxc, { full: true }).then(url => {
+      if (!url) return;
+      if (closed) { URL.revokeObjectURL(url); return; }
+      ownedUrl = url;
+      haveFull = true;
+      imgEl.src = url;
+    }).catch(() => {});
+  }
+
+  const onResize = () => relayout(true);
+  window.addEventListener('resize', onResize);
+
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = stage.getBoundingClientRect();
+    zoomAt(scale * Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  stage.addEventListener('dblclick', e => {
+    const r = stage.getBoundingClientRect();
+    if (scale > fitScale * 1.001) relayout(false);
+    else zoomAt(fitScale * 3, e.clientX - r.left, e.clientY - r.top);
+  });
+
+  // One pointer pans, two pinch-zoom. Tracking them in a Map keeps the
+  // two gestures from fighting when a second finger lands mid-drag.
+  const pts = new Map();
+  let startTx = 0, startTy = 0, startX = 0, startY = 0;
+  let pinchDist = 0, pinchScale = 1;
+
+  function pinchMid() {
+    const [a, b] = [...pts.values()];
+    const r = stage.getBoundingClientRect();
+    return { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+  }
+  function pinchSpan() {
+    const [a, b] = [...pts.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  stage.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture(e.pointerId);
+    if (pts.size === 1) {
+      startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty;
+    } else if (pts.size === 2) {
+      pinchDist = pinchSpan(); pinchScale = scale;
+    }
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size >= 2) {
+      const span = pinchSpan();
+      if (pinchDist > 0) {
+        const mid = pinchMid();
+        zoomAt(pinchScale * (span / pinchDist), mid.x, mid.y);
+      }
+      return;
+    }
+    tx = startTx + (e.clientX - startX);
+    ty = startTy + (e.clientY - startY);
+    apply();
+  });
+  function endPointer(e) {
+    pts.delete(e.pointerId);
+    if (pts.size === 1) {
+      // Dropping from pinch back to one finger: re-seat the pan origin on
+      // the finger that's left, or the image jumps by the old delta.
+      const [p] = [...pts.values()];
+      startX = p.x; startY = p.y; startTx = tx; startTy = ty;
+    }
+  }
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  function close() {
+    if (closed) return;
+    closed = true;
+    _imgViewerOpen = false;
+    backdrop.remove();
+    document.removeEventListener('keydown', onKey);
+    window.removeEventListener('resize', onResize);
+    if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key === '+' || e.key === '=') zoomAt(scale * 1.3, vw / 2, vh / 2);
+    if (e.key === '-' || e.key === '_') zoomAt(scale / 1.3, vw / 2, vh / 2);
+    if (e.key === '0') relayout(false);
+  }
+  document.addEventListener('keydown', onKey);
+
+  backdrop.addEventListener('click', e => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'close') { close(); return; }
+    if (act === 'zoomin')  { zoomAt(scale * 1.3, vw / 2, vh / 2); return; }
+    if (act === 'zoomout') { zoomAt(scale / 1.3, vw / 2, vh / 2); return; }
+    if (act === 'open') { window.open(ownedUrl || thumbSrc, '_blank', 'noopener'); return; }
+    // A click that lands on the backdrop itself (not the image) closes —
+    // but only if it wasn't the tail end of a drag.
+    if (e.target === backdrop) close();
+  });
+  // Clicking the empty area around a fitted image should close too; a drag
+  // that ends there shouldn't.
+  stage.addEventListener('click', e => {
+    if (e.target === stage && Math.abs(e.clientX - startX) < 4 && Math.abs(e.clientY - startY) < 4) close();
+  });
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('open', 'show-hint');
+    setTimeout(() => backdrop.classList.remove('show-hint'), 2600);
+  });
+}
+
 // ── Edit your own profile (avatar + display name) from inside klabnet,
 // instead of needing Element or another Matrix client — opened by
 // clicking your own presence card. Uploads go straight to the
@@ -9423,7 +9687,9 @@ function showChatApp() {
         return;
       }
       const img = e.target.closest('.chat-msg-image');
-      if (img && img.src?.startsWith('blob:')) window.open(img.src, '_blank');
+      if (img && img.src?.startsWith('blob:')) {
+        openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt });
+      }
     });
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
@@ -11696,7 +11962,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (post.image_mxc) {
       ensureFeedImage(post.image_mxc);
       const url = _feedImageCache.get(post.image_mxc);
-      if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" alt="" loading="lazy" />';
+      if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" data-mxc="' + esc(post.image_mxc) + '" alt="" loading="lazy" />';
     }
     let songHTML = '';
     if (post.song) {
@@ -12150,6 +12416,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     }
     const replyDelete = e.target.closest('.feed-post-reply-delete');
     if (replyDelete) { deleteFeedReply(Number(replyDelete.dataset.postId), Number(replyDelete.dataset.replyId)); return; }
+    const photo = e.target.closest('.feed-post-image');
+    if (photo) {
+      openImageViewer({ thumbSrc: photo.src, mxc: photo.dataset.mxc, alt: photo.alt });
+      return;
+    }
     const songCard = e.target.closest('.feed-post-song');
     if (songCard) {
       try {
