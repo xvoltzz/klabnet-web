@@ -3587,6 +3587,8 @@
       .chat-msg:hover .chat-msg-actions { display: none; }
       .chat-msg.show-actions .chat-msg-actions { display: flex; }
       .feed-post-delete { opacity: 1; }
+      /* Playlist delete, same hover-reveal problem. */
+      .music-playlist-row-del { opacity: 1; }
       .tile:hover { transform: none; }
     }
 
@@ -3695,6 +3697,53 @@
          covered the text it belonged to. */
       .chat-msg-actions { top: -10px; right: 2px; }
 
+      /* ── Music: nav rail becomes strips above the list ──
+         The rail is a fixed 260px, so on a 390px phone the actual song
+         list was rendering about 50px wide — a slit of clipped text next
+         to a full-height menu. Unlike chat there's no "two screens"
+         answer here: browsing music means switching between Songs /
+         Albums / Artists constantly, so the rail's contents become
+         horizontally scrolling strips stacked above a full-width list.
+         The tabs keep their labels — they're scrollable, and an icon-only
+         strip of nine similar glyphs isn't readable. */
+      .music-shell { flex-direction: column; gap: 0.5rem; }
+      .music-sidebar {
+        width: 100%; flex-direction: column; gap: 6px;
+        padding-right: 0; flex-shrink: 0;
+      }
+      /* The tab-active rule makes the rail its own scroll container, which
+         at full width would trap the strips in a short scrolling box. */
+      body.tab-music-active .music-sidebar { overflow-y: visible; }
+      .music-sidebar .picker-search { margin-bottom: 0; }
+
+      .picker-tabs, .music-playlist-nav {
+        flex-direction: row; overflow-x: auto; gap: 4px; align-items: center;
+        scrollbar-width: none; -ms-overflow-style: none;
+      }
+      .picker-tabs::-webkit-scrollbar, .music-playlist-nav::-webkit-scrollbar { display: none; }
+      /* width:100% on the base rule is what a vertical rail wants and what
+         makes each tab fill the strip here — every tab came out full-width
+         so only "Home" was visible. */
+      .picker-tab { flex: 0 0 auto; width: auto; white-space: nowrap; padding: 0.4rem 0.7rem; gap: 6px; }
+      .picker-tab span { flex: 0 0 auto; }
+      .music-sidebar-divider, .music-sidebar-label { display: none; }
+
+      /* A song row carries a "SONG" badge and five actions (favorite, set
+         login song, queue, add to playlist, play). At this width that left
+         about 120px for the title, so everything truncated to "Everythi…".
+         The badge goes (the list you're in already says what these are)
+         and so does the login-song star, which is a once-ever setting.
+         Everything dropped here is still on the row's long-press menu
+         (showSongCtx: play, queue, add to playlist, artist, album, fav). */
+      .picker-item-actions .type-badge { display: none; }
+      .picker-item-actions .picker-action[data-login] { display: none; }
+
+      .music-playlist-row { flex: 0 0 auto; padding: 4px 8px; }
+      .music-playlist-row-art { width: 22px; height: 22px; font-size: 11px; }
+      .music-playlist-row-meta { display: none; }
+      .music-playlist-row-name { font-size: 12px; max-width: 120px; }
+      .music-new-playlist-btn { flex: 0 0 auto; margin-top: 0; white-space: nowrap; }
+
       /* Feed */
       .feed-post-embed { max-width: 100%; }
       .feed-post-quick-reactions { flex-wrap: wrap; }
@@ -3722,6 +3771,9 @@
       .chat-timeline { padding: 0.6rem 0.55rem; }
       .chat-msg-avatar { width: 28px; height: 28px; }
       .sec { margin-bottom: 1.4rem; }
+      /* One more action off the song row at this width — still on the
+         long-press menu, same as the two dropped at 760px. */
+      .picker-item-actions .picker-action[data-add-pl] { display: none; }
     }
 
     /* ── Notch / home-indicator clearance ──
