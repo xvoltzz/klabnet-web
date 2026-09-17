@@ -1615,19 +1615,27 @@
        styling below) already visually anchors this area; a wrapper
        divider on top of that just read as a second, redundant line. */
     .chat-composer { padding: 0.5rem 0.9rem 0.9rem; position: relative; }
-    .chat-composer-row { display: flex; align-items: center; gap: 2px; }
+    /* flex-end, not center: the composer grows downward as you type, and
+       centered buttons drifted down the taller it got. */
+    .chat-composer-row { display: flex; align-items: flex-end; gap: 2px; }
     /* Same boxy-but-rounded + focus-glow language as .picker-search in the
        Music sidebar (background/border tokens, radius, and the layered
        box-shadow glow on focus) — was a plain 20px pill with just a border-
        color change on focus, which read as a different design system from
        the rest of the app. */
-    .chat-composer input {
+    .chat-composer input, .chat-composer textarea {
       width: 100%; background: var(--tile-bg); border: 1px solid var(--tile-border);
       border-radius: 8px; padding: 10px 16px; font-size: 14px; color: var(--text);
       font-family: var(--font-ui); outline: none;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .chat-composer input:focus {
+    /* Height is driven by autoGrowChatComposer(); this is the one-line
+       starting size and the ceiling past which it scrolls instead. */
+    .chat-composer textarea {
+      resize: none; overflow-y: hidden; line-height: 1.45;
+      min-height: 40px; max-height: 160px; display: block;
+    }
+    .chat-composer input:focus, .chat-composer textarea:focus {
       border-color: rgba(var(--accent-rgb),0.5);
       box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
     }
@@ -1637,8 +1645,8 @@
        the text on top of this pill's own border. Re-targeting :focus-visible
        specifically (not just a base outline:none) is the fix the site already
        uses for .picker-search input — matching it here. */
-    .chat-composer input:focus-visible { outline: none; }
-    .chat-composer input::placeholder { color: var(--text-dimmer); }
+    .chat-composer input:focus-visible, .chat-composer textarea:focus-visible { outline: none; }
+    .chat-composer input::placeholder, .chat-composer textarea::placeholder { color: var(--text-dimmer); }
     /* .chat-icon-btn.<x> (2 class-equivalents), not just .<x>, so this
        reliably outranks the shared .chat-icon-btn base rule's own padding
        further down (same specificity + later source order would otherwise
@@ -4120,7 +4128,11 @@ window.KLAB_BOOT = (function() {
                 <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
                 <input type="file" accept="image/*" id="chatImageInput" hidden />
                 <button class="chat-icon-btn chat-image-btn" id="chatImageBtn" type="button" title="Send an image"><i class="ti ti-photo"></i></button>
-                <input type="text" id="chatComposerInput" placeholder="Message…" autocomplete="off" disabled />
+                <!-- A textarea, not an <input>: a single-line input showed a
+                     sliding window of a long message, so you had to arrow
+                     around to read back what you'd written. Enter still
+                     sends; Shift+Enter makes a newline. -->
+                <textarea id="chatComposerInput" placeholder="Message…" rows="1" autocomplete="off" disabled></textarea>
               </div>
               <div class="chat-emoji-picker" id="chatEmojiPicker" hidden></div>
             </div>
@@ -5776,7 +5788,25 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 });
 
 // Search debounce
+// Switch to search when the box gets content — no dedicated "Search" nav
+// row to mark active any more (the search box itself is the only entry
+// point now, so a second "Search" button right below it read as two search
+// bars); just clear whichever other row was selected, and drop out of the
+// album/artist viewer, which otherwise covers the results.
+function enterPickerSearchMode() {
+  if (pickerTab === 'search') return;
+  window.closeApPanel?.();
+  document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
+  pickerTab = 'search';
+}
+
 pickerSearchEl.addEventListener('input', () => {
+  // Driven by 'input', not 'keydown': a right-click paste, a dictation
+  // insert or an autofill never fires a key event, so typing-by-mouse left
+  // pickerTab on whatever section you were in and the debounce below never
+  // ran — "using the search bar does nothing" from anywhere but Home.
+  if (pickerSearchEl.value) enterPickerSearchMode();
   pickerQuery = pickerSearchEl.value;
   if (pickerTab === 'search') {
     clearTimeout(pickerDebounce);
@@ -5784,17 +5814,7 @@ pickerSearchEl.addEventListener('input', () => {
   }
 });
 
-// Switch to search tab when typing — no dedicated "Search" nav row to mark
-// active any more (the search box itself is the only entry point now, so
-// having a second "Search" button right below it read as two search bars);
-// just clear whichever other row was selected.
 pickerSearchEl.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' && pickerTab !== 'search') {
-    window.closeApPanel?.();
-    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
-    pickerTab = 'search';
-  }
   if (e.key === 'Escape') closePicker();
 });
 
@@ -7649,8 +7669,34 @@ const MatrixChat = (function () {
     (listeners[event] || []).forEach(cb => { try { cb(...args); } catch (e) { console.error(e); } });
   }
 
-  function loadSession()  { try { return JSON.parse(localStorage.getItem(MATRIX_SESSION_KEY)); } catch (e) { return null; } }
-  function saveSession(s) { localStorage.setItem(MATRIX_SESSION_KEY, JSON.stringify(s)); }
+  // The Matrix session is one localStorage key with no record of which
+  // klabnet account it belongs to, so signing in as someone else in
+  // Authentik left the previous user's Matrix session in place — you'd be
+  // posting to the feed as B while chatting as A. Stamping the session
+  // with its owner lets a mismatch be caught and thrown away on load.
+  function currentKlabUser() {
+    const u = window.KLAB_USER?.username;
+    return (u && u !== 'anonymous') ? u : null;
+  }
+  function loadSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem(MATRIX_SESSION_KEY));
+      if (!s) return null;
+      const me = currentKlabUser();
+      // Identity hasn't landed yet (boot() awaits fetchMe() well before
+      // chat starts, so this is the rare race, not the normal path) —
+      // nothing to compare against, so leave it alone.
+      if (!me) return s;
+      // Written before this field existed: no way to know retroactively
+      // whose it was, so adopt it rather than signing everyone out once.
+      if (!s.klabUser) { s.klabUser = me; saveSession(s); return s; }
+      if (s.klabUser !== me) { clearSession(); return null; }
+      return s;
+    } catch (e) { return null; }
+  }
+  function saveSession(s) {
+    localStorage.setItem(MATRIX_SESSION_KEY, JSON.stringify({ ...s, klabUser: s.klabUser || currentKlabUser() }));
+  }
   function clearSession() { localStorage.removeItem(MATRIX_SESSION_KEY); }
 
   async function loadSdk() {
@@ -8695,6 +8741,7 @@ function initChatEmojiPicker() {
     input.value += b.textContent;
     input.focus();
     notifyTyping();
+    autoGrowChatComposer(); // setting .value directly doesn't fire 'input'
   });
   btn.addEventListener('click', e => {
     e.stopPropagation();
@@ -8741,6 +8788,18 @@ function clearChatImage() {
   if (input) input.value = '';
 }
 
+// Grows the composer with its content up to the CSS max-height, then lets
+// it scroll. Shrink-to-zero first so deleting text un-grows it too; the
+// single scrollHeight read after that is one forced reflow, not two.
+function autoGrowChatComposer() {
+  const el = document.getElementById('chatComposerInput');
+  if (!el) return;
+  el.style.height = 'auto';
+  const sh = el.scrollHeight;
+  el.style.height = Math.min(sh, 160) + 'px';
+  el.style.overflowY = sh > 160 ? 'auto' : 'hidden';
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chatComposerInput');
   const text = input.value.trim();
@@ -8748,6 +8807,7 @@ async function sendChatMessage() {
   const roomId = _chatActiveRoomId;
   const client = MatrixChat.client;
   input.value = '';
+  autoGrowChatComposer(); // back to one line, or it keeps the sent message's height
   clearTimeout(_typingStopTimers.get(roomId));
   _typingActiveRooms.delete(roomId);
   client.sendTyping(roomId, false, 4000).catch(() => {});
@@ -9977,9 +10037,17 @@ function showChatApp() {
       if (wasNearBottom) el.scrollTop = el.scrollHeight;
     });
     document.getElementById('chatComposerInput')?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendChatMessage();
+      // Shift+Enter (and IME composition, which fires Enter to accept a
+      // candidate) must not send.
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        sendChatMessage();
+      }
     });
-    document.getElementById('chatComposerInput')?.addEventListener('input', notifyTyping);
+    document.getElementById('chatComposerInput')?.addEventListener('input', () => {
+      notifyTyping();
+      autoGrowChatComposer();
+    });
     document.getElementById('chatTimeline')?.addEventListener('scroll', maybeLoadOlderMessages);
     initChatEmojiPicker();
     initChatImageSend();
@@ -12097,6 +12165,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   let _lastFeedPostsSignature = null;
   let _feedHasMore   = false;
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
+  let _feedLoadedOnce = false; // fetchFeed() has completed at least once, success or not
   let _pendingFile   = null;
   let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
@@ -12182,8 +12251,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function loadMentionsSeen() {
     try { return JSON.parse(localStorage.getItem(MENTIONS_SEEN_KEY) || '{}'); } catch (e) { return {}; }
   }
+  // Keyed lowercase: textMentions() matches names case-insensitively, so a
+  // username whose casing differs between sessions would otherwise write the
+  // watermark under one key and read it back under another.
+  function mentionsSeenKeyFor(me) { return String(me || '').toLowerCase(); }
   function markMentionsSeen(uptoId) {
-    const me = window.KLAB_USER?.username;
+    const me = mentionsSeenKeyFor(window.KLAB_USER?.username);
     if (!me) return;
     try {
       const seen = loadMentionsSeen();
@@ -12192,11 +12265,46 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     } catch (e) {}
   }
   function updateMentionsDot() {
-    const me = window.KLAB_USER?.username;
-    if (!me || !mentionsDotEl) return;
-    const lastSeen = loadMentionsSeen()[me] || 0;
-    const hasUnseen = _feedPosts.some(p => p.id > lastSeen && p.username !== me && textMentions(p.text, me));
-    mentionsDotEl.hidden = !hasUnseen;
+    const rawMe = window.KLAB_USER?.username;
+    const me = mentionsSeenKeyFor(rawMe);
+    if (!me || me === 'anonymous' || !mentionsDotEl) return;
+    const seen = loadMentionsSeen();
+    // No watermark at all means a brand-new browser, a private window, a
+    // cleared/evicted localStorage, or the installed PWA (separate storage
+    // from the tab) — not "you have never read anything". Defaulting to 0
+    // relit the dot for months-old mentions on every such session, which is
+    // the "randomly decides I have not read this" report. Seed it to what's
+    // on screen instead and start tracking from there.
+    if (seen[me] === undefined) {
+      markMentionsSeen(_feedPosts.reduce((max, p) => Math.max(max, p.id), 0));
+      mentionsDotEl.hidden = true;
+      return;
+    }
+    const lastSeen = seen[me] || 0;
+    const mentioning = _feedPosts.filter(p =>
+      p.id > lastSeen && mentionsSeenKeyFor(p.username) !== me && textMentions(p.text, me));
+    mentionsDotEl.hidden = !mentioning.length;
+    // Reading a mention in the normal feed used to record nothing —
+    // markMentionsSeen() was only ever called by the @ button's own click
+    // handler, so the dot stayed lit until you clicked it and found
+    // "nothing new". If the mention is actually on screen and the tab is in
+    // front, count it as read after a short dwell.
+    if (mentioning.length) scheduleMentionsSeen(mentioning.reduce((max, p) => Math.max(max, p.id), 0));
+  }
+
+  // Dwell timer for the above — cleared if you navigate away or hide the
+  // tab before it fires, so a mention that merely flashed past doesn't get
+  // marked read.
+  let _mentionsSeenTimer = null;
+  function scheduleMentionsSeen(uptoId) {
+    if (_mentionsSeenTimer) return;
+    _mentionsSeenTimer = setTimeout(() => {
+      _mentionsSeenTimer = null;
+      const onFeed = document.querySelector('.tab-panel[data-tab-panel="feed"]')?.classList.contains('active');
+      if (!onFeed || document.hidden) return;
+      markMentionsSeen(uptoId);
+      if (mentionsDotEl) mentionsDotEl.hidden = true;
+    }, 2500);
   }
 
   const _feedAvatarCache   = new Map(); // username -> blob URL or null
@@ -12204,6 +12312,23 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
   const _feedImagePending  = new Set();
   const FEED_IMAGE_CACHE_MAX = 60; // see capBlobCache()'s own comment — smaller than chat's cap since these are 800x800 (4x the pixel area of chat's 400x400 crop)
+
+  // capBlobCache() is blind FIFO, which is fine for chat but was actively
+  // harmful here: FEED_MAX_LOADED is 300 and this cap is 60, so past ~60
+  // image posts it revoked blob URLs that were still the src of a visible
+  // <img>. The picture went blank, the next render re-fetched it, which
+  // evicted someone else's, and the feed never stopped rebuilding. Only
+  // evict images no longer attached to a resident post.
+  function capFeedImageCache() {
+    if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) return;
+    const live = new Set(_feedPosts.map(p => p.image_mxc).filter(Boolean));
+    for (const [mxc, url] of _feedImageCache) {
+      if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) break;
+      if (live.has(mxc)) continue;
+      if (url) URL.revokeObjectURL(url);
+      _feedImageCache.delete(mxc);
+    }
+  }
 
   function ensureFeedAvatar(username) {
     if (!username || _feedAvatarCache.has(username) || _feedAvatarPending.has(username)) return;
@@ -12219,7 +12344,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         if (!_feedAvatarCache.has(username)) _feedAvatarCache.set(username, null);
       } finally {
         _feedAvatarPending.delete(username);
-        renderFeed();
+        scheduleFeedRender();
       }
     })();
   }
@@ -12243,8 +12368,8 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         _feedImageCache.set(mxc, null);
       } finally {
         _feedImagePending.delete(mxc);
-        capBlobCache(_feedImageCache, FEED_IMAGE_CACHE_MAX);
-        renderFeed();
+        capFeedImageCache();
+        scheduleFeedRender();
       }
     })();
   }
@@ -12372,9 +12497,41 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     '</div>';
   }
 
+  // Everything postHTML() actually reads, so an unchanged feed can skip the
+  // innerHTML swap entirely. Same idea as renderChannelList()'s
+  // _lastChannelListKey and renderTimeline()'s _lastTimelineRenderKey — the
+  // feed was the one list without it.
+  let _lastFeedRenderKey = null;
+  function feedRenderKey(posts, me) {
+    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' +
+      posts.map(p => {
+        const replies = _repliesCache.get(p.id);
+        return p.id +
+          // fmtFeedTime is relative ("just now" / "5m" / "2h"), so the
+          // rendered string is part of the state — without it the key
+          // would go stable and every timestamp on screen would freeze at
+          // whatever it said when the feed last changed. Keying on the
+          // formatted value (not the clock) means a rebuild happens only
+          // when a timestamp actually ticks over, not on a timer.
+          ':' + fmtFeedTime(p.created) +
+          ':' + (p.reply_count || 0) +
+          ':' + JSON.stringify(p.reactions || {}) +
+          ':' + profileColor(p.username) +
+          ':' + (_feedAvatarCache.get(p.username) || '') +
+          ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
+          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') +
+          ':' + (replies
+            ? replies.map(r => r.id + '@' + fmtFeedTime(r.created) + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
+            : '-');
+      }).join(',');
+  }
+
   function renderFeed() {
     const me = window.KLAB_USER?.username;
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
+    const key = feedRenderKey(posts, me);
+    if (key === _lastFeedRenderKey) return;
+    _lastFeedRenderKey = key;
     if (!posts.length) {
       listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
     } else {
@@ -12383,6 +12540,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
+  }
+
+  // Avatar/image/reply resolutions land one at a time; a cold load of 50
+  // posts fired ~35 separate full rebuilds, each re-creating every <img> on
+  // screen. Coalescing them into one frame is most of the "flickering".
+  let _feedRenderQueued = false;
+  function scheduleFeedRender() {
+    if (_feedRenderQueued) return;
+    _feedRenderQueued = true;
+    requestAnimationFrame(() => { _feedRenderQueued = false; renderFeed(); });
   }
 
   // Exposed so openProfileModal() (defined earlier in this script, KLAB
@@ -12410,12 +12577,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // presence/notes/profiles polling elsewhere in the app.
     if (document.hidden) return;
     _feedPending = true;
-    const isFirstLoad = _feedPosts.length === 0;
+    // Derived from _feedPosts.length before, which isn't "first load" — it's
+    // "empty right now". An empty feed, or one whose first load failed,
+    // therefore repainted "loading feed…" over itself on every 30s poll and
+    // then repainted it back: a blank flash on a loop, for exactly the
+    // people already having trouble loading.
+    const isFirstLoad = !_feedLoadedOnce;
     // Nothing rendered yet on the very first load — a blank panel with no
     // indication anything is happening. Every other panel in the app
     // (picker, leaderboard, requests) already shows a "loading…" state;
     // the feed just never got one.
-    if (isFirstLoad) listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
+    if (isFirstLoad) {
+      listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
+      _lastFeedRenderKey = null; // we just clobbered the DOM out from under the key
+    }
     try {
       const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
       if (!r.ok) throw new Error('bad status');
@@ -12452,9 +12627,14 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       if (isFirstLoad) {
         listEl.innerHTML = '<div class="feed-empty">Couldn\'t load the feed.<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
         document.getElementById('feedRetryBtn')?.addEventListener('click', fetchFeed);
+        _lastFeedRenderKey = null;
       }
     } finally {
       _feedPending = false;
+      // Set even on failure: the retry button is the route back, and
+      // re-flashing "loading feed…" over that error every 30s is the bug
+      // this flag exists to stop.
+      _feedLoadedOnce = true;
       window.KLAB_BOOT?.mark('feed');
     }
   }
@@ -12678,7 +12858,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       if (!r.ok) return;
       const data = await r.json();
       _repliesCache.set(postId, data.replies || []);
-      renderFeed();
+      scheduleFeedRender();
     } catch (e) {
     } finally {
       _repliesPending.delete(postId);
@@ -13593,21 +13773,32 @@ function sampleImageColor(imgUrl) {
   let pending = false;
   function update() {
     pending = false;
-    // Removing the class to re-measure "would this need scroll without
-    // the clearance" can itself shrink the page below the current scroll
-    // position, which the browser clamps immediately — even though the
-    // class goes right back on a few lines later if clearance is still
-    // needed. Restoring the pre-measurement scroll position afterward
-    // (only when clearance ends up staying on, i.e. the content height
-    // is back to what it was) is what was missing — without it, any
-    // content change anywhere in .dash while scrolled into the clearance
-    // zone (a MOTD reroll, a chat message arriving, a presence update)
-    // snapped the whole page back up.
-    const scrollBefore = window.scrollY;
-    dash.classList.remove('dash-clearance');
-    const needsScroll = document.documentElement.scrollHeight > window.innerHeight;
-    dash.classList.toggle('dash-clearance', needsScroll);
-    if (needsScroll) window.scrollTo(window.scrollX, scrollBefore);
+    const root = document.documentElement;
+    // Measure arithmetically instead of by mutating. The old version
+    // removed the class to ask "would this scroll without the clearance",
+    // which shrank the document by 7rem — the browser clamps the scroll
+    // offset the instant that happens — and then put the class back and
+    // tried to undo the damage with window.scrollTo(). That scrollTo was
+    // the actual bug: it ran on every mutation inside .dash, and the
+    // player dock's progress bar writes an inline style ~4x/second while
+    // a track plays, so it fired ~4x/second, each time aborting the
+    // browser's in-progress smooth scroll and pinning the offset to a
+    // stale value sampled at the top of the frame. That is "scrolling
+    // down does not work, the page snaps back up", and it explains why a
+    // paused player never triggered it.
+    //
+    // Subtracting the padding we already know we applied gives the same
+    // answer without ever changing the document height, so there is
+    // nothing to restore and no scroll write at all.
+    //
+    // clientHeight, not window.innerHeight: both scrollHeight and
+    // clientHeight are read off <html>, so they share its coordinate
+    // space. innerHeight does not, and the html{zoom} tiers would make
+    // the comparison wrong by exactly the zoom factor on the 1080p-at-
+    // 125%-scaling displays where this was reported.
+    const on  = dash.classList.contains('dash-clearance');
+    const pad = on ? (parseFloat(getComputedStyle(dash).paddingBottom) || 0) : 0;
+    dash.classList.toggle('dash-clearance', (root.scrollHeight - pad) > root.clientHeight);
   }
   function schedule() {
     if (pending) return;
@@ -13615,9 +13806,17 @@ function sampleImageColor(imgUrl) {
     requestAnimationFrame(update);
   }
   // Any content change inside .dash (tiles added/removed, edit mode, etc.)
-  // — ignore our own class toggle on .dash so this can't trigger itself.
+  // — ignore our own class toggle on .dash so this can't trigger itself,
+  // and ignore the two descendants that are positioned out of flow and so
+  // cannot change .dash's content height no matter what they do: the fixed
+  // player dock (progress bar + clock, written several times a second) and
+  // the absolutely-positioned MOTD (rerolls on a 45-75s timer). Those two
+  // were generating essentially all of this observer's traffic.
+  const dock = document.getElementById('playerDock');
+  const motd = document.getElementById('motd');
+  const outOfFlow = t => (dock && dock.contains(t)) || (motd && motd.contains(t));
   new MutationObserver(muts => {
-    if (muts.some(m => !(m.target === dash && m.attributeName === 'class'))) schedule();
+    if (muts.some(m => !(m.target === dash && m.attributeName === 'class') && !outOfFlow(m.target))) schedule();
   }).observe(dash, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
   // body class changes (edit-mode, etc.) can also affect .dash's height via CSS
   new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
