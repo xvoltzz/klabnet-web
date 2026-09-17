@@ -5671,6 +5671,7 @@ async function loadPickerTab(tab) {
 }
 
 function renderSongItem(song, container) {
+  ensureSongRowDelegation();
   const loginSong = getLoginSong();
   const isLogin = loginSong && loginSong.id === song.id;
   const isFav = isFavorite(song.id);
@@ -5704,68 +5705,102 @@ function renderSongItem(song, container) {
       </button>
     </div>
   `;
-  item.addEventListener('click', e => {
+  // The song itself, not a serialized copy — the delegated handlers below
+  // read it back off the row. This is also what distinguishes a song row
+  // from an album/artist row, which share the .picker-item class but keep
+  // their own wiring.
+  item._song = song;
+  container.appendChild(item);
+}
+
+// ── Song row event delegation ──────────────────────────
+// Every row used to carry seven of its own listeners (link nav, favourite,
+// login-song, queue, play, row-click-to-play, context menu). Songs page in
+// 100 at a time and pages accumulate, so scrolling the Songs tab through a
+// few thousand tracks left tens of thousands of live listeners. These two
+// handlers on #pickerList replace all of them, and cost nothing per row.
+let _songRowsDelegated = false;
+function ensureSongRowDelegation() {
+  if (_songRowsDelegated) return;
+  const list = document.getElementById('pickerList');
+  if (!list) return;
+  _songRowsDelegated = true;
+
+  list.addEventListener('click', async e => {
+    const row  = e.target.closest('.picker-item');
+    const song = row && row._song;
+    if (!song) return; // album/artist rows: not ours
+
+    // Artist/album links first — this is what the old per-row handler used
+    // capture phase + stopImmediatePropagation for: to beat the row's own
+    // click-to-play. In one handler, returning early does the same job.
     const link = e.target.closest('.picker-link');
-    if (!link) return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    SFX && SFX.play('nav');
-    if (link.dataset.goArtist && link.dataset.artistName) {
-      loadArtistView({ id: link.dataset.goArtist, name: link.dataset.artistName });
-    } else if (link.dataset.goAlbum && link.dataset.albumName) {
-      const curTab = pickerTab || 'random';
-      loadAlbumView(link.dataset.goAlbum, link.dataset.albumName, () => {
-        document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-        const tab = document.querySelector('[data-tab="' + curTab + '"]');
-        if (tab) tab.classList.add('active');
-        loadPickerTab(curTab);
-      });
+    if (link) {
+      e.preventDefault();
+      e.stopPropagation();
+      SFX && SFX.play('nav');
+      if (link.dataset.goArtist && link.dataset.artistName) {
+        loadArtistView({ id: link.dataset.goArtist, name: link.dataset.artistName });
+      } else if (link.dataset.goAlbum && link.dataset.albumName) {
+        const curTab = pickerTab || 'random';
+        loadAlbumView(link.dataset.goAlbum, link.dataset.albumName, () => {
+          document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+          const tab = document.querySelector('[data-tab="' + curTab + '"]');
+          if (tab) tab.classList.add('active');
+          loadPickerTab(curTab);
+        });
+      }
+      return;
     }
-  }, true);
-  item.querySelector('[data-fav]').addEventListener('click', e => {
-    e.stopPropagation();
-    if (isFavorite(song.id)) removeFavorite(song.id);
-    else addFavorite(song);
-    // Just update this item's heart icon and class, not a full re-render
-    const btn = e.currentTarget;
-    const nowFav = isFavorite(song.id);
-    btn.querySelector('i').className = 'ti ' + (nowFav ? 'ti-heart-filled' : 'ti-heart');
-    btn.className = 'picker-action' + (nowFav ? ' fav-active' : '');
-    btn.title = nowFav ? 'Remove from favorites' : 'Add to favorites';
-    updateFavBadge();
-    SFX.play('star');
-  });
-  item.querySelector('[data-queue]').addEventListener('click', e => { e.stopPropagation(); addToQueue(song); });
-  item.querySelector('[data-play]').addEventListener('click', async e => {
-    e.stopPropagation();
-    playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
+
+    const fav = e.target.closest('[data-fav]');
+    if (fav) {
+      e.stopPropagation();
+      if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
+      // Repaint just this heart rather than the whole list.
+      const nowFav = isFavorite(song.id);
+      fav.querySelector('i').className = 'ti ' + (nowFav ? 'ti-heart-filled' : 'ti-heart');
+      fav.className = 'picker-action' + (nowFav ? ' fav-active' : '');
+      fav.title = nowFav ? 'Remove from favorites' : 'Add to favorites';
+      updateFavBadge();
+      SFX.play('star');
+      return;
+    }
+
+    const login = e.target.closest('[data-login]');
+    if (login) {
+      e.stopPropagation();
+      // Read current state rather than a flag captured at render time, so
+      // this is still right after another row changed the login song.
+      const cur = getLoginSong();
+      if (cur && cur.id === song.id) clearLoginSong(); else setLoginSong(song);
+      renderPickerList(pickerSongs);
+      return;
+    }
+
+    const queue = e.target.closest('[data-queue]');
+    if (queue) { e.stopPropagation(); addToQueue(song); return; }
+
+    // [data-add-pl] has its own delegated listener (ensurePlDelegate) — bail
+    // WITHOUT stopping propagation so the click still reaches it.
+    if (e.target.closest('[data-add-pl]')) return;
+
+    const play = e.target.closest('[data-play]');
+    if (play) e.stopPropagation();
+    else if (e.target.closest('.picker-action')) return; // some other action button
+
+    playerState.playlist = pickerSongs;
+    playerState.playlistIndex = pickerSongs.indexOf(song);
     await playSong(song);
   });
-  item.querySelector('[data-login]').addEventListener('click', e => {
-    e.stopPropagation();
-    if (isLogin) clearLoginSong(); else setLoginSong(song);
-    renderPickerList(pickerSongs);
-  });
-  item.addEventListener('click', async e => {
-    // Every other action button (.picker-action) stops its own propagation
-    // locally — [data-add-pl] doesn't (it's handled by a delegated
-    // listener on #pickerList instead, see ensurePlDelegate()), so without
-    // this guard clicking "Add to playlist" also fired this row-level
-    // listener and hijacked playback to that song. Checking for any
-    // .picker-action ancestor here (rather than adding stopPropagation
-    // directly on the button) keeps the click still bubbling up to that
-    // delegated #pickerList handler, which the add-to-playlist flow
-    // depends on.
-    if (e.target.closest('.picker-action')) return;
-    playerState.playlist = pickerSongs; playerState.playlistIndex = pickerSongs.indexOf(song);
-    await playSong(song);
-  });
-  item.addEventListener('contextmenu', e => {
+
+  list.addEventListener('contextmenu', e => {
+    const row  = e.target.closest('.picker-item');
+    const song = row && row._song;
+    if (!song) return;
     e.preventDefault();
     showSongCtx(e.clientX, e.clientY, song);
   });
-  container.appendChild(item);
 }
 
 // Batch helper: renderSongItem() appends straight into whatever container
@@ -11033,21 +11068,10 @@ async function loadAlbumView(albumId, albumName, backFn) {
   goToMusicDetail(() => window.openAlbumPage(albumId, albumName));
 }
 
-// ── Artist / album link delegation ──────────────────────
-document.getElementById('pickerList').addEventListener('click', e => {
-  const link = e.target.closest('.picker-link');
-  if (!link) return;
-  e.stopPropagation();
-
-  if (link.dataset.goArtist && link.dataset.artistName) {
-    loadArtistView({ id: link.dataset.goArtist, name: link.dataset.artistName });
-    return;
-  }
-  if (link.dataset.goAlbum && link.dataset.albumName) {
-    const _curTab = pickerTab || 'random'; loadAlbumView(link.dataset.goAlbum, link.dataset.albumName, () => { document.querySelectorAll('.picker-tab').forEach(t=>t.classList.remove('active')); const tab=document.querySelector('[data-tab="'+_curTab+'"]'); if(tab){tab.classList.add('active');} loadPickerTab(_curTab); });
-    return;
-  }
-});
+// Artist / album link delegation now lives in ensureSongRowDelegation()'s
+// single #pickerList handler — .picker-link is only ever emitted by
+// renderSongItem(), and having two listeners on the same element meant the
+// nav ran twice once the per-row capture handler was removed.
 
 // ══════════════════════════════════════════
 //  ALBUM COLOR EXTRACTION
