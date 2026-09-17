@@ -1143,6 +1143,26 @@
     .feed-post-mention { font-weight: 700; }
     .feed-post-mention.is-me { text-decoration: underline; text-underline-offset: 2px; }
     .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; }
+
+    /* Autolinked URLs in user text (feed posts, replies, chat messages).
+       Always underlined, not colour-only: --accent-rgb is sampled from album
+       art at runtime, so contrast against the bubble can't be relied on. */
+    .rich-link {
+      color: rgb(var(--accent-rgb));
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-thickness: 1px;
+      word-break: break-all;
+    }
+    .rich-link:hover { text-decoration-thickness: 2px; }
+
+    /* 16:9 YouTube player under a post whose text contains a YouTube link. */
+    .feed-post-embed {
+      position: relative; width: 100%; max-width: 480px; aspect-ratio: 16 / 9;
+      margin-top: 0.5rem; border-radius: 8px; overflow: hidden;
+      background: #000; border: 1px solid var(--glass-border);
+    }
+    .feed-post-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
     /* A shared song — same card language as the composer's own preview
        (.feed-composer-song-preview) and .picker-item, but clickable to
        actually play the track (the "deepen the integration" part of the
@@ -4694,6 +4714,53 @@ function esc(s) {
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Turns bare URLs in user-typed text into real anchors. URLs are matched on
+// the RAW string (before escaping) so the href is built from the actual
+// characters, then href and label are escaped independently.
+//
+// Only "http://", "https://" and a bare "www." host can match, so a
+// "javascript:" or "data:" URL can never reach an href — that scheme
+// restriction is the whole XSS story here and must stay.
+//
+// escapeSegment lets a caller keep its own markup pass over the non-URL
+// text (the feed passes mentionHTML so @names still highlight); it must do
+// its own escaping. Everything not matched as a URL goes through it, so the
+// default of esc() is what keeps this safe for plain callers like chat.
+function linkifyHTML(rawText, escapeSegment) {
+  const escSeg = escapeSegment || esc;
+  const src = String(rawText || '');
+  const re = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+  let out = '', last = 0, m;
+  while ((m = re.exec(src))) {
+    let url = m[0];
+    // Trailing sentence punctuation isn't part of the URL, and a closing
+    // paren only belongs to it if the URL opened one — otherwise
+    // "(see https://x.com/a)" would swallow the paren.
+    url = url.replace(/[.,!?;:'"]+$/, '');
+    while (url.endsWith(')') && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
+      url = url.slice(0, -1);
+    }
+    // Re-check after trimming: anything that no longer looks like a link is
+    // left alone, and `last` stays put so the text still gets emitted below.
+    if (!/^(?:https?:\/\/|www\.)\S/i.test(url)) continue;
+    out += escSeg(src.slice(last, m.index));
+    const href = /^www\./i.test(url) ? 'https://' + url : url;
+    out += '<a class="rich-link" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(url) + '</a>';
+    last = m.index + url.length;
+  }
+  return out + escSeg(src.slice(last));
+}
+
+// First YouTube video id in the text, or '' if there isn't one. The id is
+// held to exactly the 11 chars YouTube uses, which is also what makes it
+// safe to drop straight into an iframe src.
+function youtubeIdFrom(rawText) {
+  const m = String(rawText || '').match(
+    /(?:youtube\.com\/(?:watch\?(?:\S*?&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i
+  );
+  return m ? m[1] : '';
+}
+
 // Keeps Tab/Shift+Tab cycling within an open modal instead of leaking
 // focus out to the page behind it — none of the modals had this before.
 // Call once per modal at setup time with its content container and an
@@ -8117,7 +8184,7 @@ function renderTimeline() {
         text.textContent = 'message deleted';
       } else {
         text.className = 'chat-msg-text';
-        text.textContent = content.body || '';
+        text.innerHTML = linkifyHTML(content.body || '');
         if (ev.replacingEvent && ev.replacingEvent()) {
           const edited = document.createElement('span');
           edited.className = 'chat-msg-edited';
@@ -11489,6 +11556,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     });
   }
 
+  // Post/reply bodies get both passes: linkifyHTML carves out the URLs and
+  // hands every remaining run of text to mentionHTML, so an @name inside a
+  // URL stays part of the URL instead of turning into a mention.
+  function richText(rawText, me) {
+    return linkifyHTML(rawText, seg => mentionHTML(seg, me));
+  }
+
   function textMentions(text, username) {
     if (!text || !username) return false;
     return new RegExp('(^|[^\\w@])@' + username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.-])', 'i').test(text);
@@ -11594,7 +11668,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           '<span class="feed-post-reply-time">' + fmtFeedTime(reply.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply" aria-label="Delete reply"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
-        '<div class="feed-post-reply-text">' + mentionHTML(reply.text, me) + '</div>' +
+        '<div class="feed-post-reply-text">' + richText(reply.text, me) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -11645,6 +11719,16 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         '<button type="button" class="feed-post-song-play" title="Play"><i class="ti ti-player-play"></i></button>' +
       '</div>';
     }
+    // Only the first YouTube link in a post gets a player — a post with a
+    // list of links shouldn't turn into a stack of iframes. The link itself
+    // stays in the text either way.
+    const ytId = youtubeIdFrom(post.text);
+    const embedHTML = ytId
+      ? '<div class="feed-post-embed"><iframe src="https://www.youtube-nocookie.com/embed/' + ytId + '"' +
+          ' title="YouTube video" loading="lazy" allowfullscreen' +
+          ' referrerpolicy="strict-origin-when-cross-origin"' +
+          ' allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></div>'
+      : '';
     ensureFeedRepliesResolved(post);
     const reactions = post.reactions || {};
     const pillsHTML = Object.entries(reactions).map(([emoji, entry]) =>
@@ -11661,8 +11745,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
           '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
-        (post.text ? '<div class="feed-post-text">' + mentionHTML(post.text, me) + '</div>' : '') +
+        (post.text ? '<div class="feed-post-text">' + richText(post.text, me) + '</div>' : '') +
         imageHTML +
+        embedHTML +
         songHTML +
         '<div class="feed-post-footer">' +
           pillsHTML +
