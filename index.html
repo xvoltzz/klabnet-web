@@ -2,7 +2,10 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover lets the layout run under a notch/home indicator;
+       everything that would otherwise sit there pads itself back out with
+       env(safe-area-inset-*) in the mobile block at the end of the CSS. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <script>
     // Matrix SSO popup callback — this load IS the popup that MatrixChat.login()
     // opened, being bounced back here by Synapse/MAS's SSO redirect with a
@@ -31,8 +34,22 @@
     })();
   </script>
   <title>klabnet>_</title>
-  <link rel="icon" type="image/svg+xml" href="klab.png" />
+  <link rel="icon" type="image/png" href="klab.png" />
   <link rel="shortcut icon" href="klab.png" />
+  <!-- ── PWA ──
+       theme-color is split per scheme so the Android status bar and the
+       desktop title bar match whichever theme is active. The iOS
+       status-bar style has no light equivalent worth setting:
+       black-translucent lets the page background show through, which is
+       what we want in both themes. -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="klabnet" />
+  <link rel="apple-touch-icon" href="klab.png" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -118,9 +135,14 @@
        doesn't shrink on its own just because the viewport got shorter;
        shrinking the whole page as one unit here is the same fix as the
        large-display tiers above, just running the other direction. */
-    @media (max-height: 760px) { html { zoom: 0.92; } }
-    @media (max-height: 660px) { html { zoom: 0.84; } }
-    @media (max-height: 580px) { html { zoom: 0.76; } }
+       Gated on min-width too: on a phone these fire for the wrong reason
+       — landscape is short by nature, and on Android the layout viewport
+       shrinks when the soft keyboard opens, so an unqualified max-height
+       rule re-zoomed the entire page mid-message. Narrow screens are
+       handled by the mobile block at the end of this stylesheet instead. */
+    @media (max-height: 760px) and (min-width: 900px) { html { zoom: 0.92; } }
+    @media (max-height: 660px) and (min-width: 900px) { html { zoom: 0.84; } }
+    @media (max-height: 580px) and (min-width: 900px) { html { zoom: 0.76; } }
 
     /* BASE THEME BACKGROUNDS */
     [data-theme="dark"] {
@@ -3536,6 +3558,154 @@
       }
     }
 
+    /* Desktop shows both chat panes at once, so there's nothing to go back
+       to and the sidebar already names the room — the bar only exists
+       under the mobile breakpoint, which turns this back on. */
+    .chat-mobile-bar { display: none; }
+
+    /* ══════════════════════════════════════════════════════════════════
+       TOUCH + MOBILE
+       Everything below is the phone/tablet pass. It lives at the end of
+       the sheet on purpose: these rules override the desktop layout above
+       and rely on source order rather than escalating specificity. The one
+       !important is called out where it is, and is there to beat an inline
+       style rather than another rule.
+       ══════════════════════════════════════════════════════════════════ */
+
+    /* ── Touch devices, any size ──
+       Controls that only appear on :hover are unreachable with a finger.
+       These get revealed by a tap instead — see .chat-msg.show-actions,
+       which the timeline's tap handler sets. */
+    @media (hover: none) {
+      .chat-channel-close { opacity: 1; }
+      .chat-msg:hover .chat-msg-actions { display: none; }
+      .chat-msg.show-actions .chat-msg-actions { display: flex; }
+      .feed-post-delete { opacity: 1; }
+      .tile:hover { transform: none; }
+    }
+
+    /* ── Comfortable tap targets ── */
+    @media (pointer: coarse) {
+      .chat-icon-btn, .chat-msg-action-btn, .img-view-btn,
+      .feed-post-add-reaction, .feed-post-delete {
+        min-width: 34px; min-height: 34px;
+      }
+    }
+
+    /* ── Phones / small tablets ── */
+    @media (max-width: 760px) {
+      /* 3.5rem of side padding at a 19px root is ~66px a side — a third of
+         a phone screen gone before any content is drawn. */
+      .dash { padding: 1.5rem 1rem 1.5rem; }
+      .dash.dash-clearance { padding-bottom: 6rem; }
+      body.tab-chat-active .dash { padding-bottom: 5.5rem; max-width: 100%; }
+      body.tab-chat-active.player-hidden .dash { padding-bottom: 1rem; }
+
+      .header { margin-bottom: 1.1rem; row-gap: 0.6rem; }
+      .logo { width: 34px; height: 34px; }
+      .header-left { gap: 0.7rem; }
+      .sec { margin-bottom: 1.75rem; }
+      .tab-nav { margin-bottom: 1rem; gap: 4px; }
+      .tab-nav-btn { padding: 0.5rem 0.7rem; }
+      /* Labels go first — the icons still read, and the nav stops needing
+         a horizontal scroll to reach the last tab. */
+      .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      .tab-nav-btn i { font-size: 16px; }
+
+      /* iOS zooms the page in when a focused field's text is under 16px,
+         and every text entry in this app was below that. */
+      input[type="text"], input[type="search"], input[type="password"],
+      input:not([type]), textarea { font-size: 16px; }
+
+      .presence-rail { margin-top: 1.5rem; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); }
+
+      /* ── Chat: one pane at a time ──
+         Desktop is sidebar | resizer | conversation. At this width the
+         230px sidebar leaves ~150px for messages, which is the "unusable
+         on mobile" complaint in one line. Here the two panes become two
+         screens: #chatApp.mobile-rooms shows the list, and without it
+         you're in the conversation. setChatMobileView() owns that class;
+         it's in the markup too, so the list is what you land on even
+         before the script runs. */
+      .chat-resizer { display: none; }
+      .chat-channels {
+        /* Beats the inline width initChatResizer() writes from the saved
+           desktop drag value — an inline style can't be overridden any
+           other way, and that value is meaningless at this width. */
+        width: 100% !important;
+        border-right: none; padding: 0.5rem;
+        display: none;
+      }
+      #chatApp.mobile-rooms .chat-channels { display: block; }
+      #chatApp.mobile-rooms .chat-main { display: none; }
+
+      .chat-mobile-bar {
+        display: flex; align-items: center; gap: 4px;
+        padding: 0.4rem 0.5rem; min-height: 40px;
+        border-bottom: 1px solid rgba(var(--accent-rgb),0.1);
+      }
+      .chat-mobile-back {
+        width: 32px; height: 32px; flex: none;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: none; border: 0; cursor: pointer;
+        color: var(--text-dim); font-size: 20px; border-radius: var(--radius-md);
+      }
+      .chat-mobile-back:active { background: rgba(var(--accent-rgb),0.12); }
+      .chat-mobile-title {
+        font-size: 14px; font-weight: 700; color: var(--text);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+      }
+
+      .chat-timeline { padding: 0.7rem 0.8rem; }
+      .chat-msg { gap: 8px; }
+      .chat-msg-avatar { width: 32px; height: 32px; }
+      .chat-msg-image { max-width: 100%; }
+      .chat-composer { padding: 0.4rem 0.6rem 0.6rem; }
+      /* The toolbar floats over the message on desktop; on a narrow row it
+         covered the text it belonged to. */
+      .chat-msg-actions { top: -10px; right: 2px; }
+
+      /* Feed */
+      .feed-post-embed { max-width: 100%; }
+      .feed-post-quick-reactions { flex-wrap: wrap; }
+    }
+
+    /* ── Narrow phones ── */
+    @media (max-width: 480px) {
+      .dash { padding: 1.1rem 0.7rem 1.25rem; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(132px,1fr)); }
+      .chat-timeline { padding: 0.6rem 0.55rem; }
+      .chat-msg-avatar { width: 28px; height: 28px; }
+      .sec { margin-bottom: 1.4rem; }
+    }
+
+    /* ── Notch / home-indicator clearance ──
+       Paired with viewport-fit=cover in the <head>: the page now extends
+       under the system UI, so anything pinned to an edge pads itself back
+       out. Written with max(), so a device without insets is unaffected. */
+    @supports (padding: max(0px)) {
+      @media (max-width: 760px) {
+        .dash {
+          padding-left: max(1rem, env(safe-area-inset-left));
+          padding-right: max(1rem, env(safe-area-inset-right));
+        }
+        .player-dock { bottom: max(1.1rem, env(safe-area-inset-bottom)); }
+        .chat-composer { padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
+        .img-view-bar { padding-top: max(12px, env(safe-area-inset-top)); }
+      }
+    }
+
+    /* ── Installed PWA ──
+       In standalone there's no browser chrome to scroll away, so the page
+       owns the full height and the top inset is the status bar. */
+    @media (display-mode: standalone) {
+      .dash { padding-top: max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem)); }
+      /* No URL bar means no pull-to-refresh escape hatch — don't let the
+         whole document rubber-band instead of the timeline. */
+      html, body { overscroll-behavior-y: none; }
+    }
+
   </style>
 </head>
 <body>
@@ -3817,7 +3987,10 @@ window.KLAB_BOOT = (function() {
         <button class="chat-connect-btn" id="chatConnectBtn">Connect</button>
         <div class="chat-connect-error" id="chatConnectError" hidden></div>
       </div>
-      <div class="chat-app" id="chatApp" hidden>
+      <!-- mobile-rooms: only meaningful under the mobile breakpoint, where
+           it selects the channel-list pane. Set here so a phone lands on
+           the list rather than flashing a conversation first. -->
+      <div class="chat-app mobile-rooms" id="chatApp" hidden>
         <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
         <div class="chat-body">
           <div class="chat-channels" id="chatChannels">
@@ -3830,6 +4003,15 @@ window.KLAB_BOOT = (function() {
           </div>
           <div class="chat-resizer" id="chatResizer" title="Drag to resize — double-click to collapse"></div>
           <div class="chat-main">
+            <!-- Mobile only (see the mobile block at the end of the CSS).
+                 The desktop layout shows both panes at once, so the room
+                 you're in is obvious from the highlighted sidebar row;
+                 once the sidebar becomes a separate screen there's nothing
+                 naming the current room, and no way back to the list. -->
+            <div class="chat-mobile-bar">
+              <button type="button" class="chat-mobile-back" id="chatMobileBack" aria-label="Back to channels"><i class="ti ti-chevron-left"></i></button>
+              <span class="chat-mobile-title" id="chatMobileTitle"></span>
+            </div>
             <div class="chat-timeline" id="chatTimeline"></div>
             <div class="chat-typing" id="chatTyping"></div>
             <div class="chat-composer">
@@ -6907,7 +7089,7 @@ document.addEventListener('visibilitychange', () => {
 //  itself stays: the live update-check banner below needs a version
 //  string embedded in the page to compare against.
 // ══════════════════════════════════════════
-const KLABNET_VERSION = 'v2026.09.09.1';
+const KLABNET_VERSION = 'v2026.09.17.1';
 
 // ── Live update check ────────────────────
 // This is a long-lived SPA with no build step or version endpoint to poll
@@ -6944,6 +7126,19 @@ function showUpdateBanner() {
 }
 setInterval(checkForUpdate, UPDATE_CHECK_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+
+// ── PWA service worker ───────────────────
+// Registered only for the installable/static-asset benefit — sw.js never
+// caches the HTML document, precisely so the update check above keeps
+// seeing the real deployed KLABNET_VERSION. See sw.js's header comment.
+// Secure-context only (service workers are unavailable over plain http,
+// which is how this is served on the LAN by IP), and skipped entirely in
+// the SSO popup, which closes itself before the app ever renders.
+if ('serviceWorker' in navigator && window.isSecureContext && !location.search.includes('matrixSsoCallback')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 // ══════════════════════════════════════════
 //  SETTINGS
@@ -7799,10 +7994,14 @@ function buildChannelItem(room, icon) {
     if (invited) {
       try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`); return; }
     } else if (room.roomId === _chatActiveRoomId) {
+      // Already the active room, so there's nothing to re-render — but on
+      // mobile this row is still the only way into that conversation.
+      setChatMobileView('convo');
       return;
     }
     _chatActiveRoomId = room.roomId;
     renderChannelList();
+    setChatMobileView('convo');
   });
   item.querySelector('.chat-channel-close')?.addEventListener('click', async e => {
     e.stopPropagation(); // don't also select the room we're about to leave
@@ -7887,6 +8086,10 @@ function renderChannelList() {
       list.append(lbl, ...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
     }
   }
+  // The active room can change without anyone tapping a row (the
+  // auto-select above, or leaving the room you were in), so the mobile
+  // bar's title is refreshed here rather than only in setChatMobileView().
+  syncChatMobileTitle();
   renderTimeline();
 }
 
@@ -8731,6 +8934,7 @@ function openCreateModal() {
       closeChatModal();
       _chatActiveRoomId = room_id;
       renderChannelList();
+      setChatMobileView('convo');
       showToast(`Created #${name}`);
     } catch (e) {
       err.textContent = e.message || 'Failed to create channel.';
@@ -8763,6 +8967,7 @@ async function startDm(userId) {
     closeChatModal();
     _chatActiveRoomId = roomId;
     renderChannelList();
+    setChatMobileView('convo');
   } catch (e) {
     showToast(`Couldn't start DM: ${e.message || 'error'}`);
   }
@@ -9506,6 +9711,24 @@ function notifyNewMessage(event, room) {
 // toast's click target, and equivalent to clicking that room in the
 // channel sidebar (see the identical _chatActiveRoomId/renderChannelList()
 // pairing in the channel-item click handler).
+// ── Mobile chat: which of the two panes is on screen ──
+// Only has an effect under the mobile breakpoint (the class it toggles is
+// unused above it), so callers don't need to check the width themselves.
+// The room name goes in the mobile bar because, once the sidebar is a
+// separate screen, nothing else on the conversation names the room.
+function setChatMobileView(view) {
+  const app = document.getElementById('chatApp');
+  if (!app) return;
+  app.classList.toggle('mobile-rooms', view === 'rooms');
+  if (view !== 'rooms') syncChatMobileTitle();
+}
+function syncChatMobileTitle() {
+  const el = document.getElementById('chatMobileTitle');
+  if (!el) return;
+  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  el.textContent = room?.name || 'Chat';
+}
+
 function openChatRoom(roomId) {
   // _chatActiveRoomId must be updated BEFORE setActiveTab('chat') runs —
   // that call marks whatever room is currently active as read (see its own
@@ -9514,6 +9737,9 @@ function openChatRoom(roomId) {
   _chatActiveRoomId = roomId;
   setActiveTab('chat');
   renderChannelList();
+  // Jumping to a specific room (a mention, "message user", a notification)
+  // means the conversation, not the list you'd normally land on.
+  setChatMobileView('convo');
 }
 
 // Drag to resize the channel sidebar; double-click the resizer to
@@ -9697,8 +9923,23 @@ function showChatApp() {
       const img = e.target.closest('.chat-msg-image');
       if (img && img.src?.startsWith('blob:')) {
         openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt });
+        return;
+      }
+      // Touch has no hover, so the react/reply toolbar (.chat-msg-actions,
+      // hover-revealed on desktop) is unreachable without this: tapping a
+      // message reveals its own toolbar and hides any other. Gated on the
+      // device actually being hover-less so a mouse keeps the hover
+      // behaviour and doesn't leave toolbars stuck open behind the cursor.
+      if (window.matchMedia?.('(hover: none)').matches) {
+        const row = e.target.closest('.chat-msg');
+        if (row && !e.target.closest('.chat-msg-actions')) {
+          const wasOpen = row.classList.contains('show-actions');
+          document.querySelectorAll('.chat-msg.show-actions').forEach(m => m.classList.remove('show-actions'));
+          if (!wasOpen) row.classList.add('show-actions');
+        }
       }
     });
+    document.getElementById('chatMobileBack')?.addEventListener('click', () => setChatMobileView('rooms'));
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
     document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
