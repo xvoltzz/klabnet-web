@@ -1758,6 +1758,29 @@
     }
     .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
     .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
+
+    /* ── Bug report / idea modal (openFeedbackModal) ── */
+    .fb-type { display: flex; gap: 6px; margin-bottom: 8px; }
+    .fb-type-btn {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: 32px; border-radius: var(--radius-md); cursor: pointer;
+      font-family: var(--font-ui); font-size: var(--fs-11); letter-spacing: 0.06em; text-transform: uppercase;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .fb-type-btn:hover { background: var(--tile-bg-h); color: var(--text); }
+    .fb-type-btn.active {
+      background: rgba(var(--accent-rgb),0.16);
+      border-color: rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1);
+    }
+    .fb-row { text-decoration: none; }
+    .fb-state {
+      flex: none; padding: 2px 7px; border-radius: 999px;
+      font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .fb-state-open   { background: rgba(74,222,128,0.14); color: var(--success-color); }
+    .fb-state-closed { background: rgba(var(--accent-rgb),0.12); color: var(--text-dimmer); }
     /* Album/Song segmented toggle atop the New Request modal. */
     .music-req-type-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
     .music-req-type-btn {
@@ -3999,6 +4022,7 @@ window.KLAB_BOOT = (function() {
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
         <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
+        <div class="ctx-item" id="feedbackBtn"><i class="ti ti-bug"></i> Report a bug / idea</div>
         <div class="ctx-divider"></div>
         <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
         <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank"><i class="ti ti-user-circle"></i> Account</a>
@@ -4703,6 +4727,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     SFX && SFX.play('click');
   }
   document.getElementById('keyHintsBtn')?.addEventListener('click', toggleKeyHints);
+  document.getElementById('feedbackBtn')?.addEventListener('click', () => {
+    document.getElementById('headerMoreMenu')?.classList.remove('visible');
+    openFeedbackModal();
+  });
   document.getElementById('keyHintsClose')?.addEventListener('click', toggleKeyHints);
   trapFocusWithin(
     document.querySelector('#keyHintsBackdrop .add-app-modal'),
@@ -8983,6 +9011,103 @@ function initChatImageSend() {
 // One shared backdrop+shell (see #chatModalBackdrop in the markup); each
 // action rebuilds #chatModalBody for itself rather than three separate
 // modal shells sitting mostly-duplicated in the DOM.
+// ── Bug reports / feature requests ─────────────────────
+// Files straight into Gitea via /api/feedback so nobody has to go find
+// git.klab.gg to say a button is broken. The server owns the Gitea token
+// and stamps the reporter's klabnet username onto the issue — the browser
+// never sees a credential. The existing-issues list below is the "vice
+// versa" half: it's the same tracker, so you can see your report land and
+// check something isn't already filed before writing it up.
+const FEEDBACK_TITLE_MAX = 120;
+const FEEDBACK_BODY_MAX  = 4000;
+
+function feedbackModalHTML() {
+  return `
+    <div class="chat-modal-row-sub" style="margin-bottom:10px;">
+      Goes straight to the issue tracker, tagged with your username.
+    </div>
+    <div class="fb-type" id="fbType">
+      <button type="button" class="fb-type-btn active" data-fb-type="bug"><i class="ti ti-bug"></i> Bug</button>
+      <button type="button" class="fb-type-btn" data-fb-type="feature"><i class="ti ti-bulb"></i> Idea</button>
+    </div>
+    <input type="text" class="chat-modal-input" id="fbTitle" placeholder="Short summary" maxlength="${FEEDBACK_TITLE_MAX}" autocomplete="off" />
+    <textarea class="chat-modal-input" id="fbBody" rows="5" placeholder="What happened, and what did you expect instead? Steps to reproduce help a lot." maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
+    <button class="chat-connect-btn" id="fbSubmit" style="margin-top:10px;width:100%;justify-content:center;">Send</button>
+    <div class="chat-modal-error" id="fbError" hidden></div>
+    <div class="chat-modal-row-sub" style="margin-top:14px;">Already reported</div>
+    <div class="chat-modal-list" id="fbList"><div class="picker-empty">loading…</div></div>
+  `;
+}
+
+function openFeedbackModal() {
+  openChatModal('// report a bug or idea', feedbackModalHTML());
+
+  const typeWrap = document.getElementById('fbType');
+  const titleEl  = document.getElementById('fbTitle');
+  const bodyEl   = document.getElementById('fbBody');
+  const submitEl = document.getElementById('fbSubmit');
+  const errEl    = document.getElementById('fbError');
+  const listEl   = document.getElementById('fbList');
+  let kind = 'bug';
+
+  typeWrap.addEventListener('click', e => {
+    const btn = e.target.closest('[data-fb-type]');
+    if (!btn) return;
+    kind = btn.dataset.fbType;
+    typeWrap.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+
+  async function loadIssues() {
+    try {
+      const r = await fetchTimeout('/api/feedback', {}, 8000);
+      if (!r.ok) throw new Error('bad status');
+      const data = await r.json();
+      const issues = data.issues || [];
+      if (!issues.length) { listEl.innerHTML = '<div class="picker-empty">Nothing reported yet.</div>'; return; }
+      listEl.innerHTML = issues.map(i =>
+        '<a class="chat-modal-row fb-row" href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">' +
+          '<span class="fb-state fb-state-' + (i.state === 'closed' ? 'closed' : 'open') + '">' +
+            (i.state === 'closed' ? 'done' : 'open') + '</span>' +
+          '<div class="chat-modal-row-info">' +
+            '<div class="chat-modal-row-name">' + esc(i.title) + '</div>' +
+            '<div class="chat-modal-row-sub">#' + i.number + (i.labels.length ? ' · ' + esc(i.labels.join(', ')) : '') + '</div>' +
+          '</div>' +
+        '</a>').join('');
+    } catch (e) {
+      listEl.innerHTML = '<div class="picker-empty">Couldn\'t load existing reports.</div>';
+    }
+  }
+  loadIssues();
+
+  submitEl.addEventListener('click', async () => {
+    const title = titleEl.value.trim();
+    if (!title) { errEl.textContent = 'Give it a short summary first.'; errEl.hidden = false; titleEl.focus(); return; }
+    errEl.hidden = true;
+    submitEl.disabled = true;
+    submitEl.textContent = 'Sending…';
+    try {
+      const r = await fetchTimeout('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: kind, title, body: bodyEl.value.trim(), page: location.hash || '#feed' }),
+      }, 12000);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'failed');
+      closeChatModal();
+      showToast(data.number ? `Filed as #${data.number} — thanks!` : 'Report sent — thanks!');
+    } catch (e) {
+      errEl.textContent = e.message === 'issue tracker not configured'
+        ? "The issue tracker isn't hooked up yet — tell an admin."
+        : "Couldn't send that. Try again in a moment.";
+      errEl.hidden = false;
+      submitEl.disabled = false;
+      submitEl.textContent = 'Send';
+    }
+  });
+
+  titleEl.focus();
+}
+
 function openChatModal(title, bodyHTML) {
   document.getElementById('chatModalTitle').textContent = title;
   document.getElementById('chatModalBody').innerHTML = bodyHTML;
