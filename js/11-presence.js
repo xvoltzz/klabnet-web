@@ -110,6 +110,12 @@
   window.KLAB_REFRESH_MY_AVATAR = function() {
     const me = window.KLAB_USER?.username;
     if (me) {
+      // Also drop the cached banner. Someone with no banner is cached as a
+      // negative, so without this the one they just uploaded wouldn't show
+      // until a reload. Revoke first — same leak the avatar path had.
+      const oldBanner = _bannerCache.get(me);
+      if (oldBanner) URL.revokeObjectURL(oldBanner);
+      _bannerCache.delete(me);
       // Same "revoke before dropping the cache entry" fix as
       // invalidateMsgAvatar() — this used to leak the old blob URL here too.
       const oldUrl = _avatarCache.get(me);
@@ -160,8 +166,17 @@
   const _bannerPending = new Set();
   function ensureBannerResolved(username) {
     if (!username || _bannerCache.has(username) || _bannerPending.has(username)) return;
-    const mxc = _profiles.get(username)?.banner_mxc;
-    if (!mxc) { _bannerCache.set(username, null); return; }
+    // Not "no banner" — _profiles is filled by fetchProfiles() on the
+    // presence poll, so on the first render or two it's simply empty.
+    // Caching null here (which is what this used to do) marked everyone as
+    // bannerless permanently, because _bannerCache.has() then short-
+    // circuits every later attempt. Bail without caching and retry on the
+    // next render instead; only a profile that exists AND has no banner is
+    // a real negative worth remembering.
+    const profile = _profiles.get(username);
+    if (!profile) return;
+    if (!profile.banner_mxc) { _bannerCache.set(username, null); return; }
+    const mxc = profile.banner_mxc;
     if (!MatrixChat.client) return; // retry on a later render once chat connects
     _bannerPending.add(username);
     (async () => {

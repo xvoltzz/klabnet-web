@@ -2799,7 +2799,12 @@
       background: var(--tile-bg);
       border: 1px solid var(--tile-border);
       cursor: default;
-      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      /* background-COLOR, not background. The shorthand animates every
+         background longhand, including background-position — so once a
+         card carries a banner, hovering interpolated its crop and the
+         image visibly slid and re-framed under the cursor. Only the tint
+         should move. */
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       /* Grid items default to min-width:auto, so without this a long song
          title forces the card wider than its 1fr track in the presence
          rail instead of the inner text actually truncating with an
@@ -2817,32 +2822,39 @@
        and track sit, and only opens up toward the right edge. Tested
        against a high-contrast striped banner: anything weaker and the
        track line became genuinely hard to read. The banner is a wash of
-       someone's colour, not a picture you're meant to look at. */
+       someone's colour, not a picture you're meant to look at.
+       Written as the `background` SHORTHAND (with per-layer
+       `position / size`) rather than separate longhands. .presence-card
+       and .presence-card:hover both set the shorthand themselves, which
+       resets every background longhand it doesn't mention — so setting
+       only background-image here left position and size at their initial
+       auto / 0% 0%, and the banner re-cropped and jumped on hover. The
+       shorthand sets all of them together, so there's nothing left to
+       clobber. Each layer carries its own colour too, since the shorthand
+       resets background-color as well. */
     .presence-card.has-banner {
-      background-image:
-        linear-gradient(95deg, rgba(8,8,10,0.97) 0%, rgba(8,8,10,0.93) 50%, rgba(8,8,10,0.74) 100%),
-        var(--card-bg);
-      background-size: cover, cover;
-      background-position: center, center;
+      background:
+        linear-gradient(95deg, rgba(8,8,10,0.97) 0%, rgba(8,8,10,0.93) 50%, rgba(8,8,10,0.74) 100%) center / cover no-repeat,
+        var(--card-bg) center / cover no-repeat var(--tile-bg);
       border-color: rgba(255,255,255,0.09);
     }
     .presence-card.has-banner:hover {
-      background-image:
-        linear-gradient(95deg, rgba(8,8,10,0.94) 0%, rgba(8,8,10,0.88) 50%, rgba(8,8,10,0.62) 100%),
-        var(--card-bg);
+      background:
+        linear-gradient(95deg, rgba(8,8,10,0.94) 0%, rgba(8,8,10,0.88) 50%, rgba(8,8,10,0.62) 100%) center / cover no-repeat,
+        var(--card-bg) center / cover no-repeat var(--tile-bg-h);
     }
-    /* Light theme needs the opposite scrim — a dark one over a pale banner
-       reads as a mistake, and the card's text is dark here. */
+    /* Light theme gets the inverted scrim — a dark one over a pale banner
+       reads as a mistake when the card's own text is dark. */
     [data-theme="light"] .presence-card.has-banner {
-      background-image:
-        linear-gradient(95deg, rgba(250,249,246,0.97) 0%, rgba(250,249,246,0.93) 50%, rgba(250,249,246,0.76) 100%),
-        var(--card-bg);
+      background:
+        linear-gradient(95deg, rgba(250,249,246,0.97) 0%, rgba(250,249,246,0.93) 50%, rgba(250,249,246,0.76) 100%) center / cover no-repeat,
+        var(--card-bg) center / cover no-repeat var(--tile-bg);
       border-color: rgba(90,78,62,0.18);
     }
     [data-theme="light"] .presence-card.has-banner:hover {
-      background-image:
-        linear-gradient(95deg, rgba(250,249,246,0.94) 0%, rgba(250,249,246,0.88) 50%, rgba(250,249,246,0.64) 100%),
-        var(--card-bg);
+      background:
+        linear-gradient(95deg, rgba(250,249,246,0.94) 0%, rgba(250,249,246,0.88) 50%, rgba(250,249,246,0.64) 100%) center / cover no-repeat,
+        var(--card-bg) center / cover no-repeat var(--tile-bg-h);
     }
 
     .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
