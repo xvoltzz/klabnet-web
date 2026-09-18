@@ -364,7 +364,33 @@
     if (html === _lastRenderedHTML) return;
     _lastRenderedHTML = html;
     list.innerHTML = html;
+    applyUnreadDmDots();
   }
+
+  // The rail is the DM list now, so an unread DM has to be visible here or
+  // it's invisible entirely. Patched directly onto the existing cards
+  // rather than folded into cardHTML(), for the same reason the chat
+  // sidebar patches its own dots: unread state changes far more often than
+  // the roster does, and a full re-render would fight the poll's
+  // skip-if-unchanged check above.
+  function applyUnreadDmDots() {
+    const unread = window.KLAB_UNREAD_DM_USERS;
+    list.querySelectorAll('.presence-card[data-username]').forEach(card => {
+      const has = !!unread && unread.has(card.dataset.username);
+      card.classList.toggle('has-unread', has);
+      const existing = card.querySelector('.presence-card-unread-dot');
+      if (has && !existing) {
+        const dot = document.createElement('span');
+        dot.className = 'presence-card-unread-dot';
+        dot.title = 'Unread message';
+        card.appendChild(dot);
+      } else if (!has && existing) {
+        existing.remove();
+      }
+    });
+  }
+  // Called by the chat module whenever its unread set changes.
+  window.KLAB_REFRESH_PRESENCE_UNREAD = applyUnreadDmDots;
 
   // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
@@ -573,8 +599,16 @@
     if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
     if (meCard) { openProfileModal(); return; }
-    const card = e.target.closest('.presence-card.is-playable');
-    if (card) playFromCard(card);
+    // Left-click opens a DM. It used to start a listening party, which is a
+    // surprising thing to do by accident to someone else's audio — that
+    // moved to the right-click menu alongside View Profile, where it reads
+    // as the deliberate action it is. messageUser() reuses an existing DM
+    // if there is one, so this is "talk to this person" either way.
+    const card = e.target.closest('.presence-card[data-username]');
+    if (card && !card.classList.contains('is-me')) {
+      SFX && SFX.play('nav');
+      messageUser(card.dataset.username);
+    }
   });
 
   // ── Right-click context menu: Listen Party / Message ─────

@@ -258,6 +258,37 @@ window.KLAB_BOOT = (function() {
   </header>
 
   <div class="dash-body">
+  <!-- Presence lives outside every tab-panel, same as the player dock — the
+       site is meant to always show who's around, not just on one tab. It's
+       first in .dash-body so it's the LEFT column on wide viewports; on
+       narrow ones the 880px rule stacks it and `order` puts it back below
+       the tab content, since on a phone the content should come first. -->
+  <aside class="sec sec-global-presence presence-rail">
+    <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
+    <div class="presence-grid" id="presenceList"></div>
+    <!-- Shown/hidden by JS (see PRESENCE RAIL SCROLL BOUNDS) based on
+         whether there's actually more to scroll to, and again as you
+         scroll to the true bottom — enough people online now that this
+         needed to be more than "just cut off with no hint more exist". -->
+    <div class="presence-rail-more" id="presenceRailMore" hidden><i class="ti ti-chevron-down"></i></div>
+
+    <!-- Channels live in this same rail rather than in a second sidebar
+         inside the chat pane. Having a "who's around" list on one side and
+         a "who you've DM'd" list on the other was the same information
+         twice — a person is now the entry point to their DM (click a
+         card), and this is just the rooms. Shown only on the Chat tab. -->
+    <div class="rail-channels" id="railChannels">
+      <div class="sec-head">
+        <span class="sec-label">// channels</span><div class="sec-line"></div>
+        <div class="chat-channels-toolbar">
+          <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
+          <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
+        </div>
+      </div>
+      <div class="chat-channels-list" id="chatChannelsList"></div>
+    </div>
+  </aside>
+
   <div class="dash-main">
 
   <div class="tab-panel" data-tab-panel="feed">
@@ -306,21 +337,9 @@ window.KLAB_BOOT = (function() {
         <button class="chat-connect-btn" id="chatConnectBtn">Connect</button>
         <div class="chat-connect-error" id="chatConnectError" hidden></div>
       </div>
-      <!-- mobile-rooms: only meaningful under the mobile breakpoint, where
-           it selects the channel-list pane. Set here so a phone lands on
-           the list rather than flashing a conversation first. -->
-      <div class="chat-app mobile-rooms" id="chatApp" hidden>
+      <div class="chat-app" id="chatApp" hidden>
         <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
         <div class="chat-body">
-          <div class="chat-channels" id="chatChannels">
-            <div class="chat-channels-toolbar">
-              <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
-              <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
-              <button class="chat-icon-btn" id="chatNewDmBtn" title="New direct message"><i class="ti ti-message-2-plus"></i></button>
-            </div>
-            <div class="chat-channels-list" id="chatChannelsList"></div>
-          </div>
-          <div class="chat-resizer" id="chatResizer" title="Drag to resize — double-click to collapse"></div>
           <div class="chat-main">
             <!-- Mobile only (see the mobile block at the end of the CSS).
                  The desktop layout shows both panes at once, so the room
@@ -406,19 +425,6 @@ window.KLAB_BOOT = (function() {
 
   </div>
 
-  <!-- Presence lives outside every tab-panel, same as the player dock — the
-       site is meant to always show who's around, not just on one tab. On
-       wide viewports it's a sticky right rail; on narrow ones (see media
-       query) it drops below the tab content as a horizontal strip instead. -->
-  <aside class="sec sec-global-presence presence-rail">
-    <div class="sec-head"><span class="sec-label">// users</span><div class="sec-line"></div></div>
-    <div class="presence-grid" id="presenceList"></div>
-    <!-- Shown/hidden by JS (see PRESENCE RAIL SCROLL BOUNDS) based on
-         whether there's actually more to scroll to, and again as you
-         scroll to the true bottom — enough people online now that this
-         needed to be more than "just cut off with no hint more exist". -->
-    <div class="presence-rail-more" id="presenceRailMore" hidden><i class="ti ti-chevron-down"></i></div>
-  </aside>
 
   </div>
 

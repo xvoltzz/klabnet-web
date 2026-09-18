@@ -582,18 +582,13 @@ function renderChannelList() {
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
     list.innerHTML = '';
-    if (dmRooms.length) {
-      const lbl = document.createElement('div');
-      lbl.className = 'chat-channel-section-label';
-      lbl.textContent = 'Direct Messages';
-      list.append(lbl, ...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
-    }
-    if (channelRooms.length) {
-      const lbl = document.createElement('div');
-      lbl.className = 'chat-channel-section-label';
-      lbl.textContent = 'Channels';
-      list.append(lbl, ...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
-    }
+    // Channels only. DMs aren't listed here any more — the presence rail
+    // above is the DM list now, since a person and "the DM with that
+    // person" were always the same thing shown twice. dmRooms still
+    // participates in `rooms` above so a DM can be the active room, and
+    // unread DMs surface as a dot on that person's card (see
+    // updateSocialUnreadBadge -> KLAB_REFRESH_PRESENCE_UNREAD).
+    list.append(...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
   }
   // The active room can change without anyone tapping a row (the
   // auto-select above, or leaving the room you were in), so the mobile
@@ -1608,7 +1603,12 @@ function messageUser(username) {
   // AFTER that, not before: it marks whatever room is currently active as
   // read, so calling it first here was marking the room the user was
   // previously on as read instead of the DM they're jumping to.
-  startDm(`@${username}:${serverName}`).then(() => setActiveTab('chat'));
+  // setChatMobileView AFTER setActiveTab — entering the Chat tab resets the
+  // mobile pane to the list, and this jump wants the conversation.
+  startDm(`@${username}:${serverName}`).then(() => {
+    setActiveTab('chat');
+    setChatMobileView('convo');
+  });
 }
 
 function openDmModal() {
@@ -2276,6 +2276,26 @@ function updateChannelUnreadDots() {
     }
   });
 }
+// Usernames with an unread DM, for the presence rail's own dot. Rebuilt
+// whenever the unread set changes rather than derived on demand, so the
+// rail can stay a dumb renderer.
+window.KLAB_UNREAD_DM_USERS = new Set();
+function refreshUnreadDmUsers() {
+  const set = new Set();
+  const client = MatrixChat.client;
+  if (client) {
+    const dmIds = getDmRoomIds();
+    for (const roomId of _chatUnreadRooms) {
+      if (!dmIds.has(roomId)) continue;
+      const room = client.getRoom(roomId);
+      const who = room && dmOtherUsername(room);
+      if (who) set.add(who);
+    }
+  }
+  window.KLAB_UNREAD_DM_USERS = set;
+  window.KLAB_REFRESH_PRESENCE_UNREAD?.();
+}
+
 function updateSocialUnreadBadge() {
   const badge = document.getElementById('socialUnreadBadge');
   if (badge) badge.textContent = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size})` : '';
@@ -2284,6 +2304,7 @@ function updateSocialUnreadBadge() {
   // unlike a favicon overlay, which a lot of browsers just clip/hide.
   document.title = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size}) ${_baseTitle}` : _baseTitle;
   updateChannelUnreadDots();
+  refreshUnreadDmUsers();
 }
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
@@ -2337,9 +2358,11 @@ function notifyNewMessage(event, room) {
 // The room name goes in the mobile bar because, once the sidebar is a
 // separate screen, nothing else on the conversation names the room.
 function setChatMobileView(view) {
-  const app = document.getElementById('chatApp');
-  if (!app) return;
-  app.classList.toggle('mobile-rooms', view === 'rooms');
+  // A body class, not one on #chatApp: the "rooms" pane is the presence
+  // rail (people + channels), which lives outside the chat app entirely
+  // now, so the switch has to be visible to a selector that can reach both.
+  // Only has an effect under the mobile breakpoint.
+  document.body.classList.toggle('chat-rooms-view', view === 'rooms');
   if (view !== 'rooms') syncChatMobileTitle();
 }
 function syncChatMobileTitle() {
@@ -2362,53 +2385,6 @@ function openChatRoom(roomId) {
   setChatMobileView('convo');
 }
 
-// Drag to resize the channel sidebar; double-click the resizer to
-// collapse it entirely (and again to restore the last width). Persisted
-// per-browser so it doesn't reset every visit.
-const CHAT_SIDEBAR_WIDTH_KEY = 'klabnet_chat_sidebar_width';
-const CHAT_SIDEBAR_MIN = 60;
-const CHAT_SIDEBAR_MAX = 420;
-const CHAT_SIDEBAR_DEFAULT = 230;
-function initChatResizer() {
-  const resizer  = document.getElementById('chatResizer');
-  const channels = document.getElementById('chatChannels');
-  if (!resizer || !channels || resizer._bound) return;
-  resizer._bound = true;
-
-  const saved = parseInt(localStorage.getItem(CHAT_SIDEBAR_WIDTH_KEY), 10);
-  let lastExpandedWidth = Number.isFinite(saved) && saved > 0 ? saved : CHAT_SIDEBAR_DEFAULT;
-  channels.style.width = lastExpandedWidth + 'px';
-
-  let dragging = false, startX = 0, startWidth = 0;
-  resizer.addEventListener('pointerdown', e => {
-    dragging = true;
-    startX = e.clientX;
-    startWidth = channels.getBoundingClientRect().width;
-    resizer.classList.add('dragging');
-    resizer.setPointerCapture(e.pointerId);
-  });
-  resizer.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const w = Math.max(0, Math.min(CHAT_SIDEBAR_MAX, startWidth + (e.clientX - startX)));
-    channels.style.width = (w < CHAT_SIDEBAR_MIN ? 0 : w) + 'px'; // snap fully closed below the min
-  });
-  function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    resizer.classList.remove('dragging');
-    const w = Math.round(channels.getBoundingClientRect().width);
-    if (w > 0) {
-      lastExpandedWidth = w;
-      localStorage.setItem(CHAT_SIDEBAR_WIDTH_KEY, String(w));
-    }
-  }
-  resizer.addEventListener('pointerup', endDrag);
-  resizer.addEventListener('pointercancel', endDrag);
-  resizer.addEventListener('dblclick', () => {
-    const collapsed = channels.getBoundingClientRect().width < 1;
-    channels.style.width = (collapsed ? lastExpandedWidth : 0) + 'px';
-  });
-}
 
 let _chatBound = false;
 
@@ -2444,7 +2420,6 @@ function showChatApp() {
   // — only bind listeners once or they'd stack and fire N times each.
   if (!_chatBound) {
     _chatBound = true;
-    initChatResizer();
     MatrixChat.on('sync', state => {
       const live = state === 'PREPARED' || state === 'SYNCING';
       dot.classList.toggle('live', live);
@@ -2570,7 +2545,6 @@ function showChatApp() {
     document.getElementById('chatMobileBack')?.addEventListener('click', () => setChatMobileView('rooms'));
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
-    document.getElementById('chatNewDmBtn')?.addEventListener('click', openDmModal);
     document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
     document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
       if (e.target.id === 'chatModalBackdrop') closeChatModal();

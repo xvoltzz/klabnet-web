@@ -52,6 +52,11 @@ function setActiveTab(key) {
   // that got reverted earlier this session for exactly that reason) is
   // the one moment a hard jump-to-bottom is actually the correct, expected
   // behavior rather than something yanking the view out from under you.
+  // Arriving at Chat on a phone lands on the list of people/channels, not
+  // straight into whatever conversation happened to be active. Anything
+  // that jumps to a specific room (openChatRoom, messageUser) sets 'convo'
+  // immediately AFTER its own setActiveTab call, so it wins over this.
+  if (enteringChat && typeof setChatMobileView === 'function') setChatMobileView('rooms');
   if (enteringChat && typeof renderTimeline === 'function') {
     _lastTimelineRenderKey = null;
     // Clearing the render key above only forces renderTimeline() to
