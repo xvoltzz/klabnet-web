@@ -13,7 +13,14 @@
 // everyone to whatever build the cache happened to capture. Navigations
 // and no-store requests fall through to the network untouched.
 
-const CACHE = 'klabnet-static-v1';
+// Bumping this name purges every previously cached asset on activate.
+// That's the escape hatch when a deploy has already gone out and people are
+// holding stale js/css: the worker updates on their next navigation (it's
+// byte-compared on every one), the old cache is deleted, and their next
+// asset request misses and goes to the network — even if their index.html
+// is itself still cached and still asking for the old URLs.
+// Bump this whenever a deploy MUST reach people who are already running.
+const CACHE = 'klabnet-static-v2';
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
@@ -53,9 +60,10 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (!isCacheable(url, event.request)) return; // straight to the network
 
-  // Stale-while-revalidate: answer from cache when we have it, and refresh
-  // the entry in the background so a redeployed asset is picked up on the
-  // next load rather than needing a cache version bump.
+  // Stale-while-revalidate. Safe now that index.html versions every asset
+  // URL with ?v=<KLABNET_VERSION>: a deploy changes the URL, so a new
+  // version is always a cache miss rather than a stale hit that only
+  // corrects itself on the load after next.
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(event.request);

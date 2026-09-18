@@ -62,7 +62,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.18.2" />
 </head>
 <body>
 
@@ -601,22 +601,27 @@ window.KLAB_BOOT = (function() {
 <!-- Inline on purpose: checkForUpdate() re-fetches index.html and greps
      this string out to decide whether to show the "new version" banner.
      Living in a .js file it could never change index.html, so the banner
-     would never fire. Bump this on a deploy you want people to reload for. -->
-<script>const KLABNET_VERSION = 'v2026.09.18.1';</script>
-<script defer src="js/00-util.js"></script>
-<script defer src="js/01-shell.js"></script>
-<script defer src="js/02-player.js"></script>
-<script defer src="js/03-picker-tabs.js"></script>
-<script defer src="js/04-sfx.js"></script>
-<script defer src="js/05-favorites.js"></script>
-<script defer src="js/06-prefs.js"></script>
-<script defer src="js/07-tabnav.js"></script>
-<script defer src="js/08-chat.js"></script>
-<script defer src="js/09-music-extras.js"></script>
-<script defer src="js/10-lyrics.js"></script>
-<script defer src="js/11-presence.js"></script>
-<script defer src="js/12-feed.js"></script>
-<script defer src="js/13-tail.js"></script>
+     would never fire.
+     It also cache-busts every asset below. index.html is never cached (the
+     update check depends on that) but the js/css are, by the browser and by
+     the service worker's stale-while-revalidate — so without a changing URL
+     a deploy served fresh HTML against stale code, which looks like the new
+     markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
+<script>const KLABNET_VERSION = 'v2026.09.18.2';</script>
+<script defer src="js/00-util.js?v=v2026.09.18.2"></script>
+<script defer src="js/01-shell.js?v=v2026.09.18.2"></script>
+<script defer src="js/02-player.js?v=v2026.09.18.2"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.18.2"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.18.2"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.18.2"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.18.2"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.18.2"></script>
+<script defer src="js/08-chat.js?v=v2026.09.18.2"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.18.2"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.18.2"></script>
+<script defer src="js/11-presence.js?v=v2026.09.18.2"></script>
+<script defer src="js/12-feed.js?v=v2026.09.18.2"></script>
+<script defer src="js/13-tail.js?v=v2026.09.18.2"></script>
 
 </body>
 </html>
