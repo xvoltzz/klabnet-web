@@ -262,6 +262,100 @@ function ensurePlDelegate() {
 }
 
 // ══════════════════════════════════════════
+//  MUSIC DOWNLOADS — pull a track or a whole album out of the library
+//
+//  Two different mechanisms, because Navidrome treats the two endpoints
+//  differently:
+//
+//    /rest/download  returns the file on disk (or a ZIP, for an album id)
+//                    with `Content-Disposition: attachment` and the real
+//                    filename already set, so pointing an <a> at it is
+//                    enough — the browser downloads rather than navigates,
+//                    and nothing has to buffer in memory. This is the path
+//                    a whole album must take: an album ZIP is happily
+//                    hundreds of MB and has no business in a Blob.
+//
+//    /rest/stream    with format=mp3 transcodes on the fly, but serves it
+//                    `audio/mpeg` INLINE with no Content-Disposition. A
+//                    plain navigation would just start playing it in a new
+//                    tab, and the <a download> attribute can't override
+//                    that because music.klab.gg is a different origin from
+//                    this page — cross-origin `download` is ignored. So
+//                    the transcoded path has to fetch the bytes and hand
+//                    the browser a same-origin blob: URL instead, which is
+//                    also the only way we get to name the file ourselves.
+// ══════════════════════════════════════════
+const DL_MP3_BITRATE = 320;
+
+function _dlAnchor(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  if (filename) a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// Tag values come straight from file metadata, so they can contain path
+// separators and the characters Windows rejects outright ("AC/DC", "Where
+// Is My Mind?"). Only used for the transcoded path — /download's own
+// filename never passes through here.
+function _dlFilename(song, ext) {
+  const base = [song.artist, song.title].filter(Boolean).join(' - ') || 'track';
+  return base.replace(/[\/\\:*?"<>|\x00-\x1f]/g, '_').trim().slice(0, 150) + '.' + ext;
+}
+
+function downloadSongOriginal(song) {
+  if (!song || !song.id) return;
+  _dlAnchor(`${ND_URL}/rest/download?id=${encodeURIComponent(song.id)}&${subsonicParams()}`);
+  showToast(`Downloading "${song.title}"`);
+}
+
+let _dlMp3Busy = false;
+async function downloadSongMp3(song) {
+  if (!song || !song.id) return;
+  // The whole file lands in memory before the browser sees any of it, so
+  // don't let someone stack up five of these by spamming the menu.
+  if (_dlMp3Busy) { showToast('Already preparing a download'); return; }
+  _dlMp3Busy = true;
+  let objUrl = '';
+  try {
+    showToast(`Converting "${song.title}" to MP3…`);
+    const url = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.id)}`
+              + `&format=mp3&maxBitRate=${DL_MP3_BITRATE}&${subsonicParams()}`;
+    // fetchTimeout's abort timer is cleared when the fetch promise settles
+    // — that's at the response HEADERS, not the end of the body — so this
+    // 30s cap covers "did Navidrome answer at all" without also capping
+    // how long a long track is allowed to spend transcoding.
+    const res = await fetchTimeout(url, {}, 30000);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    if (!blob.size) throw new Error('empty response');
+    objUrl = URL.createObjectURL(blob);
+    _dlAnchor(objUrl, _dlFilename(song, 'mp3'));
+    showToast(`Downloaded "${song.title}" (MP3)`);
+  } catch (err) {
+    console.warn('[download] mp3 failed', err);
+    showToast('MP3 download failed — try the original');
+  } finally {
+    _dlMp3Busy = false;
+    // Revoking immediately can cancel the download in some browsers; the
+    // click has only queued it at this point.
+    if (objUrl) setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+  }
+}
+
+// Albums are original-quality only: Subsonic has no transcoded-archive
+// endpoint, and doing it client-side would mean fetching and re-zipping
+// the entire album in a tab.
+function downloadAlbumZip(albumId, albumName) {
+  if (!albumId) return;
+  _dlAnchor(`${ND_URL}/rest/download?id=${encodeURIComponent(albumId)}&${subsonicParams()}`);
+  showToast(`Downloading "${albumName || 'album'}" (ZIP)`);
+}
+
+// ══════════════════════════════════════════
 //  SONG CONTEXT MENU — right-click a song (picker rows, player dock)
 //  for the same actions each row's buttons already offer, without
 //  needing that whole action row (the player dock has no room for one).
@@ -317,10 +411,28 @@ function showSongCtx(x, y, song, contextSongs) {
     else { setLoginSong(song); showToast(`"${song.title}" set as login song ★`); }
   };
 
+  // Label the original with what it actually is ("Download FLAC"), since
+  // that's the whole reason someone would pick it over the MP3. The MP3
+  // row hides when the file already is one — transcoding mp3 to mp3 just
+  // costs quality.
+  const suffix = (song.suffix || '').toLowerCase();
+  const dlItem = document.getElementById('songCtxDownload');
+  dlItem.innerHTML = `<i class="ti ti-download"></i> Download${suffix ? ' ' + suffix.toUpperCase() : ''}`;
+  dlItem.onclick = () => { hideSongCtx(); downloadSongOriginal(song); };
+
+  const dlMp3Item = document.getElementById('songCtxDownloadMp3');
+  dlMp3Item.style.display = suffix === 'mp3' ? 'none' : 'flex';
+  dlMp3Item.onclick = () => { hideSongCtx(); downloadSongMp3(song); };
+
   const z = zoomFactor();
   songCtxMenu.style.left = Math.min(x / z, window.innerWidth / z - 200) + 'px';
-  songCtxMenu.style.top  = Math.min(y / z, window.innerHeight / z - 300) + 'px';
+  // Show it first: the menu is display:none until .visible lands, and a
+  // display:none element measures 0, so the clamp below has to come after.
+  // The height isn't a constant any more anyway — the MP3 row drops out
+  // for files that already are MP3s.
   songCtxMenu.classList.add('visible');
+  songCtxMenu.style.top = Math.max(8,
+    Math.min(y / z, window.innerHeight / z - songCtxMenu.offsetHeight - 12)) + 'px';
 }
 document.addEventListener('click', e => { if (!songCtxMenu.contains(e.target)) hideSongCtx(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') hideSongCtx(); });

@@ -625,7 +625,16 @@ function sampleImageColor(imgUrl) {
         queueBtn.addEventListener('click', () => {
           songs.forEach(s => addToQueue(s)); SFX && SFX.play('queue');
         });
-        actions.append(playBtn, shuffleBtn, queueBtn);
+        // Original quality only, as a ZIP straight from Navidrome — see
+        // downloadAlbumZip. Per-track MP3 lives in the song context menu.
+        const dlBtn = document.createElement('button'); dlBtn.className = 'ap-btn-queue';
+        dlBtn.innerHTML = '<i class="ti ti-download"></i> Download';
+        dlBtn.title = 'Download this album as a ZIP (original quality)';
+        dlBtn.addEventListener('click', () => {
+          downloadAlbumZip(albumId, album.name || album.title);
+          SFX && SFX.play('click');
+        });
+        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn);
         body.appendChild(actions);
 
         // Tracks

@@ -4040,3 +4040,31 @@
     @media (max-width: 1050px) {
       .header .tab-nav .tab-nav-btn { flex: 1 1 0; min-width: 0; }
     }
+
+    /* ══ TRACK QUALITY BADGES ═════════════════════════════════════════
+       Lossless carries the accent tint, lossy stays neutral — a status
+       distinction, not a warning, so neither state uses --warn-color. */
+    .player-quality {
+      display: inline-block; margin-left: 0.55em; vertical-align: baseline;
+      padding: 1px 6px; border-radius: var(--radius-sm);
+      font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; white-space: nowrap;
+      color: var(--text-dimmer);
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+    }
+    .player-quality.lossless {
+      color: rgba(var(--accent-rgb),0.95);
+      background: rgba(var(--accent-rgb),0.12);
+      border-color: rgba(var(--accent-rgb),0.3);
+    }
+    /* The dock is the one place that runs out of horizontal room first,
+       and title/artist/album all matter more than the codec. */
+    @media (max-width: 760px) { .player-quality { display: none; } }
+
+    .fs-quality {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+      margin-top: 7px; color: rgba(255,255,255,0.4);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fs-quality.lossless { color: rgba(var(--accent-rgb),0.85); }
+    .fs-quality:empty { display: none; }

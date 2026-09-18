@@ -54,3 +54,5 @@ fix right click / clicks missing
   glow to more elements like seek bar
 
   feed replies are broken until refresh
+
+  klabnet backspaces into klab.chat

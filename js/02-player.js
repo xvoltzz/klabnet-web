@@ -79,6 +79,46 @@ function refreshApNowHighlight() {
   });
 }
 
+// ── TRACK QUALITY ──
+// Subsonic hands back the source file's own properties, and Navidrome
+// serves /rest/stream to this client untouched (verified: a FLAC request
+// comes back `content-type: audio/flac` at the file's full size, no
+// transcode), so this describes what you are actually hearing rather than
+// what happens to be sitting on the disk. If per-client transcoding is
+// ever switched on server-side, this badge stops being true and needs to
+// read from the response instead.
+const LOSSLESS_SUFFIXES = new Set(['flac','alac','wav','aiff','aif','ape','wv','dsf','dff']);
+
+function songQuality(song) {
+  const suffix = (song && song.suffix || '').toLowerCase();
+  if (!suffix) return null;
+  const lossless = LOSSLESS_SUFFIXES.has(suffix);
+  const fmt = suffix.toUpperCase();
+
+  let khz = '';
+  if (song.samplingRate) {
+    const k = song.samplingRate / 1000;
+    // 44.1/88.2 need the decimal, 48/96/192 look wrong carrying ".0".
+    khz = (Number.isInteger(k) ? k : k.toFixed(1)) + ' kHz';
+  }
+
+  const parts = [];
+  // Bit depth is only meaningful for lossless — a "16-bit MP3" isn't a
+  // thing, and Navidrome reports one anyway.
+  if (lossless && song.bitDepth) parts.push(song.bitDepth + '-bit');
+  if (khz) parts.push(khz);
+  if (song.bitRate) parts.push(song.bitRate + ' kbps');
+  if (song.channelCount === 1) parts.push('Mono');
+
+  // Dock version is the audiophile shorthand ("FLAC 24/44.1"); the full
+  // string is the tooltip there and the visible line in fullscreen.
+  const short = (lossless && song.bitDepth && song.samplingRate)
+    ? `${fmt} ${song.bitDepth}/${(song.samplingRate / 1000).toFixed(1).replace(/\.0$/, '')}`
+    : fmt;
+
+  return { lossless, fmt, short, full: [fmt, ...parts].join(' · ') };
+}
+
 function updatePlayerUI(song) {
   refreshApNowHighlight();
   const titleEl  = document.getElementById('playerTitle');
@@ -141,6 +181,18 @@ function updatePlayerUI(song) {
     albumEl.textContent = song.album;
     artistEl.appendChild(sep);
     artistEl.appendChild(albumEl);
+  }
+
+  // Quality pill, on the end of the artist/album line. Lossless gets the
+  // accent tint; lossy stays neutral, so the distinction is readable at a
+  // glance without either one looking like a warning.
+  const q = songQuality(song);
+  if (q) {
+    const pill = document.createElement('span');
+    pill.className = 'player-quality' + (q.lossless ? ' lossless' : '');
+    pill.textContent = q.short;
+    pill.title = q.full;
+    artistEl.appendChild(pill);
   }
 
   // Album art — DOM construction avoids innerHTML escaping bugs
@@ -904,6 +956,12 @@ function updateFSUI(song) {
     bl.addEventListener('click', () => { closeFS(); goToMusicDetail(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums'))); });
     fsAlbumEl.appendChild(bl);
   } else { fsAlbumEl.textContent = song.album || ''; }
+
+  // Fullscreen has the room for the whole string, so no shorthand here.
+  const fsQualEl = document.getElementById('fsQuality');
+  const fsQ = songQuality(song);
+  fsQualEl.textContent = fsQ ? fsQ.full : '';
+  fsQualEl.className = 'fs-quality' + (fsQ && fsQ.lossless ? ' lossless' : '');
 
   // Everything above is cheap text/DOM so the panel is correct the instant
   // it opens. Everything below downloads artwork — a viewport-sized
