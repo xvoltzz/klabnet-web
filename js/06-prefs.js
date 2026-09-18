@@ -197,26 +197,13 @@ document.addEventListener('visibilitychange', () => {
 })();
 
 // ══════════════════════════════════════════
-//  APP MANAGEMENT
+//  ADMIN IDENTITY
 // ══════════════════════════════════════════
-// The custom-app builder (add/edit/delete tile via /api/apps, icon
-// picker, group-restriction picker) was removed — app tiles are now
-// hardcoded in #appGrid's HTML only. window.KLAB_USER.is_admin is kept
-// around since it's generic identity info, not part of that feature
-// specifically — every real is_admin check (feed/reply delete, music
-// request approve/delete) reads it straight off window.KLAB_USER, not
-// off a CSS class. A body.admin-user toggle + a fetchMe() monkey-patch
-// used to exist solely to set that class, but nothing ever selected on
-// it — removed as dead weight along with this comment's own "still
-// toggles body.admin-user below" claim, which was no longer true of
-// anything downstream of it.
-
-// The old "TILE EDIT SYSTEM" (admin, edit mode) lived here: a shared
-// modal for both creating/editing custom app tiles (POST/PUT /api/apps)
-// and restricting a static tile to specific groups (persisted as
-// tile_groups in prefs, applied via applyGroupVisibility — see the note
-// near "Per-group tile visibility" above). Removed with the rest of the
-// custom-app-builder feature; tiles are hardcoded in #appGrid now.
+// The Apps tab (hardcoded service tiles, their status dots and
+// maintenance flags) and the custom-app builder before it are both gone.
+// window.KLAB_USER.is_admin stays: it's generic identity info, and every
+// real admin check (feed/reply delete, music request approve/delete)
+// reads it straight off window.KLAB_USER.
 
 // ══════════════════════════════════════════
 //  VERSION + LIVE UPDATE CHECK
@@ -290,9 +277,6 @@ let _settings = {
   sfxVolume:     0.7,
   notifSound:    true,
   loginSong:     true,
-  experimentalEnabled: false,
-  showKlabcraft: true,
-  showLeaderboard: true,
 };
 
 function loadSettings() {
@@ -309,32 +293,6 @@ function saveSettings() {
 function applySettings() {
   // SFX volume — patch the SFX compressor
   if (typeof SFX !== 'undefined') SFX.setVolume(_settings.sfxEnabled ? (_settings.sfxVolume ?? 0.7) : 0);
-
-  // Experimental features — master gate + per-feature sections
-  const experimentalOptions = document.getElementById('experimentalOptions');
-  if (experimentalOptions) experimentalOptions.hidden = !_settings.experimentalEnabled;
-
-  const showSec = (selector, visible) => {
-    const sec = document.querySelector(selector);
-    if (!sec) return;
-    sec.hidden = !visible;
-    if (visible) sec.classList.add('in-view');
-  };
-  const klabcraftVisible = _settings.experimentalEnabled && _settings.showKlabcraft;
-  showSec('.sec[data-sec="klabcraft"]', klabcraftVisible);
-  // Leaderboard isn't a tab — just a header icon button that opens it as a
-  // modal (see openLeaderboardModal()) — so it only needs its own hidden
-  // state toggled, no .sec/tab-panel visibility to manage.
-  const leaderboardBtn = document.getElementById('leaderboardBtn');
-  if (leaderboardBtn) leaderboardBtn.hidden = !(_settings.experimentalEnabled && _settings.showLeaderboard);
-
-  // Tab nav follows the same gate — a disabled section's tab disappears too.
-  const setTabBtnVisible = (key, visible) => {
-    const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
-    if (btn) btn.hidden = !visible;
-  };
-  setTabBtnVisible('klabcraft', klabcraftVisible);
-  if (typeof refreshActiveTabAvailability === 'function') refreshActiveTabAvailability();
 
   // Social is a permanent feature now (no longer gated behind Experimental
   // Features) — its section/tab are unconditionally visible in the markup,

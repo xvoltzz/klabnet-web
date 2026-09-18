@@ -126,3 +126,16 @@ function klabArtFallback(img, placeholderClass, iconClass) {
   ph.innerHTML = `<i class="ti ${iconClass}"></i>`;
   img.replaceWith(ph);
 }
+
+// Both remaining context menus (presence cards, song rows) are
+// fixed-position elements living inside the zoomed `html` subtree (see the
+// `zoom` tiers on large displays in the stylesheet). `clientX`/`clientY`
+// are reported in real, unzoomed viewport pixels, but a fixed-position
+// descendant's `left`/`top` are lengths *inside* the zoomed context —
+// assigning the raw client coords shoots the menu off to the right/bottom
+// by the zoom factor (confirmed: at zoom 1.3, a menu placed at
+// clientX=3407 on a 3440px-wide screen rendered ~760px off-screen).
+// Dividing both the coordinates and the viewport bounds by the current
+// zoom factor converts everything back into the menu's own coordinate
+// space before positioning.
+function zoomFactor(){ return parseFloat(getComputedStyle(document.documentElement).zoom) || 1; }

@@ -1260,38 +1260,6 @@
       .feed-post-avatar { width: 36px; height: 36px; }
     }
 
-    /* ══ APP GRID ══ */
-    .grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
-      gap: 6px; animation: fadeUp 0.6s 0.18s ease both;
-    }
-
-    .tile-wrap { border-radius: 8px; }
-
-    .tile {
-      background: var(--tile-bg);
-      border: 1px solid var(--tile-border);
-      border-radius: 8px; padding: 0.55rem 0.75rem;
-      display: flex; flex-direction: row; align-items: center; gap: 0.65rem;
-      text-decoration: none; color: inherit; position: relative; overflow: hidden;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease;
-      -webkit-user-select: none; user-select: none;
-    }
-    .tile:hover {
-      background: var(--tile-bg-h);
-      border-color: var(--tile-border-h);
-    }
-    .tile:active { background: var(--tile-bg-h); }
-
-    .tile-wrap.tile-wrap-auto { width: fit-content; }
-    .tile.tile-wide {
-      font: inherit; padding: 0.7rem 1.1rem; gap: 0.75rem;
-    }
-    .tile.tile-wide .tile-name { overflow: visible; text-overflow: unset; white-space: nowrap; font-size: 11px; }
-    .tile.tile-wide i { font-size: 17px; }
-    .grass-icon-slot { display: flex; flex-shrink: 0; }
-
     /* ══ KLAB SOCIAL — Matrix chat ══ */
     .chat-shell {
       min-height: 320px;
@@ -1870,35 +1838,8 @@
     .img-view-backdrop.show-hint .img-view-hint { opacity: 1; }
     @media (max-width: 640px) { .img-view-hint { display: none; } }
 
-    .tile i {
-      font-size: 16px; color: var(--tile-icon);
-      transition: color 0.2s;
-      position: relative; z-index: 4;
-      flex-shrink: 0; width: 18px; text-align: center;
-    }
-
-    .tile-name {
-      font-size: 10.5px; letter-spacing: 0.07em; color: var(--tile-label);
-      text-transform: uppercase; text-align: left;
-      transition: color 0.2s; position: relative; z-index: 4;
-      font-family: var(--font-ui);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .tile:hover .tile-name { color: var(--tile-label-h); }
-
-    .tile-dot {
-      position: absolute; top: 8px; right: 8px;
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--glass-border);
-      transition: background 0.4s, box-shadow 0.4s; z-index: 5;
-    }
-    .tile-dot.up          { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
-    .tile-dot.down        { background: var(--danger-color); box-shadow: 0 0 8px rgba(248,113,113,0.7); animation: blink 1.5s ease infinite; }
-    .tile-dot.maintenance { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,0.7); animation: blink 2.5s ease infinite; }
-
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
     @media (prefers-reduced-motion: reduce) {
-      .tile-dot.down, .tile-dot.maintenance { animation: none; }
     }
 
     /* ══ CONTEXT MENU ══ */
@@ -2299,7 +2240,6 @@
        JS "EDIT MODE" section's own removal note) along with its banner,
        header toggle button, drag-ghost, and drop-indicator styles. */
 
-
     /* ══ APP MANAGEMENT ══ */
     .add-app-backdrop {
       position: fixed; inset: 0; z-index: 410;
@@ -2535,7 +2475,6 @@
     [data-theme="light"] .picker-action:hover { color: var(--text); background: rgba(130,112,88,0.1); }
     [data-theme="light"] .picker-back   { color: var(--tile-icon); }
     [data-theme="light"] .picker-back:hover { color: var(--text); }
-    [data-theme="light"] .tile-name     { color: var(--tile-icon); }
     [data-theme="light"] .ctx-item { color: var(--text-dim); }
     [data-theme="light"] .ctx-item:hover { background: rgba(130,112,88,0.08); color: var(--text); }
     [data-theme="light"] .ctx-divider { background: rgba(130,112,88,0.1); }
@@ -2564,29 +2503,12 @@
       flex-shrink: 0;
       cursor: pointer;
     }
-
-    /* Tile hover — accent-colored outline instead of a glow */
-    .tile:hover {
-      background: var(--tile-bg-h);
-      border-color: rgba(var(--accent-rgb),0.45);
-    }
-
-    .tile i { transition: color 0.2s ease; }
-    .tile:hover i { color: var(--tile-icon-h); }
-
-    /* Status dots — colored pulse */
-    .tile-dot { box-shadow: 0 0 0 0 rgba(var(--accent-rgb),0); }
-    .tile-dot.up {
-      animation: dotPulse 2.5s ease-out infinite;
-      box-shadow: 0 0 4px rgba(74,222,128,0.6);
-    }
     @keyframes dotPulse {
       0%  { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
       70% { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
       100%{ box-shadow: 0 0 0 0 rgba(74,222,128,0); }
     }
-    @media (prefers-reduced-motion: reduce) {
-      .tile-dot.up, .presence-card.is-playing .presence-card-online { animation: none; }
+    @media (prefers-reduced-motion: reduce) {.presence-card.is-playing .presence-card-online { animation: none; }
     }
 
     /* ── Smooth loading spinner ── */
@@ -2762,7 +2684,6 @@
     [data-theme="light"] .lyric-line.far      { color: rgba(255,252,248,0.24); }
     [data-theme="light"] .lyrics-status       { color: rgba(255,252,248,0.3); }
 
-
     /* ══════════════════════════════════════════
        PRESENCE / FRIENDS — inline section on the page,
        not a hidden sidebar. Prepping for deeper social
@@ -2914,7 +2835,6 @@
     }
     .presence-card.is-offline { opacity: 0.55; }
     .presence-card.is-offline .presence-card-avatar { filter: grayscale(0.6); }
-
 
     [data-theme="light"] .presence-card-avatar { border-color: rgba(120,108,92,0.2); }
     [data-theme="light"] .presence-card-name   { color: var(--text); }
@@ -3378,63 +3298,17 @@
     .picker-empty {
       font-size: 10px; letter-spacing: 0.15em; color: var(--text-dimmer);
       text-transform: uppercase; text-align: center; padding: 2rem;
-    }
-
-    /* ══ LEADERBOARD (experimental) ══ */
-    .lb-metric-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 1rem; }
-    /* Radius was its own one-off 20px (fully pill-shaped) — aligned to the
-       same 8px every other segmented/tab control in the app uses
-       (.tab-nav-btn/.picker-tab/.music-req-type-btn/.cal-today-btn). */
-    .lb-metric-btn {
-      display: flex; align-items: center; gap: 6px;
-      padding: 7px 12px; border-radius: var(--radius-md); cursor: pointer;
-      background: var(--tile-bg); border: 1px solid var(--tile-border);
-      color: var(--text-dim); font-size: var(--fs-11); font-family: var(--font-ui);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .lb-metric-btn:hover { border-color: var(--tile-border-h); }
-    .lb-metric-btn.active {
-      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
-      color: rgba(var(--accent-rgb),1);
-    }
-    .lb-list { display: flex; flex-direction: column; gap: 4px; margin-top: 0.9rem; }
-    .lb-row {
-      display: flex; align-items: center; gap: 0.8rem;
-      padding: 0.6rem 0.8rem; border-radius: 8px;
-      background: var(--tile-bg); border: 1px solid var(--tile-border);
-    }
-    .lb-rank {
-      width: 22px; flex-shrink: 0; text-align: center;
-      font-size: 12px; font-weight: 700; color: var(--text-dimmer); font-family: var(--font-ui);
-    }
-    /* Top 3 get a medal instead of a bare number — the whole point of a
-       leaderboard is that the top spots feel like something, not just
-       another row in a list. */
-    .lb-row.lb-rank-1 .lb-rank, .lb-row.lb-rank-2 .lb-rank, .lb-row.lb-rank-3 .lb-rank { font-size: 15px; }
-    .lb-row.lb-rank-1 { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.08); }
-    .lb-row.lb-rank-2 { border-color: rgba(148,163,184,0.35); background: rgba(148,163,184,0.08); }
-    .lb-row.lb-rank-3 { border-color: rgba(180,120,60,0.35); background: rgba(180,120,60,0.08); }
-    .lb-avatar {
-      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
-      font-size: 13px; font-weight: 700; text-transform: uppercase;
-    }
-    .lb-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .lb-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lb-value { flex-shrink: 0; font-size: 12px; font-weight: 700; color: rgba(var(--accent-rgb),1); font-family: var(--font-ui); }
+    }/* Top 3 get a medal instead of a bare number — the whole point of a
+       leaderboard is that the top spots feel like something { font-size: 15px; }
 
     ::selection {
       color: var(--bg);
       background: rgba(var(--accent-rgb),0.82);
-    }
-
-    .hdr-btn:focus-visible,
+    }.hdr-btn:focus-visible,
     .ctrl-btn:focus-visible,
     .fs-btn:focus-visible,
     .picker-action:focus-visible,
     .picker-tab:focus-visible,
-    .tile:focus-visible,
     input:focus-visible,
     textarea:focus-visible,
     button:focus-visible {
@@ -3507,21 +3381,6 @@
       body.sec-reveal .sec { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
 
-    /* ══════════════════════════════════════════
-       TILE FOCUS DIMMING — neighbors dim on hover
-    ══════════════════════════════════════════ */
-    @media (hover: hover) {
-      .grid:has(.tile-wrap:hover) .tile-wrap:not(:hover) .tile {
-        opacity: 0.84;
-        transform: scale(0.977);
-        transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2,0.8,0.2,1),
-          box-shadow 0.3s ease, border-color 0.24s ease, background 0.3s ease;
-      }
-      .grid:has(.tile-wrap:hover) .tile-wrap:hover .tile {
-        transform: translateY(-3px) scale(1.02);
-      }
-    }
-
     /* Desktop shows both chat panes at once, so there's nothing to go back
        to and the sidebar already names the room — the bar only exists
        under the mobile breakpoint, which turns this back on. */
@@ -3547,7 +3406,6 @@
       .feed-post-delete { opacity: 1; }
       /* Playlist delete, same hover-reveal problem. */
       .music-playlist-row-del { opacity: 1; }
-      .tile:hover { transform: none; }
     }
 
     /* ── Comfortable tap targets ── */

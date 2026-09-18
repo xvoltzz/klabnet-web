@@ -208,15 +208,6 @@ const SFX = (() => {
 })();
 
 // Wire SFX to UI elements
-// Tiles — hover chime comes from the delegated pointerover/pointerout
-// system below (hoverSelector includes '.tile'); this used to also bind
-// its own separate per-tile mouseenter listener, which fired alongside
-// the delegated one on every hover (two independent throttle timers, so
-// neither one suppressed the other) and played the 'hover' sound twice.
-document.querySelectorAll('.tile').forEach(tile => {
-  tile.addEventListener('click', () => SFX.play('glass'));
-});
-
 // Header buttons
 ['themeToggle','playerToggle'].forEach(id => {
   const el = document.getElementById(id);
@@ -290,7 +281,7 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
   setPlayingClass();
 
   let lastPremiumHover = 0;
-  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn, .tile';
+  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn';
   document.addEventListener('pointerover', e => {
     const el = e.target.closest(hoverSelector);
     if (!el || el._premiumHovered) return;

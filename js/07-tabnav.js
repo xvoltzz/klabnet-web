@@ -4,7 +4,7 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'chat', 'music', 'apps', 'klabcraft'];
+const TABS = ['feed', 'chat', 'music'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -96,9 +96,6 @@ function openSettings() {
     sfxToggle:        'sfxEnabled',
     notifSoundToggle: 'notifSound',
     loginSongToggle:  'loginSong',
-    experimentalToggle: 'experimentalEnabled',
-    klabcraftToggle:  'showKlabcraft',
-    leaderboardToggle: 'showLeaderboard',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -127,8 +124,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
     // Map toggle id back to settings key
     const map = {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
-      loginSongToggle: 'loginSong', experimentalToggle: 'experimentalEnabled',
-      klabcraftToggle: 'showKlabcraft', leaderboardToggle: 'showLeaderboard',
+      loginSongToggle: 'loginSong',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }
@@ -168,7 +164,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
 
 // Header overflow ("more") menu — toggled by its own button, closed by an
 // outside click, Escape, or clicking any item inside it (motdRefresh/
-// leaderboardBtn/keyHintsBtn/repoBtn/accountBtn keep their own separately-
+// keyHintsBtn/feedbackBtn/repoBtn/accountBtn keep their own separately-
 // wired click handlers elsewhere in the script; this only owns opening/
 // closing the menu chrome around them).
 (function() {
@@ -203,110 +199,3 @@ trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),
   () => document.getElementById('settingsBackdrop').classList.contains('open')
 );
-
-// ══════════════════════════════════════════
-//  KLABCRAFT — world backup browser (WIP)
-//  Lists backups that live on the server (served through Caddy) once
-//  the backup script exists. Point this at wherever that script ends
-//  up publishing its file list.
-// ══════════════════════════════════════════
-const KLABCRAFT_BACKUPS_API = '/api/klabcraft/backups';
-
-function grassIconSvg(size) {
-  size = size || 16;
-  return '<svg viewBox="0 0 8 8" width="' + size + '" height="' + size + '" shape-rendering="crispEdges" style="display:block" aria-hidden="true">'
-    + '<rect x="0" y="0" width="8" height="8" fill="#8b5a2b"/>'
-    + '<rect x="0" y="0" width="8" height="5" fill="#6cbb3c"/>'
-    + '<rect x="1" y="4" width="1" height="1" fill="#8b5a2b"/>'
-    + '<rect x="3" y="4" width="1" height="1" fill="#8b5a2b"/>'
-    + '<rect x="6" y="4" width="1" height="1" fill="#8b5a2b"/>'
-    + '</svg>';
-}
-
-function formatBackupSize(bytes) {
-  if (!bytes && bytes !== 0) return '';
-  const units = ['B','KB','MB','GB','TB'];
-  let i = 0, n = bytes;
-  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-  return (i === 0 ? n : n.toFixed(1)) + ' ' + units[i];
-}
-
-(function() {
-  const iconSlot = document.getElementById('worldBackupIcon');
-  if (iconSlot) iconSlot.innerHTML = grassIconSvg(17);
-
-  const btn      = document.getElementById('worldBackupBtn');
-  const backdrop = document.getElementById('klabcraftBackdrop');
-  const list     = document.getElementById('klabcraftList');
-  const closeBtn = document.getElementById('klabcraftClose');
-  const refresh  = document.getElementById('klabcraftRefresh');
-  if (!btn || !backdrop || !list) return;
-
-  async function loadBackups() {
-    list.innerHTML = '<div class="picker-empty">loading backups...</div>';
-    try {
-      const res = await fetchTimeout(KLABCRAFT_BACKUPS_API, {}, 8000);
-      if (!res.ok) throw new Error('unavailable');
-      const backups = await res.json();
-      if (!Array.isArray(backups) || !backups.length) {
-        list.innerHTML = '<div class="picker-empty">no backups found on the server yet</div>';
-        return;
-      }
-      list.innerHTML = '';
-      backups.forEach(b => {
-        const row = document.createElement('div');
-        row.className = 'picker-item';
-
-        const art = document.createElement('div');
-        art.className = 'picker-item-art-ph';
-        art.innerHTML = grassIconSvg(20);
-
-        const info = document.createElement('div');
-        info.className = 'picker-item-info';
-        const title = document.createElement('div');
-        title.className = 'picker-item-title';
-        title.textContent = b.name || 'backup.zip';
-        const sub = document.createElement('div');
-        sub.className = 'picker-item-artist';
-        sub.textContent = [formatBackupSize(b.size), b.modified].filter(Boolean).join(' · ');
-        info.append(title, sub);
-
-        const actions = document.createElement('div');
-        actions.className = 'picker-item-actions';
-        const dl = document.createElement('button');
-        dl.className = 'picker-action'; dl.title = 'Download';
-        dl.innerHTML = '<i class="ti ti-download"></i>';
-        dl.addEventListener('click', e => {
-          e.stopPropagation();
-          window.open(b.url || (KLABCRAFT_BACKUPS_API + '/' + encodeURIComponent(b.name)), '_blank');
-        });
-        actions.appendChild(dl);
-
-        row.append(art, info, actions);
-        list.appendChild(row);
-      });
-    } catch (e) {
-      list.innerHTML = '<div class="picker-empty">backup server not connected yet<br>check back once the script is running</div>';
-    }
-  }
-
-  function openKlabcraftBrowser() {
-    SFX && SFX.play('open');
-    backdrop.classList.add('open');
-    loadBackups();
-  }
-  function closeKlabcraftBrowser() {
-    SFX && SFX.play('close');
-    backdrop.classList.remove('open');
-  }
-  trapFocusWithin(backdrop.querySelector('.add-app-modal'), () => backdrop.classList.contains('open'));
-
-  btn.addEventListener('click', () => { SFX && SFX.play('click'); openKlabcraftBrowser(); });
-  closeBtn && closeBtn.addEventListener('click', closeKlabcraftBrowser);
-  refresh && refresh.addEventListener('click', () => { SFX && SFX.play('click'); loadBackups(); });
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeKlabcraftBrowser(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && backdrop.classList.contains('open')) closeKlabcraftBrowser();
-  });
-})();
-

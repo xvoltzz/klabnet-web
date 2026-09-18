@@ -192,11 +192,6 @@ window.KLAB_BOOT = (function() {
 
 <div class="ctx-menu" id="sortMenu" style="min-width:170px;"></div>
 
-<div class="ctx-menu" id="ctxMenu">
-  <div class="ctx-label" id="ctxTitle">Service</div>
-  <div class="ctx-item" id="ctxOpen"><i class="ti ti-external-link"></i> Open</div>
-  <div class="ctx-divider"></div>
-  <div class="ctx-item warn" id="ctxMaintenance"><i class="ti ti-tool"></i> Set Maintenance</div>
 </div>
 
 <div class="ctx-menu" id="presenceCtxMenu">
@@ -240,11 +235,8 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
       <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
-      <button class="tab-nav-btn" data-tab-target="apps" title="Apps"><i class="ti ti-apps"></i><span>Apps</span></button>
-      <button class="tab-nav-btn" data-tab-target="klabcraft" title="KLABCRAFT"><i class="ti ti-brand-minecraft"></i><span>KLABCRAFT</span></button>
     </nav>
     <div class="header-right">
-      <button class="hdr-btn glass" id="leaderboardBtn" title="Leaderboard" aria-label="Leaderboard" hidden><i class="ti ti-trophy"></i></button>
       <button class="hdr-btn glass" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn glass" id="playerToggle" title="Toggle player" aria-label="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn glass" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
@@ -252,10 +244,8 @@ window.KLAB_BOOT = (function() {
            sit directly in this row as bare icon buttons; moved in here
            (same ids, so their existing click-handler wiring elsewhere in
            the script needs no changes) once the row grew to 8 icons and
-           started feeling cramped. Leaderboard stays directly visible on
-           purpose — the whole point of it is people actually noticing and
-           using it — and Account went further IN (no title tooltip even)
-           since it's rarely the thing anyone's reaching for. -->
+           started feeling cramped. Account sits furthest in (no title
+           tooltip even) since it's rarely the thing anyone's reaching for. -->
       <button class="hdr-btn glass" id="headerMoreBtn" title="More" aria-label="More"><i class="ti ti-menu-2"></i></button>
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
@@ -305,32 +295,6 @@ window.KLAB_BOOT = (function() {
     </div>
     <div class="feed-list" id="feedList"></div>
     <button class="feed-load-more" id="feedLoadMore" hidden>Load older</button>
-  </div>
-  </div>
-
-  <div class="tab-panel" data-tab-panel="apps">
-  <div class="sec" data-sec="applications">
-    <div class="sec-head"><span class="sec-label">// applications</span><div class="sec-line"></div></div>
-    <div class="grid" id="appGrid">
-
-      <div class="tile-wrap"><a class="tile" href="https://immich.klab.gg" data-id="6" data-name="Immich" data-url="https://immich.klab.gg" target="_blank"><span class="tile-dot" id="dot-6"></span><i class="ti ti-photo"></i><span class="tile-name">Immich</span></a>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://nextcloud.klab.gg" data-id="4" data-name="Nextcloud" data-url="https://nextcloud.klab.gg" target="_blank"><span class="tile-dot" id="dot-4"></span><i class="ti ti-cloud"></i><span class="tile-name">Nextcloud</span></a>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://jellyfin.klab.gg" data-id="3" data-name="Jellyfin" data-url="https://jellyfin.klab.gg" target="_blank"><span class="tile-dot" id="dot-3"></span><i class="ti ti-device-tv"></i><span class="tile-name">Jellyfin</span></a>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://qbt.klab.gg" data-id="12" data-name="qBittorrent" data-url="https://qbt.klab.gg" target="_blank"><span class="tile-dot" id="dot-12"></span><i class="ti ti-arrow-down-circle"></i><span class="tile-name">qBittorrent</span></a>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://pve.klab.gg" data-id="5" data-name="Proxmox" data-url="https://pve.klab.gg" target="_blank"><span class="tile-dot" id="dot-5"></span><i class="ti ti-server"></i><span class="tile-name">Proxmox</span></a>
-      </div>
-
-      <div class="tile-wrap"><a class="tile" href="https://git.klab.gg" data-id="0" data-name="Gitea" data-url="https://git.klab.gg" target="_blank"><span class="tile-dot" id="dot-gitea"></span><i class="ti ti-git-branch"></i><span class="tile-name">Gitea</span></a>
-      </div>
-    </div>
   </div>
   </div>
 
@@ -442,18 +406,6 @@ window.KLAB_BOOT = (function() {
   </div>
   </div>
 
-  <div class="tab-panel" data-tab-panel="klabcraft">
-  <div class="sec" data-sec="klabcraft" hidden>
-    <!-- Badge was "coming soon!" — stale: the backup browser this opens is
-         fully functional (real /api/klabcraft/backups list/download), it's
-         just gated behind the Experimental Features toggle like Leaderboard. -->
-    <div class="sec-head"><span class="sec-label">// klabcraft</span><span class="type-badge soon">experimental</span><div class="sec-line"></div></div>
-    <div class="grid" id="klabcraftGrid">
-      <div class="tile-wrap tile-wrap-auto">
-        <button class="tile tile-wide" id="worldBackupBtn" title="Browse world backups"><span class="grass-icon-slot" id="worldBackupIcon"></span><span class="tile-name">Download World Backup</span></button>
-      </div>
-    </div>
-  </div>
   </div>
 
   </div>
@@ -521,25 +473,6 @@ window.KLAB_BOOT = (function() {
 
 </div>
 
-<!-- KLABCRAFT BACKUP BROWSER MODAL -->
-<div class="add-app-backdrop" id="klabcraftBackdrop">
-  <div class="add-app-modal">
-    <div class="add-app-title">
-      <span>// select backup</span>
-      <div style="display:flex;align-items:center;gap:2px;">
-        <button class="add-app-close" id="klabcraftRefresh" title="Refresh"><i class="ti ti-refresh"></i></button>
-        <button class="add-app-close" id="klabcraftClose" title="Close"><i class="ti ti-x"></i></button>
-      </div>
-    </div>
-    <div class="picker-list" id="klabcraftList">
-      <div class="picker-empty">loading backups...</div>
-    </div>
-    <div class="add-app-label" style="text-align:center;color:var(--text-faint);letter-spacing:0.1em;">
-      reads from the server's backup folder — nothing there until the backup script is running
-    </div>
-  </div>
-</div>
-
 <!-- CHAT — browse/create/DM modal (one shared shell, body swapped per action
      by the JS in the KLAB SOCIAL section — see openChatModal()) -->
 <div class="add-app-backdrop" id="chatModalBackdrop">
@@ -564,7 +497,7 @@ window.KLAB_BOOT = (function() {
     <div class="key-hints-body">
       <div class="key-hints-group">
         <div class="key-hints-group-label">Navigation</div>
-        <div class="key-hints-row"><span>Go to Feed / Chat / Music / Apps / KLABCRAFT</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">f/c/m/a/k</kbd></span></div>
+        <div class="key-hints-row"><span>Go to Feed / Chat / Music</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">f/c/m</kbd></span></div>
         <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
         <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
         <div class="key-hints-row"><span>Focus search (Music tab)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
@@ -584,12 +517,6 @@ window.KLAB_BOOT = (function() {
     </div>
   </div>
 </div>
-
-<!-- ADD APP MODAL -->
-<!-- Custom "add app" modal + group-restriction feature was removed —
-     app tiles are hardcoded above in #appGrid now. Search this file for
-     "Per-group tile visibility" for a note on how it used to work, if
-     reviving it later. -->
 
 <!-- SETTINGS MODAL -->
 <div class="settings-backdrop" id="settingsBackdrop">
@@ -639,25 +566,6 @@ window.KLAB_BOOT = (function() {
         <div class="settings-row">
           <div><div class="settings-row-label">Login Song</div><div class="settings-row-sub">Play a song on page load</div></div>
           <div class="s-toggle on" id="loginSongToggle"></div>
-        </div>
-      </div>
-
-      <!-- Experimental Features -->
-      <div class="settings-section">
-        <span class="settings-section-label">Experimental Features</span>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Enable Experimental Features</div><div class="settings-row-sub">Unlock the in-progress sections below</div></div>
-          <div class="s-toggle" id="experimentalToggle"></div>
-        </div>
-        <div id="experimentalOptions" hidden>
-          <div class="settings-row">
-            <div><div class="settings-row-label">KLABCRAFT</div><div class="settings-row-sub">World backup section (work in progress)</div></div>
-            <div class="s-toggle" id="klabcraftToggle"></div>
-          </div>
-          <div class="settings-row">
-            <div><div class="settings-row-label">Leaderboard</div><div class="settings-row-sub">Minutes listened, posts, reactions, requests</div></div>
-            <div class="s-toggle" id="leaderboardToggle"></div>
-          </div>
         </div>
       </div>
 

@@ -467,7 +467,7 @@
     const isFirstLoad = !_feedLoadedOnce;
     // Nothing rendered yet on the very first load — a blank panel with no
     // indication anything is happening. Every other panel in the app
-    // (picker, leaderboard, requests) already shows a "loading…" state;
+    // (picker, requests) already shows a "loading…" state;
     // the feed just never got one.
     if (isFirstLoad) {
       listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
