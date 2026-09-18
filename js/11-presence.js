@@ -409,10 +409,18 @@
     '</div>';
   }
 
-  function renderList(others) {
-    _lastOthers = others;
+  function renderList(rawOthers) {
+    _lastOthers = rawOthers;
     const me = window.KLAB_USER?.username;
     const mySong = playerState.currentSong;
+    // Filtered HERE, not where the poll parses the response. If a presence
+    // poll lands before /api/me does, `me` is still 'anonymous', so the
+    // caller can't exclude you — and your own entry gets cached in
+    // _lastOthers. Every later replay of that array (an avatar resolving, a
+    // banner, a song colour — eleven call sites) then runs with identity
+    // known, drawing the "you" card AND your stale entry: two of yourself,
+    // until the next poll 8s later rebuilt the array correctly.
+    const others = (rawOthers || []).filter(l => l && l.username !== me);
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
@@ -798,13 +806,14 @@
       const r = await fetchTimeout(API, {}, 6000);
       if (!r.ok) return;
       const data = await r.json();
-      const me   = window.KLAB_USER?.username;
       // Arrives with the very first poll, unlike the Matrix-derived roster
       // it replaces — that one couldn't produce anything until the SDK had
       // downloaded, logged in and finished an initial sync.
       if (Array.isArray(data.roster)) _serverRoster = data.roster;
-      const others = (data.listeners || []).filter(l => l.username !== me);
-      renderList(others);
+      // Passed through unfiltered on purpose — renderList() drops the
+      // current user itself, so a poll that beats /api/me can't poison the
+      // cached array (see its own comment).
+      renderList(data.listeners || []);
     } catch(e) {
       // A single timed-out/failed poll shouldn't blank out everyone who was
       // online a moment ago — keep showing the last-known roster and let

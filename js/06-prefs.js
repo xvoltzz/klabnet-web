@@ -240,17 +240,43 @@ async function checkForUpdate() {
     const res = await fetchTimeout(location.pathname || '/', { cache: 'no-store' }, 8000);
     const html = await res.text();
     const match = /KLABNET_VERSION\s*=\s*'([^']+)'/.exec(html);
-    if (match && match[1] !== KLABNET_VERSION) showUpdateBanner();
+    if (match && match[1] !== KLABNET_VERSION) showUpdateBanner(match[1]);
   } catch (e) {}
 }
-function showUpdateBanner() {
+
+// Dismissal is remembered against the version it was dismissed FOR, not as
+// a plain boolean — otherwise closing it once would suppress every future
+// release too. The next deploy has a different version string, so the
+// notice comes back exactly once per release.
+const UPDATE_DISMISSED_KEY = 'klabnet_update_dismissed';
+function updateDismissedFor(version) {
+  try { return localStorage.getItem(UPDATE_DISMISSED_KEY) === version; } catch (e) { return false; }
+}
+function dismissUpdateFor(version) {
+  try { localStorage.setItem(UPDATE_DISMISSED_KEY, version); } catch (e) {}
+}
+
+function showUpdateBanner(newVersion) {
   if (document.getElementById('updateBanner')) return;
+  if (newVersion && updateDismissedFor(newVersion)) return;
+  // Lives in the header's toast stack (top right) rather than pinned to
+  // the bottom centre, where it sat directly over the player dock and got
+  // in the way of anyone listening to music.
+  const host = document.getElementById('toastFlyout') || document.body;
   const el = document.createElement('div');
   el.id = 'updateBanner';
   el.className = 'update-banner';
-  el.innerHTML = '<i class="ti ti-sparkles"></i><span>A new version is available.</span><button id="updateBannerReload">Reload</button>';
-  document.body.appendChild(el);
+  el.innerHTML =
+    '<i class="ti ti-sparkles"></i>' +
+    '<span>A new version is available.</span>' +
+    '<button type="button" id="updateBannerReload">Reload</button>' +
+    '<button type="button" class="update-banner-close" id="updateBannerClose" title="Dismiss" aria-label="Dismiss"><i class="ti ti-x"></i></button>';
+  host.appendChild(el);
   document.getElementById('updateBannerReload').addEventListener('click', () => location.reload());
+  document.getElementById('updateBannerClose').addEventListener('click', () => {
+    if (newVersion) dismissUpdateFor(newVersion);
+    el.remove();
+  });
 }
 setInterval(checkForUpdate, UPDATE_CHECK_MS);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });

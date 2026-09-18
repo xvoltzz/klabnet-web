@@ -2421,15 +2421,41 @@
     /* ══ LIVE UPDATE BANNER — someone deployed a new commit while this
        tab was open (see the version-poll script near the end of the
        document) ══ */
+    /* Sits in the header's toast stack (#toastFlyout, top right) rather
+       than pinned bottom-centre, where it covered the player dock — it was
+       landing right on top of the controls of anyone listening to music.
+       Matches .toast-item's shape so the stack reads as one thing, but
+       keeps the accent border since this one is persistent and asks for an
+       action, where a toast just fades out on its own. */
     .update-banner {
-      position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
-      z-index: 500; display: flex; align-items: center; gap: 10px;
-      padding: 0.6rem 0.6rem 0.6rem 1rem; border-radius: 20px;
+      pointer-events: auto; /* .toast-flyout is pointer-events:none */
+      display: flex; align-items: center; gap: 10px;
+      padding: 0.6rem 0.6rem 0.6rem 1rem; border-radius: 12px;
+      width: max-content; max-width: min(360px, calc(100vw - 3rem));
       background: var(--modal-bg); border: 1px solid rgba(var(--accent-rgb),0.4);
-      box-shadow: 0 12px 40px var(--shadow-50);
-      font-size: 10.5px; color: var(--text); letter-spacing: 0.02em;
-      animation: pickerUp 0.25s ease both;
+      box-shadow: 0 10px 32px var(--shadow-40), inset 0 1px 0 rgba(255,255,255,0.06);
+      font-family: var(--font-ui);
+      font-size: 11.5px; color: var(--text); letter-spacing: 0.02em;
+      animation: updateNoticeIn 0.25s ease both;
     }
+    /* Same direction .toast-item enters from, so the stack animates as one
+       thing. Toasts do it with a transition and a class; this is a one-shot
+       so a keyframe is simpler. */
+    @keyframes updateNoticeIn {
+      from { opacity: 0; transform: translateX(20px) scale(0.96); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .update-banner { animation: none; }
+    }
+    .update-banner-close {
+      width: 24px; height: 24px; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dimmer); font-size: 14px; border-radius: var(--radius-sm);
+      transition: color 0.15s, background 0.15s;
+    }
+    .update-banner-close:hover { color: var(--text); background: var(--glass-fill-h); }
     .update-banner i { color: rgba(var(--accent-rgb),1); font-size: 15px; }
     .update-banner button {
       padding: 5px 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700;
