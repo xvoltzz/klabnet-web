@@ -308,30 +308,26 @@
     renderList(_lastOthers);
   }
 
-  function offlineCardHTML(person) {
+  // Persisted so it doesn't snap shut on every poll-driven re-render, or
+  // every page load for someone who likes it open.
+  const OFFLINE_OPEN_KEY = 'klabnet_presence_offline_open';
+  function offlineExpanded() {
+    try { return localStorage.getItem(OFFLINE_OPEN_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setOfflineExpanded(v) {
+    try { localStorage.setItem(OFFLINE_OPEN_KEY, v ? '1' : '0'); } catch (e) {}
+  }
+
+  // One-line variant of offlineCardHTML for the collapsed list. Same
+  // data-username, so clicking one still opens a DM.
+  function offlineRowHTML(person) {
     ensureAvatarResolved(person.username);
     const avatarUrl = _avatarCache.get(person.username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (person.username || '?')[0].toUpperCase();
-    const statusText = _offlineStatusCache.get(person.userId) || '…';
-    // Notes outlive being online (24h TTL, independent of presence) —
-    // same as klabnet-web's "me" card, just always read-only here since
-    // nobody offline is ever the viewer.
-    const note = _notesCache.get(person.username);
-    const noteLine = note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '';
-    // Was missing entirely — cardHTML() (the online roster right above)
-    // sets --name-color from profileColor(), but this offline/"elsewhere"
-    // variant never did, so anyone showing up here always rendered in
-    // plain default text color regardless of their chosen chat color. Now
-    // that more people show up in this roster (auto-joining everyone to
-    // #klabnet put more accounts in shared rooms), it's a lot more visible.
-    const cardStyle = ' style="--name-color:' + profileColor(person.username) + ';"';
-    return '<div class="presence-card is-offline" data-username="' + esc(person.username) + '"' + cardStyle + '>' +
-      '<div class="presence-card-avatar">' + avatarInner + '</div>' +
-      '<div class="presence-card-info">' +
-        '<div class="presence-card-name">' + esc(person.username) + '</div>' +
-        '<div class="presence-card-track">' + esc(statusText) + '</div>' +
-        noteLine +
-      '</div>' +
+    return '<div class="presence-row" data-username="' + esc(person.username) + '"' +
+      ' style="--name-color:' + profileColor(person.username) + ';" title="' + esc(person.username) + '">' +
+      '<div class="presence-row-avatar">' + avatarInner + '</div>' +
+      '<span class="presence-row-name">' + esc(person.username) + '</span>' +
     '</div>';
   }
 
@@ -354,10 +350,21 @@
     // dot would only ever update when something chat-specific also
     // happened to trigger a re-render.
     if (typeof renderChannelList === 'function') renderChannelList();
+    // Offline people are the bulk of the roster and none of the value —
+    // no song, no note most of the time — but a full card each was
+    // burying the handful of people actually around under a wall of
+    // greyed-out ones. Collapsed behind a count by default, and rendered
+    // as one-line rows rather than cards when opened. Online stays cards.
     const roster = offlineRoster(onlineUsernames);
     if (roster.length) {
-      html += '<div class="presence-section-label">Offline</div>';
-      roster.forEach(person => { html += offlineCardHTML(person); });
+      const open = offlineExpanded();
+      html += '<button type="button" class="presence-offline-toggle' + (open ? ' is-open' : '') + '" id="presenceOfflineToggle">' +
+        '<i class="ti ti-chevron-right"></i>' +
+        '<span>' + roster.length + ' offline</span>' +
+        '</button>';
+      html += '<div class="presence-offline-list"' + (open ? '' : ' hidden') + '>';
+      roster.forEach(person => { html += offlineRowHTML(person); });
+      html += '</div>';
     }
     // Most 8s polls come back with nothing changed — skip the DOM
     // teardown/rebuild entirely when the output is identical to last time.
@@ -375,22 +382,55 @@
   // skip-if-unchanged check above.
   function applyUnreadDmDots() {
     const unread = window.KLAB_UNREAD_DM_USERS;
-    list.querySelectorAll('.presence-card[data-username]').forEach(card => {
-      const has = !!unread && unread.has(card.dataset.username);
-      card.classList.toggle('has-unread', has);
-      const existing = card.querySelector('.presence-card-unread-dot');
+    let hiddenUnread = 0;
+    list.querySelectorAll('.presence-card[data-username], .presence-row[data-username]').forEach(el => {
+      const has = !!unread && unread.has(el.dataset.username);
+      el.classList.toggle('has-unread', has);
+      const existing = el.querySelector('.presence-card-unread-dot');
       if (has && !existing) {
         const dot = document.createElement('span');
         dot.className = 'presence-card-unread-dot';
         dot.title = 'Unread message';
-        card.appendChild(dot);
+        el.appendChild(dot);
       } else if (!has && existing) {
         existing.remove();
       }
+      // An unread DM from someone offline would otherwise be invisible
+      // while the offline list is collapsed.
+      if (has && el.classList.contains('presence-row') && !offlineExpanded()) hiddenUnread++;
     });
+    const toggle = document.getElementById('presenceOfflineToggle');
+    if (toggle) {
+      toggle.classList.toggle('has-unread', hiddenUnread > 0);
+      toggle.title = hiddenUnread ? `${hiddenUnread} unread message${hiddenUnread === 1 ? '' : 's'} in here` : '';
+    }
   }
   // Called by the chat module whenever its unread set changes.
   window.KLAB_REFRESH_PRESENCE_UNREAD = applyUnreadDmDots;
+
+  // ── Rail tabs: Users / Channels ──────────
+  // Only meaningful on Chat (off it there are no channels and the tab row
+  // is hidden), but the class is harmless everywhere so there's no need to
+  // special-case the tab here. Remembered so it doesn't reset every visit.
+  const RAIL_TAB_KEY = 'klabnet_rail_tab';
+  function setRailTab(which) {
+    const rail = document.getElementById('presenceRail');
+    if (!rail) return;
+    const showChannels = which === 'channels';
+    rail.classList.toggle('show-channels', showChannels);
+    document.querySelectorAll('#railTabs .rail-tab').forEach(b =>
+      b.classList.toggle('active', (b.dataset.railTab === 'channels') === showChannels));
+    try { localStorage.setItem(RAIL_TAB_KEY, showChannels ? 'channels' : 'users'); } catch (e) {}
+  }
+  document.getElementById('railTabs')?.addEventListener('click', e => {
+    const btn = e.target.closest('.rail-tab');
+    if (!btn) return;
+    setRailTab(btn.dataset.railTab);
+    SFX && SFX.play('click');
+  });
+  try { setRailTab(localStorage.getItem(RAIL_TAB_KEY) || 'users'); } catch (e) { setRailTab('users'); }
+  // Jumping to a room should show it selected, so surface the channels pane.
+  window.KLAB_SHOW_RAIL_CHANNELS = () => setRailTab('channels');
 
   // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
@@ -599,12 +639,23 @@
     if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
     if (meCard) { openProfileModal(); return; }
+    const offToggle = e.target.closest('#presenceOfflineToggle');
+    if (offToggle) {
+      const open = !offToggle.classList.contains('is-open');
+      setOfflineExpanded(open);
+      offToggle.classList.toggle('is-open', open);
+      const listEl = offToggle.nextElementSibling;
+      if (listEl) listEl.hidden = !open;
+      SFX && SFX.play('click');
+      return;
+    }
     // Left-click opens a DM. It used to start a listening party, which is a
     // surprising thing to do by accident to someone else's audio — that
     // moved to the right-click menu alongside View Profile, where it reads
     // as the deliberate action it is. messageUser() reuses an existing DM
     // if there is one, so this is "talk to this person" either way.
-    const card = e.target.closest('.presence-card[data-username]');
+    // .presence-row is the compact offline variant — same behaviour.
+    const card = e.target.closest('.presence-card[data-username], .presence-row[data-username]');
     if (card && !card.classList.contains('is-me')) {
       SFX && SFX.play('nav');
       messageUser(card.dataset.username);
@@ -630,7 +681,7 @@
     presenceCtxMenu.classList.add('visible');
   }
   list.addEventListener('contextmenu', e => {
-    const card = e.target.closest('.presence-card');
+    const card = e.target.closest('.presence-card, .presence-row');
     // Not yourself — listen-partying or DMing your own card makes no sense.
     if (!card || card.classList.contains('is-me') || !card.dataset.username) return;
     e.preventDefault();

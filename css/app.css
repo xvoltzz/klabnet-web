@@ -1567,14 +1567,88 @@
     .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
     .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: zoom-in; }
 
-    /* Channels section inside the presence rail — only on the Chat tab;
-       on every other tab the rail is just the roster. */
-    .rail-channels { display: none; margin-top: 1.6rem; }
-    body.tab-chat-active .rail-channels { display: block; }
-    .rail-channels .sec-head { margin-bottom: 0.5rem; }
+    /* ── Rail panes: Users / Channels ──
+       Only one is on screen at a time. Off the Chat tab there are no
+       channels at all, so the tab row hides and the roster shows with its
+       own "// users" header instead. */
+    .rail-tabs { display: none; align-items: center; gap: 4px; margin-bottom: 0.7rem; }
+    body.tab-chat-active .rail-tabs { display: flex; }
+    body.tab-chat-active #railPaneUsers > .sec-head { display: none; }
+    .rail-tab {
+      flex: 1; height: 28px; border-radius: var(--radius-md); cursor: pointer;
+      font-family: var(--font-ui); font-size: var(--fs-10);
+      letter-spacing: 0.12em; text-transform: uppercase;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      color: var(--text-dim);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .rail-tab:hover { background: var(--tile-bg-h); color: var(--text); }
+    .rail-tab.active {
+      background: rgba(var(--accent-rgb),0.16);
+      border-color: rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1);
+    }
+    /* The browse/create buttons belong to the channels pane, so they only
+       make sense while it's showing. */
+    .rail-tabs .chat-channels-toolbar { display: none; }
+    .presence-rail.show-channels .rail-tabs .chat-channels-toolbar { display: flex; }
+
+    .rail-channels { display: none; }
+    body.tab-chat-active .presence-rail.show-channels .rail-channels { display: block; }
+    body.tab-chat-active .presence-rail.show-channels #railPaneUsers { display: none; }
     .chat-channels-toolbar {
       display: flex; justify-content: flex-start; gap: 2px;
       flex-shrink: 0;
+    }
+
+    /* ── Offline roster ──
+       Collapsed behind a count by default. Offline people are most of the
+       list and carry almost no information — a full card each buried the
+       few people actually around. */
+    .presence-offline-toggle {
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      margin-top: 0.7rem; padding: 6px 4px;
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font-ui); font-size: 8px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--text-faint);
+      transition: color 0.15s;
+    }
+    .presence-offline-toggle:hover { color: var(--text-dim); }
+    .presence-offline-toggle i { font-size: 11px; transition: transform 0.18s ease; }
+    .presence-offline-toggle.is-open i { transform: rotate(90deg); }
+    .presence-offline-list { display: flex; flex-direction: column; gap: 1px; }
+    .presence-offline-list[hidden] { display: none; }
+
+    /* One-line variant of a presence card, for the offline list only. */
+    .presence-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 7px; cursor: pointer;
+      border: 1px solid transparent; opacity: 0.6;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    .presence-row:hover {
+      background: var(--tile-bg-h); border-color: var(--tile-border-h); opacity: 1;
+    }
+    .presence-row-avatar {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      filter: grayscale(0.6);
+    }
+    .presence-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .presence-row-name {
+      font-size: 12px; color: var(--name-color, var(--text-dim));
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .presence-row.has-unread { opacity: 1; border-color: rgba(var(--accent-rgb),0.45); }
+    /* The collapsed header carries the signal when the unread person is
+       hidden inside it. */
+    .presence-offline-toggle.has-unread { color: rgba(var(--accent-rgb),1); }
+    .presence-offline-toggle.has-unread::after {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(var(--accent-rgb),1);
+      box-shadow: 0 0 6px rgba(var(--accent-rgb),0.7); margin-left: auto;
     }
 
     /* Unread DM marker on a person's card. The rail is the DM list now, so
