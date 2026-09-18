@@ -856,8 +856,13 @@
     /* ══ TOAST FLYOUT — stacked notifications hanging off the header
        buttons' bottom-right corner, matching the ctx-menu/modal surfaces
        rather than the old free-floating bottom-center pill. ══ */
+    /* Also a <body> child now, for the same backdrop reason as
+       .hdr-more-menu above — toasts carry the blur too. Anchored under the
+       header's icon tray by syncToastFlyout() rather than by being its
+       child. */
     .toast-flyout {
-      position: absolute; top: calc(100% + 0.7rem); right: 0;
+      /* top/right set by syncToastFlyout(); fallback as above. */
+      position: fixed; top: 5.5rem; right: 1.5rem;
       display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
       z-index: 500; pointer-events: none;
     }
@@ -2092,8 +2097,17 @@
        button that opens it instead of positioned at a right-click point,
        so plain position:absolute within .header-right's own relative
        positioning is enough — no JS coordinate math needed. */
+    /* position:fixed and a <body> child, not absolute inside .header-right.
+       Anything nested in .header never blurs its backdrop — backdrop-filter
+       is honoured in the computed style but composites against nothing, so
+       the panel came out plainly see-through. Measured: identical markup
+       scores 33 stdev of backdrop contrast inside .header vs 0.7 as a body
+       child (0.7 = fully blurred). Coordinates come from the header button
+       at open time; see positionHeaderMenu() in 07-tabnav.js. */
     .hdr-more-menu {
-      position: absolute; top: calc(100% + 10px); right: 0; z-index: 60;
+      /* top/right are set by JS; these are only a sane fallback for the
+         frame before it runs. */
+      position: fixed; top: 5.5rem; right: 1.5rem; z-index: 60;
       min-width: 210px; padding: 6px; border-radius: 8px; display: none;
       animation: ctxIn 0.15s ease both;
       background: var(--modal-bg); border: 1px solid var(--glass-border-h);

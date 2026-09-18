@@ -176,10 +176,21 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   const btn  = document.getElementById('headerMoreBtn');
   const menu = document.getElementById('headerMoreMenu');
   if (!btn || !menu) return;
+  // The menu is a <body> child now (it stopped blurring its backdrop as a
+  // descendant of .header), so it no longer inherits its position from
+  // .header-right and has to be placed against the button each time it
+  // opens — the button moves with viewport width and the zoom tiers.
+  function positionHeaderMenu() { anchorPanelUnder(menu, btn, 10); }
+
   btn.addEventListener('click', e => {
     e.stopPropagation();
+    const opening = !menu.classList.contains('visible');
+    if (opening) positionHeaderMenu();   // before .visible, so it never paints at a stale spot
     menu.classList.toggle('visible');
     SFX && SFX.play('click');
+  });
+  window.addEventListener('resize', () => {
+    if (menu.classList.contains('visible')) positionHeaderMenu();
   });
   menu.addEventListener('click', e => { if (e.target.closest('.ctx-item')) menu.classList.remove('visible'); });
   document.addEventListener('click', e => {

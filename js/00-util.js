@@ -139,3 +139,38 @@ function klabArtFallback(img, placeholderClass, iconClass) {
 // zoom factor converts everything back into the menu's own coordinate
 // space before positioning.
 function zoomFactor(){ return parseFloat(getComputedStyle(document.documentElement).zoom) || 1; }
+
+// Anchors a position:fixed panel under a right-aligned element, matching its
+// right edge. Exists because #headerMoreMenu and #toastFlyout had to move out
+// of .header to be direct <body> children: anything nested inside .header
+// never blurs its backdrop, so backdrop-filter composited against nothing and
+// those panels rendered plainly see-through. They lost `top:100%`/`right:0`
+// with their old parent, so the anchoring is done here instead.
+//
+// Divided by zoomFactor() for the same reason showSongCtx() does it: on the
+// wide-viewport `html { zoom }` tiers a rect reads back in zoomed pixels,
+// while a px value set on a fixed child gets scaled by that zoom again.
+function anchorPanelUnder(panel, anchorEl, gap) {
+  if (!panel || !anchorEl) return;
+  const r = anchorEl.getBoundingClientRect();
+  if (!r.width && !r.height) return;   // anchor hidden (mobile hides some header buttons)
+  const z = zoomFactor();
+  panel.style.top   = (r.bottom / z + (gap || 10)) + 'px';
+  panel.style.right = Math.max(8, (window.innerWidth - r.right) / z) + 'px';
+  panel.style.left  = 'auto';
+}
+
+// The toast stack is always parked under the header's icon tray. It has no
+// open/close moment of its own, so it re-syncs on the things that can move
+// the header: viewport resize, and the orientation/zoom changes that come
+// with it.
+function syncToastFlyout() {
+  anchorPanelUnder(
+    document.getElementById('toastFlyout'),
+    document.querySelector('.header-right'),
+    11
+  );
+}
+window.addEventListener('resize', syncToastFlyout);
+window.addEventListener('orientationchange', syncToastFlyout);
+document.addEventListener('DOMContentLoaded', syncToastFlyout);
