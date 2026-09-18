@@ -1641,25 +1641,30 @@
       font-size: 12px; color: var(--name-color, var(--text-dim));
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
     }
-    .presence-row.has-unread { opacity: 1; border-color: rgba(var(--accent-rgb),0.45); }
+    .presence-row.has-unread { opacity: 1; }
     /* The collapsed header carries the signal when the unread person is
        hidden inside it. */
-    .presence-offline-toggle.has-unread { color: rgba(var(--accent-rgb),1); }
+    .presence-offline-toggle.has-unread { color: var(--danger-color); }
     .presence-offline-toggle.has-unread::after {
-      content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: rgba(var(--accent-rgb),1);
-      box-shadow: 0 0 6px rgba(var(--accent-rgb),0.7); margin-left: auto;
+      content: ''; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--danger-color);
+      box-shadow: 0 0 7px rgba(248,113,113,0.65); margin-left: auto;
     }
 
     /* Unread DM marker on a person's card. The rail is the DM list now, so
        without this an unread DM from someone would be invisible. */
+    /* Red, not --accent-rgb. The accent is sampled from album art, so it's
+       whatever colour is playing — it reads as decoration rather than
+       "you have a message". Red is the only unambiguous one here, and it's
+       the only red in the rail. */
     .presence-card-unread-dot {
-      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-      background: rgba(var(--accent-rgb),1);
-      box-shadow: 0 0 6px rgba(var(--accent-rgb),0.7);
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+      background: var(--danger-color);
+      box-shadow: 0 0 7px rgba(248,113,113,0.65);
       margin-left: auto;
     }
-    .presence-card.has-unread { border-color: rgba(var(--accent-rgb),0.45); }
+    .presence-card.has-unread,
+    .presence-row.has-unread { border-color: rgba(248,113,113,0.5); }
     .chat-icon-btn {
       background: none; border: none; cursor: pointer; color: var(--text-dimmer);
       font-size: 14px; padding: 4px 6px; border-radius: 6px;

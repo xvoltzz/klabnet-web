@@ -355,7 +355,7 @@
       '</button>'
     ).join('');
     const quickPickerOpen = _openReactionPickers.has(post.id);
-    return '<div class="feed-post" style="--name-color:' + profileColor(post.username) + '">' +
+    return '<div class="feed-post" data-post-id="' + post.id + '" style="--name-color:' + profileColor(post.username) + '">' +
       '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
@@ -384,9 +384,10 @@
   // _lastChannelListKey and renderTimeline()'s _lastTimelineRenderKey — the
   // feed was the one list without it.
   let _lastFeedRenderKey = null;
-  function feedRenderKey(posts, me) {
-    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' +
-      posts.map(p => {
+  // Per-post so the renderer can tell WHICH posts changed, not just that
+  // something did. Everything postHTML() reads about one post goes in here.
+  function postRenderKey(p, me) {
+    {
         const replies = _repliesCache.get(p.id);
         return p.id +
           // fmtFeedTime is relative ("just now" / "5m" / "2h"), so the
@@ -405,19 +406,80 @@
           ':' + (replies
             ? replies.map(r => r.id + '@' + fmtFeedTime(r.created) + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-');
-      }).join(',');
+    }
+  }
+  function feedRenderKey(posts, me) {
+    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' +
+      posts.map(p => postRenderKey(p, me)).join(',');
   }
 
+  function buildPostEl(post, key) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = postHTML(post);
+    const el = wrap.firstElementChild;
+    el.dataset.postKey = key;
+    return el;
+  }
+
+  // Reconciles post by post instead of replacing the whole list. A single
+  // reaction, one avatar resolving, or a timestamp ticking over used to
+  // re-create every <img> and <iframe> on screen — that's the flicker, and
+  // spam-clicking a reaction made it continuous. Now only the posts whose
+  // own key changed get rebuilt; everything else is left alone entirely.
   function renderFeed() {
     const me = window.KLAB_USER?.username;
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
     const key = feedRenderKey(posts, me);
     if (key === _lastFeedRenderKey) return;
     _lastFeedRenderKey = key;
+
     if (!posts.length) {
       listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
     } else {
-      listEl.innerHTML = posts.map(postHTML).join('');
+      // Typing in a reply box must survive a re-render happening around it
+      // (a 30s poll, someone else's reaction, a minute ticking over). The
+      // post being typed in is skipped below, but a prepended new post
+      // still shifts everything, and moving a node blurs whatever's inside
+      // it — so the caret is saved and put back.
+      const active = document.activeElement;
+      const typingIn = active && listEl.contains(active) ? active : null;
+      const caret = typingIn && typingIn.selectionStart != null
+        ? [typingIn.selectionStart, typingIn.selectionEnd] : null;
+
+      const existing = new Map();
+      listEl.querySelectorAll(':scope > .feed-post[data-post-id]').forEach(el => existing.set(el.dataset.postId, el));
+
+      const desired = posts.map(p => {
+        const id = String(p.id);
+        const k  = postRenderKey(p, me);
+        const el = existing.get(id);
+        existing.delete(id);
+        if (el && el.dataset.postKey === k) return el;          // unchanged
+        // Don't yank a post out from under someone mid-sentence. Leaving
+        // the key stale means it rebuilds on the next render once focus
+        // has moved on.
+        if (el && typingIn && el.contains(typingIn)) return el;
+        return buildPostEl(p, k);
+      });
+
+      // Drop everything that isn't staying BEFORE positioning: a replaced
+      // node left in place shifts every index after it, so the position
+      // pass would then "fix" each one by moving it — which is a remove +
+      // insert per post, i.e. the whole-list rebuild this is meant to
+      // avoid. `existing` still holds posts that vanished; the rest is
+      // stale nodes (a replaced post, the empty-state div).
+      existing.forEach(el => el.remove());
+      const keep = new Set(desired);
+      [...listEl.children].forEach(el => { if (!keep.has(el)) el.remove(); });
+
+      desired.forEach((el, i) => {
+        if (listEl.children[i] !== el) listEl.insertBefore(el, listEl.children[i] || null);
+      });
+
+      if (typingIn && document.activeElement !== typingIn && typingIn.isConnected) {
+        typingIn.focus();
+        if (caret) { try { typingIn.setSelectionRange(caret[0], caret[1]); } catch (e) {} }
+      }
     }
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
