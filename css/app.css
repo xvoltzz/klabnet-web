@@ -2836,12 +2836,19 @@
       background:
         linear-gradient(95deg, rgba(8,8,10,0.97) 0%, rgba(8,8,10,0.93) 50%, rgba(8,8,10,0.74) 100%) center / cover no-repeat,
         var(--card-bg) center / cover no-repeat var(--tile-bg);
+      /* The shorthand resets background-clip to border-box, so the banner
+         painted UNDER the card's 1px translucent border and bled through
+         it — the border stopped reading as an edge and the image looked
+         like it overflowed the rounded corners. padding-box stops it at
+         the inner edge so the border sits cleanly on top again. */
+      background-clip: padding-box;
       border-color: rgba(255,255,255,0.09);
     }
     .presence-card.has-banner:hover {
       background:
         linear-gradient(95deg, rgba(8,8,10,0.94) 0%, rgba(8,8,10,0.88) 50%, rgba(8,8,10,0.62) 100%) center / cover no-repeat,
         var(--card-bg) center / cover no-repeat var(--tile-bg-h);
+      background-clip: padding-box;
     }
     /* Light theme gets the inverted scrim — a dark one over a pale banner
        reads as a mistake when the card's own text is dark. */
@@ -2849,12 +2856,14 @@
       background:
         linear-gradient(95deg, rgba(250,249,246,0.97) 0%, rgba(250,249,246,0.93) 50%, rgba(250,249,246,0.76) 100%) center / cover no-repeat,
         var(--card-bg) center / cover no-repeat var(--tile-bg);
+      background-clip: padding-box;
       border-color: rgba(90,78,62,0.18);
     }
     [data-theme="light"] .presence-card.has-banner:hover {
       background:
         linear-gradient(95deg, rgba(250,249,246,0.94) 0%, rgba(250,249,246,0.88) 50%, rgba(250,249,246,0.64) 100%) center / cover no-repeat,
         var(--card-bg) center / cover no-repeat var(--tile-bg-h);
+      background-clip: padding-box;
     }
 
     .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
