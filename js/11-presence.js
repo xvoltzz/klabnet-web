@@ -301,7 +301,38 @@
   // call per member, unbounded, every 30s.
   const OFFLINE_ROSTER_ROOM_MEMBER_CAP = 50;
   const OFFLINE_ROSTER_MAX = 40;
+  // Filled by the presence poll (GET /api/presence -> roster). Server-side
+  // list of every known user, so the offline half of the rail no longer
+  // waits on Matrix.
+  let _serverRoster = null;
+
+  function _matrixIdFor(username) {
+    const myId = MatrixChat.client?.getUserId();
+    const server = myId ? myId.split(':')[1] : 'klab.gg';
+    return '@' + username + ':' + server;
+  }
+
   function offlineRoster(onlineUsernames) {
+    const me = window.KLAB_USER?.username;
+    if (_serverRoster) {
+      const out = [];
+      for (const person of _serverRoster) {
+        if (out.length >= OFFLINE_ROSTER_MAX) break;
+        const username = person.username;
+        if (!username || username === me) continue;
+        if (onlineUsernames.has(username)) continue;   // already a card above
+        if (username.endsWith('-bot')) continue;
+        // userId is only needed for the "online elsewhere" Matrix-presence
+        // label, which is itself Matrix-gated — synthesising it from the
+        // username is safe because klabnet usernames ARE Matrix localparts
+        // on this homeserver (see ensureAvatarResolved's own note).
+        out.push({ userId: _matrixIdFor(username), username });
+      }
+      return out;
+    }
+    // Pre-roster fallback: derive it from Matrix room membership the way
+    // this always used to. Only reachable if the API is unreachable or
+    // hasn't answered yet.
     const client = MatrixChat.client;
     if (!client) return [];
     const myId = client.getUserId();
@@ -768,6 +799,10 @@
       if (!r.ok) return;
       const data = await r.json();
       const me   = window.KLAB_USER?.username;
+      // Arrives with the very first poll, unlike the Matrix-derived roster
+      // it replaces — that one couldn't produce anything until the SDK had
+      // downloaded, logged in and finished an initial sync.
+      if (Array.isArray(data.roster)) _serverRoster = data.roster;
       const others = (data.listeners || []).filter(l => l.username !== me);
       renderList(others);
     } catch(e) {
