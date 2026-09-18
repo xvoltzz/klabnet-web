@@ -431,7 +431,12 @@
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
     const key = feedRenderKey(posts, me);
     if (key === _lastFeedRenderKey) return;
-    _lastFeedRenderKey = key;
+    // NOT cached yet — see the deferred check at the end. Caching here
+    // while the typing guard below has deliberately left a post stale is
+    // what made new replies invisible until a reload: the post was skipped,
+    // but the key was stored as though it had been drawn, so every later
+    // render matched it and returned right here.
+    let deferred = false;
 
     if (!posts.length) {
       listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
@@ -441,8 +446,17 @@
       // post being typed in is skipped below, but a prepended new post
       // still shifts everything, and moving a node blurs whatever's inside
       // it — so the caret is saved and put back.
+      // Only a TEXT FIELD counts as "someone is mid-sentence here". This
+      // used to be any focused element at all, and a real mouse click
+      // focuses the button it hit — so clicking a reaction pill or the
+      // add-reaction button focused it, and this guard then refused to
+      // rebuild the one post that had just changed. The reaction appeared
+      // to do nothing whatsoever. It survived testing because a synthetic
+      // .click() moves no focus, so only real users ever hit it.
       const active = document.activeElement;
-      const typingIn = active && listEl.contains(active) ? active : null;
+      const typingIn = active && listEl.contains(active)
+        && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+        ? active : null;
       const caret = typingIn && typingIn.selectionStart != null
         ? [typingIn.selectionStart, typingIn.selectionEnd] : null;
 
@@ -458,7 +472,7 @@
         // Don't yank a post out from under someone mid-sentence. Leaving
         // the key stale means it rebuilds on the next render once focus
         // has moved on.
-        if (el && typingIn && el.contains(typingIn)) return el;
+        if (el && typingIn && el.contains(typingIn)) { deferred = true; return el; }
         return buildPostEl(p, k);
       });
 
@@ -481,6 +495,10 @@
         if (caret) { try { typingIn.setSelectionRange(caret[0], caret[1]); } catch (e) {} }
       }
     }
+    // Only remember the key if what's on screen actually matches it. If the
+    // typing guard held a post back, leave it null so the next render has to
+    // do the work again rather than short-circuiting forever.
+    _lastFeedRenderKey = deferred ? null : key;
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
@@ -834,7 +852,20 @@
       _repliesCache.set(postId, list);
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reply_count = (post.reply_count || 0) + 1;
+      // Blur first. The reconciler refuses to rebuild the post containing
+      // the focused element so it can't yank a half-typed reply away — but
+      // right here that post is the one that changed, and focus is sitting
+      // in its reply box, so it would defer the render that is the whole
+      // point of this call. The box was just cleared, so there's nothing
+      // left to protect; drop focus, rebuild, then hand focus back to the
+      // fresh input so you can fire off another reply.
+      const refocus = document.activeElement === input;
+      input.blur();
       renderFeed();
+      if (refocus) {
+        const fresh = listEl.querySelector(`.feed-post-reply-input[data-post-id="${postId}"]`);
+        if (fresh) fresh.focus();
+      }
     } catch (e) { input.value = text; }
   }
 
