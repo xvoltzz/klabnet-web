@@ -1,0 +1,3763 @@
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { font-size: 19px; height: 100%; }
+
+    /* Humanist sans everywhere — reads as a designed UI rather than
+       "generated code" on dense control labels. The klabnet wordmark
+       (.prompt-text) is the one deliberate exception and stays JetBrains
+       Mono, the terminal font the rest of the site used to default to. */
+    :root { --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+    /* Semantic status colors — same in both themes (favorites/errors read as
+       red, online/success reads as green regardless of light or dark), so
+       these live on :root rather than duplicated per-theme like --warn-color. */
+    :root {
+      --danger-color: #f87171;
+      --success-color: #4ade80;
+    }
+
+    /* ══ SCALE TOKENS — type / spacing / radius ══
+       Unlike color/shadow/border above, these were never tokenized, so
+       ~230 font-size and ~400 spacing/radius declarations drifted into
+       one-off half-pixel values over many separate feature passes (e.g.
+       8.5/9/9.5/10/10.5/11px all doing the same "micro-label" job). This
+       is the real intended scale, named after the value itself (same
+       convention as --shadow-20 etc.) so a call site's literal
+       `font-size: 11px` maps mechanically onto `var(--fs-11)` — same
+       number, no semantic renaming to relearn. Same size/theme in both
+       [data-theme] variants, so these live on plain :root. */
+    :root {
+      --fs-9: 9px; --fs-10: 10px; --fs-11: 11px; --fs-12: 12px;
+      --fs-13: 13px; --fs-14: 14px; --fs-15: 15px; --fs-16: 16px;
+      --fs-18: 18px; --fs-22: 22px;
+
+      --space-4: 4px;
+
+      /* Role-based, not a fine scale — "small control" vs "card", plus
+         the deliberate 50%/pill special cases stay literal since they're
+         shape choices, not steps on this scale. */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+
+    }
+
+    /* ══ LARGE / HIGH-RES DISPLAYS ══
+       Everything on this site is sized for a normal desktop monitor, so on a
+       4K screen at 100% OS scaling it renders tiny. `zoom` scales the whole
+       page — text, icons, padding, gaps — together as one unit instead of
+       requiring every size in the file to be reworked. It only kicks in on
+       genuinely wide viewports, and stays modest even at 4K. */
+    @media (min-width: 2200px) { html { zoom: 1.12; } }
+    @media (min-width: 2700px) { html { zoom: 1.2; } }
+    @media (min-width: 3400px) { html { zoom: 1.3; } }
+
+    /* ══ SHORT VIEWPORTS — the same idea, run in reverse ══
+       A 1080p laptop at 150% OS scaling reports a viewport well under
+       1080 CSS px tall before the browser's own tabs/toolbar and the OS
+       taskbar take their cut too — often 650px or less by the time the
+       page actually renders, even though the viewport is still plenty
+       wide (this is a height problem, not a "small screen" one, so it's
+       keyed on max-height alone and left independent of the max-width
+       breakpoints below that handle actual narrow/mobile layouts). The
+       page's fixed-size chrome — header padding, tab nav, the player
+       dock — was sized for a normal desktop monitor's vertical room and
+       doesn't shrink on its own just because the viewport got shorter;
+       shrinking the whole page as one unit here is the same fix as the
+       large-display tiers above, just running the other direction. */
+       Gated on min-width too: on a phone these fire for the wrong reason
+       — landscape is short by nature, and on Android the layout viewport
+       shrinks when the soft keyboard opens, so an unqualified max-height
+       rule re-zoomed the entire page mid-message. Narrow screens are
+       handled by the mobile block at the end of this stylesheet instead. */
+    @media (max-height: 760px) and (min-width: 900px) { html { zoom: 0.92; } }
+    @media (max-height: 660px) and (min-width: 900px) { html { zoom: 0.84; } }
+    @media (max-height: 580px) and (min-width: 900px) { html { zoom: 0.76; } }
+
+    /* BASE THEME BACKGROUNDS */
+    [data-theme="dark"] {
+      --bg: #000000;
+      --accent-rgb: 200,195,188;
+      /* Elevation shadows — pure black reads fine against a black page */
+      --shadow-20: rgba(0,0,0,0.2);
+      --shadow-30: rgba(0,0,0,0.3);
+      --shadow-35: rgba(0,0,0,0.35);
+      --shadow-40: rgba(0,0,0,0.4);
+      --shadow-50: rgba(0,0,0,0.5);
+      --shadow-55: rgba(0,0,0,0.55);
+    }
+    [data-theme="light"] {
+      --bg: #f5f4f0;
+      /* Same shadow tiers, but soft and low-alpha — the same black shadow
+         used on a black page reads as a harsh smudge on a light one. */
+      --shadow-20: rgba(90,78,62,0.06);
+      --shadow-30: rgba(90,78,62,0.08);
+      --shadow-35: rgba(90,78,62,0.09);
+      --shadow-40: rgba(90,78,62,0.1);
+      --shadow-50: rgba(90,78,62,0.13);
+      --shadow-55: rgba(90,78,62,0.14);
+    }
+
+    /* SHARED GLASS TOKENS */
+    [data-theme="dark"] {
+      --text:           #ede9e0;
+      --text-dim:       rgba(237,233,224,0.65);
+      --text-dimmer:    rgba(237,233,224,0.38);
+      --text-faint:     rgba(237,233,224,0.18);
+      /* Glass — slightly warmer, more presence */
+      --glass-fill:     rgba(255,252,248,0.04);
+      --glass-fill-h:   rgba(255,252,248,0.09);
+      --glass-border:   rgba(255,252,248,0.1);
+      --glass-border-h: rgba(255,252,248,0.22);
+      --glass-shine:    rgba(255,252,248,0.18);
+      --glass-shadow:   rgba(0,0,0,0.6);
+      --glass-inner-t:  rgba(255,252,248,0.14);
+      --glass-inner-b:  rgba(0,0,0,0.25);
+      /* Tiles — more lifted, more presence */
+      --tile-bg:        rgba(255,252,248,0.055);
+      --tile-bg-h:      rgba(255,252,248,0.11);
+      --tile-icon:      rgba(237,233,224,0.5);
+      --tile-icon-h:    rgba(237,233,224,1);
+      --tile-label:     rgba(237,233,224,0.3);
+      --tile-label-h:   rgba(237,233,224,0.8);
+      --tile-border:    rgba(255,252,248,0.1);
+      --tile-border-h:  rgba(255,252,248,0.28);
+      --tile-inner-t:   rgba(255,252,248,0.16);
+      --tile-shadow:    rgba(0,0,0,0.5);
+      --warn-color:     #fbbf24;
+      --warn-bg:        rgba(251,191,36,0.1);
+      --modal-bg:       #0a0a0c;
+    }
+
+    [data-theme="light"] {
+      /* ── Core text — soft neutral charcoal on a near-white page. Not
+             pushed warm/sepia on purpose — this is just the inverse of
+             dark mode, low-contrast enough to not feel harsh. ── */
+      --text:           #38342c;
+      --text-dim:       #6e6860;
+      --text-dimmer:    #9a948a;
+      --text-faint:     #b6b0a6;
+      /* ── Accent fallback — used only until album art extraction kicks
+             in and takes over (see tweenAccentRgb / _resetAccent) ── */
+      --accent-rgb:     192,150,96;
+
+      /* ── Glass surfaces — soft near-white frost, faint neutral borders
+             instead of the old saturated blue (or overly warm) tint ── */
+      --glass-fill:     rgba(255,255,253,0.5);
+      --glass-fill-h:   rgba(255,255,253,0.75);
+      --glass-border:   rgba(120,108,92,0.16);
+      --glass-border-h: rgba(120,108,92,0.34);
+      --glass-shine:    rgba(255,255,253,0.92);
+      --glass-shadow:   rgba(90,78,62,0.07);
+      --glass-inner-t:  rgba(255,255,253,0.85);
+      --glass-inner-b:  rgba(90,78,62,0.035);
+
+      /* ── Tiles ── */
+      --tile-bg:        rgba(255,255,253,0.55);
+      --tile-bg-h:      rgba(255,255,253,0.8);
+      --tile-icon:      #8a7550;
+      --tile-icon-h:    #6a5636;
+      --tile-label:     #8a7550;
+      --tile-label-h:   #6a5636;
+      --tile-border:    rgba(130,112,88,0.2);
+      --tile-border-h:  rgba(120,108,92,0.4);
+      --tile-inner-t:   rgba(255,255,253,0.85);
+      --tile-shadow:    rgba(90,78,62,0.06);
+
+      /* ── Status / warn ── */
+      --warn-color:     #b84000;
+      --warn-bg:        rgba(184,64,0,0.08);
+      --modal-bg:       #fbfaf7;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      transition: background 1.2s ease, color 0.4s ease;
+    }
+
+    /* Buttons + the player dock get the humanist UI font (see --font-ui above) */
+    button { font-family: var(--font-ui); }
+
+    /* ══ AMBIENT GLOW — the room lights up when a song plays ══ */
+    .ambient-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0;
+      background:
+        radial-gradient(ellipse 65% 55% at 18% 12%, rgba(var(--accent-rgb),0.22), transparent 60%),
+        radial-gradient(ellipse 60% 60% at 88% 85%, rgba(var(--accent-rgb),0.16), transparent 60%),
+        radial-gradient(ellipse 50% 45% at 50% 100%, rgba(var(--accent-rgb),0.12), transparent 65%);
+      /* No `background` transition: these gradients are built from
+         --accent-rgb, which tweenAccentRgb() already animates frame by
+         frame, so transitioning it as well restarted a 1s interpolation of
+         three stacked gradients across the whole viewport on every one of
+         those frames — duplicated work for an identical result. */
+      transition: opacity 1.6s ease;
+    }
+    body.is-playing .ambient-glow { opacity: 1; }
+    html[data-theme="light"] .ambient-glow { opacity: 0 !important; }
+
+    /* One-shot bloom the instant playback starts — settles into the steady glow above */
+    .ambient-glow::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 32%, rgba(var(--accent-rgb),0.4), transparent 62%);
+      opacity: 0;
+    }
+    body.ambient-flash .ambient-glow::before {
+      animation: ambientFlash 1.1s ease-out;
+    }
+    @keyframes ambientFlash {
+      0%   { opacity: 0; }
+      12%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ambient-glow { transition: none; }
+      body.ambient-flash .ambient-glow::before { animation: none; }
+    }
+
+    /* ══ BOOT OVERLAY — masks the page while Matrix/presence/feed's first
+       round trips settle (see window.KLAB_BOOT in the inline script right
+       after this element in the HTML). ══ */
+    .boot-overlay {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1.4rem; background: var(--bg);
+      opacity: 1; transition: opacity 0.55s ease;
+    }
+    .boot-overlay.boot-overlay-hide { opacity: 0; pointer-events: none; }
+    .boot-glow {
+      position: absolute; width: 340px; height: 340px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--accent-rgb),0.35), transparent 70%);
+      animation: bootGlowPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes bootGlowPulse {
+      0%, 100% { transform: scale(0.85); opacity: 0.6; }
+      50%      { transform: scale(1.15); opacity: 1; }
+    }
+    .boot-logo {
+      width: 84px; height: 84px; position: relative;
+      animation: bootLogoBreathe 2.2s ease-in-out infinite;
+    }
+    /* klab.png is a white mark — same theme-flip .logo uses in the header
+       (mix-blend-mode + invert), plus a glow that'd otherwise vanish under
+       invert(1), so it's layered on as a drop-shadow instead of a filter. */
+    [data-theme="dark"]  .boot-logo { mix-blend-mode: screen; filter: drop-shadow(0 0 18px rgba(var(--accent-rgb),0.5)); }
+    [data-theme="light"] .boot-logo { mix-blend-mode: multiply; filter: invert(1) drop-shadow(0 0 18px rgba(var(--accent-rgb),0.5)); }
+    @keyframes bootLogoBreathe {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.06); }
+    }
+    .boot-status {
+      position: relative; font-family: var(--font-ui); font-weight: 500;
+      font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .boot-dots { display: inline-flex; }
+    .boot-dots span {
+      animation: bootDotFade 1.4s ease-in-out infinite;
+      opacity: 0.2;
+    }
+    .boot-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .boot-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bootDotFade {
+      0%, 100% { opacity: 0.2; }
+      40%      { opacity: 1; }
+    }
+    .boot-bar {
+      position: relative; width: 140px; height: 2px; border-radius: 2px;
+      background: var(--tile-border); overflow: hidden;
+    }
+    .boot-bar-fill {
+      height: 100%; width: 0%; border-radius: 2px;
+      background: rgba(var(--accent-rgb),0.85);
+      transition: width 0.4s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .boot-glow, .boot-logo, .boot-dots span { animation: none; }
+    }
+
+    /* GLASS */
+    .glass {
+      background:
+        linear-gradient(160deg,
+          rgba(255,252,248,0.06) 0%,
+          rgba(255,252,248,0.01) 100%),
+        var(--glass-fill);
+
+      border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-shine);
+      box-shadow:
+        inset 0 1px 0 var(--glass-inner-t),
+        inset 0 -1px 0 var(--glass-inner-b),
+        0 4px 24px var(--glass-shadow),
+        0 1px 4px var(--shadow-20);
+      transition: background 0.4s, border-color 0.4s;
+    }
+
+    /* Shared content-width scale — drives both .dash and the player dock so
+       they widen together (and stay correct under the `zoom` tiers above;
+       a plain px cap on the dock alone was getting shrunk by `zoom`,
+       leaving a large unused gap on 4K/scaled displays). */
+    :root { --content-w: 1200px; }
+    @media (min-width: 1700px) { :root { --content-w: 1500px; } }
+    @media (min-width: 2200px) { :root { --content-w: 1700px; } }
+    @media (min-width: 2700px) { :root { --content-w: 1950px; } }
+    @media (min-width: 3400px) { :root { --content-w: 2200px; } }
+
+    .dash {
+      max-width: var(--content-w); margin: 0 auto;
+      padding: 4rem 3.5rem 1.75rem;
+      position: relative; z-index: 2;
+      transition: max-width 0.2s ease;
+    }
+    /* Extra bottom clearance for the floating player dock — only added once
+       JS confirms the page already needs to scroll, so a short page (few
+       tiles) never grows scrollable just to make room for a fixed-position
+       dock that isn't in normal flow anyway. See the clearance script near
+       the end of the document. */
+    .dash.dash-clearance { padding-bottom: 7rem; }
+
+    /* Chat tab: instead of guessing a fixed height for the chat box
+       (which either wastes space or still forces page scroll depending
+       on screen size), turn .dash into a flex column for just this tab
+       so the chat panel fills whatever's actually left after the header,
+       nav, and player dock — the browser does that arithmetic exactly,
+       no guessing. The player dock stays full-size; the header got
+       shorter globally instead (see .header's margin-bottom below). */
+    /* height (a hard cap), not min-height — belt-and-suspenders against
+       page-level scroll: everything that can legitimately overflow
+       (timeline, channel list, presence rail) already has its own
+       overflow-y:auto, so nothing important gets clipped, and this
+       guarantees no scroll at the page level even if some descendant's
+       flex math is off by a few px, rather than just discouraging it. */
+    /* height:100%, not 100vh: `height` here chains through html/body
+       (both set to 100% too) down to the real viewport, so it scales
+       correctly under the `zoom` tiers above. `vh` units don't get
+       compensated for `zoom` in Chromium — a zoomed 100vh box renders
+       taller than the viewport by exactly the zoom factor (confirmed:
+       at zoom:1.3 a `height:100vh` box measured 130% of window.innerHeight)
+       — which on ultrawide/4K monitors (zoom kicks in at 2200px+) pushed
+       the chat composer off the bottom of this `overflow:hidden` box
+       with no way to scroll to it. */
+    /* min-height:100vh is set unconditionally on body (above) and, being
+       a *minimum*, wins over this height:100% unless overridden too — at
+       zoom:1.3 that min-height alone still forces body 30% past the real
+       viewport height, re-clipping the composer even with the fix below. */
+    body.tab-chat-active { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-chat-active .dash {
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
+      /* Fixed dock clearance, bypassing the JS-driven .dash-clearance
+         toggle above (same specificity, later in the sheet, so this
+         wins) — this tab always needs room for the dock regardless of
+         that toggle's own "does the page need to scroll" measurement. */
+      padding-bottom: 7rem;
+      /* Chat is the one tab where more horizontal room is straightforwardly
+         useful (a wider timeline/composer, not a wider tile grid or feed
+         reading column) — the presence rail next to it is a fixed 240px,
+         so nearly all of this goes straight to .dash-main. A flat +Npx
+         bump on --content-w reads as basically nothing on a laptop and
+         way too little on a 4K/ultrawide monitor (this app's userbase
+         genuinely spans that whole range, per --content-w's own tiers
+         above) — a vw-relative width scales with however much room is
+         actually there instead of needing yet more hand-tuned breakpoints.
+         2800px is just a soft ceiling so line length doesn't get silly on
+         a very wide/ultrawide display; tune both numbers against a real
+         4K screen if this over- or under-shoots. */
+      max-width: min(96vw, 2800px);
+    }
+    /* The dock's own clearance above is wasted space once it's actually
+       hidden (position:fixed — see setPlayerVisible()'s own comment) —
+       reclaim it back down to the same bottom padding every other tab
+       uses by default (.dash's base rule further up). */
+    body.tab-chat-active.player-hidden .dash { padding-bottom: 1.75rem; }
+    body.tab-chat-active .dash-body { flex: 1; min-height: 0; }
+    /* align-self, not the parent's align-items — so only .dash-main
+       stretches to fill the row's height; the presence rail next to it
+       keeps its normal natural-height, sticky-positioned behavior. */
+    body.tab-chat-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    /* The rail's own max-height: calc(100vh - 3rem) is sized for the
+       normal scrolling-page tabs, where .dash-body's height is whatever
+       its content needs. It doesn't know about the flex-fill chain here
+       — asking for nearly a full viewport's height regardless of how
+       much .dash-body actually has left after the header/nav took their
+       share is exactly what was ballooning the whole page past 100vh
+       (mostly empty, since there's rarely enough listeners to fill it). */
+    body.tab-chat-active .presence-rail { align-self: stretch; max-height: 100%; }
+    body.tab-chat-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-chat-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
+    body.tab-chat-active .chat-shell { flex: 1; min-height: 0; }
+    /* flex:1 (not 0 1 auto) — a fixed, content-independent height, so a
+       short conversation doesn't shrink the box down to fit just those
+       few messages. .chat-shell (the parent) is already correctly
+       bounded by the flex-fill chain above, so this can safely claim
+       all of it; .chat-timeline's own overflow-y:auto still handles
+       long conversations by scrolling internally rather than growing
+       the box. (An earlier version used flex:0 1 auto + max-height to
+       intentionally shrink-to-fit — dropped because it made the chat
+       window's size vary by conversation length, which read as broken
+       rather than intentional.) */
+    body.tab-chat-active .chat-app { height: auto; flex: 1; min-height: 0; }
+
+    /* ══ MUSIC — sidebar + content pane, same flex-fill idea as Chat above
+       (see its own comments for the full reasoning: .dash becomes a
+       column that fills the real viewport height instead of guessing one,
+       so whatever's actually left after the header/nav/dock goes straight
+       to the tab's own content instead of being wasted or overflowing). ══ */
+    body.tab-music-active { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-music-active .dash {
+      display: flex; flex-direction: column; height: 100%; overflow: hidden;
+      padding-bottom: 7rem; /* dock clearance — reclaimed below when the dock is hidden, same as Chat */
+      /* Same vw-relative reasoning as Chat's width bump: a library
+         sidebar + content grid benefits from real width on a big monitor
+         far more than a flat --content-w ever would. */
+      max-width: min(96vw, 2800px);
+    }
+    body.tab-music-active.player-hidden .dash { padding-bottom: 1.75rem; }
+    body.tab-music-active .dash-body { flex: 1; min-height: 0; }
+    body.tab-music-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    /* Unlike Chat (which just stretches the rail alongside its single
+       content column), Music already has its own left sidebar — a right
+       rail too would make three competing columns in exactly the layout
+       the user asked to widen, so it's hidden here instead of stretched. */
+    body.tab-music-active .presence-rail { display: none; }
+    body.tab-music-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-music-active .music-shell { flex: 1; min-height: 0; }
+    /* min-height:0 is the actual fix here, not just flex-shrink:0 — a flex
+       item's default min-height is auto, which lets it grow past its
+       container instead of clipping/scrolling internally once content
+       exceeds the available height. Without this the sidebar (and by the
+       same issue, .music-main below) just overflowed .dash's
+       overflow:hidden instead of scrolling at all. */
+    body.tab-music-active .music-sidebar { flex-shrink: 0; min-height: 0; overflow-y: auto; }
+    body.tab-music-active .music-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    /* Same specificity-tie bug as .ap-panel.open below: the neutralization
+       rule further down (.tab-panel[data-tab-panel="music"] .picker-backdrop)
+       is equally specific (2 class-equivalents) and sits later in the
+       sheet, so its display:block was winning over this display:flex —
+       meaning .picker-list's flex:1 never actually applied (not a flex
+       item at all under display:block), so it just grew to fit all its
+       content with nothing to bound it, silently clipped by .dash's
+       overflow:hidden with no scrollbar anywhere. This is the actual "the
+       whole tab won't scroll" bug — extra ancestor qualifier here to
+       reliably win instead of just tying. */
+    /* align-items:stretch — .picker-backdrop's base rule (its "modal era"
+       centered-dialog days) sets align-items:center/justify-content:center,
+       never reset for this inline context, so #pickerList (and everything
+       in it — song rows, the album/artist grid) was rendering at its own
+       shrink-to-fit width and getting centered in the leftover space
+       instead of stretching to actually use it. This is the "tiles are
+       centered, not using the free space" bug. */
+    body.tab-music-active .tab-panel[data-tab-panel="music"] .picker-backdrop {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+      align-items: stretch; justify-content: flex-start;
+    }
+    /* .ap-card's base rule (modal era) is a fixed height:min(88vh,920px) —
+       explicit height:auto here, not just flex:1, so there's no ambiguity
+       about which wins (same belt-and-suspenders style .chat-app already
+       uses right above for the same reason). */
+    body.tab-music-active .ap-card {
+      height: auto; flex: 1; min-height: 0; display: flex; flex-direction: column;
+    }
+    /* Same specificity-tie bug as .picker-backdrop above: the neutralization
+       rule further down, .tab-panel[data-tab-panel="music"] .ap-panel.open
+       (4 class-equivalents: .tab-panel + [data-tab-panel] + .ap-panel +
+       .open), OUTRANKS a plain "body.tab-music-active .ap-panel.open" (3),
+       so its display:block was winning over this display:flex — .ap-card
+       (height:auto + flex:1 below) never got a bounded flex-parent height
+       to stretch within, so it just grew to fit all its content with
+       nothing to clip/scroll it. This is the "can't scroll inside an
+       album" bug. Extra ancestor qualifier here to reliably outrank it,
+       same fix as .picker-backdrop's. */
+    body.tab-music-active .tab-panel[data-tab-panel="music"] .ap-panel.open {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+      align-items: stretch; justify-content: flex-start; padding: 0;
+    }
+    body.tab-music-active .picker-list { flex: 1; min-height: 0; max-height: none; }
+    body.tab-music-active .ap-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+    .music-shell { display: flex; gap: 1.4rem; }
+    .music-sidebar {
+      width: 260px; display: flex; flex-direction: column; gap: 3px;
+      overflow-y: auto; padding-right: 2px;
+      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+    .music-sidebar .picker-search { margin-bottom: 8px; }
+    .music-sidebar-divider { height: 1px; background: var(--glass-border); margin: 10px 6px; flex-shrink: 0; }
+    .music-sidebar-label {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-faint); padding: 4px 10px 6px; flex-shrink: 0;
+    }
+    .music-playlist-nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+    .music-new-playlist-btn {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10.5px; color: var(--text-dimmer); background: none;
+      border: 1px dashed var(--tile-border); border-radius: 8px;
+      padding: 8px 10px; margin-top: 4px; cursor: pointer; font-family: var(--font-ui);
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .music-new-playlist-btn:hover { color: var(--text); border-color: var(--tile-border-h); background: var(--tile-bg-h); }
+    .music-playlist-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .music-playlist-row:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .music-playlist-row.active { background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
+    .music-playlist-row-art {
+      width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0; object-fit: cover;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 13px;
+    }
+    .music-playlist-row-info { flex: 1; min-width: 0; }
+    .music-playlist-row-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-playlist-row-meta { font-size: 10px; color: var(--text-dimmer); margin-top: 1px; }
+    .music-playlist-row-del {
+      flex-shrink: 0; opacity: 0; color: var(--text-dimmer); padding: var(--space-4); border-radius: var(--radius-sm);
+      /* It's a <button> — without these it keeps browser default button
+         chrome (a light background/border), which is what was showing up
+         as "bright white" instead of a plain icon. */
+      background: none; border: none; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+    .music-playlist-row:hover .music-playlist-row-del { opacity: 1; }
+    .music-playlist-row-del:hover { color: var(--danger-color); background: var(--glass-fill-h); }
+
+    .music-main { min-width: 0; position: relative; }
+
+    /* Sidebar nav restyle — .picker-tab is Music-only (confirmed), so its
+       base rule (and .picker-tabs/.active/:hover, formerly further down
+       near .picker-list — consolidated here, the old horizontal-pill-tab
+       versions of these rules are gone, not just shadowed) can just be
+       repointed at a vertical sidebar-row look, no scoping needed. Sized
+       up from the first pass per feedback that these read too small/
+       cramped next to the (now smaller) search box above them. */
+    .picker-tabs { display: flex; flex-direction: column; gap: 2px; overflow: visible; }
+    .picker-tab {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      font-size: var(--fs-13); letter-spacing: 0.01em; text-transform: none;
+      padding: 9px 12px; border-radius: var(--radius-md); text-align: left; cursor: pointer;
+      border: 1px solid transparent; color: var(--text-dim); background: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .picker-tab i { font-size: 16px; width: 18px; text-align: center; flex-shrink: 0; color: var(--text-dimmer); }
+    .picker-tab span { flex: 1; }
+    .picker-tab.active {
+      background: rgba(var(--accent-rgb),0.16);
+      color: var(--text); border-color: rgba(var(--accent-rgb),0.35);
+    }
+    .picker-tab.active i { color: rgba(var(--accent-rgb),1); }
+    .picker-tab:hover:not(.active) {
+      background: var(--tile-bg-h); color: var(--text);
+      border-color: var(--tile-border-h);
+    }
+
+    /* Albums/Artists grid mode — toggled by loadPickerTab() via
+       picker-list-grid on #pickerList, so the existing .picker-item DOM
+       (art + info + actions, built by renderAlbumList()/renderArtistList()/
+       renderArtistSearchResults() — none of which needed to change) just
+       reflows into cards instead of rows, no JS rewrite required. */
+    .picker-list.picker-list-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px; align-content: start;
+    }
+    /* Card-lift on hover (translateY, matches .ap-disc-card in the
+       album/artist viewer) rather than this grid's previous own idiom of
+       scaling just the art image — one hover language for "album/artist
+       tile" everywhere instead of two. */
+    .picker-list.picker-list-grid .picker-item {
+      flex-direction: column; align-items: stretch; gap: 8px; padding: 10px;
+      animation: fadeInUp 0.3s ease backwards;
+      transition: transform 0.2s cubic-bezier(0.2,0.8,0.2,1), background 0.15s, border-color 0.15s;
+    }
+    .picker-list.picker-list-grid .picker-item:hover { transform: translateY(-2px); }
+    .picker-list.picker-list-grid .picker-item-art,
+    .picker-list.picker-list-grid .picker-item-art-ph {
+      width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; font-size: 28px;
+    }
+    /* Same circle/square split as the list-mode rule below, re-declared at
+       matching specificity so it isn't lost to the grid override above. */
+    .picker-list.picker-list-grid .picker-item-art.artist,
+    .picker-list.picker-list-grid .picker-item-art-ph.artist { border-radius: 50%; }
+    .picker-list.picker-list-grid .picker-item-info { width: 100%; }
+    .picker-list.picker-list-grid .picker-item-title { white-space: normal; }
+    .picker-list.picker-list-grid .picker-item-artist { white-space: normal; }
+    .picker-list.picker-list-grid .picker-item-actions {
+      width: 100%; justify-content: flex-start; padding-top: 2px;
+    }
+    .picker-list.picker-list-grid .picker-section-label { grid-column: 1 / -1; }
+
+    /* ══ HEADER ══ */
+    /* Grid (not flex) so .tab-nav can sit in a true center column
+       regardless of how wide header-left/header-right happen to be —
+       flex's space-between only guarantees equal GAPS around a middle
+       item, not that it lands at the row's actual visual center. */
+    /* position:relative + an explicit z-index — without this, the fadeUp
+       entrance animation below (it animates opacity/transform) silently
+       makes .header its own CSS stacking context, which then paints
+       wherever plain DOM order puts it relative to .dash-body — i.e.
+       BEHIND it, since .dash-body comes later in the document and neither
+       had an explicit stacking order before this. Any z-indexed thing
+       living inside .header (the new #headerMoreMenu dropdown) only ever
+       wins ties *within* that trapped local context, never against
+       .dash-body's own content sitting on top of the whole header — this
+       is what read as "the menu background is transparent, I can click
+       through it": the menu was actually rendering correctly, just
+       underneath the page's real content the whole time. */
+    .header {
+      position: relative; z-index: 30;
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: start; column-gap: 1.5rem;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .header-left  { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 1.1rem; min-width: 0; }
+    .header-right { grid-column: 3; justify-self: end; }
+    /* Reclaims the vertical space .tab-nav used to take as its own row
+       below the header (real gain for the Chat tab's already carefully
+       flex-filled layout — see body.tab-chat-active .dash above) on
+       screens wide enough for it to actually fit centered alongside the
+       logo/title and the icon row without crowding either. Below that,
+       it drops back to being its own full-width row under the header,
+       identical to before this. */
+    .header .tab-nav { grid-column: 2; grid-row: 1; align-self: center; justify-self: center; margin-bottom: 0; }
+    @media (max-width: 1050px) {
+      .header { grid-template-columns: 1fr auto; grid-template-rows: auto auto; row-gap: 1rem; }
+      .header-left       { grid-column: 1; grid-row: 1; }
+      .header-right      { grid-column: 2; grid-row: 1; }
+      .header .tab-nav    { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; }
+    }
+
+    .logo {
+      width: 44px; height: 44px; object-fit: contain;
+      flex-shrink: 0; border-radius: 50%;
+      transition: filter 0.3s, mix-blend-mode 0.3s;
+    }
+    [data-theme="dark"]  .logo { mix-blend-mode: screen;   filter: none; }
+    [data-theme="light"] .logo { mix-blend-mode: multiply; filter: invert(1); }
+
+    .header-text { display: flex; flex-direction: column; gap: 0.2rem; }
+
+    /* TERMINAL PROMPT */
+    .terminal-prompt {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+      line-height: 1;
+      perspective: 200px; /* gives the MOTD's reroll flip real 3D depth */
+    }
+
+    /* Minecraft-style MOTD splash — a silly rotated tag hanging off the
+       wordmark's top-right corner, like the title-screen splash text.
+       The refresh button lives in the header's icon row (not glued to this
+       tag) since its text length varies and the tag is tilted/pulsing —
+       anything docked right next to it ends up overlapped sooner or later. */
+    .motd {
+      position: absolute;
+      top: -0.85rem; left: 100%;
+      margin-left: 0.4rem;
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-style: italic;
+      font-size: 0.62rem;
+      white-space: nowrap;
+      color: #ffff55;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+      transform: rotate(-14deg);
+      transform-origin: left bottom;
+      animation: motdPulse 1.6s ease-in-out infinite;
+      pointer-events: none;
+      user-select: none;
+    }
+    [data-theme="light"] .motd { color: #b8860b; text-shadow: 1px 1px 0 rgba(255,255,255,0.4); }
+    @keyframes motdPulse {
+      0%, 100% { transform: rotate(-14deg) scale(1); }
+      50%      { transform: rotate(-14deg) scale(1.12); }
+    }
+    /* Manual/auto reroll — the tag does a full silly cartwheel, text swapped
+       at the midpoint (when it's edge-on and near-invisible) so the change
+       reads as the flip itself, not a pop. */
+    .motd.rerolling { animation: motdReroll 0.6s cubic-bezier(.36,1.6,.64,1) both; }
+    @keyframes motdReroll {
+      0%   { transform: rotate(-14deg) scale(1) rotateY(0deg); }
+      45%  { transform: rotate(-14deg) scale(1.3) rotateY(180deg); }
+      55%  { transform: rotate(-14deg) scale(1.3) rotateY(180deg); }
+      100% { transform: rotate(-14deg) scale(1) rotateY(360deg); }
+    }
+    #motdRefresh.spinning i { animation: motdRefreshSpin 0.6s cubic-bezier(.36,1.6,.64,1) both; }
+    @keyframes motdRefreshSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .motd { animation: none; }
+      .motd.rerolling, #motdRefresh.spinning i { animation: none; }
+    }
+
+    .prompt-prefix {
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      color: var(--text-dimmer);
+      text-transform: uppercase;
+      margin-bottom: 3px;
+      display: block;
+    }
+
+    .prompt-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .prompt-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.4rem;
+      background: var(--text);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink-cursor 1.1s step-end infinite;
+      opacity: 0;
+    }
+
+    .prompt-cursor.visible { opacity: 1; }
+
+    @keyframes blink-cursor {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0; }
+    }
+
+    .header-meta {
+      display: flex; align-items: center; gap: 0.9rem; margin-top: 2px;
+    }
+
+    .header-right { position: relative; display: flex; align-items: center; gap: 10px; }
+
+    /* ══ TOAST FLYOUT — stacked notifications hanging off the header
+       buttons' bottom-right corner, matching the ctx-menu/modal surfaces
+       rather than the old free-floating bottom-center pill. ══ */
+    .toast-flyout {
+      position: absolute; top: calc(100% + 0.7rem); right: 0;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+      z-index: 500; pointer-events: none;
+    }
+    .toast-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 20px; border-radius: 12px;
+      width: max-content; max-width: min(360px, calc(100vw - 3rem)); min-width: 200px;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border-h);
+      box-shadow: 0 10px 32px var(--shadow-40), inset 0 1px 0 rgba(255,255,255,0.06);
+      font-family: var(--font-ui);
+      font-size: 12.5px; letter-spacing: 0.02em; line-height: 1.4;
+      color: var(--text);
+      cursor: pointer; pointer-events: auto;
+      opacity: 0; transform: translateX(20px) scale(0.96);
+      /* max-height/margin/padding are along for the ride so a dismissed
+         toast collapses its own footprint instead of vanishing outright —
+         `gap` on the flyout still puts fixed space around it while it
+         shrinks, but without this the rest of the stack used to just snap
+         upward the instant a toast was removed (worst with the 4-deep cap
+         silently dropping the oldest one mid-burst). Delayed so the
+         collapse only starts once the fade/slide-out has actually
+         finished, rather than the text visibly squishing while still
+         readable. */
+      transition: opacity 0.25s ease, transform 0.25s ease,
+                  max-height 0.28s ease 0.2s, margin-bottom 0.28s ease 0.2s, padding-block 0.28s ease 0.2s;
+      max-height: 160px; overflow: hidden;
+    }
+    .toast-item.visible { opacity: 1; transform: translateX(0) scale(1); }
+    /* Hints there's more to a click than dismissing it — a new-message
+       toast jumps to that chat (see notifyNewMessage/showToast's onClick). */
+    .toast-item.clickable:hover { border-color: rgba(var(--accent-rgb),0.4); }
+    .toast-item.leaving {
+      opacity: 0; transform: translateX(20px) scale(0.96);
+      max-height: 0; margin-bottom: 0; padding-block: 0;
+    }
+    .toast-item-icon {
+      font-size: 16px; color: rgba(var(--accent-rgb),1); flex-shrink: 0;
+    }
+    .toast-item-avatar {
+      width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    }
+    .toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
+    @media (prefers-reduced-motion: reduce) {
+      .toast-item { transition: opacity 0.15s ease; transform: none !important; max-height: none; }
+      .toast-item.leaving { max-height: none; }
+    }
+
+    /* ══ SECTIONS ══ */
+    .sec { margin-bottom: 3rem; }
+    .sec-head { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1.2rem; }
+    .sec-label {
+      font-size: 9px; letter-spacing: 0.32em; color: var(--text-dimmer);
+      text-transform: uppercase; white-space: nowrap;
+      font-family: var(--font-ui); font-weight: 500;
+    }
+    .sec-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.2) 0%,
+        rgba(var(--accent-rgb),0.04) 60%,
+        transparent 100%);
+    }
+
+    /* Presence sits beside the active tab's content as a sticky right rail,
+       not above it — it's always-visible chrome (like the tab nav / player
+       dock) but shouldn't be the first thing you see under each tab. */
+    .dash-body { display: flex; align-items: flex-start; gap: 2.2rem; }
+    .dash-main { flex: 1; min-width: 0; }
+
+    .presence-rail {
+      width: 240px; flex-shrink: 0;
+      position: sticky; top: 1.5rem;
+      /* Fallback only — PRESENCE RAIL SCROLL BOUNDS (JS, near the end of
+         the document) sets an explicit inline max-height instead. This
+         calc() assumes the rail's sticky top offset (1.5rem) is also how
+         far down the page it starts, which is only true once already
+         scrolled enough for position:sticky to engage; at the top of the
+         page it actually starts lower, below the header/tab-nav. With
+         enough listeners to actually reach this cap, the rail's box
+         extended past the viewport bottom even before any scrolling,
+         making the whole PAGE scrollable by that overshoot rather than
+         just the rail scrolling internally — same "measure the real
+         available space instead of guessing" fix the Chat tab layout
+         and the scroll-clearance logic elsewhere already use. */
+      max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
+      overscroll-behavior: contain; /* scrolling the rail to its end shouldn't hand off to the page scroll */
+      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+    .sec-global-presence { margin-bottom: 0; }
+    .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
+    .presence-rail .presence-grid { grid-template-columns: 1fr; }
+
+    /* "More below" hint — shown only while there's actually more to
+       scroll to (see PRESENCE RAIL SCROLL BOUNDS), and hidden again once
+       scrolled to the true bottom, rather than the list just cutting off
+       with no indication anything's below the fold. */
+    .presence-rail-more {
+      position: sticky; bottom: 0; left: 0; right: 0;
+      height: 28px; margin-top: -28px; /* overlay the last row instead of adding scroll height of its own */
+      display: flex; align-items: flex-end; justify-content: center;
+      padding-bottom: 2px;
+      background: linear-gradient(transparent, var(--bg) 75%);
+      color: var(--text-faint); font-size: 13px;
+      pointer-events: none;
+    }
+    .presence-rail-more[hidden] { display: none; }
+
+    @media (max-width: 880px) {
+      /* align-items:flex-start comes from the base rule, where it keeps the
+         presence rail at its natural height beside the main column. Once
+         this flips to a column it means "don't stretch to my width", so
+         .dash-main collapsed to its content width — the feed composer and
+         posts rendered at roughly half the screen. The chat tab hid the
+         bug by setting align-self:stretch on .dash-main itself. */
+      .dash-body { flex-direction: column; gap: 0; align-items: stretch; }
+      .presence-rail {
+        width: 100%; position: static; max-height: none; overflow: visible;
+        margin-top: 2.5rem;
+      }
+      .presence-rail .presence-grid { grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); }
+    }
+
+    /* ══ TAB NAV — top-level Feed/Apps/Chat/Music/KLABCRAFT switcher ══ */
+    .tab-nav {
+      display: flex; gap: 6px;
+      flex-wrap: nowrap; overflow-x: auto;
+      scrollbar-width: none; -ms-overflow-style: none;
+      margin-bottom: 1.5rem;
+    }
+    .tab-nav::-webkit-scrollbar { display: none; }
+    .tab-nav-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem;
+      white-space: nowrap; font-family: var(--font-ui); font-weight: 500;
+      font-size: var(--fs-10); letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 0.55rem 0.9rem; border-radius: var(--radius-md); cursor: pointer;
+      border: 1px solid var(--tile-border);
+      color: var(--text-dim); background: var(--tile-bg);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tab-nav-btn i { font-size: 14px; }
+    #socialUnreadBadge { font-size: 8.5px; font-weight: 700; color: rgba(var(--accent-rgb),1); display: inline-block; }
+    #socialUnreadBadge:empty { display: none; } /* don't reserve flex-gap space when there's nothing to show */
+    @keyframes unreadBadgePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.65; transform: scale(1.15); } }
+    #socialUnreadBadge:not(:empty) { animation: unreadBadgePulse 2.4s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { #socialUnreadBadge { animation: none !important; } }
+    .tab-nav-btn.active {
+      background: rgba(var(--accent-rgb),0.16);
+      color: var(--text); border-color: rgba(var(--accent-rgb),0.4);
+    }
+    .tab-nav-btn:hover:not(.active) {
+      background: var(--tile-bg-h); color: var(--text);
+      border-color: var(--tile-border-h);
+    }
+    .tab-nav-btn[hidden] { display: none; }
+
+    .tab-panel { display: none; }
+    /* Switching tabs was an instant display:none -> block snap, no
+       transition at all — animation-name only "arms" the moment an
+       element's computed style newly matches a rule containing it (same
+       mechanism .ctx-menu's display:none -> block already relies on for
+       its own entrance), so this fires correctly on every genuine tab
+       switch without needing to animate `display` itself. */
+    .tab-panel.active { display: block; animation: fadeInUp 0.25s ease both; }
+    @media (prefers-reduced-motion: reduce) {
+      .tab-panel.active { animation: none; }
+    }
+
+    /* The song picker and artist/album panel used to be global fixed-position
+       modals (.picker-backdrop, .ap-panel — see their base rules further
+       down). Embedded inline in the Music tab (inside .music-main, next to
+       the sidebar — see body.tab-music-active further down), they read as
+       normal panel content filling that column, not a centered dialog
+       floating over a dimmed backdrop — this scoped override neutralizes
+       that chrome without touching the modal rules themselves (still used
+       for their actual list/track rendering logic, untouched). */
+    .tab-panel[data-tab-panel="music"] .picker-backdrop,
+    .tab-panel[data-tab-panel="music"] .ap-panel {
+      position: static; inset: auto; z-index: auto;
+      background: none; padding: 0; display: block;
+      opacity: 1; pointer-events: auto; animation: none;
+    }
+    .tab-panel[data-tab-panel="music"] .ap-panel { display: none; }
+    .tab-panel[data-tab-panel="music"] .ap-panel.open { display: block; }
+    /* The detail view replaces the browse view in place — it shouldn't just
+       stack below it as a second section you have to scroll past. panelOpen()/
+       panelClose() already toggle body.ap-open for this. */
+    body.ap-open .tab-panel[data-tab-panel="music"] .picker-backdrop { display: none; }
+    .tab-panel[data-tab-panel="music"] .ap-card {
+      width: 100%; max-width: none;
+      border: none; background: none; box-shadow: none; padding: 0;
+      animation: none; opacity: 1; transform: none; transition: none;
+    }
+    /* .music-tab-placeholder removed — styled, never rendered by any JS;
+       .picker-empty (used throughout the picker for "no albums"/"no
+       favorites yet"/etc.) already covers this tab's empty states. */
+
+    /* ══ FEED — Home tab, text/image posts ══ */
+    .feed-composer {
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 10px; padding: 0.85rem; margin-bottom: 1.4rem;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* The textarea itself has no border of its own (it lives directly in
+       this already-boxed wrapper) — glowing the whole card on focus is the
+       same "the box glows as one unit" language .picker-search/.chat-
+       modal-search use, rather than composing in a box that never
+       visually reacts to being focused at all. */
+    .feed-composer:focus-within {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    /* Live @mention coloring while typing: a real <textarea> can't render
+       inline-styled spans, so the standard trick is an identically-sized
+       div behind it rendering the highlighted markup, with the textarea's
+       own text made transparent (caret-color kept so you still see where
+       you're typing) — the overlay is what you actually see. */
+    .feed-composer-text-wrap { position: relative; }
+    /* Was 12.5px — noticeably smaller than the 15px a posted .feed-post-text
+       actually renders at, so what you typed looked shrunk the moment you
+       hit post. Matched to chat's composer input size (14px) too, so
+       typing feels the same size in both places. */
+    .feed-composer-text, .feed-composer-highlight {
+      width: 100%; min-height: 44px; max-height: 220px;
+      margin: 0; padding: 0; border: none; box-sizing: border-box;
+      font: inherit; font-size: 14px; line-height: 1.5; font-family: var(--font-ui);
+      white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
+    }
+    .feed-composer-highlight {
+      position: absolute; inset: 0; overflow: hidden;
+      pointer-events: none; color: var(--text);
+    }
+    .feed-composer-highlight .feed-post-mention { font-weight: 700; }
+    .feed-composer-text {
+      position: relative; resize: none; height: 44px;
+      overflow-y: hidden; /* JS grows it to fit content, no manual drag handle or scrollbar until it hits max-height */
+      background: none; outline: none;
+      color: transparent; caret-color: var(--text);
+    }
+    /* The plain outline:none above loses a same-specificity tie against
+       the global textarea:focus-visible accessibility-ring rule further
+       down the sheet (it sits later, so it wins) — same fix as
+       .chat-composer input's own :focus-visible override, and the actual
+       cause of the "a second box around the text" report: this textarea
+       sits inside .feed-composer, which already glows the whole card on
+       :focus-within, so the browser's own ring on top of that read as a
+       redundant second box drawn tight around the text itself. */
+    .feed-composer-text:focus-visible { outline: none; }
+    .feed-composer-text::placeholder { color: var(--text-dimmer); }
+    .feed-composer-preview-wrap { position: relative; width: fit-content; margin-top: 0.5rem; }
+    .feed-composer-preview { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; }
+    /* Same recipe as .chat-image-preview-remove (identical "remove this
+       staged attachment" corner badge in the chat composer) — grouped so
+       there's one definition instead of two hand-copied ones. */
+    .feed-composer-preview-remove, .chat-image-preview-remove {
+      position: absolute; top: -7px; right: -7px; width: 20px; height: 20px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      cursor: pointer; font-size: var(--fs-11);
+    }
+    /* "Share to feed" song attachment preview — same card language as
+       .picker-item, positioned relative so the shared X-to-remove button
+       (.feed-composer-preview-remove) can sit in its usual top-right spot. */
+    .feed-composer-song-preview {
+      position: relative; display: flex; align-items: center; gap: 0.65rem;
+      margin-top: 0.5rem; padding: 0.6rem 1.6rem 0.6rem 0.6rem;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+    }
+    /* display:flex above otherwise permanently wins over the browser's own
+       [hidden]{display:none} default (author CSS beats UA styles
+       regardless of specificity) — this element showed, empty, on every
+       feed visit until this was added. Same fix already applied to every
+       other hidden-but-styled element in this file (.chat-image-preview-
+       wrap[hidden], .chat-emoji-picker[hidden], etc.) */
+    .feed-composer-song-preview[hidden] { display: none; }
+    .feed-composer-song-art { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--tile-bg-h); }
+    .feed-composer-song-info { flex: 1; min-width: 0; }
+    .feed-composer-song-title { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-composer-song-artist { font-size: 10.5px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .feed-composer-song-lyric { font-size: 10.5px; color: var(--text-dim); font-style: italic; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-composer-row {
+      display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem;
+    }
+    .feed-composer-image-btn {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg-h); border: 1px solid var(--tile-border);
+      color: var(--text-dim); cursor: pointer; font-size: var(--fs-14);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-composer-image-btn:hover { border-color: var(--tile-border-h); color: var(--text); }
+    .feed-composer-image-btn.has-image { color: rgba(var(--accent-rgb),1); border-color: rgba(var(--accent-rgb),0.4); }
+    .feed-composer-error { font-size: 9.5px; color: var(--danger-color); }
+    /* Icon-only, matching the reply-send button's treatment — was a text
+       pill, the one labeled button in a row of otherwise icon-only ones. */
+    /* Same 32px/accent-fill recipe as .feed-post-reply-send — the same
+       "submit" action in the other composer context (was 34px/radius 8,
+       an unexplained one-off vs. reply-send's 30px/radius 8). */
+    .feed-composer-post-btn {
+      margin-left: auto; flex-shrink: 0;
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-15); cursor: pointer;
+      background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1);
+      transition: background 0.15s;
+    }
+    .feed-composer-post-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .feed-composer-post-btn:disabled { opacity: 0.5; cursor: default; }
+
+    .feed-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .feed-post {
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 10px; padding: 0.85rem; display: flex; gap: 0.7rem;
+    }
+    /* Bumped up from 38px/12.5px/13.5px — a feed of posts from people you
+       know reads more personal with real presence, not list-density. */
+    .feed-post-avatar {
+      width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg-h); font-size: 17px; font-weight: 700; color: var(--text-dim);
+      overflow: hidden;
+    }
+    .feed-post-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .feed-post-body { flex: 1; min-width: 0; }
+    .feed-post-head { display: flex; align-items: baseline; gap: 0.5rem; }
+    .feed-post-name { font-size: 14px; font-weight: 700; color: var(--name-color, var(--text)); }
+    .feed-post-time { font-size: 10px; color: var(--text-dimmer); }
+    /* Was a <span> — not keyboard-focusable/activatable at all, so a
+       keyboard user couldn't delete a post. Now a real <button>; the reset
+       properties strip default button chrome (same fix .music-playlist-
+       row-del already needed), and the hover-reveal also fires on
+       :focus-within so tabbing to it doesn't tab to something invisible. */
+    .feed-post-delete {
+      margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 13px;
+      opacity: 0; transition: opacity 0.15s, color 0.15s;
+      background: none; border: none; font-family: inherit; padding: 0;
+    }
+    .feed-post:hover .feed-post-delete, .feed-post:focus-within .feed-post-delete { opacity: 1; }
+    .feed-post-delete:hover, .feed-post-delete:focus-visible { color: var(--danger-color); }
+    .feed-post-text {
+      font-size: 15px; color: var(--text); line-height: 1.55; margin-top: 3px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .feed-post-mention { font-weight: 700; }
+    .feed-post-mention.is-me { text-decoration: underline; text-underline-offset: 2px; }
+    .feed-post-image { max-width: 100%; max-height: 420px; border-radius: 8px; margin-top: 0.5rem; display: block; cursor: zoom-in; }
+
+    /* Autolinked URLs in user text (feed posts, replies, chat messages).
+       Always underlined, not colour-only: --accent-rgb is sampled from album
+       art at runtime, so contrast against the bubble can't be relied on. */
+    .rich-link {
+      color: rgb(var(--accent-rgb));
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-thickness: 1px;
+      word-break: break-all;
+    }
+    .rich-link:hover { text-decoration-thickness: 2px; }
+
+    /* 16:9 YouTube player under a post whose text contains a YouTube link. */
+    .feed-post-embed {
+      position: relative; width: 100%; max-width: 480px; aspect-ratio: 16 / 9;
+      margin-top: 0.5rem; border-radius: 8px; overflow: hidden;
+      background: #000; border: 1px solid var(--glass-border);
+    }
+    .feed-post-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+    /* A shared song — same card language as the composer's own preview
+       (.feed-composer-song-preview) and .picker-item, but clickable to
+       actually play the track (the "deepen the integration" part of the
+       ask) instead of just being a static caption. */
+    .feed-post-song {
+      display: flex; align-items: center; gap: 0.7rem; margin-top: 0.5rem;
+      padding: 0.65rem 0.8rem; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 8px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-post-song:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .feed-post-song-art, .feed-post-song-art-ph {
+      width: 46px; height: 46px; border-radius: 6px; flex-shrink: 0; object-fit: cover;
+      background: var(--tile-bg-h); display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 16px;
+    }
+    .feed-post-song-info { flex: 1; min-width: 0; }
+    .feed-post-song-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-post-song-artist { font-size: 11px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .feed-post-song-lyric { font-size: 11.5px; color: var(--text-dim); font-style: italic; margin-top: 4px; line-height: 1.4; }
+    .feed-post-song-lyric::before, .feed-post-song-lyric::after { content: '"'; }
+    .feed-post-song-play {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: var(--fs-14);
+      background: rgba(var(--accent-rgb),0.15); border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1); cursor: pointer;
+    }
+    .feed-post-song:hover .feed-post-song-play { background: rgba(var(--accent-rgb),0.25); }
+
+    /* Reactions + replies footer */
+    .feed-post-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    /* Reaction emoji/icons sized up from 11.5px/11px/15px — they read as
+       small everywhere (feed and chat both) relative to the rest of the
+       cleanup pass. */
+    .feed-post-reaction-pill {
+      display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 10px;
+      cursor: pointer; background: var(--glass-fill); border: 1px solid var(--tile-border);
+      font-size: 14px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-post-reaction-pill:hover { background: var(--glass-fill-h); }
+    .feed-post-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
+    .feed-post-reaction-count { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+    .feed-post-add-reaction {
+      display: flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 10px;
+      cursor: pointer; background: none; border: 1px solid transparent; color: var(--text-dimmer);
+      font-size: 14px; transition: background 0.15s, color 0.15s;
+    }
+    .feed-post-add-reaction:hover { background: var(--glass-fill-h); color: var(--text-dim); }
+    .feed-post-quick-reactions { display: none; gap: 2px; }
+    .feed-post-quick-reactions.open { display: flex; }
+    .feed-post-quick-reactions button {
+      background: none; border: none; cursor: pointer; font-size: 19px; padding: 3px 5px; border-radius: 6px;
+    }
+    .feed-post-quick-reactions button:hover { background: var(--glass-fill-h); }
+
+    /* The reply composer itself always stays reachable, but the divider +
+       spacing that makes this read as its own "section" only earns its
+       keep once there's actually something to divide from — a post with
+       no replies just gets a plain compact input, not a whole bordered
+       area for one empty row. .has-replies (set in feedRepliesSectionHTML)
+       adds both back once replies.length > 0. Same fading-gradient
+       language as .sec-line/.chat-channel-section-label, not a hard rule. */
+    .feed-post-replies.has-replies { margin-top: 10px; padding-top: 10px; position: relative; }
+    .feed-post-replies.has-replies::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.2) 0%,
+        rgba(var(--accent-rgb),0.04) 60%,
+        transparent 100%);
+    }
+    .feed-post-replies:not(.has-replies) { margin-top: 6px; }
+    .feed-post-reply { display: flex; gap: 9px; margin-bottom: 10px; }
+    .feed-post-reply-avatar {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      background: var(--tile-bg-h); font-size: 12px; font-weight: 700; color: var(--text-dim);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .feed-post-reply-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .feed-post-reply-body { flex: 1; min-width: 0; }
+    .feed-post-reply-head { display: flex; align-items: baseline; gap: 6px; }
+    .feed-post-reply-name { font-size: 12px; font-weight: 700; }
+    .feed-post-reply-time { font-size: 9px; color: var(--text-dimmer); }
+    /* Same <span> -> <button> fix as .feed-post-delete above. */
+    .feed-post-reply-delete {
+      margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 11px;
+      background: none; border: none; font-family: inherit; padding: 0;
+    }
+    .feed-post-reply-delete:hover, .feed-post-reply-delete:focus-visible { color: var(--danger-color); }
+    .feed-post-reply-text { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .feed-post-reply-composer { display: flex; gap: 6px; margin-top: 6px; }
+    /* Same boxy + focus-glow language as .picker-search/.chat-composer
+       input, not a 14px pill on var(--glass-fill). */
+    .feed-post-reply-input {
+      flex: 1; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
+      padding: 7px 12px; font-size: 12px; color: var(--text); font-family: var(--font-ui); outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .feed-post-reply-input:focus {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    .feed-post-reply-input:focus-visible { outline: none; } /* see .chat-composer input's own comment on this exact fix */
+    .feed-post-reply-send {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-14); color: rgba(var(--accent-rgb),1); cursor: pointer;
+      background: rgba(var(--accent-rgb),0.12); border: 1px solid rgba(var(--accent-rgb),0.3);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .feed-post-reply-send:hover { background: rgba(var(--accent-rgb),0.22); }
+    .feed-mentions-btn {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
+      color: var(--text-dimmer); font-size: var(--fs-13); background: transparent; border: none;
+      transition: color 0.15s, background 0.15s;
+    }
+    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { color: var(--text); background: var(--tile-bg-h); }
+    .feed-mentions-dot {
+      position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
+      border-radius: 50%; background: rgba(var(--accent-rgb),1);
+    }
+    .feed-mentions-dot[hidden] { display: none; }
+    .feed-empty { font-size: 11px; letter-spacing: 0.04em; color: var(--text-dimmer); padding: 2rem 0; text-align: center; }
+    .feed-load-more {
+      display: block; margin: 0.8rem auto 0; padding: 6px 16px; border-radius: var(--radius-sm);
+      font-size: var(--fs-9); letter-spacing: 0.1em; text-transform: uppercase;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      cursor: pointer;
+    }
+    .feed-load-more:hover { background: var(--tile-bg-h); color: var(--text); }
+    /* Same [hidden]-vs-display bug found twice already this session —
+       .feed-load-more sets display:block unconditionally, so the button
+       showed regardless of whether there was actually more history to
+       load, or while filtered to mentions-only (see loadMoreEl.hidden's
+       own assignment). Pre-existing, not something from this session. */
+    .feed-load-more[hidden] { display: none; }
+    @media (max-width: 560px) {
+      .feed-post { flex-direction: column; }
+      .feed-post-avatar { width: 36px; height: 36px; }
+    }
+
+    /* ══ APP GRID ══ */
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
+      gap: 6px; animation: fadeUp 0.6s 0.18s ease both;
+    }
+
+    .tile-wrap { border-radius: 8px; }
+
+    .tile {
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+      border-radius: 8px; padding: 0.55rem 0.75rem;
+      display: flex; flex-direction: row; align-items: center; gap: 0.65rem;
+      text-decoration: none; color: inherit; position: relative; overflow: hidden;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      -webkit-user-select: none; user-select: none;
+    }
+    .tile:hover {
+      background: var(--tile-bg-h);
+      border-color: var(--tile-border-h);
+    }
+    .tile:active { background: var(--tile-bg-h); }
+
+    .tile-wrap.tile-wrap-auto { width: fit-content; }
+    .tile.tile-wide {
+      font: inherit; padding: 0.7rem 1.1rem; gap: 0.75rem;
+    }
+    .tile.tile-wide .tile-name { overflow: visible; text-overflow: unset; white-space: nowrap; font-size: 11px; }
+    .tile.tile-wide i { font-size: 17px; }
+    .grass-icon-slot { display: flex; flex-shrink: 0; }
+
+    /* ══ KLAB SOCIAL — Matrix chat ══ */
+    .chat-shell {
+      min-height: 320px;
+      display: flex; flex-direction: column;
+    }
+    .chat-connect {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.5rem; padding: 3rem 1.5rem; text-align: center; flex: 1;
+    }
+    .chat-connect i { font-size: 32px; color: var(--tile-icon); }
+    .chat-connect-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .chat-connect-sub { font-size: 11.5px; color: var(--text-dimmer); max-width: 340px; line-height: 1.55; }
+    /* Canonical accent "pill" CTA recipe — same beveled-glass treatment as
+       .ap-btn-play (identical values, kept as two rules since they sit in
+       very different parts of the file, but both should be read as one
+       component). .ap-btn-queue is this recipe's neutral sibling.
+       Fixed height (not just padding) — was 6px-padding-derived (~27px),
+       read as a short, cramped pill next to the app's other controls and
+       could visibly mismatch height against a neighboring icon button
+       depending on font metrics. 36px roughly matches .tab-nav-btn's own
+       rendered height without copying its exact recipe. */
+    .chat-connect-btn {
+      margin-top: 0.4rem;
+      height: 36px;
+      display: flex; align-items: center; gap: 7px;
+      padding: 0 20px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; font-weight: 700;
+      background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      border-top-color: rgba(255,255,255,0.22);
+      color: rgba(var(--accent-rgb),1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
+      transition: background 0.18s;
+    }
+    .chat-connect-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
+    .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
+    .chat-app { display: flex; flex-direction: column; height: min(780px, 82vh); }
+    /* Both set their own `display`, which otherwise beats the browser's
+       default [hidden]{display:none} at equal specificity (author CSS
+       always wins over UA styles regardless of source order) — so the
+       .hidden=true toggle in JS would do nothing without this. */
+    .chat-connect[hidden], .chat-app[hidden] { display: none; }
+    /* Hidden by default — "connected" isn't worth a permanent status bar +
+       divider once it's the normal, unremarkable state. Shown (see
+       showChatApp()'s sync handler) only while NOT live — connecting,
+       reconnecting, error — so a real problem still surfaces instead of
+       going silently invisible. */
+    .chat-app-header {
+      display: none; align-items: center; gap: 8px;
+      padding: 0.7rem 1.2rem; font-size: 10px; letter-spacing: 0.1em;
+      color: var(--text-dimmer); text-transform: uppercase;
+    }
+    .chat-app-header.visible { display: flex; }
+    .chat-status-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: #6b7280;
+    }
+    .chat-status-dot.live { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+
+    .chat-body { display: flex; flex: 1; min-height: 0; }
+    /* Width is set inline by the resizer script (initChatResizer()) from
+       the saved/dragged value — 230px here is only the pre-JS fallback. */
+    /* Softened from a solid var(--tile-border) line — still needed (no
+       background difference separates the two panes otherwise) but a
+       faint one reads closer to the rest of the app's fade-away dividers
+       (see .sec-line) than a hard rule. */
+    .chat-channels { width: 230px; flex-shrink: 0; overflow-y: auto; overflow-x: hidden; border-right: 1px solid rgba(var(--accent-rgb),0.08); padding: 0.6rem; }
+    .chat-resizer {
+      width: 5px; flex-shrink: 0; cursor: col-resize;
+      background: transparent; transition: background 0.15s;
+    }
+    .chat-resizer:hover, .chat-resizer.dragging { background: rgba(var(--accent-rgb),0.35); }
+    .chat-channel-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 7px; cursor: pointer;
+      font-size: 12px; color: var(--tile-label);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: background 0.15s;
+    }
+    .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
+    .chat-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Which channel/DM has something unread — the Chat tab's own badge
+       only ever said how many, not which. Sits right after the (possibly
+       truncated) name rather than in the trailing invited/online-dot/close
+       group on the far right, so it doesn't compete with those for space
+       or get swallowed by the hover-reveals-close-button rule below. */
+    .chat-channel-item.has-unread .chat-channel-name { color: var(--text); font-weight: 700; }
+    .chat-channel-unread-dot {
+      flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(var(--accent-rgb),1); box-shadow: 0 0 5px rgba(var(--accent-rgb),0.6);
+    }
+    .chat-channel-invited {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: rgba(var(--accent-rgb),1);
+    }
+    .chat-channel-online-dot {
+      margin-left: auto; flex-shrink: 0;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success-color); box-shadow: 0 0 5px rgba(74,222,128,0.6);
+    }
+    .chat-channel-close {
+      margin-left: auto; flex-shrink: 0; opacity: 0;
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: 11px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+    .chat-channel-item:hover .chat-channel-close { opacity: 1; }
+    .chat-channel-close:hover { color: var(--danger-color); background: var(--glass-fill-h); }
+    /* The close button takes over the same right-hand slot on hover
+       instead of sitting next to the status badge in a cramped row. */
+    .chat-channel-item:hover .chat-channel-online-dot,
+    .chat-channel-item:hover .chat-channel-invited { display: none; }
+    .chat-channel-item:hover { background: var(--glass-fill); }
+    .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
+    .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
+    .chat-channel-empty { font-size: 10px; color: var(--text-faint); padding: 0.8rem; line-height: 1.6; }
+
+    .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .chat-timeline { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.3rem; display: flex; flex-direction: column; gap: 3px; }
+    .chat-timeline-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: var(--text-faint); text-align: center; padding: 2rem;
+    }
+    /* Day divider between messages — "Today"/"Yesterday"/"Month D" label
+       centered on the .sec-line fading-gradient-divider language used
+       elsewhere (chat section labels, feed reply dividers), rather than a
+       plain horizontal rule, so it reads as the same visual family. */
+    .chat-date-sep { display: flex; align-items: center; gap: 10px; margin: 14px 2px 6px; }
+    .chat-date-sep:first-child { margin-top: 2px; }
+    .chat-date-sep-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(var(--accent-rgb),0.22) 50%, transparent 100%);
+    }
+    .chat-date-sep-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--text-dimmer); white-space: nowrap; flex-shrink: 0;
+    }
+    /* Sender/text/avatar sizes bumped to match the feed's own "personal,
+       not list-density" pass (feed-post-avatar/-name/-text) — the two now
+       sit one tab apart and read as different apps at the old, smaller
+       chat scale. Kept a hair under the feed's 46px/15px since chat rows
+       are denser (no card padding, higher message frequency). */
+    .chat-msg { display: flex; gap: 12px; padding: 5px 0; }
+    .chat-msg.grouped { padding-top: 1px; }
+    .chat-msg-avatar {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
+      font-size: 14px; font-weight: 700; text-transform: uppercase;
+    }
+    .chat-msg-avatar.grouped { visibility: hidden; }
+    .chat-msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .chat-msg-body { min-width: 0; flex: 1; }
+    .chat-msg-head { display: flex; align-items: baseline; gap: 8px; }
+    .chat-msg-sender { font-size: 13.5px; font-weight: 700; color: var(--text); }
+    .chat-msg-time { font-size: 10px; color: var(--text-faint); }
+    .chat-msg-text { font-size: 14px; color: var(--text); line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
+    .chat-msg-text.deleted { color: var(--text-faint); font-style: italic; }
+    .chat-msg-edited { font-size: 9.5px; color: var(--text-faint); }
+    /* Read receipts: readers' avatars, not text — one avatar for a DM,
+       small overlapping stack (+N beyond a handful) for a group room. */
+    .chat-msg-seen { display: flex; justify-content: flex-end; gap: 2px; padding: 3px 4px 0; }
+    .chat-msg-seen-avatar {
+      width: 14px; height: 14px; border-radius: 50%; overflow: hidden;
+      background: rgba(var(--accent-rgb),0.18); color: rgba(var(--accent-rgb),1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 700; text-transform: uppercase;
+      border: 1px solid var(--bg);
+    }
+    .chat-msg-seen-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .chat-msg-seen-avatar + .chat-msg-seen-avatar { margin-left: -6px; }
+    .chat-msg-seen-more { font-size: 8.5px; color: var(--text-faint); align-self: center; margin-left: 2px; }
+
+    /* Hover actions (react / reply) — top-right corner of a message row,
+       revealed on hover so the timeline isn't cluttered by default. */
+    .chat-msg { position: relative; }
+    /* var(--tile-bg) alone is ~5.5% opaque in dark mode — the message text
+       underneath showed straight through this floating toolbar. Same
+       glass-fill + blur treatment as .chat-emoji-picker below, which
+       already reads as solid despite being just as translucent a token. */
+    .chat-msg-actions {
+      position: absolute; top: -6px; right: 8px; display: none; gap: 2px;
+      background: var(--glass-fill); backdrop-filter: blur(20px);
+      border: 1px solid var(--tile-border); border-radius: 8px;
+      padding: 2px; box-shadow: 0 2px 8px var(--shadow-20); z-index: 2;
+    }
+    .chat-msg:hover .chat-msg-actions { display: flex; }
+    /* Sized up from 24px/13px — same "reaction icons read small everywhere"
+       fix as the feed's reaction pills. */
+    .chat-msg-action-btn {
+      width: 28px; height: 28px; border-radius: var(--radius-sm); border: none; background: none;
+      color: var(--text-dim); cursor: pointer; font-size: var(--fs-16);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .chat-msg-action-btn:hover { background: var(--tile-bg-h); color: var(--text); }
+
+    /* Reactions — aggregated pills below the message body */
+    .chat-msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chat-msg-reaction-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 10px; cursor: pointer;
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
+      font-size: 14px; line-height: 1.4; transition: background 0.15s, border-color 0.15s;
+    }
+    .chat-msg-reaction-pill:hover { background: var(--glass-fill-h); }
+    .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.14); }
+    .chat-msg-reaction-count { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+
+    /* Reply quote — shown above a reply's own bubble, and the composer's
+       "replying to" preview strip above the input row. */
+    .chat-msg-reply-quote {
+      display: flex; align-items: center; gap: 5px; margin-bottom: 3px;
+      font-size: 11px; color: var(--text-dimmer); cursor: pointer;
+      border-left: 2px solid var(--tile-border); padding-left: 6px;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%;
+    }
+    .chat-msg-reply-quote:hover { color: var(--text-dim); }
+    .chat-msg-reply-quote-name { font-weight: 700; flex-shrink: 0; }
+    .chat-reply-preview {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+      padding: 5px 9px; border-radius: 8px; background: var(--glass-fill);
+      border: 1px solid var(--tile-border); font-size: 11px; color: var(--text-dim);
+    }
+    .chat-reply-preview[hidden] { display: none; }
+    .chat-reply-preview-body { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .chat-reply-preview-name { font-weight: 700; color: var(--text); }
+    /* Small hit-target + hover-fill like its sibling close buttons, scaled
+       down to fit inline in the compact reply-preview strip rather than a
+       full 28px box. */
+    .chat-reply-preview-close {
+      cursor: pointer; color: var(--text-dimmer); flex-shrink: 0;
+      padding: 2px 4px; border-radius: var(--radius-sm); transition: color 0.15s, background 0.15s;
+    }
+    .chat-reply-preview-close:hover { color: var(--text); background: var(--glass-fill-h); }
+
+    /* Image attached but not sent yet — confirm/cancel before it goes out,
+       same idea as the feed composer's own image preview. */
+    .chat-image-preview-wrap { position: relative; width: fit-content; margin-bottom: 6px; }
+    .chat-image-preview-wrap[hidden] { display: none; }
+    .chat-image-preview { max-width: 140px; max-height: 140px; border-radius: 8px; display: block; }
+    .chat-typing {
+      height: 18px; padding: 0 1.3rem; font-size: 10.5px; color: var(--text-faint);
+      letter-spacing: 0.03em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    /* No top border — the composer input's own box (see its boxy-glow
+       styling below) already visually anchors this area; a wrapper
+       divider on top of that just read as a second, redundant line. */
+    .chat-composer { padding: 0.5rem 0.9rem 0.9rem; position: relative; }
+    /* flex-end, not center: the composer grows downward as you type, and
+       centered buttons drifted down the taller it got. */
+    .chat-composer-row { display: flex; align-items: flex-end; gap: 2px; }
+    /* Same boxy-but-rounded + focus-glow language as .picker-search in the
+       Music sidebar (background/border tokens, radius, and the layered
+       box-shadow glow on focus) — was a plain 20px pill with just a border-
+       color change on focus, which read as a different design system from
+       the rest of the app. */
+    .chat-composer input, .chat-composer textarea {
+      width: 100%; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 8px; padding: 10px 16px; font-size: 14px; color: var(--text);
+      font-family: var(--font-ui); outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* Height is driven by autoGrowChatComposer(); this is the one-line
+       starting size and the ceiling past which it scrolls instead. */
+    .chat-composer textarea {
+      resize: none; overflow-y: hidden; line-height: 1.45;
+      min-height: 40px; max-height: 160px; display: block;
+    }
+    .chat-composer input:focus, .chat-composer textarea:focus {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    /* A global input:focus-visible rule (accessibility outline ring) has the
+       same specificity as a plain "outline: none" here and sits later in the
+       stylesheet, so it wins the cascade and draws a second box tight around
+       the text on top of this pill's own border. Re-targeting :focus-visible
+       specifically (not just a base outline:none) is the fix the site already
+       uses for .picker-search input — matching it here. */
+    .chat-composer input:focus-visible, .chat-composer textarea:focus-visible { outline: none; }
+    .chat-composer input::placeholder, .chat-composer textarea::placeholder { color: var(--text-dimmer); }
+    /* .chat-icon-btn.<x> (2 class-equivalents), not just .<x>, so this
+       reliably outranks the shared .chat-icon-btn base rule's own padding
+       further down (same specificity + later source order would otherwise
+       win) — these two buttons needed bigger/tighter padding than the
+       channel-toolbar icons .chat-icon-btn is also shared with. */
+    .chat-icon-btn.chat-emoji-btn { flex-shrink: 0; font-size: 24px; padding: 4px 3px; }
+    .chat-icon-btn.chat-image-btn { flex-shrink: 0; font-size: 20px; padding: 4px 3px; }
+    /* gitea#3 emoji request — plain Unicode emoji only, no custom-emoji
+       upload/storage (that's a real backend feature, not a v1 fit). */
+    .chat-emoji-picker {
+      position: absolute; bottom: 100%; left: 1.2rem; margin-bottom: 6px;
+      background: var(--glass-fill); backdrop-filter: blur(20px);
+      border: 1px solid var(--tile-border); border-radius: 10px;
+      padding: 6px; box-shadow: 0 8px 24px var(--shadow-20);
+      display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
+      width: 264px; max-height: 220px; overflow-y: auto;
+    }
+    .chat-emoji-picker[hidden] { display: none; }
+    .chat-emoji-picker button {
+      background: none; border: none; cursor: pointer; font-size: 19px;
+      line-height: 1; padding: 5px; border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
+    .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: zoom-in; }
+
+    .chat-channels-toolbar {
+      display: flex; justify-content: flex-start; gap: 2px;
+      padding: 4px 4px 8px; margin-bottom: 4px;
+    }
+    .chat-icon-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: 14px; padding: 4px 6px; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
+    /* Same fading-line language as .sec-line (the "// users" header etc.)
+       — a thin gradient strip under the label instead of a hard rule,
+       narrow sidebar so it rides under the text rather than beside it. */
+    .chat-channel-section-label {
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-faint); padding: 10px 10px 6px; position: relative;
+    }
+    .chat-channel-section-label::after {
+      content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 1px;
+      background: linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.2) 0%,
+        rgba(var(--accent-rgb),0.04) 60%,
+        transparent 100%);
+    }
+
+    /* Browse/create/DM modal — rows and inputs shared across all three modes.
+       Same .picker-search language: boxy radius, tile background, and a
+       glow on the whole wrapper (:focus-within, not just the bare input)
+       when focused — matches how .picker-search itself glows as one unit. */
+    .chat-modal-search {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text-dimmer);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chat-modal-search:focus-within {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    .chat-modal-search input {
+      flex: 1; background: none; border: none; outline: none; color: var(--text);
+      font-family: var(--font-ui); font-size: 11px;
+    }
+    .chat-modal-search input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
+    .chat-modal-search input::placeholder { color: var(--text-dimmer); }
+    .chat-modal-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 0.6rem; }
+    .chat-modal-row {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
+      background: var(--glass-fill); border: 1px solid var(--tile-border);
+    }
+    /* Cover-art thumbnail on a modal row — same idiom as .picker-item-art/
+       -art-ph, just sized down slightly to fit this denser row height.
+       Music request search results (see MUSIC REQUESTS) are the first
+       .chat-modal-row content to actually need art. */
+    .chat-modal-row-art {
+      width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0;
+      object-fit: cover; background: var(--tile-bg); border: 1px solid var(--tile-border);
+    }
+    .chat-modal-row-art-ph {
+      width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg); color: var(--text-dimmer); font-size: 14px;
+      border: 1px solid var(--tile-border);
+    }
+    .chat-modal-row-info { flex: 1; min-width: 0; }
+    .chat-modal-row-name { font-size: 10.5px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-modal-row-sub { font-size: 9px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Same pill-CTA recipe as .chat-connect-btn/.ap-btn-play, just smaller
+       for a dense list row — radius was its own one-off 14px (fully oval)
+       with no documented reason; aligned to the shared 6px so every accent
+       pill in the app reads as one family. */
+    .chat-modal-row-btn {
+      flex-shrink: 0; font-size: var(--fs-9); letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700;
+      background: rgba(var(--accent-rgb),0.15); border: 1px solid rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1); transition: background 0.15s;
+    }
+    .chat-modal-row-btn:hover { background: rgba(var(--accent-rgb),0.25); }
+    .chat-modal-row-btn:disabled { opacity: 0.5; cursor: default; }
+    .chat-modal-input {
+      width: 100%; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text);
+      font-family: var(--font-ui); outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chat-modal-input::placeholder { color: var(--text-dimmer); }
+    .chat-modal-input:focus {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
+    .chat-modal-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.5rem; }
+
+    /* ── Bug report / idea modal (openFeedbackModal) ── */
+    .fb-type { display: flex; gap: 6px; margin-bottom: 8px; }
+    .fb-type-btn {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: 32px; border-radius: var(--radius-md); cursor: pointer;
+      font-family: var(--font-ui); font-size: var(--fs-11); letter-spacing: 0.06em; text-transform: uppercase;
+      background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dim);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .fb-type-btn:hover { background: var(--tile-bg-h); color: var(--text); }
+    .fb-type-btn.active {
+      background: rgba(var(--accent-rgb),0.16);
+      border-color: rgba(var(--accent-rgb),0.35);
+      color: rgba(var(--accent-rgb),1);
+    }
+    .fb-row { text-decoration: none; }
+    .fb-state {
+      flex: none; padding: 2px 7px; border-radius: 999px;
+      font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .fb-state-open   { background: rgba(74,222,128,0.14); color: var(--success-color); }
+    .fb-state-closed { background: rgba(var(--accent-rgb),0.12); color: var(--text-dimmer); }
+    /* Album/Song segmented toggle atop the New Request modal. */
+    .music-req-type-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+    .music-req-type-btn {
+      flex: 1; padding: 7px; border-radius: var(--radius-md); cursor: pointer;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      color: var(--text-dim); font-size: var(--fs-11); font-family: var(--font-ui);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .music-req-type-btn.active {
+      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
+      color: rgba(var(--accent-rgb),1);
+    }
+
+    /* Profile-editor modal (avatar + display name, opened from your own
+       presence card) — reuses .chat-modal-input/.chat-connect-btn for the
+       form controls, just adds the clickable avatar preview. */
+    .profile-modal-avatar-row { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .profile-modal-avatar {
+      position: relative; width: 72px; height: 72px; border-radius: 50%;
+      overflow: hidden; cursor: pointer; background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 700; color: rgba(var(--accent-rgb),1);
+    }
+    .profile-modal-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .profile-modal-avatar-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); color: #fff; font-size: 16px; opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .profile-modal-avatar:hover .profile-modal-avatar-overlay { opacity: 1; }
+    .profile-modal-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; display: block; }
+
+    /* Profile-editor additions: banner upload, bio, chat-color swatches. */
+    .profile-modal-banner-row { margin-bottom: 1rem; }
+    .profile-modal-banner {
+      position: relative; width: 100%; height: 84px; border-radius: 8px;
+      overflow: hidden; cursor: pointer; background: rgba(var(--accent-rgb),0.12) center/cover;
+      border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .profile-modal-banner-overlay {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10.5px; letter-spacing: 0.04em; color: var(--text-faint);
+      background: rgba(0,0,0,0.35); padding: 4px 10px; border-radius: 20px;
+    }
+    .profile-modal-bio-counter { font-size: 9px; color: var(--text-faint); text-align: right; margin-top: 3px; }
+    .profile-modal-color-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .profile-modal-color-swatch {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; box-shadow: 0 0 0 1px var(--tile-border);
+      transition: transform 0.1s;
+    }
+    .profile-modal-color-swatch:hover { transform: scale(1.12); }
+    .profile-modal-color-swatch.selected { border-color: var(--text); }
+    .profile-modal-color-swatch.auto {
+      background: var(--tile-bg); display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--text-faint);
+    }
+    .profile-modal-color-swatch.auto::after { content: 'A'; }
+
+    /* Read-only profile viewer (click a name/avatar in chat/feed/presence). */
+    .profile-view-banner {
+      width: 100%; height: 100px; border-radius: 8px; margin-bottom: -28px;
+      background: linear-gradient(135deg, rgba(var(--accent-rgb),0.3), rgba(var(--accent-rgb),0.08)) center/cover;
+    }
+    .profile-view-avatar-row { display: flex; align-items: flex-end; gap: 10px; padding: 0 4px; }
+    .profile-view-avatar {
+      width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: rgba(var(--accent-rgb),0.15); border: 2px solid var(--bg, var(--tile-bg));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: rgba(var(--accent-rgb),1);
+    }
+    .profile-view-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-view-names { padding-bottom: 4px; overflow: hidden; }
+    .profile-view-displayname { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-view-username { font-size: 10.5px; color: var(--text-faint); }
+    .profile-view-bio { font-size: 12px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; white-space: pre-wrap; }
+
+    /* Pan/zoom cropper — its own standalone overlay (not the shared
+       #chatModalBody shell) since it needs to stack on top of the
+       profile-edit modal that's still open underneath it. */
+    .img-crop-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 450; padding: 16px; /* above #chatModalBackdrop's z-index:400 (.add-app-backdrop) — this stacks on top of it */
+    }
+    .img-crop-dialog {
+      background: var(--bg); border: 1px solid var(--tile-border); border-radius: 10px;
+      padding: 16px; width: 100%; max-width: 360px;
+    }
+    .img-crop-title { font-size: 11px; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 10px; text-transform: uppercase; }
+    .img-crop-stage {
+      position: relative; width: 100%; overflow: hidden; border-radius: 8px;
+      background: #000; cursor: grab; touch-action: none;
+    }
+    .img-crop-stage:active { cursor: grabbing; }
+    .img-crop-stage.is-circle { aspect-ratio: 1 / 1; border-radius: 50%; }
+    .img-crop-stage.is-rect { aspect-ratio: 3.5556 / 1; }
+    .img-crop-img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; pointer-events: none; }
+    .img-crop-zoom { width: 100%; margin-top: 12px; }
+    .img-crop-actions { display: flex; gap: 8px; margin-top: 12px; }
+    /* Was .chat-modal-row-btn for Cancel — a small dense-list-row pill
+       sitting next to .chat-connect-btn's full CTA size (36px) looked
+       exactly like the "one button taller, one shorter" mismatch; swapped
+       to .ap-btn-queue, the same size as .chat-connect-btn but neutral. */
+    .img-crop-actions .chat-connect-btn, .img-crop-actions .ap-btn-queue { flex: 1; justify-content: center; margin-top: 0; }
+
+    /* ── Image viewer (openImageViewer) — the zoom/pan lightbox feed and
+          chat photos open into. Sits at 600: above .img-crop-backdrop's 450
+          and the 500 tier (.toast-flyout, .update-banner, the player dock),
+          below .ctx-menu's 999 so a right-click menu still wins. ── */
+    .img-view-backdrop {
+      position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.92);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.18s ease;
+      touch-action: none; /* we drive pan/pinch ourselves via pointer events */
+    }
+    .img-view-backdrop.open { opacity: 1; }
+    .img-view-stage {
+      position: absolute; inset: 0; overflow: hidden;
+      cursor: zoom-out; touch-action: none;
+    }
+    .img-view-stage.is-zoomed { cursor: grab; }
+    .img-view-stage.is-zoomed:active { cursor: grabbing; }
+    .img-view-img {
+      position: absolute; top: 0; left: 0; max-width: none;
+      user-select: none; -webkit-user-drag: none; will-change: transform;
+    }
+    .img-view-bar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+      padding: 12px 14px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+    }
+    .img-view-btn {
+      width: 34px; height: 34px; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(0,0,0,0.4); color: #f2efe9; cursor: pointer;
+      font-size: 16px; transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .img-view-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
+    .img-view-hint {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      z-index: 2; padding: 5px 10px; border-radius: 999px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(242,239,233,0.75); font-size: 11px; letter-spacing: 0.04em;
+      pointer-events: none; opacity: 0; transition: opacity 0.25s ease;
+    }
+    .img-view-backdrop.show-hint .img-view-hint { opacity: 1; }
+    @media (max-width: 640px) { .img-view-hint { display: none; } }
+
+    .tile i {
+      font-size: 16px; color: var(--tile-icon);
+      transition: color 0.2s;
+      position: relative; z-index: 4;
+      flex-shrink: 0; width: 18px; text-align: center;
+    }
+
+    .tile-name {
+      font-size: 10.5px; letter-spacing: 0.07em; color: var(--tile-label);
+      text-transform: uppercase; text-align: left;
+      transition: color 0.2s; position: relative; z-index: 4;
+      font-family: var(--font-ui);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tile:hover .tile-name { color: var(--tile-label-h); }
+
+    .tile-dot {
+      position: absolute; top: 8px; right: 8px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--glass-border);
+      transition: background 0.4s, box-shadow 0.4s; z-index: 5;
+    }
+    .tile-dot.up          { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+    .tile-dot.down        { background: var(--danger-color); box-shadow: 0 0 8px rgba(248,113,113,0.7); animation: blink 1.5s ease infinite; }
+    .tile-dot.maintenance { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,0.7); animation: blink 2.5s ease infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @media (prefers-reduced-motion: reduce) {
+      .tile-dot.down, .tile-dot.maintenance { animation: none; }
+    }
+
+    /* ══ CONTEXT MENU ══ */
+    .ctx-menu {
+      position: fixed; z-index: 999; padding: 6px; border-radius: 8px;
+      min-width: 185px; display: none;
+      animation: ctxIn 0.15s ease both;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border-h);
+      box-shadow: 0 8px 32px var(--shadow-40);
+    }
+    .ctx-menu.visible { display: block; }
+    @keyframes ctxIn { from{opacity:0;transform:scale(0.94) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    .ctx-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text-dimmer); text-transform: uppercase; padding: 4px 10px 8px; }
+    .ctx-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px;
+      font-size: 11px; letter-spacing: 0.08em; color: var(--text-dim); cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.2s; text-transform: uppercase;
+    }
+    .ctx-item:hover { background: var(--glass-fill-h); color: var(--text); transform: translateX(2px); }
+    .ctx-item:active { transform: scale(0.96); }
+    .ctx-item i { font-size: 15px; }
+    .ctx-item.warn { color: var(--warn-color); }
+    .ctx-item.warn:hover { color: var(--warn-color); background: var(--warn-bg); transform: translateX(2px); }
+    .ctx-item.active-warn { color: var(--warn-color); }
+    /* .ctx-item sets display:flex above, which always wins over the
+       browser's own [hidden]{display:none} default regardless of
+       specificity (author CSS beats UA styles) — without this, a
+       hidden .ctx-item (the header overflow menu's Leaderboard row when
+       that experimental feature is off) would show anyway, empty of
+       function. Same bug/fix already needed for .feed-composer-song-preview. */
+    .ctx-item[hidden] { display: none; }
+    .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
+
+    /* Header overflow ("more") menu — same look as .ctx-menu (background/
+       border/shadow/entrance animation), just anchored under the header
+       button that opens it instead of positioned at a right-click point,
+       so plain position:absolute within .header-right's own relative
+       positioning is enough — no JS coordinate math needed. */
+    .hdr-more-menu {
+      position: absolute; top: calc(100% + 10px); right: 0; z-index: 60;
+      min-width: 210px; padding: 6px; border-radius: 8px; display: none;
+      animation: ctxIn 0.15s ease both;
+      background: var(--modal-bg); border: 1px solid var(--glass-border-h);
+      box-shadow: 0 8px 32px var(--shadow-40);
+    }
+    .hdr-more-menu.visible { display: block; }
+
+    /* ══ MUSIC PLAYER DOCK — back to a floating bar, bottom-centered (the
+       full-width edge-to-edge redesign didn't land — reverted) ══ */
+    .player-dock {
+      position: fixed;
+      bottom: 1.1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      /* A bit wider than the content column — it's a single bar, not a
+         grid, so it can afford to run wider than .dash. Tied to the same
+         --content-w scale so it grows correctly under the zoom tiers too. */
+      width: min(calc(var(--content-w) + 200px), calc(100vw - 3rem));
+      z-index: 50;
+      border-radius: 10px;
+      padding: 0.75rem 1.35rem;
+      display: flex;
+      align-items: center;
+      gap: 1.1rem;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px var(--shadow-50);
+      transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease;
+      font-family: var(--font-ui);
+    }
+    .player-dock.hidden { transform: translateX(-50%) translateY(calc(100% + 2.5rem))!important; opacity:0!important; pointer-events:none!important; }
+
+    /* Flatten the nested rows into one line */
+    .player-main,
+    .player-toprow,
+    .player-scrub-row,
+    .player-secondary {
+      display: contents;
+    }
+
+    .player-art, .player-art-placeholder {
+      width: 46px; height: 46px; border-radius: 7px;
+      flex-shrink: 0; object-fit: cover;
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 18px;
+    }
+
+    .player-info { flex: 1 1 180px; min-width: 120px; max-width: 300px; }
+
+    .player-title {
+      font-size: 12.5px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.02em;
+    }
+    .player-title .player-link { color: var(--text); transition: color 0.25s; }
+    .player-title .player-link:hover { color: rgba(var(--accent-rgb),1); }
+
+    .player-artist {
+      font-size: 10.5px; color: rgba(var(--accent-rgb),0.9);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.02em; margin-top: 2px;
+    }
+    .player-artist .player-link { color: rgba(var(--accent-rgb),0.9); transition: color 0.25s; }
+    .player-artist .player-link:hover { color: rgba(var(--accent-rgb),1); }
+    .player-artist .player-album-sep { opacity: 0.5; margin: 0 0.4em; }
+    .player-artist .player-album { color: var(--text-dimmer); }
+
+    .player-idle { font-size: 11px; color: var(--text-dimmer); letter-spacing: 0.12em; text-transform: uppercase; }
+
+    .player-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .dock-extra { opacity: 0.5; font-size: 14px; }
+
+    .ctrl-btn {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-dim); font-size: var(--fs-15);
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+      border: 1px solid transparent; background: transparent;
+      position: relative;
+    }
+    .ctrl-btn:hover { color: var(--text); background: var(--glass-fill-h); border-color: rgba(var(--accent-rgb),0.35); }
+    .ctrl-btn:active { transform: scale(0.92); }
+    .ctrl-btn.play-btn {
+      width: 38px; height: 38px; font-size: var(--fs-16);
+      border-radius: var(--radius-md);
+      background: rgba(var(--accent-rgb),0.16);
+      border: 1px solid rgba(var(--accent-rgb),0.3);
+      color: var(--text);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ctrl-btn.play-btn:hover {
+      background: rgba(var(--accent-rgb),0.24);
+      border-color: rgba(var(--accent-rgb),0.45);
+    }
+    .ctrl-btn.play-btn:active { transform: scale(0.92); }
+
+    /* player-progress is a slider-wrap */
+    /* No max-width here on purpose — this is the one element that should
+       absorb all leftover bar width. .player-info is capped (title/artist
+       text doesn't need to keep growing); if the seek bar were capped too,
+       once both caps are hit the extra space has nowhere to go and just
+       sits empty — which is exactly what happened on wide/zoomed docks. */
+    .player-progress { flex: 2 1 0 !important; min-width: 80px; width: 0; }
+
+    .player-vol {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .player-vol i { font-size: 14px; color: var(--text-dimmer); }
+    .vol-slider { width: 72px; background: none !important; }
+
+    /* Every control has a fixed minimum footprint, so once the window gets
+       narrow enough the sum of those minimums exceeds the dock's own width
+       and content spills out past its rounded edge. Progressively drop the
+       least essential controls instead of letting that happen. */
+    @media (max-width: 860px) {
+      .player-dock .dock-extra { display: none; }
+    }
+    @media (max-width: 760px) {
+      .player-dock .player-vol {
+        display: none;
+      }
+    }
+    @media (max-width: 520px) {
+      .player-dock .player-time-wrap,
+      .player-dock #btnFS {
+        display: none;
+      }
+      .player-dock { padding: 0.7rem 0.9rem; gap: 0.5rem; }
+      .player-dock .player-art, .player-dock .player-art-placeholder { width: 36px; height: 36px; }
+      .player-dock .player-info { min-width: 44px; }
+      .player-dock .player-progress { min-width: 30px; }
+      .player-dock .ctrl-btn { width: 28px; height: 28px; }
+      .player-dock .ctrl-btn.play-btn { width: 32px; height: 32px; }
+    }
+
+    .player-link {
+      font-size: 11px; color: var(--text-dimmer);
+      text-decoration: none; flex-shrink: 0; cursor: pointer;
+      transition: color 0.15s, opacity 0.15s;
+    }
+    .player-link:hover {
+      color: var(--text) !important;
+      text-decoration: underline;
+      text-decoration-color: rgba(var(--accent-rgb), 0.4);
+      text-underline-offset: 2px;
+    }
+
+    /* hdr buttons - boxy, compact. Every one of these also carries the
+       .glass class in HTML for a visible resting-state pill — this rule
+       used to stomp that back to background:transparent/border:transparent,
+       so they were invisible until hovered. Only override sizing/layout
+       here and let .glass supply the fill/border. */
+    .hdr-btn {
+      position: relative;
+      width:28px; height:28px; min-width:28px; min-height:28px;
+      border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:var(--fs-13);
+      flex-shrink:0; color:var(--text-dim); transition:color 0.2s, background 0.2s, border-color 0.2s;
+      text-decoration:none;
+    }
+    .hdr-btn:hover { color:var(--text); background:var(--glass-fill-h); border-color:rgba(var(--accent-rgb),0.35); }
+    .hdr-btn.active { color:var(--text); background:var(--glass-fill-h); }
+    /* .hdr-btn sets display:flex above, which always wins over the browser's
+       own [hidden]{display:none} default regardless of specificity (author
+       CSS beats UA styles) — #leaderboardBtn moving back to being a plain
+       .hdr-btn (from a .tab-nav-btn, which already has this same override)
+       silently broke its Experimental-Features gating this exact way. Same
+       bug/fix already needed twice elsewhere this session
+       (.feed-composer-song-preview, .ctx-item). */
+    .hdr-btn[hidden] { display: none; }
+
+    /* ══ FULLSCREEN PLAYER ══ */
+    /* Fully opaque — never see-through to the page behind it.
+       The color comes from a darkened, blurred wash of the album art. */
+    .fs-player {
+      position:fixed; inset:0; z-index:100;
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      gap:2rem; padding:3rem;
+      background:#000;
+      font-family: var(--font-ui);
+    }
+    .fs-player.open { display:flex; animation:fsIn 0.3s ease both; }
+    @keyframes fsIn { from{opacity:0} to{opacity:1} }
+    /* Two separate causes of "artifacting" on high-res displays, both
+       addressed:
+       1) The cover-art source is requested at a size matched to the actual
+          screen (see the JS that sets background-image) so a low-res
+          source doesn't show as blocky once stretched across a big panel.
+       2) A large blur radius applied to a viewport-filling layer is a huge
+          surface for the GPU to blur — worse still once the zoom bump on
+          the high-res breakpoints above inflates the effective pixel count
+          further — and that's a known source of visible banding/tiling on
+          some GPUs. Keeping the radius modest avoids relying on the GPU's
+          blur implementation staying artifact-free at very large sizes.
+       transform:scale is a small overscan so the blur's own edge falloff
+       doesn't peek in at the viewport edge. */
+    .fs-bg {
+      position:absolute; inset:0; z-index:0;
+      background-size:cover; background-position:center;
+      filter:blur(36px) saturate(160%) brightness(0.4);
+      transform: scale(1.15);
+    }
+    .fs-content { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:1.8rem; width:100%; max-width:480px; transition: padding 0.4s ease, max-width 0.4s ease; }
+    .fs-art-tilt-wrap {
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fs-art {
+      width:240px; height:240px; border-radius:12px;
+      border:1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+      background:rgba(255,255,255,0.06); overflow:hidden; position:relative;
+      display:flex; align-items:center; justify-content:center;
+      color:rgba(255,255,255,0.35); font-size:44px;
+    }
+    .fs-art img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+    /* width:100% so title/artist/album truncate with an ellipsis instead of
+       wrapping — a wrapped line changes .fs-meta's height and pushes the
+       progress bar/controls/volume below it up or down as songs change. */
+    .fs-meta { width:100%; max-width:100%; text-align:center; position:relative; z-index:2; }
+    .fs-title  { font-size:1.25rem; font-weight:700; color:#f2efe8; letter-spacing:0.02em; margin-bottom:0.3rem; text-shadow: 0 1px 8px rgba(0,0,0,0.4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fs-artist { font-size:0.8rem; color:rgba(var(--accent-rgb),1); letter-spacing:0.06em; text-transform:uppercase; font-weight: 500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fs-album  { font-size:0.68rem; color:rgba(var(--accent-rgb),0.75); letter-spacing:0.06em; text-transform:uppercase; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fs-prog-wrap { width:100%; display:flex; flex-direction:column; gap:8px; }
+    .fs-prog { width:100%; }
+    .fs-times { display:flex; justify-content:space-between; font-size:9px; color:rgba(255,255,255,0.35); letter-spacing:0.1em; }
+    .fs-controls { display:flex; align-items:center; gap:10px; }
+    /* Fixed white-based colors, not the theme-swapping var(--text-dim)/
+       --glass-fill-h used everywhere else — the fullscreen player is
+       always a dark cover-art wash regardless of site theme, so this is
+       a deliberate exception, not drift. Sizing/radius still follow the
+       same scale as every other icon button (38px tier -> --radius-md,
+       52px "hero" tier -> --radius-lg — same pairing .ctrl-btn.play-btn
+       and .ap-hero-img use at their own sizes). */
+    .fs-btn {
+      width:38px; height:38px; border-radius:var(--radius-md);
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      color:rgba(255,255,255,0.65); font-size:var(--fs-18); border:none;
+      background:rgba(255,255,255,0.06);
+      transition:color 0.15s, background 0.15s; position:relative;
+    }
+    .fs-btn:hover { color:#fff; background:rgba(255,255,255,0.14); }
+    .fs-btn:active { transform: scale(0.92); }
+    .fs-btn.fs-play {
+      width:52px; height:52px; font-size:var(--fs-22); border-radius:var(--radius-lg);
+      background:rgba(var(--accent-rgb),0.22);
+      border:1px solid rgba(var(--accent-rgb),0.4);
+      color:#fff;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .fs-btn.fs-play:hover { background:rgba(var(--accent-rgb),0.32); }
+    .fs-vol { display:flex; align-items:center; gap:10px; width:100%; justify-content:center; }
+    .fs-vol i { color:rgba(255,255,255,0.4); font-size:15px; }
+    .fs-vol-bar { width:120px; }
+    /* Same on-dark recipe as .fs-btn (32px tier -> --radius-sm, matching
+       .ctrl-btn/.picker-action at the same size) — previously its own
+       slightly different alpha values (0.55/0.08/0.16 vs .fs-btn's
+       0.65/0.06/0.14) for no documented reason, now unified. */
+    .fs-close {
+      position:absolute; top:1.5rem; right:1.5rem; z-index:2;
+      width:32px; height:32px; min-width:32px; border-radius:var(--radius-sm);
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      color:rgba(255,255,255,0.65); font-size:var(--fs-16); border:none;
+      background:rgba(255,255,255,0.06);
+      transition:color 0.15s,background 0.15s;
+    }
+    .fs-close:hover { color:#fff; background:rgba(255,255,255,0.14); }
+
+    /* ══ PICKER EXTRAS ══ */
+    /* Shared with .ap-sec-label (the album/artist viewer's own section
+       labels) — previously two hand-copied rules whose comments claimed
+       equivalence but whose padding had quietly drifted (0.8rem vs 8px). */
+    .picker-section-label, .ap-sec-label {
+      font-size: var(--fs-9); letter-spacing: 0.22em; color: var(--text-dimmer);
+      text-transform: uppercase; font-family: var(--font-ui);
+      padding: 6px 8px 4px; display: block; margin-top: 0.5rem;
+    }
+    .picker-back { background:none; border:none; cursor:pointer; color:var(--text-dimmer); font-size:11px; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; letter-spacing:0.1em; text-transform:uppercase; transition:color 0.15s,background 0.15s; margin-bottom:4px; flex-shrink:0; }
+    .picker-back:hover { color:var(--text); background:var(--glass-fill-h); }
+    .picker-action.login-active { color: var(--success-color); }
+
+    /* .ctrl-btn / .play-btn intentionally have no light-theme override —
+       the base rules already tint via rgba(var(--accent-rgb),*), so the
+       play button and control icons pick up the live album-art color in
+       light mode exactly like they do in dark mode. */
+    [data-theme="light"] .player-dock .player-idle { color: var(--text-dimmer); }
+    [data-theme="light"] .player-dock .player-title { color: var(--text); font-weight: 600; }
+    /* Artist name/link is accent-driven in the base rule too (album color) —
+       mixed with --text here so a pale extracted color stays readable on
+       a light background instead of washing out. */
+    [data-theme="light"] .player-dock .player-artist,
+    [data-theme="light"] .player-dock .player-artist .player-link {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .player-dock .player-artist .player-link:hover {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 88%, var(--text) 12%);
+      text-shadow: none;
+    }
+    [data-theme="light"] .player-dock .player-title .player-link:hover {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 88%, var(--text) 12%);
+    }
+    [data-theme="light"] .player-dock .player-vol i { color: var(--text-dimmer); }
+
+    /* ── DRAGGABLE SLIDERS ── */
+    .slider-wrap {
+      position: relative; height: 20px;
+      display: block; cursor: pointer; flex-shrink: 0;
+      background: none !important;
+    }
+    .slider-track {
+      position: absolute; left: 0; right: 0; height: 3px;
+      top: 50%; transform: translateY(-50%);
+      border-radius: 2px; background: rgba(255,255,255,0.12);
+      transition: background 0.25s ease;
+    }
+    .slider-wrap:hover .slider-track { background: rgba(255,255,255,0.18); }
+    .slider-fill {
+      position: absolute; left: 0; height: 3px;
+      top: 50%; transform: translateY(-50%);
+      border-radius: 2px; background: rgba(255,255,255,0.65);
+      pointer-events: none; transition: width 0.08s linear, background 0.25s ease;
+    }
+    .slider-dot {
+      position: absolute; width: 14px; height: 14px;
+      border-radius: 50%; background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.3);
+      top: 50%; transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0; transition: opacity 0.2s, box-shadow 0.2s;
+    }
+    .slider-wrap:hover .slider-dot { opacity: 1; }
+    .slider-wrap.dragging .slider-dot { opacity: 1; box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.5); }
+
+    /* slider overrides */
+    .player-progress { background: none !important; flex-shrink: 1 !important; }
+    .vol-slider { background: none !important; width: 72px; flex-shrink: 0; }
+
+    /* light mode slider colors */
+    [data-theme="light"] .slider-track { background: rgba(90,78,62,0.18); transition: background 0.25s ease; }
+    [data-theme="light"] .slider-wrap:hover .slider-track { background: rgba(90,78,62,0.28); }
+    [data-theme="light"] .slider-fill {
+      background: linear-gradient(90deg, rgba(var(--accent-rgb),0.4), rgba(var(--accent-rgb),0.75) 45%, rgba(var(--accent-rgb),1));
+      transition: width 0.08s linear, background 0.5s ease;
+    }
+    [data-theme="light"] .slider-dot { background: #a8660a; box-shadow: 0 2px 8px var(--shadow-30), 0 0 0 2px rgba(220,170,90,0.3); }
+
+    /* FS vol bar — use the slider-wrap system properly */
+    #fsVolBar { width: 120px; background: none !important; }
+
+    /* ── HIDE SCROLLBAR ── */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+    /* Edit-mode tile/section drag-to-reorder — removed entirely (see the
+       JS "EDIT MODE" section's own removal note) along with its banner,
+       header toggle button, drag-ghost, and drop-indicator styles. */
+
+
+    /* ══ APP MANAGEMENT ══ */
+    .add-app-backdrop {
+      position: fixed; inset: 0; z-index: 410;
+      background: rgba(0,0,0,0.6);
+
+      display: none; align-items: center; justify-content: center; padding: 1rem;
+    }
+    /* 410, not tied with .settings-backdrop's 400 — the background-color
+       picker (and any other .add-app-backdrop modal) opens FROM a button
+       inside Settings, so it needs to render on top of it, not lose the
+       stacking tie to whichever one happens to sit later in the DOM (that
+       tie is what caused it to render behind Settings instead). Still well
+       under .img-crop-backdrop's 450, so that relationship is untouched. */
+    .add-app-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
+    /* max-height/overflow added to match .settings-modal (the only other
+       consumer of this shell that had a height cap) — openChatModal()'s
+       #chatModalBody is the one truly generic content slot here (used by
+       9+ features with wildly different content lengths: a short confirm
+       dialog, a long channel list, the leaderboard, a profile editor), so
+       it's the one that gets the scroll rule. klabcraftList/key-hints-body
+       already self-cap their own content and don't need it. */
+    .add-app-modal {
+      width: min(480px, calc(100vw - 2rem));
+      max-height: 80vh; overflow: hidden;
+      border-radius: 10px; padding: 1.6rem;
+      display: flex; flex-direction: column; gap: 1rem;
+      animation: pickerUp 0.2s ease both;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px var(--shadow-50);
+    }
+    #chatModalBody { overflow-y: auto; min-height: 0; }
+    .add-app-title {
+      font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer);
+      text-transform: uppercase;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .add-app-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-dimmer); font-size: var(--fs-18);
+      padding: 0 4px; border-radius: var(--radius-sm);
+      transition: color 0.15s, background 0.15s;
+    }
+    .add-app-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    /* .add-app-label is still used by the klabcraft backup-browser
+       modal, which reuses this modal chrome — kept. The rest of the
+       old custom-app-builder styling (inputs, icon picker, group
+       picker, add/edit/delete tile controls, the group restriction
+       badge) was removed along with that feature. */
+    .add-app-label {
+      font-size: 9px; letter-spacing: 0.2em;
+      color: var(--text-dimmer); text-transform: uppercase;
+    }
+
+    /* Keyboard-shortcuts hints panel (see #keyHintsBackdrop). */
+    .key-hints-group { margin-bottom: 14px; }
+    .key-hints-group:last-child { margin-bottom: 0; }
+    .key-hints-group-label {
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-dimmer); margin-bottom: 4px;
+    }
+    .key-hints-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 5px 2px; font-size: 11.5px; color: var(--text-dim);
+      border-bottom: 1px solid var(--tile-border);
+    }
+    .key-hints-row:last-child { border-bottom: none; }
+    .key-hints-keys { display: flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 9.5px; color: var(--text-faint); }
+    .key-hint-key {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+      border-radius: 5px; background: var(--tile-bg); border: 1px solid var(--tile-border);
+      box-shadow: 0 1px 0 var(--tile-border);
+      font-family: var(--font-ui); font-size: 10.5px; font-weight: 600; color: var(--text);
+    }
+    .key-hints-note {
+      font-size: 9.5px; color: var(--text-faint); text-align: center;
+      margin-top: 12px; letter-spacing: 0.02em;
+    }
+
+    /* ══ LIVE UPDATE BANNER — someone deployed a new commit while this
+       tab was open (see the version-poll script near the end of the
+       document) ══ */
+    .update-banner {
+      position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+      z-index: 500; display: flex; align-items: center; gap: 10px;
+      padding: 0.6rem 0.6rem 0.6rem 1rem; border-radius: 20px;
+      background: var(--modal-bg); border: 1px solid rgba(var(--accent-rgb),0.4);
+      box-shadow: 0 12px 40px var(--shadow-50);
+      font-size: 10.5px; color: var(--text); letter-spacing: 0.02em;
+      animation: pickerUp 0.25s ease both;
+    }
+    .update-banner i { color: rgba(var(--accent-rgb),1); font-size: 15px; }
+    .update-banner button {
+      padding: 5px 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700;
+      font-size: var(--fs-9); letter-spacing: 0.1em; text-transform: uppercase;
+      background: rgba(var(--accent-rgb),0.18); border: 1px solid rgba(var(--accent-rgb),0.4);
+      color: rgba(var(--accent-rgb),1); transition: background 0.15s;
+    }
+    .update-banner button:hover { background: rgba(var(--accent-rgb),0.28); }
+
+    /* ══ SETTINGS MODAL ══ */
+    .settings-backdrop {
+      position: fixed; inset: 0; z-index: 400;
+      background: rgba(0,0,0,0.6);
+
+      display: none; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .settings-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
+    .settings-modal {
+      width: min(480px, calc(100vw - 2rem));
+      border-radius: 10px; padding: 1.6rem;
+      display: flex; flex-direction: column; gap: 0; max-height: 80vh;
+      animation: pickerUp 0.2s ease both;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px var(--shadow-50);
+      overflow: hidden;
+    }
+    .settings-modal * { box-sizing: border-box; }
+    .settings-body { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+    .settings-body::-webkit-scrollbar { display: none; }
+    .s-slider-wrap { min-width: 0; max-width: 120px; position: relative; z-index: 1; }
+    .settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.2rem; flex-shrink: 0;
+    }
+    .settings-title {
+      font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer); text-transform: uppercase;
+    }
+    .settings-close {
+      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
+      font-size: var(--fs-18); padding: 0 4px; border-radius: var(--radius-sm); transition: color 0.15s, background 0.15s;
+    }
+    .settings-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    .settings-body { overflow-y: auto; flex: 1; }
+    .settings-section {
+      margin-bottom: 1.4rem;
+    }
+    .settings-section-label {
+      font-size: 8.5px; letter-spacing: 0.22em; color: var(--text-faint);
+      text-transform: uppercase; margin-bottom: 0.7rem; display: block;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      min-height: 26px;
+      padding: 0.6rem 0.9rem; border-radius: 10px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      margin-bottom: 4px; gap: 1rem;
+    }
+    [data-theme="light"] .settings-row { background: rgba(255,255,255,0.6); border-color: rgba(120,108,92,0.18); }
+    .settings-row-label {
+      font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; flex: 1;
+    }
+    .settings-row-sub {
+      font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.08em; margin-top: 2px;
+    }
+    /* Background-color settings row button — shows the currently-effective
+       --bg as its own fill (see applyCustomBg()) so it doubles as a live
+       swatch, not just a generic icon button. */
+    .bg-color-btn {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+      border: 1px solid var(--tile-border); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: var(--fs-13); transition: transform 0.1s;
+    }
+    .bg-color-btn:hover { transform: scale(1.08); color: var(--text); }
+    /* Background-palette modal — same swatch-grid language as the profile
+       editor's chat-color picker (.profile-modal-color-swatch), just under
+       its own class since this one applies instantly on click rather than
+       waiting on a form Save. */
+    .bg-palette-group { margin-bottom: 14px; }
+    .bg-palette-group:last-child { margin-bottom: 0; }
+    .bg-palette-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 6px; }
+    .bg-palette-swatch {
+      width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; box-shadow: 0 0 0 1px var(--tile-border);
+      transition: transform 0.1s; position: relative;
+      display: flex; align-items: center; justify-content: center; font-size: 11px;
+    }
+    .bg-palette-swatch:hover { transform: scale(1.12); }
+    .bg-palette-swatch.selected { border-color: rgba(var(--accent-rgb),1); }
+    .bg-palette-swatch.selected::after {
+      content: '\2713'; color: rgba(var(--accent-rgb),1);
+      text-shadow: 0 0 2px rgba(0,0,0,0.7), 0 0 2px rgba(255,255,255,0.7);
+    }
+    /* Toggle switch */
+    .s-toggle {
+      width: 36px; height: 20px; border-radius: 100px; flex-shrink: 0;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+      cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s;
+    }
+    .s-toggle::after {
+      content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; top: 2px; left: 2px; transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 1px 3px var(--shadow-30);
+    }
+    .s-toggle.on { background: rgba(var(--accent-rgb),0.5); border-color: rgba(var(--accent-rgb),0.6); }
+    .s-toggle.on::after { transform: translateX(16px); }
+    /* Slider — SFX volume uses the shared draggable slider-wrap component
+       (see makeSlider), not a native <input type=range>, so only the
+       wrap/value styling is needed here. */
+    .s-slider-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: 120px; }
+    .s-slider-val { font-size: 9px; color: var(--text-dimmer); width: 28px; text-align: right; letter-spacing: 0.08em; }
+
+    /* ══ PLAYLIST STYLES ══ */
+    /* .pl-item/.pl-icon/.pl-info/.pl-name/.pl-meta/.pl-new-input removed —
+       only ever used by the dead renderPlaylistList() (see its own removal
+       note near loadPlaylistView()). */
+
+    /* ── Light theme overrides ── */
+    [data-theme="light"] .sec-line  { background: rgba(90,78,62,0.15); }
+    [data-theme="light"] .prompt-text  { color: var(--text); }
+    [data-theme="light"] .picker-item-title  { color: var(--text); }
+    [data-theme="light"] .picker-item-artist { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-search input { color: var(--text); }
+    [data-theme="light"] .sec-label { color: var(--text-dim); letter-spacing: 0.2em; }
+    /* No light-theme override needed for color (var(--text-dim) already
+       flips per theme) or hover (the old hardcoded rgba(130,112,88,0.1)
+       predated --glass-fill-h being tuned for light mode; the shared
+       .hdr-btn:hover rule's var(--glass-fill-h) already reads correctly
+       in both themes now). */
+    [data-theme="light"] .user-badge   { color: var(--text-dimmer) !important; }
+    [data-theme="light"] .picker-section-label { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-empty  { color: var(--text-faint); }
+    [data-theme="light"] .picker-tab    { color: var(--text-dim); }
+    [data-theme="light"] .picker-tab.active { color: rgba(var(--accent-rgb),1); background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
+    [data-theme="light"] .picker-search input::placeholder { color: var(--text-faint); }
+    [data-theme="light"] .picker-search i  { color: var(--text-dimmer); }
+    [data-theme="light"] .picker-item-art-ph { color: var(--text-dimmer); background: rgba(130,112,88,0.08); border-color: rgba(130,112,88,0.15); }
+    [data-theme="light"] .picker-action:hover { color: var(--text); background: rgba(130,112,88,0.1); }
+    [data-theme="light"] .picker-back   { color: var(--tile-icon); }
+    [data-theme="light"] .picker-back:hover { color: var(--text); }
+    [data-theme="light"] .tile-name     { color: var(--tile-icon); }
+    [data-theme="light"] .ctx-item { color: var(--text-dim); }
+    [data-theme="light"] .ctx-item:hover { background: rgba(130,112,88,0.08); color: var(--text); }
+    [data-theme="light"] .ctx-divider { background: rgba(130,112,88,0.1); }
+    [data-theme="light"] .settings-row-label { color: var(--text); font-weight: 500; }
+    [data-theme="light"] .settings-row-sub   { color: var(--text-dimmer); }
+    [data-theme="light"] .settings-section-label { color: var(--text-dimmer); }
+    [data-theme="light"] .s-slider-val { color: var(--text-dim); }
+    [data-theme="light"] .s-toggle { background: rgba(90,78,62,0.12); border-color: rgba(90,78,62,0.22); }
+    [data-theme="light"] .s-toggle::after { background: var(--text-dimmer); }
+    [data-theme="light"] .s-toggle.on { background: rgba(var(--accent-rgb),0.45); border-color: rgba(var(--accent-rgb),0.6); }
+    [data-theme="light"] .s-toggle.on::after { background: #fff; }
+    [data-theme="light"] .settings-title   { color: var(--text-dimmer); }
+    [data-theme="light"] .add-app-label  { color: var(--text-dimmer); }
+    [data-theme="light"] .add-app-title  { color: var(--text-dimmer); }
+
+    /* ── Album expand panel ── */
+
+    .player-art-placeholder {
+      position: relative;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .art-tilt-wrap {
+      position: relative;
+      border-radius: 10px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    /* Tile hover — accent-colored outline instead of a glow */
+    .tile:hover {
+      background: var(--tile-bg-h);
+      border-color: rgba(var(--accent-rgb),0.45);
+    }
+
+    .tile i { transition: color 0.2s ease; }
+    .tile:hover i { color: var(--tile-icon-h); }
+
+    /* Status dots — colored pulse */
+    .tile-dot { box-shadow: 0 0 0 0 rgba(var(--accent-rgb),0); }
+    .tile-dot.up {
+      animation: dotPulse 2.5s ease-out infinite;
+      box-shadow: 0 0 4px rgba(74,222,128,0.6);
+    }
+    @keyframes dotPulse {
+      0%  { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+      70% { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
+      100%{ box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tile-dot.up, .presence-card.is-playing .presence-card-online { animation: none; }
+    }
+
+    /* ── Smooth loading spinner ── */
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInSoft { from { opacity: 0; } to { opacity: 1; } }
+
+    .loading-spinner { animation: spin 0.8s linear infinite; }
+    .song-fading { animation: fadeInSoft 0.35s ease; }
+
+    /* Player dock — colored accent border on top */
+    .player-dock {
+      border-top: 1px solid rgba(var(--accent-rgb),0.3) !important;
+    }
+
+    .fs-link { color: inherit; }
+
+    .player-time-wrap { display: flex; align-items: center; }
+    .player-time {
+      font-size: 9px; letter-spacing: 0.02em;
+      color: var(--text-dimmer); cursor: pointer;
+      transition: color 0.15s; white-space: nowrap;
+      padding: 0 4px;
+    }
+    .player-time:hover { color: var(--text); }
+
+    /* ══════════════════════════════════════════
+       LYRICS
+    ══════════════════════════════════════════ */
+
+    /* Lyrics toggle button — sits in secondary controls */
+    #fsLyrics.lyrics-active {
+      opacity: 1 !important;
+      color: rgba(var(--accent-rgb),1) !important;
+    }
+
+    /* ════════════════════════════════════════
+       LYRICS LAYOUT — player left, lyrics right
+    ════════════════════════════════════════ */
+
+    /* Lyrics column — hidden by default */
+    /* lyrics col: hidden until toggled */
+    .fs-lyrics-col {
+      display: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Lyrics open: full-screen split ── */
+    .fs-player.lyrics-open {
+      flex-direction: row;
+      align-items: stretch;
+      padding: 0;
+      gap: 0;
+    }
+
+    /* Left: player docks to fixed width, vertically centred */
+    .fs-player.lyrics-open .fs-content {
+      width: 360px;
+      flex-shrink: 0;
+      max-width: 360px;
+      padding: 3rem 2.5rem;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Right: lyrics fills ALL remaining space */
+    .fs-player.lyrics-open .fs-lyrics-col {
+      display: block;
+      flex: 1 1 0;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+      padding: 0;
+      animation: lyricsSlideIn 0.45s cubic-bezier(0.4,0,0.2,1) both;
+    }
+    @keyframes lyricsSlideIn {
+      from { opacity: 0; transform: translateX(28px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Art shrinks */
+    .fs-player.lyrics-open .fs-art {
+      width: 180px !important;
+      height: 180px !important;
+    }
+    .fs-player.lyrics-open .fs-meta { text-align: center; }
+
+    /* ── Lyrics scroll: fills the entire right panel ── */
+    .lyrics-scroll {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      padding: 30vh 4rem 30vh 4rem;
+      scrollbar-width: none;
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 15%,
+        black 85%,
+        transparent 100%
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 15%,
+        black 85%,
+        transparent 100%
+      );
+    }
+    .lyrics-scroll::-webkit-scrollbar { display: none; }
+
+    /* ── Lyric line colors — readable frosted white ── */
+    
+    .lyric-line {
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1.38;
+      letter-spacing: -0.01em;
+      color: rgba(255,252,248,0.38);
+      margin-bottom: 1rem;
+      cursor: pointer;
+      display: block;
+      width: 100%;
+      transition: color 0.3s ease, transform 0.3s ease, text-shadow 0.3s ease;
+      transform-origin: left center;
+    }
+    .lyric-line:hover {
+      color: rgba(255,252,248,0.68) !important;
+    }
+    .lyric-line.active {
+      color: rgba(255,252,248,1);
+      transform: scale(1.03);
+      text-shadow:
+        0 0 32px rgba(255,252,248,0.25),
+        0 1px 4px rgba(0,0,0,0.4);
+    }
+    .lyric-line.near {
+      color: rgba(255,252,248,0.62);
+    }
+    .lyric-line.far {
+      color: rgba(255,252,248,0.24);
+    }
+
+    /* Plain lyrics */
+    .lyric-line.plain {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: rgba(255,252,248,0.52);
+      margin-bottom: 0.65rem;
+    }
+    .lyric-line.plain.active {
+      color: rgba(255,252,248,0.95);
+      text-shadow: 0 0 20px rgba(255,252,248,0.2);
+    }
+
+    /* Status */
+    .lyrics-status {
+      font-family: var(--font-ui);
+      font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(255,252,248,0.3);
+      text-align: center;
+      padding: 3rem 0;
+    }
+
+    /* Light mode */
+    /* Lyrics live inside the always-dark fullscreen overlay —
+       light mode must use the same warm-white values as dark mode */
+    [data-theme="light"] .lyric-line          { color: rgba(255,252,248,0.38); }
+    [data-theme="light"] .lyric-line.active   { color: rgba(255,252,248,1); text-shadow: 0 0 28px rgba(255,252,248,0.2), 0 1px 4px rgba(0,0,0,0.4); }
+    [data-theme="light"] .lyric-line.near     { color: rgba(255,252,248,0.62); }
+    [data-theme="light"] .lyric-line.far      { color: rgba(255,252,248,0.24); }
+    [data-theme="light"] .lyrics-status       { color: rgba(255,252,248,0.3); }
+
+
+    /* ══════════════════════════════════════════
+       PRESENCE / FRIENDS — inline section on the page,
+       not a hidden sidebar. Prepping for deeper social
+       features (Matrix integration is the plan).
+    ══════════════════════════════════════════ */
+
+    .presence-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+      gap: 6px; animation: fadeUp 0.6s 0.18s ease both;
+    }
+
+    /* Each listener card — matches the app-tile treatment */
+    .presence-card {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.6rem 0.8rem; border-radius: 8px;
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+      cursor: default;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      /* Grid items default to min-width:auto, so without this a long song
+         title forces the card wider than its 1fr track in the presence
+         rail instead of the inner text actually truncating with an
+         ellipsis — it just got hard-clipped by the rail's overflow:hidden. */
+      min-width: 0;
+    }
+    .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+    .presence-card.is-playable { cursor: pointer; }
+    .presence-card.is-me { cursor: pointer; } /* click to edit your profile */
+    .presence-card.is-playable:hover {
+      border-color: rgba(var(--accent-rgb),0.4);
+      box-shadow: 0 0 0 1px rgba(var(--accent-rgb),0.15) inset;
+    }
+
+    /* Bumped from 34px/11.5px/9.5px/8.5px, same reason as the chat/feed
+       size pass — this rail sits directly beside both of those tabs and
+       read noticeably smaller/denser than either after they were bumped. */
+    .presence-card-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--text-dimmer);
+      flex-shrink: 0; text-transform: uppercase;
+      font-family: var(--font-ui);
+      position: relative;
+    }
+    .presence-card.is-me .presence-card-avatar {
+      border-color: rgba(var(--accent-rgb),0.45);
+      background: rgba(var(--accent-rgb),0.1);
+      color: rgba(var(--accent-rgb),1);
+    }
+    /* Other listeners tint to their own song's album-art color (sampled
+       client-side, same algorithm as the local player's own accent —
+       see ensureSongColorResolved()) instead of the generic site accent,
+       via a per-card custom property so cards without a resolved color
+       yet just fall back to looking like everyone else's. */
+    .presence-card.is-playing:not(.is-me) .presence-card-avatar {
+      border-color: rgba(var(--card-accent, var(--accent-rgb)),0.45);
+      background: rgba(var(--card-accent, var(--accent-rgb)),0.1);
+      color: rgba(var(--card-accent, var(--accent-rgb)),1);
+    }
+    .presence-card.is-playing:not(.is-me) .presence-card-name {
+      color: rgba(var(--card-accent, var(--accent-rgb)),1);
+    }
+    .presence-card-avatar img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      border-radius: 50%; object-fit: cover;
+    }
+    .presence-card-online {
+      position: absolute; bottom: 1px; right: 1px;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--success-color);
+      border: 1.5px solid rgba(4,4,10,0.95);
+    }
+    /* The pulse is reserved for "actively playing something" — plain
+       means online, pulsing means "look, I'm jamming right now". */
+    .presence-card.is-playing .presence-card-online {
+      box-shadow: 0 0 6px rgba(74,222,128,0.6);
+      animation: dotPulse 2.5s ease-out infinite;
+    }
+    .presence-card-info { flex: 1; min-width: 0; }
+    .presence-card-name {
+      font-family: var(--font-ui);
+      font-size: 12.5px; font-weight: 600; color: var(--text);
+      letter-spacing: 0.01em; margin-bottom: 2px;
+    }
+    .presence-card.is-me .presence-card-name { color: rgba(var(--accent-rgb),1); }
+    /* Stable per-person color (gitea#3) — same idea as the chat
+       timeline's nametags. Lower specificity than the is-playing/
+       song-accent rule above, so a playing card's art-derived accent
+       still wins over this flatter per-person hash color. */
+    .presence-card:not(.is-me) .presence-card-name { color: var(--name-color, var(--text)); }
+    .presence-card-track {
+      font-family: var(--font-ui);
+      font-size: 10.5px; color: var(--text-dimmer);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.01em; line-height: 1.3;
+    }
+    .presence-card-artist {
+      font-family: var(--font-ui);
+      font-size: 9.5px; color: var(--text-faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.01em; margin-top: 1px;
+    }
+    /* gitea#2 — "listening party" status, shown right on the card itself
+       instead of a separate floating banner (which sat just above the
+       player dock and got visually clipped by it). Doubles as the only
+       way anyone sees a listening party at all beyond the two people in
+       it — party state is peer-to-peer over Matrix to-device messages,
+       invisible to a third viewer, so this is only knowable because both
+       sides also report it through their own regular presence post. */
+    .presence-card-party {
+      font-size: 8.5px; color: rgba(var(--accent-rgb),1); margin-top: 3px;
+      display: flex; align-items: center; gap: 4px; letter-spacing: 0.02em;
+    }
+    .presence-card-party i { font-size: 9px; }
+    .presence-card-party-leave { cursor: pointer; transition: opacity 0.15s; }
+    .presence-card-party-leave:hover { opacity: 0.75; }
+
+    /* Instagram-Notes-style ephemeral status text (klabnet-api /api/notes,
+       24h TTL), styled as an actual speech-bubble trailing off the card —
+       NOT literally floating above the avatar the way Instagram positions
+       it, on purpose: .presence-grid's row gap is only 6px, so a bubble
+       escaping the card's own box upward would overlap whoever's in the
+       row above it in anything but a one-person list. The little corner
+       tail (::before) gives the same "trailing off them" read while
+       staying in normal flow, right under their name/status. */
+    .presence-card-note {
+      position: relative;
+      margin-top: 8px; margin-left: 3px;
+      padding: 5px 9px;
+      background: var(--glass-fill-h);
+      border: 1px solid var(--glass-border-h);
+      border-radius: 4px 12px 12px 12px;
+      font-size: 9.5px; color: var(--text-dim); line-height: 1.35;
+      word-break: break-word; width: fit-content; max-width: 100%;
+    }
+    .presence-card-note-edit { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .presence-card-note-edit:hover { background: var(--glass-fill); border-color: rgba(var(--accent-rgb),0.3); }
+    /* Always-present invite on your own card when you don't have a note
+       yet, rather than the line only appearing once you've used the
+       feature once — dashed border + faint text reads as a hint, not a
+       real note, without needing separate copy for the two states. */
+    .presence-card-note-empty { color: var(--text-faint); border-style: dashed; background: transparent; }
+
+    .presence-section-label {
+      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-faint); padding: 10px 4px 4px;
+    }
+    .presence-card.is-offline { opacity: 0.55; }
+    .presence-card.is-offline .presence-card-avatar { filter: grayscale(0.6); }
+
+
+    [data-theme="light"] .presence-card-avatar { border-color: rgba(120,108,92,0.2); }
+    [data-theme="light"] .presence-card-name   { color: var(--text); }
+    [data-theme="light"] .presence-card-track  { color: var(--text-dim); }
+    [data-theme="light"] .presence-card-artist { color: var(--text-faint); }
+    /* "you" card still tints with the live album color, just mixed with
+       --text so it stays legible on a light card background. */
+    [data-theme="light"] .presence-card.is-me .presence-card-avatar {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .presence-card.is-me .presence-card-name {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .presence-card.is-playing:not(.is-me) .presence-card-avatar {
+      color: color-mix(in srgb, rgb(var(--card-accent, var(--accent-rgb))) 70%, var(--text) 30%);
+    }
+    [data-theme="light"] .presence-card.is-playing:not(.is-me) .presence-card-name {
+      color: color-mix(in srgb, rgb(var(--card-accent, var(--accent-rgb))) 70%, var(--text) 30%);
+    }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ══════════════════════════════════════════
+       ARTIST / ALBUM PAGE PANEL
+       Same liquid-glass recipe as the picker
+    ══════════════════════════════════════════ */
+
+    /* Backdrop — display:none by default so backdrop-filter never fires when closed */
+    .ap-panel {
+      display: none; /* JS sets display:flex on open */
+      position: fixed; inset: 0; z-index: 300;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+      background: rgba(0,0,0,0.5);
+
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    .ap-panel.open { opacity: 1; pointer-events: auto; }
+
+    /* The card — flat modal surface, bigger dimensions */
+    .ap-card {
+      position: relative;
+      width: min(960px, calc(100vw - 2.5rem));
+      height: min(88vh, 920px);
+      border-radius: 10px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      background: var(--modal-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 24px 70px var(--shadow-55);
+      font-family: var(--font-ui);
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+      transform-origin: 50% 60%;
+      transition: opacity 0.24s ease, transform 0.24s ease;
+    }
+    .ap-panel.open .ap-card { opacity: 1; transform: none; }
+
+    /* Album art blob removed — flat modal surface reads cleaner */
+    .ap-bg { display: none; }
+
+    /* Topbar — same as picker header */
+    .ap-topbar {
+      position: relative; z-index: 2; flex-shrink: 0;
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    /* Flat, same treatment as its sibling close/back controls
+       (.settings-close/.add-app-close/.picker-close) — was its own
+       bespoke boxed-glass recipe (border + inset shadow, always visible
+       at rest) despite being functionally the same "modal back/close"
+       affordance as those three. */
+    .ap-back, .ap-close {
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: var(--fs-14); flex-shrink: 0;
+      background: none; color: var(--text-dim);
+      border: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .ap-back:hover, .ap-close:hover { background: var(--glass-fill-h); color: var(--text); }
+    .ap-topbar-title {
+      flex: 1; font-size: 10px; letter-spacing: 0.28em;
+      color: var(--text-dimmer); text-transform: uppercase;
+      font-family: var(--font-ui);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .ap-topbar-title.vis { opacity: 1; }
+
+    /* Scrollable */
+    .ap-scroll {
+      position: relative; z-index: 2;
+      flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+      padding-bottom: 6rem;
+    }
+    .ap-scroll::-webkit-scrollbar { display: none; }
+
+    /* Hero card — compact, like picker's album header */
+    .ap-hero {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1.2rem 1rem 0.8rem;
+      border-bottom: 1px solid var(--glass-border);
+      position: relative; z-index: 1;
+    }
+    .ap-hero-img {
+      width: 80px; height: 80px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 4px 16px var(--shadow-35);
+      background: var(--glass-fill);
+    }
+    .ap-hero-img.square { border-radius: 10px; }
+    .ap-hero-img-ph {
+      width: 80px; height: 80px; border-radius: 50%; flex-shrink: 0;
+      background: var(--glass-fill); border: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-faint); font-size: 26px;
+    }
+    .ap-hero-img-ph.square { border-radius: 10px; }
+    .ap-hero-meta { flex: 1; min-width: 0; }
+    .ap-hero-kicker {
+      font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: var(--text-faint); font-family: var(--font-ui);
+      display: block; margin-bottom: 0.25rem;
+    }
+    .ap-hero-name {
+      font-size: 1.25rem; font-weight: 700; color: var(--text);
+      line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ap-hero-sub  { font-size: 10.5px; color: var(--text-dimmer); margin-top: 0.25rem; }
+    .ap-hero-artist-link {
+      font-size: 11px; color: rgba(var(--accent-rgb),0.85); cursor: pointer;
+      display: inline; transition: color 0.15s;
+    }
+    .ap-hero-artist-link:hover { color: rgba(var(--accent-rgb),1); text-decoration: underline; }
+
+    /* Body */
+    .ap-body { padding: 0 0.3rem; }
+
+    /* .ap-sec-label now defined together with .picker-section-label, up
+       near the rest of the picker component's base rules. */
+
+    /* Actions — same pill style as picker */
+    .ap-actions { display: flex; gap: 8px; padding: 0.5rem 0.7rem 0.3rem; }
+    /* Same recipe as .chat-connect-btn (see its comment, including why
+       these are bigger now — was a short/cramped 6px-padding pill). */
+    .ap-btn-play {
+      display: flex; align-items: center; gap: 7px;
+      height: 36px; padding: 0 20px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; font-weight: 700;
+      background: rgba(var(--accent-rgb),0.15);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      border-top-color: rgba(255,255,255,0.22);
+      color: rgba(var(--accent-rgb),1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
+      transition: background 0.18s;
+    }
+    .ap-btn-play:hover { background: rgba(var(--accent-rgb),0.25); }
+    .ap-btn-queue {
+      display: flex; align-items: center; gap: 7px;
+      height: 36px; padding: 0 18px; border-radius: var(--radius-md);
+      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer;
+      background: var(--glass-fill); border: 1px solid var(--glass-border);
+      border-top-color: rgba(255,255,255,0.16); color: var(--text-dim);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: background 0.18s, color 0.18s;
+    }
+    .ap-btn-queue:hover { background: var(--glass-fill-h); color: var(--text); }
+
+    /* Bio */
+    .ap-bio {
+      font-size: 11.5px; line-height: 1.7; color: var(--text-dim);
+      max-height: 66px; overflow: hidden; position: relative;
+      padding: 0 0.8rem; transition: max-height 0.4s ease;
+    }
+    .ap-bio.exp { max-height: 800px; }
+    .ap-bio::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px;
+      pointer-events: none; transition: opacity 0.3s;
+    }
+
+    .ap-bio.exp::after { opacity: 0; }
+    .ap-read-more {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-dimmer); cursor: pointer; background: none;
+      border: none; font-family: inherit; padding: 4px 0.8rem;
+      display: block; transition: color 0.15s;
+    }
+    .ap-read-more:hover { color: var(--text); }
+
+    /* Base row layout/hover now shared with .picker-item (see its rule) —
+       the comment here claimed they matched "exactly" but padding
+       (0.55rem/0.7rem vs 0.6rem/0.8rem) and hover border-color
+       (--glass-border vs --tile-border-h) had quietly drifted apart. */
+    .ap-track.ap-now {
+      background: rgba(var(--accent-rgb),0.1);
+      border-color: rgba(var(--accent-rgb),0.2);
+    }
+    .ap-track-num {
+      width: 16px; text-align: right; flex-shrink: 0;
+      font-size: 10px; color: var(--text-faint);
+      font-family: var(--font-ui);
+    }
+    .ap-track.ap-now .ap-track-num { color: rgba(var(--accent-rgb),0.8); }
+    .ap-track-art {
+      width: 34px; height: 34px; border-radius: 6px; object-fit: cover;
+      flex-shrink: 0; background: var(--glass-fill); border: 1px solid var(--glass-border);
+    }
+    .ap-track-info { flex: 1; min-width: 0; }
+    .ap-track-title {
+      font-size: 11.5px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ap-track.ap-now .ap-track-title { color: rgba(var(--accent-rgb),1); }
+    .ap-track-sub {
+      font-size: 9.5px; color: var(--text-dimmer); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ap-track-dur {
+      font-size: 9.5px; color: var(--text-faint);
+      font-family: var(--font-ui); flex-shrink: 0;
+    }
+    .ap-track-play {
+      width: 28px; height: 28px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; font-size: var(--fs-12);
+      color: var(--text-dim); transition: background 0.15s, color 0.15s, opacity 0.15s; flex-shrink: 0; opacity: 0;
+    }
+    .ap-track:hover .ap-track-play { opacity: 1; }
+    .ap-track-play:hover { background: var(--glass-fill-h); color: var(--text); }
+
+    /* Discography — same glass card as app tiles */
+    .ap-disc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+      gap: 7px; padding: 0 0.4rem;
+    }
+    .ap-disc-card {
+      cursor: pointer; border-radius: 8px; padding: 0.55rem;
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+      border-top-color: rgba(255,255,255,0.14);
+      box-shadow: inset 0 1px 0 var(--tile-inner-t), 0 2px 8px var(--tile-shadow);
+      transition: transform 0.2s cubic-bezier(0.2,0.8,0.2,1), background 0.2s;
+    }
+    .ap-disc-card:hover { transform: translateY(-2px); background: var(--tile-bg-h); }
+    .ap-disc-card img {
+      width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover;
+      display: block; margin-bottom: 0.45rem;
+      background: var(--glass-fill); border: 1px solid var(--glass-border);
+    }
+    .ap-disc-card-title {
+      font-size: 10px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ap-disc-card-year { font-size: 9px; color: var(--text-faint); margin-top: 2px; }
+
+    /* Similar artists — picker pill style */
+    .ap-similar { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0.5rem; }
+    .ap-sim-chip {
+      padding: 4px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+      border: 1px solid var(--glass-border);
+      border-top-color: rgba(255,255,255,0.16);
+      background: var(--glass-fill); color: var(--text-dim);
+      font-family: var(--font-ui);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .ap-sim-chip:hover { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border-h); }
+
+    /* Loading / error */
+    .ap-loading, .ap-error {
+      display: flex; align-items: center; justify-content: center; gap: 0.65rem;
+      padding: 4rem 2rem; font-size: 9px; letter-spacing: 0.2em;
+      color: var(--text-faint); text-transform: uppercase;
+      font-family: var(--font-ui);
+    }
+
+    /* bio fade must match the card background exactly */
+    .ap-bio::after {
+      background: linear-gradient(transparent, var(--modal-bg));
+    }
+
+    [data-theme="light"] .ap-topbar,
+    [data-theme="light"] .ap-hero { border-bottom-color: rgba(120,108,92,0.11); }
+    [data-theme="light"] .ap-hero-img,
+    [data-theme="light"] .ap-hero-img-ph,
+    [data-theme="light"] .ap-disc-card img,
+    [data-theme="light"] .ap-track-art { box-shadow: 0 4px 16px rgba(120,108,92,0.14); }
+    [data-theme="light"] .ap-btn-play {
+      color: color-mix(in srgb, rgb(var(--accent-rgb)) 72%, var(--text) 28%);
+      background: rgba(var(--accent-rgb),0.12);
+      border-color: rgba(var(--accent-rgb),0.24);
+      border-top-color: rgba(255,255,255,0.85);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 3px 12px rgba(120,108,92,0.08);
+    }
+    [data-theme="light"] .ap-track:hover {
+      background: rgba(255,255,255,0.48);
+      border-color: rgba(120,108,92,0.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+    [data-theme="light"] .ap-track.ap-now {
+      background: rgba(var(--accent-rgb),0.08);
+      border-color: rgba(var(--accent-rgb),0.18);
+    }
+    /* .ap-bio::after needs no light override — the base rule already
+       fades into var(--modal-bg), which is theme-adaptive. */
+
+    .picker-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.6);
+
+      display: none; align-items: center; justify-content: center;
+      animation: backdropIn 0.22s ease both;
+    }
+    @keyframes backdropIn { from{opacity:0} to{opacity:1} }
+    @keyframes pickerUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+    /* .picker-modal/.picker-header/.picker-title/.picker-close removed —
+       a fully-styled second dialog shell (title bar + close button) that
+       was never instantiated anywhere in markup or JS. The picker's real
+       shell is .picker-backdrop below; .settings-close/.add-app-close
+       cover the app's actual close-button needs. */
+
+    /* Deliberately NOT icon-only — an icon-webfont glyph that fails to load
+       (blocked CDN, stale cached font, ad-block rule) leaves a background:none
+       button completely invisible with no visual trace at all. A visible
+       pill + text label means the control is still there and usable even if
+       the icon glyph never shows up. */
+    .picker-sort-btn {
+      background: var(--tile-bg); border: 1px solid var(--tile-border); cursor: pointer;
+      color: var(--text-dim); font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 5px 10px; border-radius: var(--radius-md);
+      transition: color 0.15s, background 0.15s, border-color 0.15s; flex-shrink: 0; display: none;
+      align-items: center; justify-content: center; gap: 5px; font-family: var(--font-ui);
+    }
+    .picker-sort-btn.shown { display: inline-flex; }
+    .picker-sort-btn i { font-size: 13px; }
+    .picker-sort-btn:hover, .picker-sort-btn.active { color: var(--text); background: var(--tile-bg-h); border-color: var(--tile-border-h); }
+
+    .picker-search {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 0.7rem; border-radius: 7px;
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* The whole search box glows on focus instead of the global
+       input:focus-visible outline drawing its own box around just the
+       <input> nested inside it — that read as two boxes stacked. */
+    .picker-search:focus-within {
+      border-color: rgba(var(--accent-rgb),0.5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
+    }
+    .picker-search i { color: var(--text-dimmer); font-size: 12px; flex-shrink: 0; }
+    .picker-search input {
+      background: none; border: none; outline: none;
+      font-family: var(--font-ui); font-size: 0.75rem;
+      color: var(--text); flex: 1; caret-color: var(--text); min-width: 0;
+    }
+    .picker-search input:focus-visible { outline: none; }
+    .picker-search input::placeholder { color: var(--text-dimmer); }
+
+    .picker-list {
+      overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+      max-height: 40vh;
+      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+
+    /* Shared with .ap-track (the album/artist viewer's own track rows). */
+    .picker-item, .ap-track {
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s; border: 1px solid transparent;
+      animation: fadeInUp 0.4s ease backwards;
+    }
+    .picker-item:hover, .ap-track:hover {
+      background: var(--tile-bg-h);
+      border-color: var(--tile-border-h);
+    }
+    .picker-item.is-login-song { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.04); }
+
+    .picker-item-art {
+      width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
+      object-fit: cover; background: var(--tile-bg);
+      border: 1px solid var(--tile-border);
+    }
+    .picker-item-art-ph {
+      width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--tile-bg); color: var(--text-dimmer); font-size: 14px;
+      border: 1px solid var(--tile-border);
+    }
+    /* Artist art reads as a person/entity, distinct from an album's square
+       cover — matches .ap-hero-img's existing circle/square split in the
+       detail viewer (see its own .square modifier), which the browse-list
+       grid previously didn't. */
+    .picker-item-art.artist, .picker-item-art-ph.artist { border-radius: 50%; }
+
+    .picker-item-info { flex: 1; min-width: 0; }
+    .picker-item-title {
+      font-family: var(--font-ui);
+      font-size: 11px; color: var(--text); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em;
+    }
+    .picker-link {
+      cursor: pointer; border-bottom: 1px solid transparent;
+      transition: color 0.15s, border-color 0.15s; display: inline;
+    }
+    .picker-link:hover { color: var(--text) !important; border-bottom-color: currentColor; }
+    .picker-item-artist {
+      font-family: var(--font-ui);
+      font-size: 9.5px; color: var(--text-dimmer); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.02em; margin-top: 2px;
+    }
+
+    .picker-item-actions { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
+    /* Requester avatar on a music-request row (see MUSIC REQUESTS below) —
+       same small-circle-with-letter-fallback idiom as .feed-post-reply-avatar. */
+    .picker-item-requester {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+    }
+    .picker-item-requester img { width: 100%; height: 100%; object-fit: cover; }
+    /* 28px, aligned to the same "dense row action" tier as .ap-track-play/
+       .chat-msg-action-btn (was 30px, an unexplained one-off). Color was
+       a hardcoded rgba(232,228,220,0.55) — coincidentally almost exactly
+       var(--tile-icon)'s dark-theme value — instead of the token, so light
+       theme needed its own override to compensate; token-driven now, so
+       that override is gone too. */
+    .picker-action {
+      background: none; border: none; cursor: pointer;
+      color: var(--tile-icon); font-size: var(--fs-15);
+      width: 28px; height: 28px; min-width: 28px; min-height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); transition: color 0.15s, background 0.15s;
+      font-family: inherit; line-height: 1;
+    }
+    .picker-action:hover { color: var(--text); background: var(--glass-fill-h); }
+    .type-badge { font-size: 7.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; flex-shrink: 0; font-family: inherit; }
+    .type-badge.song  { color: #7ab8ff; border-color: rgba(122,184,255,0.35); background: rgba(122,184,255,0.1); }
+    .type-badge.album { color: #c47aff; border-color: rgba(196,122,255,0.35); background: rgba(196,122,255,0.1); }
+    .type-badge.soon  { color: #eab308; border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.12); }
+    [data-theme="light"] .type-badge.song  { color: #a0560a; border-color: rgba(190,110,10,0.35); background: rgba(190,110,10,0.1); }
+    [data-theme="light"] .type-badge.album { color: #8a3a18; border-color: rgba(150,70,30,0.35); background: rgba(150,70,30,0.1); }
+    [data-theme="light"] .type-badge.soon  { color: #92700a; border-color: rgba(146,112,10,0.4); background: rgba(234,179,8,0.14); }
+    .type-badge.fulfilled { color: var(--success-color); border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.12); }
+    .type-badge.dismissed { color: var(--text-faint); border-color: var(--tile-border); background: var(--tile-bg); }
+    [data-theme="light"] .type-badge.fulfilled { color: #1a7a3e; border-color: rgba(26,122,62,0.35); background: rgba(26,122,62,0.1); }
+    .picker-action.fav-active { color: var(--danger-color); }
+
+    .picker-empty {
+      font-size: 10px; letter-spacing: 0.15em; color: var(--text-dimmer);
+      text-transform: uppercase; text-align: center; padding: 2rem;
+    }
+
+    /* ══ LEADERBOARD (experimental) ══ */
+    .lb-metric-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 1rem; }
+    /* Radius was its own one-off 20px (fully pill-shaped) — aligned to the
+       same 8px every other segmented/tab control in the app uses
+       (.tab-nav-btn/.picker-tab/.music-req-type-btn/.cal-today-btn). */
+    .lb-metric-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 12px; border-radius: var(--radius-md); cursor: pointer;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+      color: var(--text-dim); font-size: var(--fs-11); font-family: var(--font-ui);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .lb-metric-btn:hover { border-color: var(--tile-border-h); }
+    .lb-metric-btn.active {
+      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
+      color: rgba(var(--accent-rgb),1);
+    }
+    .lb-list { display: flex; flex-direction: column; gap: 4px; margin-top: 0.9rem; }
+    .lb-row {
+      display: flex; align-items: center; gap: 0.8rem;
+      padding: 0.6rem 0.8rem; border-radius: 8px;
+      background: var(--tile-bg); border: 1px solid var(--tile-border);
+    }
+    .lb-rank {
+      width: 22px; flex-shrink: 0; text-align: center;
+      font-size: 12px; font-weight: 700; color: var(--text-dimmer); font-family: var(--font-ui);
+    }
+    /* Top 3 get a medal instead of a bare number — the whole point of a
+       leaderboard is that the top spots feel like something, not just
+       another row in a list. */
+    .lb-row.lb-rank-1 .lb-rank, .lb-row.lb-rank-2 .lb-rank, .lb-row.lb-rank-3 .lb-rank { font-size: 15px; }
+    .lb-row.lb-rank-1 { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.08); }
+    .lb-row.lb-rank-2 { border-color: rgba(148,163,184,0.35); background: rgba(148,163,184,0.08); }
+    .lb-row.lb-rank-3 { border-color: rgba(180,120,60,0.35); background: rgba(180,120,60,0.08); }
+    .lb-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+    }
+    .lb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .lb-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lb-value { flex-shrink: 0; font-size: 12px; font-weight: 700; color: rgba(var(--accent-rgb),1); font-family: var(--font-ui); }
+
+    ::selection {
+      color: var(--bg);
+      background: rgba(var(--accent-rgb),0.82);
+    }
+
+    .hdr-btn:focus-visible,
+    .ctrl-btn:focus-visible,
+    .fs-btn:focus-visible,
+    .picker-action:focus-visible,
+    .picker-tab:focus-visible,
+    .tile:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 1px solid rgba(var(--accent-rgb),0.5);
+      outline-offset: 2px;
+    }
+
+    /* Tactile press feedback */
+    .hdr-btn:active,
+    .ctrl-btn:active,
+    .fs-btn:active,
+    .picker-action:active,
+    .picker-tab:active,
+    .ap-btn-play:active,
+    .ap-btn-queue:active,
+    .ap-read-more:active {
+      transform: translateY(1px) scale(0.97);
+    }
+
+    .ap-hero::after {
+      content: '';
+      position: absolute;
+      left: 1rem;
+      right: 1rem;
+      bottom: 0;
+      height: 1px;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb),0.22), transparent);
+      opacity: 0.75;
+    }
+
+    body.is-playing .player-title {
+      color: var(--text);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .ap-panel.open .ap-hero,
+      .ap-panel.open .ap-actions,
+      .ap-panel.open .ap-sec-label,
+      .ap-panel.open .ap-track,
+      .ap-panel.open .ap-disc-card,
+      .ap-panel.open .ap-sim-chip {
+        animation: shipFadeLift 0.34s cubic-bezier(0.2,0.8,0.2,1) both;
+      }
+      .ap-panel.open .ap-track:nth-of-type(n+2),
+      .ap-panel.open .ap-disc-card:nth-child(n+2),
+      .ap-panel.open .ap-sim-chip:nth-child(n+2) {
+        animation-delay: 0.025s;
+      }
+    }
+
+    @keyframes shipFadeLift {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══════════════════════════════════════════
+       SECTION SCROLL REVEAL
+    ══════════════════════════════════════════ */
+    body.sec-reveal .sec {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.52s cubic-bezier(0.2,0.8,0.2,1), transform 0.52s cubic-bezier(0.2,0.8,0.2,1);
+    }
+    body.sec-reveal .sec.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body.sec-reveal .sec { opacity: 1 !important; transform: none !important; transition: none !important; }
+    }
+
+    /* ══════════════════════════════════════════
+       TILE FOCUS DIMMING — neighbors dim on hover
+    ══════════════════════════════════════════ */
+    @media (hover: hover) {
+      .grid:has(.tile-wrap:hover) .tile-wrap:not(:hover) .tile {
+        opacity: 0.84;
+        transform: scale(0.977);
+        transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2,0.8,0.2,1),
+          box-shadow 0.3s ease, border-color 0.24s ease, background 0.3s ease;
+      }
+      .grid:has(.tile-wrap:hover) .tile-wrap:hover .tile {
+        transform: translateY(-3px) scale(1.02);
+      }
+    }
+
+    /* Desktop shows both chat panes at once, so there's nothing to go back
+       to and the sidebar already names the room — the bar only exists
+       under the mobile breakpoint, which turns this back on. */
+    .chat-mobile-bar { display: none; }
+
+    /* ══════════════════════════════════════════════════════════════════
+       TOUCH + MOBILE
+       Everything below is the phone/tablet pass. It lives at the end of
+       the sheet on purpose: these rules override the desktop layout above
+       and rely on source order rather than escalating specificity. The one
+       !important is called out where it is, and is there to beat an inline
+       style rather than another rule.
+       ══════════════════════════════════════════════════════════════════ */
+
+    /* ── Touch devices, any size ──
+       Controls that only appear on :hover are unreachable with a finger.
+       These get revealed by a tap instead — see .chat-msg.show-actions,
+       which the timeline's tap handler sets. */
+    @media (hover: none) {
+      .chat-channel-close { opacity: 1; }
+      .chat-msg:hover .chat-msg-actions { display: none; }
+      .chat-msg.show-actions .chat-msg-actions { display: flex; }
+      .feed-post-delete { opacity: 1; }
+      /* Playlist delete, same hover-reveal problem. */
+      .music-playlist-row-del { opacity: 1; }
+      .tile:hover { transform: none; }
+    }
+
+    /* ── Comfortable tap targets ── */
+    @media (pointer: coarse) {
+      .chat-icon-btn, .chat-msg-action-btn, .img-view-btn,
+      .feed-post-add-reaction, .feed-post-delete {
+        min-width: 34px; min-height: 34px;
+      }
+    }
+
+    /* ── Phones / small tablets ── */
+    @media (max-width: 760px) {
+      /* 3.5rem of side padding at a 19px root is ~66px a side — a third of
+         a phone screen gone before any content is drawn. */
+      .dash { padding: 1.5rem 1rem 1.5rem; }
+      .dash.dash-clearance { padding-bottom: 6rem; }
+      body.tab-chat-active .dash { padding-bottom: 5.5rem; max-width: 100%; }
+      body.tab-chat-active.player-hidden .dash { padding-bottom: 1rem; }
+
+      /* The header was spending ~130px of an 844px screen on branding: a
+         44px logo, the "powered by" kicker, and a 1.55rem monospace
+         wordmark that ran the full width. All of it is decoration, and on
+         a phone it was pushing the actual app below the fold. */
+      .header { margin-bottom: 0.9rem; row-gap: 0.5rem; }
+      .logo { width: 30px; height: 30px; }
+      .header-left { gap: 0.6rem; }
+      .prompt-prefix { display: none; }
+      .prompt-text { font-size: 1.05rem; letter-spacing: 0.02em; }
+      .prompt-cursor { height: 0.95rem; }
+      .header-meta { display: none; }
+      /* Absolutely positioned at left:100% off the wordmark, which at this
+         width lands it directly on top of the header's icon row. It's a
+         splash-text gag; there's nowhere for it to go on a phone. */
+      .motd { display: none; }
+      .hdr-btn { width: 34px; height: 34px; }
+      .sec { margin-bottom: 1.75rem; }
+      .tab-nav { margin-bottom: 1rem; gap: 4px; }
+      .tab-nav-btn { padding: 0.5rem 0.7rem; }
+      /* Labels go first — the icons still read, and the nav stops needing
+         a horizontal scroll to reach the last tab. */
+      .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      .tab-nav-btn i { font-size: 16px; }
+
+      /* iOS zooms the page in when a focused field's text is under 16px,
+         and every text entry in this app was below that. */
+      input[type="text"], input[type="search"], input[type="password"],
+      input:not([type]), textarea { font-size: 16px; }
+
+      .presence-rail { margin-top: 1.5rem; }
+      /* The rail stacks *below* the chat at this width (see the 880px
+         rule), so on the chat tab it's a strip of dead height under the
+         composer that squeezes the timeline for something you can't even
+         see. Chat owns the screen here; the roster is still on Feed. */
+      body.tab-chat-active .presence-rail { display: none; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); }
+
+      /* ── Chat: one pane at a time ──
+         Desktop is sidebar | resizer | conversation. At this width the
+         230px sidebar leaves ~150px for messages, which is the "unusable
+         on mobile" complaint in one line. Here the two panes become two
+         screens: #chatApp.mobile-rooms shows the list, and without it
+         you're in the conversation. setChatMobileView() owns that class;
+         it's in the markup too, so the list is what you land on even
+         before the script runs. */
+      .chat-resizer { display: none; }
+      .chat-channels {
+        /* Beats the inline width initChatResizer() writes from the saved
+           desktop drag value — an inline style can't be overridden any
+           other way, and that value is meaningless at this width. */
+        width: 100% !important;
+        border-right: none; padding: 0.5rem;
+        display: none;
+      }
+      #chatApp.mobile-rooms .chat-channels { display: block; }
+      #chatApp.mobile-rooms .chat-main { display: none; }
+
+      .chat-mobile-bar {
+        display: flex; align-items: center; gap: 4px;
+        padding: 0.4rem 0.5rem; min-height: 40px;
+        border-bottom: 1px solid rgba(var(--accent-rgb),0.1);
+      }
+      .chat-mobile-back {
+        width: 32px; height: 32px; flex: none;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: none; border: 0; cursor: pointer;
+        color: var(--text-dim); font-size: 20px; border-radius: var(--radius-md);
+      }
+      .chat-mobile-back:active { background: rgba(var(--accent-rgb),0.12); }
+      .chat-mobile-title {
+        font-size: 14px; font-weight: 700; color: var(--text);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+      }
+
+      .chat-timeline { padding: 0.7rem 0.8rem; }
+      /* Anchor a short conversation to the composer instead of leaving it
+         stranded at the top with a screen of dead space under it. Done via
+         the first child rather than justify-content:flex-end, which clips
+         the top of the list once it actually overflows. */
+      .chat-timeline > :first-child { margin-top: auto; }
+      .chat-msg { gap: 8px; }
+      .chat-msg-avatar { width: 32px; height: 32px; }
+      .chat-msg-image { max-width: 100%; }
+      .chat-composer { padding: 0.4rem 0.6rem 0.6rem; }
+      /* The toolbar floats over the message on desktop; on a narrow row it
+         covered the text it belonged to. */
+      .chat-msg-actions { top: -10px; right: 2px; }
+
+      /* ── Music: nav rail becomes strips above the list ──
+         The rail is a fixed 260px, so on a 390px phone the actual song
+         list was rendering about 50px wide — a slit of clipped text next
+         to a full-height menu. Unlike chat there's no "two screens"
+         answer here: browsing music means switching between Songs /
+         Albums / Artists constantly, so the rail's contents become
+         horizontally scrolling strips stacked above a full-width list.
+         The tabs keep their labels — they're scrollable, and an icon-only
+         strip of nine similar glyphs isn't readable. */
+      .music-shell { flex-direction: column; gap: 0.5rem; }
+      .music-sidebar {
+        width: 100%; flex-direction: column; gap: 6px;
+        padding-right: 0; flex-shrink: 0;
+      }
+      /* The tab-active rule makes the rail its own scroll container, which
+         at full width would trap the strips in a short scrolling box. */
+      body.tab-music-active .music-sidebar { overflow-y: visible; }
+      .music-sidebar .picker-search { margin-bottom: 0; }
+
+      .picker-tabs, .music-playlist-nav {
+        flex-direction: row; overflow-x: auto; gap: 4px; align-items: center;
+        scrollbar-width: none; -ms-overflow-style: none;
+      }
+      .picker-tabs::-webkit-scrollbar, .music-playlist-nav::-webkit-scrollbar { display: none; }
+      /* width:100% on the base rule is what a vertical rail wants and what
+         makes each tab fill the strip here — every tab came out full-width
+         so only "Home" was visible. */
+      .picker-tab { flex: 0 0 auto; width: auto; white-space: nowrap; padding: 0.4rem 0.7rem; gap: 6px; }
+      .picker-tab span { flex: 0 0 auto; }
+      .music-sidebar-divider, .music-sidebar-label { display: none; }
+
+      /* A song row carries a "SONG" badge and five actions (favorite, set
+         login song, queue, add to playlist, play). At this width that left
+         about 120px for the title, so everything truncated to "Everythi…".
+         The badge goes (the list you're in already says what these are)
+         and so does the login-song star, which is a once-ever setting.
+         Everything dropped here is still on the row's long-press menu
+         (showSongCtx: play, queue, add to playlist, artist, album, fav). */
+      .picker-item-actions .type-badge { display: none; }
+      .picker-item-actions .picker-action[data-login] { display: none; }
+
+      .music-playlist-row { flex: 0 0 auto; padding: 4px 8px; }
+      .music-playlist-row-art { width: 22px; height: 22px; font-size: 11px; }
+      .music-playlist-row-meta { display: none; }
+      .music-playlist-row-name { font-size: 12px; max-width: 120px; }
+      .music-new-playlist-btn { flex: 0 0 auto; margin-top: 0; white-space: nowrap; }
+
+      /* Feed */
+      .feed-post-embed { max-width: 100%; }
+      .feed-post-quick-reactions { flex-wrap: wrap; }
+    }
+
+    /* ── Narrow phones ── */
+    @media (max-width: 480px) {
+      /* Below ~400px the wordmark (nowrap) and the icon row both want more
+         room than exists and the two drew on top of each other. The player
+         toggle goes because the dock it toggles is right there on screen. */
+      #playerToggle { display: none; }
+      .hdr-btn { width: 30px; height: 30px; }
+      .prompt-text { font-size: 0.85rem; }
+      .prompt-cursor { height: 0.8rem; }
+      .header-text, .terminal-prompt { min-width: 0; overflow: hidden; }
+
+      /* One more tier of the dock's progressive drop (see the 860/760/520
+         rules above): the seek bar's 80px minimum is what tips the dock
+         into overflowing at this width. Seeking is still in the fullscreen
+         player. */
+      .player-dock .player-progress { display: none !important; }
+
+      .dash { padding: 1.1rem 0.7rem 1.25rem; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(132px,1fr)); }
+      .chat-timeline { padding: 0.6rem 0.55rem; }
+      .chat-msg-avatar { width: 28px; height: 28px; }
+      .sec { margin-bottom: 1.4rem; }
+      /* One more action off the song row at this width — still on the
+         long-press menu, same as the two dropped at 760px. */
+      .picker-item-actions .picker-action[data-add-pl] { display: none; }
+    }
+
+    /* ── Notch / home-indicator clearance ──
+       Paired with viewport-fit=cover in the <head>: the page now extends
+       under the system UI, so anything pinned to an edge pads itself back
+       out. Written with max(), so a device without insets is unaffected. */
+    @supports (padding: max(0px)) {
+      @media (max-width: 760px) {
+        .dash {
+          padding-left: max(1rem, env(safe-area-inset-left));
+          padding-right: max(1rem, env(safe-area-inset-right));
+        }
+        .player-dock { bottom: max(1.1rem, env(safe-area-inset-bottom)); }
+        .chat-composer { padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
+        .img-view-bar { padding-top: max(12px, env(safe-area-inset-top)); }
+      }
+    }
+
+    /* ── Installed PWA ──
+       In standalone there's no browser chrome to scroll away, so the page
+       owns the full height and the top inset is the status bar. */
+    @media (display-mode: standalone) {
+      .dash { padding-top: max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem)); }
+      /* No URL bar means no pull-to-refresh escape hatch — don't let the
+         whole document rubber-band instead of the timeline. */
+      html, body { overscroll-behavior-y: none; }
+    }
+
+  
