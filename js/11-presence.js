@@ -148,6 +148,34 @@
     })();
   }
 
+  // ── Profile banners as card backgrounds ──
+  // People already upload a banner in their profile; it only ever showed
+  // up inside the profile modal. Using it behind their presence card is
+  // free colour and makes the rail look like the people in it.
+  // A scaled thumbnail, not `full: true` like the profile views use — this
+  // renders at ~240x88, so the original is wildly oversized. Kept in
+  // memory only (avatars persist to localStorage as data URIs; banners are
+  // far bigger and not worth the quota).
+  const _bannerCache   = new Map(); // username -> blob URL, or null
+  const _bannerPending = new Set();
+  function ensureBannerResolved(username) {
+    if (!username || _bannerCache.has(username) || _bannerPending.has(username)) return;
+    const mxc = _profiles.get(username)?.banner_mxc;
+    if (!mxc) { _bannerCache.set(username, null); return; }
+    if (!MatrixChat.client) return; // retry on a later render once chat connects
+    _bannerPending.add(username);
+    (async () => {
+      try {
+        _bannerCache.set(username, await MatrixChat.mxcToBlobUrl(mxc, { width: 480, height: 200, method: 'scale' }));
+      } catch (e) {
+        _bannerCache.set(username, null);
+      } finally {
+        _bannerPending.delete(username);
+        renderList(_lastOthers); // same resolve-then-rerender idiom as avatars
+      }
+    })();
+  }
+
   // ── Render helpers ───────────────────────
   function cardHTML(username, song, artist, isMe, playing, songId, partyHost) {
     ensureAvatarResolved(username);
@@ -172,6 +200,10 @@
         if (rgb) cardVars += '--card-accent:' + rgb.join(',') + ';';
       }
     }
+    // Everyone gets their banner, including your own card.
+    ensureBannerResolved(username);
+    const bannerUrl = _bannerCache.get(username);
+    if (bannerUrl) cardVars += "--card-bg:url('" + bannerUrl + "');";
     const cardStyle = cardVars ? ' style="' + cardVars + '"' : '';
     // Anyone cardHTML() renders at all is, by construction, currently
     // online on klabnet — so the dot means "online" now, not "playing".
@@ -208,7 +240,7 @@
           (note ? esc(note) : 'Add a note…') +
         '</div>'
       : (note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '');
-    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
+    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (bannerUrl ? ' has-banner' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
         '<span class="presence-card-online" title="Online" aria-label="Online"></span>' +
       '</div>' +

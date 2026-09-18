@@ -839,8 +839,14 @@
          and the scroll-clearance logic elsewhere already use. */
       max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
       overscroll-behavior: contain; /* scrolling the rail to its end shouldn't hand off to the page scroll */
-      scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+      /* No visible scrollbar. It only ever appeared once the roster got
+         long enough, so it flickered in and out as people came and went,
+         and it cut into the cards' right edge. The .presence-rail-more
+         chevron already signals "there's more below" — that's the whole
+         reason it exists. Same treatment .tab-nav and .ap-scroll get. */
+      scrollbar-width: none; -ms-overflow-style: none;
     }
+    .presence-rail::-webkit-scrollbar { display: none; }
     .sec-global-presence { margin-bottom: 0; }
     .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
     .presence-rail .presence-grid { grid-template-columns: 1fr; }
@@ -2800,6 +2806,45 @@
          ellipsis — it just got hard-clipped by the rail's overflow:hidden. */
       min-width: 0;
     }
+    /* ── Profile banner behind a card ──
+       The banner is someone's own picture, so it can be anything —
+       bright, busy, light, dark. The scrim in front of it is doing the
+       real work: it's what keeps the name and track legible no matter
+       what they uploaded, and it's why this is layered in background-image
+       rather than set on a ::before (one paint, no extra element, and the
+       existing :hover background rules keep working underneath).
+       It stays near-opaque across the left half, where the avatar, name
+       and track sit, and only opens up toward the right edge. Tested
+       against a high-contrast striped banner: anything weaker and the
+       track line became genuinely hard to read. The banner is a wash of
+       someone's colour, not a picture you're meant to look at. */
+    .presence-card.has-banner {
+      background-image:
+        linear-gradient(95deg, rgba(8,8,10,0.97) 0%, rgba(8,8,10,0.93) 50%, rgba(8,8,10,0.74) 100%),
+        var(--card-bg);
+      background-size: cover, cover;
+      background-position: center, center;
+      border-color: rgba(255,255,255,0.09);
+    }
+    .presence-card.has-banner:hover {
+      background-image:
+        linear-gradient(95deg, rgba(8,8,10,0.94) 0%, rgba(8,8,10,0.88) 50%, rgba(8,8,10,0.62) 100%),
+        var(--card-bg);
+    }
+    /* Light theme needs the opposite scrim — a dark one over a pale banner
+       reads as a mistake, and the card's text is dark here. */
+    [data-theme="light"] .presence-card.has-banner {
+      background-image:
+        linear-gradient(95deg, rgba(250,249,246,0.97) 0%, rgba(250,249,246,0.93) 50%, rgba(250,249,246,0.76) 100%),
+        var(--card-bg);
+      border-color: rgba(90,78,62,0.18);
+    }
+    [data-theme="light"] .presence-card.has-banner:hover {
+      background-image:
+        linear-gradient(95deg, rgba(250,249,246,0.94) 0%, rgba(250,249,246,0.88) 50%, rgba(250,249,246,0.64) 100%),
+        var(--card-bg);
+    }
+
     .presence-card:hover { background: var(--tile-bg-h); border-color: var(--tile-border-h); }
     /* Every card is clickable now — someone else's opens a DM with them,
        your own opens your profile editor. It used to be only the cards of
