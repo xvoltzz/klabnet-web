@@ -40,6 +40,17 @@
       --radius-md: 8px;
       --radius-lg: 10px;
 
+      /* Control heights. Every small interactive control snaps to one of
+         these two so clusters line up across the header, the rail and the
+         dock — previously each feature picked its own (.hdr-btn 28,
+         .tab-nav-btn 37 from padding, .rail-tab 28, .ctrl-btn 32), which
+         is why the header's icon row and tab row visibly disagreed. */
+      --control-h:    34px;
+      --control-h-sm: 28px;
+      /* Section headers ("// feed", "// users") — the feed's also holds a
+         button while the rail's is bare text, so without a shared floor
+         the two columns' labels sat on different baselines. */
+      --sec-head-h: 28px;
     }
 
     /* ══ LARGE / HIGH-RES DISPLAYS ══
@@ -127,6 +138,15 @@
       --warn-color:     #fbbf24;
       --warn-bg:        rgba(251,191,36,0.1);
       --modal-bg:       #0a0a0c;
+      /* Translucent twin of --modal-bg, used ONLY behind a backdrop-filter
+         (see "LIQUID GLASS" below). --modal-bg stays the fallback so a
+         browser without backdrop-filter still gets an opaque panel rather
+         than unreadable text over the page. */
+      --modal-glass:    rgba(14,14,17,0.72);
+      /* Specular edge — the bright hairline along a glass surface's top
+         lip. Brighter than --glass-shine, and only ever a 1px inset, so
+         it reads as a lit edge rather than a lighter fill. */
+      --glass-spec:     rgba(255,252,248,0.22);
     }
 
     [data-theme="light"] {
@@ -168,6 +188,8 @@
       --warn-color:     #b84000;
       --warn-bg:        rgba(184,64,0,0.08);
       --modal-bg:       #fbfaf7;
+      --modal-glass:    rgba(252,251,248,0.7);
+      --glass-spec:     rgba(255,255,255,0.95);
     }
 
     body {
@@ -298,6 +320,75 @@
         0 4px 24px var(--glass-shadow),
         0 1px 4px var(--shadow-20);
       transition: background 0.4s, border-color 0.4s;
+    }
+
+    /* ══ LIQUID GLASS ══════════════════════════════════════════════════
+       What sells the look is the *edge*, not the blur: a bright specular
+       hairline along the top lip, a soft dark bounce along the bottom,
+       and a fill that's lighter at the top than the bottom. All three are
+       box-shadow/gradient work, which the compositor handles for free —
+       so `.lg` can go on as many elements as we like.
+
+       `backdrop-filter` is the expensive half: it forces its own
+       compositing layer AND a readback of everything painted beneath it,
+       every frame the backdrop moves. So it is deliberately NOT part of
+       `.lg`. It's opted into separately by `.lg-blur`, and only ever by
+       surfaces that are (a) few, (b) overlaying scrolling content — which
+       is the only place it's visible anyway. It must never land on
+       anything repeated per-row (posts, presence cards, track rows): 40
+       blurred layers in a scroller is exactly how a snappy page dies.
+
+       The sheen is a background LAYER, not a ::before. A pseudo-element
+       would need z-index to sit over the fill, and that reorders every
+       absolutely-positioned child underneath it — .header-right holds the
+       overflow menu and the toast flyout, both of which would have been
+       dragged under the sheen (or forced to position:relative) by a
+       `.lg > * { position: relative }` companion rule. A gradient layer
+       has none of that reach. It does mean any rule setting `background`
+       on an .lg element must restate the layer; see .lg-fill.
+
+       These define the layer. The list of surfaces that opt INTO it lives
+       in "GLASS SURFACES" at the very end of this file, by selector
+       rather than by adding classes in index.html (markup surgery on that
+       file has a bad track record, and the later position is what lets
+       those rules beat each surface's own existing `background`). */
+    .lg {
+      border: 1px solid var(--glass-border);
+      box-shadow:
+        inset 0 1px 0 0 var(--glass-spec),
+        inset 0 -1px 0 0 var(--glass-inner-b),
+        0 1px 2px var(--shadow-20);
+    }
+    .lg-fill {
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.07) 0%,
+          rgba(255,255,255,0.02) 45%,
+          rgba(255,255,255,0) 100%),
+        var(--glass-fill);
+    }
+
+    /* Overlay surfaces only — count them: the dock, the two menus, a
+       toast, a modal, the emoji picker, the message-action bar. Never
+       more than two or three on screen at once. */
+    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+      .lg-blur {
+        background:
+          linear-gradient(180deg,
+            rgba(255,255,255,0.07) 0%,
+            rgba(255,255,255,0.02) 45%,
+            rgba(255,255,255,0) 100%),
+          var(--modal-glass);
+        -webkit-backdrop-filter: blur(24px) saturate(1.7);
+        backdrop-filter: blur(24px) saturate(1.7);
+      }
+    }
+    /* Both of these mean "the viewer has asked for less of this" — the
+       blur is the costly, motion-sickness-adjacent part, so drop it and
+       fall back to the opaque panel. The specular edges stay; they're
+       static and cost nothing. */
+    @media (prefers-reduced-transparency: reduce) {
+      .lg-blur { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
     }
 
     /* Shared content-width scale — drives both .dash and the player dock so
@@ -620,7 +711,14 @@
     }
 
     .header-left  { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 1.1rem; min-width: 0; }
-    .header-right { grid-column: 3; justify-self: end; }
+    /* align-self:center, NOT the grid's own align-items:start. .header-left
+       is the tallest cell (44px logo + two text lines), so `start` parked
+       the icon row 21px above the tab nav's centerline while the logo —
+       vertically centered inside its own flex row — sat exactly ON it.
+       That mismatch is the "slightly misaligned" buttons; now all three
+       cells share one centerline. `start` stays the grid default so the
+       taller left cell still governs the row's height. */
+    .header-right { grid-column: 3; justify-self: end; align-self: center; }
     /* Reclaims the vertical space .tab-nav used to take as its own row
        below the header (real gain for the Chat tab's already carefully
        flex-filled layout — see body.tab-chat-active .dash above) on
@@ -745,7 +843,15 @@
       display: flex; align-items: center; gap: 0.9rem; margin-top: 2px;
     }
 
-    .header-right { position: relative; display: flex; align-items: center; gap: 10px; }
+    /* A tray, not four loose buttons. The icon row and the tab nav are the
+       same kind of thing — a cluster of controls — so they get the same
+       container treatment (see .tab-nav), which is most of what made the
+       two read as unrelated styles. 4px padding + 6px gap matches
+       .tab-nav's 4px/6px exactly. */
+    .header-right {
+      position: relative; display: flex; align-items: center; gap: 6px;
+      padding: 4px; border-radius: calc(var(--radius-md) + 4px);
+    }
 
     /* ══ TOAST FLYOUT — stacked notifications hanging off the header
        buttons' bottom-right corner, matching the ctx-menu/modal surfaces
@@ -893,15 +999,24 @@
       flex-wrap: nowrap; overflow-x: auto;
       scrollbar-width: none; -ms-overflow-style: none;
       margin-bottom: 1.5rem;
+      /* Segmented-control tray — see .header-right for the matching one.
+         Buttons inside lose their own border/fill and the tray carries it,
+         so the row reads as one object with a selected segment rather than
+         three separately-outlined boxes. */
+      padding: 4px; border-radius: calc(var(--radius-md) + 4px);
     }
     .tab-nav::-webkit-scrollbar { display: none; }
     .tab-nav-btn {
-      flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      height: var(--control-h); box-sizing: border-box;
       white-space: nowrap; font-family: var(--font-ui); font-weight: 500;
       font-size: var(--fs-10); letter-spacing: 0.14em; text-transform: uppercase;
-      padding: 0.55rem 0.9rem; border-radius: var(--radius-md); cursor: pointer;
-      border: 1px solid var(--tile-border);
-      color: var(--text-dim); background: var(--tile-bg);
+      padding: 0 0.9rem; border-radius: var(--radius-md); cursor: pointer;
+      /* Transparent until active/hovered — the tray supplies the frame.
+         Border kept (not dropped to 0) so the active state can colour it
+         without the button changing size. */
+      border: 1px solid transparent;
+      color: var(--text-dim); background: transparent;
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
     .tab-nav-btn i { font-size: 14px; }
@@ -2133,16 +2248,23 @@
        used to stomp that back to background:transparent/border:transparent,
        so they were invisible until hovered. Only override sizing/layout
        here and let .glass supply the fill/border. */
+    /* Square counterpart to .tab-nav-btn, and deliberately the same height
+       and radius — they sit on one line in the header, so anything else
+       reads as two unrelated button styles. They also drop .glass in the
+       markup now: the .header-right tray carries the fill and border, the
+       same way .tab-nav does for its segments. */
     .hdr-btn {
       position: relative;
-      width:28px; height:28px; min-width:28px; min-height:28px;
-      border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center;
-      cursor:pointer; font-size:var(--fs-13);
-      flex-shrink:0; color:var(--text-dim); transition:color 0.2s, background 0.2s, border-color 0.2s;
+      width:var(--control-h); height:var(--control-h);
+      min-width:var(--control-h); min-height:var(--control-h);
+      border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:var(--fs-14);
+      border:1px solid transparent; background:transparent;
+      flex-shrink:0; color:var(--text-dim); transition:color 0.15s, background 0.15s, border-color 0.15s;
       text-decoration:none;
     }
     .hdr-btn:hover { color:var(--text); background:var(--glass-fill-h); border-color:rgba(var(--accent-rgb),0.35); }
-    .hdr-btn.active { color:var(--text); background:var(--glass-fill-h); }
+    .hdr-btn.active { color:var(--text); background:rgba(var(--accent-rgb),0.16); border-color:rgba(var(--accent-rgb),0.4); }
     /* .hdr-btn sets display:flex above, which always wins over the browser's
        own [hidden]{display:none} default regardless of specificity (author
        CSS beats UA styles) — #leaderboardBtn moving back to being a plain
@@ -3802,3 +3924,119 @@
     }
 
   
+    /* ══ GLASS SURFACES ═══════════════════════════════════════════════
+       Which elements opt into the liquid-glass layer defined near the top
+       of this file. Deliberately at the very end: each of these already
+       declares its own `background` (usually the opaque --modal-bg) in its
+       own section, and these have the same specificity, so only source
+       order decides — put this block earlier and every one of them loses.
+
+       Keeping it as one list also makes the performance budget legible.
+       Grow the SHEEN list freely; think hard before adding to the BLUR
+       list, and never add anything that renders once per row. */
+
+    /* ── Sheen only (free) ──
+       Control trays. Their buttons are transparent until active, so the
+       tray is what you actually see, which is what makes the header's
+       icon row and tab row finally read as the same component. */
+    .tab-nav, .header-right {
+      border: 1px solid var(--glass-border);
+      box-shadow:
+        inset 0 1px 0 0 var(--glass-spec),
+        inset 0 -1px 0 0 var(--glass-inner-b),
+        0 1px 2px var(--shadow-20);
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.07) 0%,
+          rgba(255,255,255,0.02) 45%,
+          rgba(255,255,255,0) 100%),
+        var(--glass-fill);
+    }
+    /* The tray is a frame around the tabs, not a control itself — on the
+       chat tab it used to get 1.5rem of margin as a standalone row. */
+    .header .tab-nav { margin-bottom: 0; }
+
+    /* ── Sheen + blur (costly — 7 surfaces, all transient overlays) ──
+       Every one of these floats above scrolling content, which is both
+       why the blur is visible at all and why it's worth paying for. The
+       dock is the only one that's persistently on screen; the other six
+       are open for a few seconds at a time. */
+    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item,
+      .modal-box, .chat-emoji-picker, .chat-msg-actions {
+        background:
+          linear-gradient(180deg,
+            rgba(255,255,255,0.07) 0%,
+            rgba(255,255,255,0.02) 45%,
+            rgba(255,255,255,0) 100%),
+          var(--modal-glass);
+        -webkit-backdrop-filter: blur(24px) saturate(1.7);
+        backdrop-filter: blur(24px) saturate(1.7);
+      }
+      /* The specular lip, on the surfaces whose own box-shadow would
+         otherwise overwrite it (box-shadow doesn't merge across rules). */
+      .player-dock {
+        box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 20px 60px var(--shadow-50);
+      }
+      .ctx-menu, .hdr-more-menu {
+        box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 8px 32px var(--shadow-40);
+      }
+      .toast-item {
+        box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 10px 32px var(--shadow-40);
+      }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item,
+      .modal-box, .chat-emoji-picker, .chat-msg-actions {
+        background: var(--modal-bg);
+        -webkit-backdrop-filter: none; backdrop-filter: none;
+      }
+    }
+
+    /* ══ ALIGNMENT & RADIUS CONSISTENCY ═══════════════════════════════ */
+
+    /* Both columns' section headers ("// users", "// feed") sit on one
+       baseline. The feed's also contains the mentions button, so without
+       a shared floor its bare-text sibling in the rail rode ~5px higher. */
+    .sec-head { min-height: var(--sec-head-h); }
+
+    /* Small controls that had drifted to their own sizes/radii. .ctrl-btn
+       keeps 32px — it's inside the dock, on its own line, and sizing it to
+       34 crowds the dock's height for no alignment gain. */
+    .rail-tab      { height: var(--control-h); }
+    .chat-icon-btn { border-radius: var(--radius-sm); }
+    .ctrl-btn      { border-radius: var(--radius-md); }
+    .toast-item    { border-radius: var(--radius-lg); }
+    .ctx-menu, .hdr-more-menu { border-radius: var(--radius-lg); }
+
+    /* The rail's Users/Channels toggle is the same thing as the tab nav —
+       a small exclusive segmented control — so it gets the same tray, and
+       its segments go transparent until selected. It kept its own look
+       (two separately-outlined boxes) purely because it was built later. */
+    .rail-tabs {
+      padding: 4px; border-radius: calc(var(--radius-md) + 4px); gap: 6px;
+      border: 1px solid var(--glass-border);
+      box-shadow:
+        inset 0 1px 0 0 var(--glass-spec),
+        inset 0 -1px 0 0 var(--glass-inner-b),
+        0 1px 2px var(--shadow-20);
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.07) 0%,
+          rgba(255,255,255,0.02) 45%,
+          rgba(255,255,255,0) 100%),
+        var(--glass-fill);
+    }
+    .rail-tab {
+      height: var(--control-h-sm);
+      background: transparent; border-color: transparent;
+    }
+    .rail-tab:hover:not(.active) { background: var(--glass-fill-h); }
+
+    /* Stacked, the tab tray spans the full width, so the segments should
+       divide it rather than huddle at the left edge with dead tray to
+       their right. Only below 1050px — that's where .header .tab-nav stops
+       being a centered content-width cluster and becomes its own row. */
+    @media (max-width: 1050px) {
+      .header .tab-nav .tab-nav-btn { flex: 1 1 0; min-width: 0; }
+    }

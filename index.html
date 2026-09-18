@@ -235,16 +235,16 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
     </nav>
     <div class="header-right">
-      <button class="hdr-btn glass" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
-      <button class="hdr-btn glass" id="playerToggle" title="Toggle player" aria-label="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
-      <button class="hdr-btn glass" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
+      <button class="hdr-btn" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
+      <button class="hdr-btn" id="playerToggle" title="Toggle player" aria-label="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
+      <button class="hdr-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"><i class="ti ti-sun" id="themeIcon"></i></button>
       <!-- Overflow menu — motdRefresh/keyHintsBtn/repoBtn/accountBtn used to
            sit directly in this row as bare icon buttons; moved in here
            (same ids, so their existing click-handler wiring elsewhere in
            the script needs no changes) once the row grew to 8 icons and
            started feeling cramped. Account sits furthest in (no title
            tooltip even) since it's rarely the thing anyone's reaching for. -->
-      <button class="hdr-btn glass" id="headerMoreBtn" title="More" aria-label="More"><i class="ti ti-menu-2"></i></button>
+      <button class="hdr-btn" id="headerMoreBtn" title="More" aria-label="More"><i class="ti ti-menu-2"></i></button>
       <div class="hdr-more-menu" id="headerMoreMenu">
         <div class="ctx-item" id="motdRefresh"><i class="ti ti-refresh"></i> New splash text</div>
         <div class="ctx-item" id="keyHintsBtn"><i class="ti ti-keyboard"></i> Keyboard shortcuts</div>
@@ -613,7 +613,7 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.18.9';</script>
+<script>const KLABNET_VERSION = 'v2026.09.18.10';</script>
 <script defer src="js/00-util.js?v=v2026.09.18.9"></script>
 <script defer src="js/01-shell.js?v=v2026.09.18.9"></script>
 <script defer src="js/02-player.js?v=v2026.09.18.9"></script>
