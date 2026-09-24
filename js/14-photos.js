@@ -108,7 +108,7 @@
     posts = next;
     if (!focusPostId && structureKey(posts) === prevKey && items.length) {
       rebuildItems();
-      renderPost(false);
+      renderPost('refresh');
       return;
     }
     rebuildItems();
@@ -140,11 +140,14 @@
 
   // ── Filmstrip ──
   const GAP = 6, POST_GAP = 20;
-  const thumbSize = () => parseFloat(getComputedStyle(shell).getPropertyValue('--ph-thumb')) || 46;
+  // Read once per layout: getComputedStyle every scrub frame forced a style recalc each time.
+  let thumbPx = 46;
+  const readThumbSize = () => { thumbPx = parseFloat(getComputedStyle(shell).getPropertyValue('--ph-thumb')) || 46; };
   const monthOf = post => (post.sort_at || post.created).slice(0, 7);
 
   function layoutStrip() {
-    const t = thumbSize();
+    readThumbSize();
+    const t = thumbPx;
     strip.textContent = '';
     thumbEls = [];
     centers = [];
@@ -189,16 +192,21 @@
     if (!centers.length) return;
     const mid = wrap.clientWidth / 2;
     strip.style.transform = `translate3d(${mid - pos}px,0,0)`;
-    const t = thumbSize();
+    const t = thumbPx;
     const lo = pos - mid - 80, hi = pos + mid + 80;
     for (let i = 0; i < thumbEls.length; i++) {
       const c = centers[i];
+      const el = thumbEls[i];
+      // Off-screen thumbs leave the render tree, so painting and compositing
+      // cost what's visible, not how many photos have ever been posted.
+      const vis = c >= lo - 200 && c <= hi + 200;
+      if (vis !== el._vis) { el.style.display = vis ? '' : 'none'; el._vis = vis; }
+      if (!vis) continue;
       let s = 1;
       if (c >= lo && c <= hi) {
         const d = Math.abs(c - pos) / (t * 2.2);
         s = 1 + 0.55 * Math.max(0, 1 - d * d);
       }
-      const el = thumbEls[i];
       if (Math.abs((el._s || 1) - s) > 0.003) {
         el.style.transform = s === 1 ? '' : `scale(${s.toFixed(3)})`;
         el._s = s;
@@ -231,6 +239,9 @@
     const u = fileUrl(items[i].ph.id, 'display');
     if (preloaded.has(u)) return;
     const im = new Image(); im.decoding = 'async'; im.src = u;
+    // Decoded ahead of time too, not just downloaded: decoding a 2560px JPEG
+    // takes ~35ms, and left until first paint it lands inside a frame.
+    im._ready = im.decode().then(() => { im._decoded = true; }, () => {});
     preloaded.set(u, im);
     if (preloaded.size > 24) preloaded.delete(preloaded.keys().next().value);
   }
@@ -273,21 +284,21 @@
     thumbEls[i]?.classList.add('sel');
     const it = items[i];
 
+    // While the strip is moving (a scrub, or gliding to a key press) only the
+    // 320px thumb is shown, already in cache from the strip. The ~1MB full
+    // image is fetched once it comes to rest (settle()), so a scrub past 30
+    // photos doesn't queue 30MB in front of the one you stop on.
     const big = fileUrl(it.ph.id, 'display');
     const cached = preloaded.get(big);
-    if (cached && cached.complete && cached.naturalWidth) {
+    if (cached && cached.complete && cached.naturalWidth && cached._decoded) {
       mainImg.src = big; mainImg.classList.remove('lowres');
     } else {
       mainImg.src = fileUrl(it.ph.id, 'thumb'); mainImg.classList.add('lowres');
-      preload(i);
-      preloaded.get(big).addEventListener('load', () => {
-        if (sel === i) { mainImg.src = big; mainImg.classList.remove('lowres'); }
-      }, { once: true });
+      if (!moving()) settle();
     }
     mainImg.alt = it.post.text || `Photo by ${it.post.username}`;
-    for (const d of [1, -1, 2, -2, 3]) preload(i + d);
 
-    renderPost(prevPost !== it.post);
+    renderPost(prevPost !== it.post ? 'post' : 'photo');
     setBackdrop();
     if (prevPost !== it.post) scheduleClip();
     if (i < 8) fetchOlder();
@@ -311,11 +322,25 @@
     return { gear: gear || (specs ? '' : '<span>No camera details</span>'), specs };
   }
 
-  // Details row + comments panel for the selected photo. `postChanged` is
-  // false when only reactions/replies moved, so the reply list isn't refetched.
-  function renderPost(postChanged) {
+  // The rails + comments panel for the selected photo. `mode`:
+  //   'post'    moved onto a different post: everything, and reset comments
+  //   'photo'   another photo in the same post: just the per-photo parts
+  //   'refresh' same photo, fresh data (likes, reply counts): no comment reset
+  // Scrubbing calls this for every photo it passes, so 'photo' does as
+  // little as it can.
+  function renderPost(mode) {
     if (sel < 0 || !items[sel]) return;
     const { post, k, ph } = items[sel];
+    const postChanged = mode === 'post';
+    $('phDots').innerHTML = post.photos.length > 1
+      ? post.photos.map((_, j) => `<span class="${j === k ? 'on' : ''}"></span>`).join('') : '';
+    const s = specsHTML(ph.exif || {});
+    if ($('phGear').innerHTML !== s.gear) $('phGear').innerHTML = s.gear;
+    if ($('phSpecRow')._html !== s.specs) { $('phSpecRow').innerHTML = s.specs; $('phSpecRow')._html = s.specs; }
+    $('phOriginal').href = fileUrl(ph.id, 'original');
+    $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
+    if (mode === 'photo') { fitImg(); return; }
+
     // Rebuilt only when something in it changed. Rewriting it on every
     // frame of a scrub reloaded the avatar each time, so it flickered.
     const whoKey = `${post.id}|${avatarUrl(post.username) || ''}`;
@@ -332,12 +357,6 @@
       : `Posted ${esc(new Date(post.created.replace(' ', 'T') + 'Z').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }))}`;
     $('phCaption').textContent = post.text || '';
     $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
-    $('phDots').innerHTML = post.photos.length > 1
-      ? post.photos.map((_, j) => `<span class="${j === k ? 'on' : ''}"></span>`).join('') : '';
-
-    const s = specsHTML(ph.exif || {});
-    $('phGear').innerHTML = s.gear;
-    $('phSpecRow').innerHTML = s.specs;
 
     // The slot stays even without a song, so every post has the same shape.
     const song = post.song;
@@ -352,8 +371,6 @@
 
     renderLikes(post);
 
-    $('phOriginal').href = fileUrl(ph.id, 'original');
-    $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
     $('phDelete').hidden = !(post.username === me() || window.KLAB_USER?.is_admin);
     if (postChanged) {
       $('phReplies').dataset.postId = '';
@@ -380,12 +397,24 @@
 
   // ── Scrubbing ──
   let raf = 0, scrubbing = false, idleTimer = 0;
+  const moving = () => scrubbing || pos !== target;
+  // At rest: show the selected photo sharp and warm up its neighbours.
+  function settle() {
+    if (sel < 0 || !items[sel]) return;
+    const i = sel;
+    const big = fileUrl(items[i].ph.id, 'display');
+    preload(i);
+    const show = () => { if (sel === i) { mainImg.src = big; mainImg.classList.remove('lowres'); } };
+    preloaded.get(big)._ready.then(show);
+    for (const d of [1, -1, 2]) preload(i + d);
+  }
   function tick() {
     const d = target - pos;
     pos = Math.abs(d) < 0.3 ? target : pos + d * 0.22;
     select(nearest(pos));
     renderStrip();
     raf = pos !== target ? requestAnimationFrame(tick) : 0;
+    if (!raf && !scrubbing) settle();
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
@@ -395,6 +424,7 @@
     if (on) { clearTimeout(clipTimer); return; }
     target = centers[nearest(target)];
     kick();
+    if (pos === target) settle();
     setBackdrop();
     scheduleClip();
   }
@@ -553,7 +583,7 @@
       input.value = '';
       post.reply_count = (post.reply_count || 0) + 1;
       renderReplies(post, ($('phReplies')._replies || []).concat(reply));
-      renderPost(false);
+      renderPost('refresh');
     } catch (err) { showToast('couldn’t post that comment', 'ti-alert-triangle'); }
     finally { input.disabled = false; input.focus(); }
   });
@@ -567,7 +597,7 @@
       if (!r.ok) throw new Error();
       post.reply_count = Math.max(0, (post.reply_count || 1) - 1);
       renderReplies(post, ($('phReplies')._replies || []).filter(x => String(x.id) !== del.dataset.replyId));
-      renderPost(false);
+      renderPost('refresh');
     } catch (err) { showToast('couldn’t delete that comment', 'ti-alert-triangle'); }
   });
 
@@ -711,7 +741,7 @@
       playerState.audio.pause();
       pausedByPhotos = true;
     }
-    requestAnimationFrame(() => { fitImg(); renderStrip(); setBackdrop(); scheduleClip(); });
+    requestAnimationFrame(() => { readThumbSize(); fitImg(); renderStrip(); setBackdrop(); settle(); scheduleClip(); });
   };
 
   // ── Keyboard ──
@@ -738,7 +768,7 @@
     e.stopImmediatePropagation();
   }, true);
 
-  window.addEventListener('resize', () => { if (isActive()) { renderStrip(); fitImg(); } });
+  window.addEventListener('resize', () => { if (isActive()) { readThumbSize(); renderStrip(); fitImg(); } });
   frame.addEventListener('transitionend', fitImg);
 
   // ══ Composer ══

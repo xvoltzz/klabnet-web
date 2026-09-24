@@ -4337,7 +4337,9 @@
     .ph-strip { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
     .ph-thumb {
       position: absolute; top: calc(50% - 7px); width: var(--ph-thumb); height: var(--ph-thumb); margin-top: calc(var(--ph-thumb) / -2);
-      border-radius: 6px; background: var(--glass-fill); will-change: transform;
+      border-radius: 6px; background: var(--glass-fill);
+      /* No will-change here: a GPU layer per thumb made every scrub frame
+         rebuild and commit a layer tree that grew with every photo posted. */
       box-shadow: 0 4px 14px var(--shadow-30);
     }
     .ph-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; border-radius: 6px; opacity: .7; transition: opacity .15s; }
