@@ -575,6 +575,9 @@
   let _partyHostLabel    = '';     // their klabnet username, for the banner
   let _applyingPartyTick = false;  // true only while our own tick handler is driving playSong — distinguishes that from the user picking a new track themselves
   const _partySubscribers = new Map(); // matrix userId -> expiry ms, people currently following ME
+  // For the Photos tab, which pauses your music on arrival but must not
+  // break a listening party you're hosting or following.
+  window.klabInListeningParty = () => !!_partyHostId || _partySubscribers.size > 0;
 
   function matrixIdFor(username) {
     const client = MatrixChat.client;

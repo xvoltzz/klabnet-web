@@ -1,9 +1,14 @@
 // ══════════════════════════════════════════
-//  PHOTOS — near-fullscreen viewer with a Touch Bar-style filmstrip.
-//  Everyone's photo posts in one horizontal strip, oldest on the left and
-//  newest on the right, opening on the newest. Dragging the strip (or a
-//  sideways trackpad swipe anywhere on the tab) scrubs; the big view
-//  follows live, and a post's song clip only starts once you stop on it.
+//  PHOTOS — the page becomes a photo viewer with a Touch Bar-style filmstrip.
+//  Everyone's photo posts on one timeline, ordered by when they were shot
+//  (falling back to when they were posted), oldest on the left and newest
+//  on the right, opening on the newest. Dragging the strip (or a sideways
+//  trackpad swipe anywhere on the tab) scrubs; the big view follows live,
+//  and a post's song clip only starts once you stop on it.
+//
+//  While the tab is showing, the page background becomes a blur of the
+//  current photo (#phBackdrop), the dock tucks away (CSS) and whatever
+//  music was playing pauses, resuming when you leave.
 //
 //  Backend: klabnet-api /api/posts/photos (a photo post is a feed post with
 //  kind='photo', so reactions and replies use the feed's endpoints as-is).
@@ -17,7 +22,6 @@
   const SONG_DWELL_MS = 550;   // how long you have to stay on a post before its song starts
   const CLIP_LEN_S = 30;       // clips loop over this window from the chosen start
   const SOUND_KEY = 'klabnet_photos_sound';
-  const EXIF_LABELS = { aperture: 'Aperture', shutter: 'Shutter', iso: 'ISO', focal: 'Focal' };
 
   const fileUrl = (id, size) => `${API}/files/${id}/${size}`;
   const $ = id => document.getElementById(id);
@@ -31,8 +35,9 @@
   const wrap    = $('phStripWrap');
   const strip   = $('phStrip');
 
-  let posts = [];          // newest first, as the API returns them
+  let posts = [];          // timeline order, newest first, as the API returns them
   let items = [];          // flat photo list, oldest first — strip order
+  let thumbEls = [];       // items[i]'s thumbnail element
   let centers = [];        // x centre of each thumb in strip coordinates
   let pos = 0, target = 0; // strip x currently under the playhead / where it's gliding to
   let sel = -1;
@@ -40,8 +45,10 @@
 
   const isActive = () => panel.classList.contains('active');
   const me = () => (window.KLAB_USER?.username || '').toLowerCase();
+  // Timeline order: sort_at ("YYYY-MM-DD HH:MM:SS") then id, both descending.
+  const before = (a, b) => a.sort_at < b.sort_at || (a.sort_at === b.sort_at && a.id < b.id);
 
-  function fmtTime(apiTime) {
+  function fmtAgo(apiTime) {
     const d = new Date(apiTime.replace(' ', 'T') + 'Z');
     const s = Math.floor((Date.now() - d.getTime()) / 1000);
     if (s < 60) return 'just now';
@@ -53,6 +60,9 @@
     if (days < 7) return `${days}d`;
     return d.toLocaleDateString();
   }
+  // shot_at is local wall time with no zone, so it's parsed as local.
+  const shotDate = shotAt => new Date(shotAt.slice(0, 10) + 'T12:00:00');
+  const fmtShot = shotAt => shotDate(shotAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
 
   // ── Data ──
   function rebuildItems() {
@@ -76,8 +86,8 @@
       const fresh = (await r.json()).posts || [];
       // Merge: the newest page replaces whatever overlaps it; older pages
       // already loaded by scrubbing left stay put.
-      const oldestFresh = fresh.length ? fresh[fresh.length - 1].id : Infinity;
-      const merged = fresh.concat(posts.filter(p => p.id < oldestFresh));
+      const last = fresh[fresh.length - 1];
+      const merged = fresh.concat(last ? posts.filter(p => before(p, last)) : []);
       if (!loadedOnce) hasOlder = fresh.length === PAGE;
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
@@ -90,8 +100,8 @@
     if (loadingOlder || !hasOlder || !posts.length) return;
     loadingOlder = true;
     try {
-      const oldest = posts[posts.length - 1].id;
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&before_id=${oldest}`, {}, 10000);
+      const last = posts[posts.length - 1];
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&before_sort=${encodeURIComponent(last.sort_at)}&before_id=${last.id}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       hasOlder = older.length === PAGE;
@@ -102,13 +112,13 @@
 
   // Swap in a new post list. The strip only rebuilds when the set of
   // photos changed; a poll that only brought new reactions or reply counts
-  // just refreshes the overlay, so nothing moves under your cursor.
-  function applyPosts(next, { keepSelection }) {
+  // just refreshes the details, so nothing moves under your cursor.
+  function applyPosts(next, { keepSelection, focusPostId } = {}) {
     const prevKey = structureKey(posts);
     const keepId = keepSelection ? selectedPhotoId() : null;
     const wasAtNewest = sel >= 0 && items[sel]?.post === posts[0] && items[sel].k === 0;
     posts = next;
-    if (structureKey(posts) === prevKey && items.length) {
+    if (!focusPostId && structureKey(posts) === prevKey && items.length) {
       rebuildItems();
       renderPost(false);
       return;
@@ -120,18 +130,20 @@
     // Stay on the photo you were looking at (it may have shifted right as
     // older pages loaded in), unless you were sitting on the newest one —
     // then a new post arriving is what you'd want to see.
-    let idx = keepId && !wasAtNewest ? items.findIndex(it => it.ph.id === keepId) : -1;
+    let idx = -1;
+    if (focusPostId) idx = items.findIndex(it => it.post.id === focusPostId);
+    else if (keepId && !wasAtNewest) idx = items.findIndex(it => it.ph.id === keepId);
     if (idx < 0) idx = newestPostStart();
     pos = target = centers[idx];
     sel = -1;
     select(idx);
     renderStrip();
+    setBackdrop();
   }
 
   // ── Empty / error state ──
   function showEmpty(msg) {
-    const el = $('phEmpty');
-    el.hidden = false;
+    $('phEmpty').hidden = false;
     $('phEmptyText').textContent = msg || 'No photos yet. Post the first one.';
     shell.classList.add('is-empty');
     stopClip();
@@ -139,16 +151,28 @@
   function hideEmpty() { $('phEmpty').hidden = true; shell.classList.remove('is-empty'); }
 
   // ── Filmstrip ──
-  const GAP = 6, POST_GAP = 18;
-  const thumbSize = () => parseFloat(getComputedStyle(shell).getPropertyValue('--ph-thumb')) || 44;
+  const GAP = 6, POST_GAP = 20;
+  const thumbSize = () => parseFloat(getComputedStyle(shell).getPropertyValue('--ph-thumb')) || 46;
+  const monthOf = post => (post.sort_at || post.created).slice(0, 7);
 
   function layoutStrip() {
     const t = thumbSize();
     strip.textContent = '';
+    thumbEls = [];
     centers = [];
-    let x = 0;
+    let x = 0, month = '';
     items.forEach((it, i) => {
       if (i > 0) x += it.k === 0 ? POST_GAP : GAP;
+      // A month label wherever the timeline crosses into a new month.
+      const m = monthOf(it.post);
+      if (m !== month) {
+        month = m;
+        const lab = document.createElement('span');
+        lab.className = 'ph-month';
+        lab.textContent = new Date(m + '-15T12:00:00').toLocaleDateString([], { month: 'short', year: 'numeric' });
+        lab.style.left = x + 'px';
+        strip.appendChild(lab);
+      }
       const d = document.createElement('div');
       d.className = 'ph-thumb' + (it.k === 0 && i > 0 ? ' newpost' : '');
       d.style.left = x + 'px';
@@ -157,6 +181,7 @@
       img.src = fileUrl(it.ph.id, 'thumb');
       d.appendChild(img);
       strip.appendChild(d);
+      thumbEls.push(d);
       centers.push(x + t / 2);
       x += t;
     });
@@ -177,20 +202,38 @@
     const mid = wrap.clientWidth / 2;
     strip.style.transform = `translate3d(${mid - pos}px,0,0)`;
     const t = thumbSize();
-    const kids = strip.children;
     const lo = pos - mid - 80, hi = pos + mid + 80;
-    for (let i = 0; i < kids.length; i++) {
+    for (let i = 0; i < thumbEls.length; i++) {
       const c = centers[i];
       let s = 1;
       if (c >= lo && c <= hi) {
         const d = Math.abs(c - pos) / (t * 2.2);
         s = 1 + 0.55 * Math.max(0, 1 - d * d);
       }
-      if (Math.abs((kids[i]._s || 1) - s) > 0.003) {
-        kids[i].style.transform = s === 1 ? '' : `scale(${s.toFixed(3)})`;
-        kids[i]._s = s;
+      const el = thumbEls[i];
+      if (Math.abs((el._s || 1) - s) > 0.003) {
+        el.style.transform = s === 1 ? '' : `scale(${s.toFixed(3)})`;
+        el._s = s;
       }
     }
+  }
+
+  // ── Backdrop ──
+  // Two layers crossfading. Only updated when you settle on a photo, not
+  // on every frame of a scrub: repainting a full-viewport blur that often
+  // is the one expensive thing on this tab.
+  const bdLayers = document.querySelectorAll('#phBackdrop .ph-bd-layer');
+  let bdOn = 0, bdUrl = '';
+  function setBackdrop() {
+    if (sel < 0 || !items[sel] || scrubbing) return;
+    const url = fileUrl(items[sel].ph.id, 'thumb');
+    if (url === bdUrl) return;
+    bdUrl = url;
+    const next = bdLayers[1 - bdOn];
+    next.style.backgroundImage = `url("${url}")`;
+    next.classList.add('on');
+    bdLayers[bdOn].classList.remove('on');
+    bdOn = 1 - bdOn;
   }
 
   // ── Stage ──
@@ -217,11 +260,10 @@
 
   function select(i) {
     if (i === sel || !items[i]) return;
-    const kids = strip.children;
-    if (sel >= 0 && kids[sel]) kids[sel].classList.remove('sel');
+    if (sel >= 0 && thumbEls[sel]) thumbEls[sel].classList.remove('sel');
     const prevPost = sel >= 0 && items[sel] ? items[sel].post : null;
     sel = i;
-    kids[i]?.classList.add('sel');
+    thumbEls[i]?.classList.add('sel');
     const it = items[i];
 
     const big = fileUrl(it.ph.id, 'display');
@@ -231,17 +273,16 @@
     } else {
       mainImg.src = fileUrl(it.ph.id, 'thumb'); mainImg.classList.add('lowres');
       preload(i);
-      const im = preloaded.get(big);
-      im.addEventListener('load', () => {
+      preloaded.get(big).addEventListener('load', () => {
         if (sel === i) { mainImg.src = big; mainImg.classList.remove('lowres'); }
       }, { once: true });
     }
     mainImg.alt = it.post.text || `Photo by ${it.post.username}`;
     fitImg();
-    $('phAmbient').style.backgroundImage = `url("${fileUrl(it.ph.id, 'thumb')}")`;
     for (const d of [1, -1, 2, -2, 3]) preload(i + d);
 
     renderPost(prevPost !== it.post);
+    setBackdrop();
     if (prevPost !== it.post) scheduleClip();
     if (i < 8) fetchOlder();
   }
@@ -251,21 +292,42 @@
     if (url) return `<img class="ph-avatar" src="${esc(url)}" alt="" />`;
     return `<span class="ph-avatar ph-avatar-letter" style="background:${profileColor(username)}">${esc(username[0] || '?').toUpperCase()}</span>`;
   }
+  const nameHTML = u => `<button type="button" class="ph-name" data-username="${esc(u)}" style="color:${profileColor(u)}">${esc(u)}</button>`;
 
-  // Overlay + details panel for the selected photo. `postChanged` is false
-  // when only reactions/replies moved, so the reply list isn't refetched.
+  // The camera line and the settings under it. Always on screen, and it
+  // follows the scrub live like everything else.
+  function specsHTML(ex) {
+    const gear = [ex.camera && `<b>${esc(ex.camera)}</b>`, ex.lens && esc(ex.lens)].filter(Boolean).join(' · ');
+    const specs = [
+      ex.aperture && `<span class="ph-spec"><i class="ti ti-aperture"></i>${esc(ex.aperture)}</span>`,
+      ex.shutter && `<span class="ph-spec"><i class="ti ti-stopwatch"></i>${esc(ex.shutter)}</span>`,
+      ex.iso && `<span class="ph-spec"><i class="ti ti-brightness-half"></i>ISO ${esc(ex.iso)}</span>`,
+      ex.focal && `<span class="ph-spec"><i class="ti ti-ruler-2"></i>${esc(ex.focal)}</span>`,
+      ex.film && `<span class="ph-spec film"><i class="ti ti-movie"></i>${esc(ex.film)}</span>`,
+    ].filter(Boolean).join('');
+    return {
+      gear: gear || (specs ? '' : '<i class="ti ti-camera"></i> No camera details'),
+      specs,
+    };
+  }
+
+  // Details row + comments panel for the selected photo. `postChanged` is
+  // false when only reactions/replies moved, so the reply list isn't refetched.
   function renderPost(postChanged) {
     if (sel < 0 || !items[sel]) return;
     const { post, k, ph } = items[sel];
-    $('phWho').innerHTML =
-      avatarHTML(post.username) +
-      `<button type="button" class="ph-name" data-username="${esc(post.username)}" style="color:${profileColor(post.username)}">${esc(post.username)}</button>` +
-      `<span class="ph-when">· ${esc(fmtTime(post.created))}</span>`;
-    const cap = $('phCaption');
-    cap.textContent = post.text || '';
-    cap.hidden = !post.text;
+    $('phWho').innerHTML = avatarHTML(post.username) + nameHTML(post.username) +
+      `<span class="ph-when">· posted ${esc(fmtAgo(post.created))}</span>`;
+    $('phShot').innerHTML = post.shot_at ? `<i class="ti ti-calendar"></i> Shot ${esc(fmtShot(post.shot_at))}` : '';
+    $('phCaption').textContent = post.text || '';
+    $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
     $('phDots').innerHTML = post.photos.length > 1
       ? post.photos.map((_, j) => `<span class="${j === k ? 'on' : ''}"></span>`).join('') : '';
+
+    const s = specsHTML(ph.exif || {});
+    $('phGear').innerHTML = s.gear;
+    $('phGear').hidden = !s.gear;
+    $('phSpecRow').innerHTML = s.specs;
 
     const song = post.song;
     const songEl = $('phSong');
@@ -284,25 +346,14 @@
       const r = rx[e];
       return `<button type="button" class="ph-react${r?.mine ? ' mine' : ''}${r ? '' : ' zero'}" data-emoji="${esc(e)}">${e}${r ? `<span>${r.count}</span>` : ''}</button>`;
     }).join('') +
-      `<button type="button" class="ph-react ph-react-comments" data-comments="1"><i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
+      `<button type="button" class="ph-react ph-react-comments" data-comments="1" title="Comments (c)" aria-pressed="${shell.classList.contains('side-open')}"><i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
 
-    // Details panel
-    const ex = ph.exif || {};
-    $('phGear').textContent = ex.camera || (ex.film ? '' : 'Unknown camera');
-    $('phLens').textContent = [ex.lens, ex.film].filter(Boolean).join(' · ');
-    const tiles = Object.keys(EXIF_LABELS).filter(key => ex[key]);
-    $('phExif').innerHTML = tiles.map(key =>
-      `<div><div class="k">${EXIF_LABELS[key]}</div><div class="v">${esc(ex[key])}</div></div>`).join('');
-    $('phExif').hidden = !tiles.length;
-    $('phTaken').textContent = ex.taken ? new Date(ex.taken.replace(' ', 'T')).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
-    $('phTakenRow').hidden = !ex.taken;
     $('phOriginal').href = fileUrl(ph.id, 'original');
     $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
-    const canDelete = post.username === me() || window.KLAB_USER?.is_admin;
-    $('phDelete').hidden = !canDelete;
+    $('phDelete').hidden = !(post.username === me() || window.KLAB_USER?.is_admin);
     if (postChanged) {
       $('phReplies').dataset.postId = '';
-      if (shell.classList.contains('info-open')) loadReplies(post);
+      if (shell.classList.contains('side-open')) loadReplies(post);
     }
   }
 
@@ -323,6 +374,7 @@
     if (on) { clearTimeout(clipTimer); return; }
     target = centers[nearest(target)];
     kick();
+    setBackdrop();
     scheduleClip();
   }
   function scrubActivity() {
@@ -376,9 +428,9 @@
   wrap.addEventListener('pointercancel', endDrag);
 
   // Trackpad/wheel anywhere on the tab: a sideways swipe scrubs, and
-  // scrolling down goes back in time. The details panel keeps its own scroll.
+  // scrolling down goes back in time. The comments panel keeps its own scroll.
   shell.addEventListener('wheel', e => {
-    if (!items.length || e.target.closest('.ph-info')) return;
+    if (!items.length || e.target.closest('.ph-side')) return;
     e.preventDefault();
     target = clampX(target + (e.deltaX - e.deltaY) * 0.9);
     scrubActivity();
@@ -429,7 +481,7 @@
     const b = e.target.closest('.ph-react');
     if (!b || sel < 0) return;
     SFX && SFX.play('click');
-    if (b.dataset.comments) { setInfo(true); $('phReplyInput').focus(); return; }
+    if (b.dataset.comments) { setSide(!shell.classList.contains('side-open')); return; }
     toggleReaction(items[sel].post, b.dataset.emoji);
   });
 
@@ -452,9 +504,7 @@
   function renderReplies(post, replies) {
     const list = $('phReplies');
     list.innerHTML = replies.length ? replies.map(rep =>
-      `<div class="ph-reply">` +
-        `<button type="button" class="ph-name" data-username="${esc(rep.username)}" style="color:${profileColor(rep.username)}">${esc(rep.username)}</button> ` +
-        `<span class="ph-reply-text">${esc(rep.text)}</span>` +
+      `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${esc(rep.text)}</span>` +
         ((rep.username === me() || window.KLAB_USER?.is_admin)
           ? `<button type="button" class="ph-reply-del" data-reply-id="${rep.id}" title="Delete"><i class="ti ti-x"></i></button>` : '') +
       `</div>`).join('') : '<div class="ph-replies-empty">No comments yet.</div>';
@@ -514,24 +564,23 @@
     } catch (e) { showToast('couldn’t delete that post', 'ti-alert-triangle'); }
   });
 
-  // ── Details panel ──
-  function setInfo(on) {
-    shell.classList.toggle('info-open', on);
-    $('phInfoBtn').setAttribute('aria-pressed', on);
+  // ── Comments panel ──
+  function setSide(on) {
+    shell.classList.toggle('side-open', on);
+    $('phReacts').querySelector('.ph-react-comments')?.setAttribute('aria-pressed', on);
     if (on && sel >= 0) loadReplies(items[sel].post);
     // the frame animates its right edge; refit once it settles
     setTimeout(fitImg, 300);
   }
-  $('phInfoBtn').addEventListener('click', () => { setInfo(!shell.classList.contains('info-open')); SFX && SFX.play('click'); });
-  $('phInfoClose').addEventListener('click', () => setInfo(false));
+  $('phSideClose').addEventListener('click', () => setSide(false));
 
   // ══ Song clips ══
-  // A separate <audio> from the main player. While a clip plays, the main
-  // player is faded to silent (not paused, so listening-party sync and
-  // presence stay truthful) and faded back when the clip stops.
+  // A separate <audio> from the main player. The main player is paused
+  // while you're on this tab (see klabPhotosTabChanged), so clips play on
+  // their own rather than over your music.
   const clip = new Audio();
   clip.preload = 'none';
-  let clipPostId = null, clipStart = 0, clipTimer = 0, ducked = false, clipSuppressed = null;
+  let clipPostId = null, clipStart = 0, clipTimer = 0, clipSuppressed = null;
   let soundOn = true;
   try { soundOn = localStorage.getItem(SOUND_KEY) !== 'off'; } catch (e) {}
 
@@ -546,11 +595,6 @@
     };
     audio._fadeRaf = requestAnimationFrame(step);
   }
-  function duckMain(on) {
-    if (on === ducked) return;
-    ducked = on;
-    fade(playerState.audio, on ? 0 : playerState.volume, on ? 400 : 700);
-  }
 
   function playClip(song, postId) {
     if (!song?.songId) return;
@@ -559,16 +603,14 @@
     clipStart = song.start || 0;
     clip.src = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.songId)}&${subsonicParams()}`;
     clip.volume = 0;
-    const begin = () => {
+    clip.addEventListener('loadedmetadata', () => {
       try { clip.currentTime = clipStart; } catch (e) {}
       clip.play().then(() => {
         if (clipPostId !== postId) return;
-        duckMain(true);
         fade(clip, playerState.volume, 600);
         markSongPlaying();
       }).catch(() => { /* autoplay blocked or stream failed: stay silent */ });
-    };
-    clip.addEventListener('loadedmetadata', begin, { once: true });
+    }, { once: true });
     clip.load();
   }
   function stopClip() {
@@ -576,7 +618,6 @@
     if (clipPostId === null && clip.paused) return;
     clipPostId = null;
     fade(clip, 0, 350, () => { if (clipPostId === null) { clip.pause(); clip.removeAttribute('src'); clip.load(); } });
-    duckMain(false);
     markSongPlaying();
   }
   function markSongPlaying() {
@@ -594,14 +635,17 @@
     const post = items[sel].post;
     if (clipPostId !== null && clipPostId !== post.id) stopClip();
     if (!soundOn || !post.song || clipSuppressed === post.id || document.hidden) return;
+    if (!playerState.audio.paused) return; // your own music is on (a listening party, a media key): it wins
     clipTimer = setTimeout(() => {
       if (sel >= 0 && items[sel].post === post && !scrubbing && isActive()) playClip(post.song, post.id);
     }, SONG_DWELL_MS);
   }
 
-  // Someone hitting play on the dock while a clip runs wants their music:
-  // step aside for the rest of this post.
+  // Your music starting while you're here (media keys, a listening party
+  // resyncing) means you want it: the clip steps aside, and leaving the
+  // tab won't try to "resume" something that's already playing.
   playerState.audio.addEventListener('play', () => {
+    pausedByPhotos = false;
     if (clipPostId !== null) { clipSuppressed = clipPostId; stopClip(); }
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopClip(); else scheduleClip(); });
@@ -626,10 +670,22 @@
     else { clipSuppressed = null; if (!soundOn) { soundOn = true; renderSoundBtn(); } playClip(post.song, post.id); }
   });
 
-  // Called by setActiveTab() on every tab change.
+  // Called by setActiveTab() on every tab change. Arriving pauses your
+  // music (unless you're in a listening party, which it would break);
+  // leaving resumes it, but only if this tab was what paused it.
+  let pausedByPhotos = false;
   window.klabPhotosTabChanged = function(active) {
-    if (!active) { stopClip(); return; }
-    requestAnimationFrame(() => { fitImg(); renderStrip(); scheduleClip(); });
+    if (!active) {
+      stopClip();
+      stopPreview();
+      if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); }
+      return;
+    }
+    if (!playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) {
+      playerState.audio.pause();
+      pausedByPhotos = true;
+    }
+    requestAnimationFrame(() => { fitImg(); renderStrip(); setBackdrop(); scheduleClip(); });
   };
 
   // ── Keyboard ──
@@ -647,10 +703,10 @@
     else if (k === 'ArrowLeft' || k === 'h') goTo(sel - 1);
     else if (k === 'ArrowUp' || k === 'k') goPost(1);
     else if (k === 'ArrowDown' || k === 'j') goPost(-1);
-    else if (k === 'i') setInfo(!shell.classList.contains('info-open'));
+    else if (k === 'c' || k === 'i') setSide(!shell.classList.contains('side-open'));
     else if (k === 'End' || k === 'G') goTo(newestPostStart());
     else if (k === 'Home') goTo(0);
-    else if (k === 'Escape' && shell.classList.contains('info-open')) setInfo(false);
+    else if (k === 'Escape' && shell.classList.contains('side-open')) setSide(false);
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -663,15 +719,19 @@
   const backdrop = $('phComposeBackdrop');
   const grid = $('phComposeGrid');
   const fileInput = $('phComposeFile');
-  let drafts = [];        // { key, file, preview, status: 'uploading'|'done'|'error', progress, id, w, h, exif, xhr }
+  let drafts = [];        // { key, file, preview, status: 'queued'|'uploading'|'done'|'error', progress, id, w, h, exif, edited, xhr }
   let activeDraft = null; // the tile whose details are being edited
   let pickedSong = null;  // subsonic song object
   let draftKey = 0;
+  let tags = [];          // usernames tagged on this post
+  let shotEdited = false; // the shooting date was set by hand, so stop auto-filling it
   const EDIT_FIELDS = ['camera', 'lens', 'film', 'aperture', 'shutter', 'iso', 'focal'];
 
   function openComposer(files) {
     backdrop.classList.add('open');
     SFX && SFX.play('open');
+    loadRoster();
+    $('phShotDate').max = new Date().toISOString().slice(0, 10);
     if (files && files.length) addFiles(files);
     else if (!drafts.length) fileInput.click();
   }
@@ -682,10 +742,11 @@
   }
   function resetComposer() {
     drafts.forEach(d => { d.xhr?.abort(); if (d.preview) URL.revokeObjectURL(d.preview); });
-    drafts = []; activeDraft = null; pickedSong = null;
+    drafts = []; activeDraft = null; pickedSong = null; tags = []; shotEdited = false;
     $('phComposeCaption').value = '';
+    $('phShotDate').value = '';
     $('phComposeError').hidden = true;
-    renderDrafts(); renderSongPick();
+    renderDrafts(); renderSongPick(); renderTags();
   }
 
   $('phPostBtn').addEventListener('click', () => openComposer());
@@ -750,6 +811,7 @@
         d.error = body.error || (xhr.status === 413 ? 'too large' : 'upload failed');
       }
       renderDrafts();
+      autoShotDate();
       pumpUploads();
     };
     xhr.onerror = () => { d.xhr = null; d.status = 'error'; d.error = 'upload failed'; renderDrafts(); pumpUploads(); };
@@ -782,7 +844,7 @@
     updateSubmit();
   }
 
-  grid.addEventListener('click', async e => {
+  grid.addEventListener('click', e => {
     const rm = e.target.closest('[data-remove]');
     if (rm) {
       e.stopPropagation();
@@ -794,6 +856,7 @@
       if (activeDraft === d) activeDraft = drafts[0] || null;
       if (d.id) fetchTimeout(`${API}/uploads/${d.id}`, { method: 'DELETE' }, 8000).catch(() => {});
       renderDrafts();
+      autoShotDate();
       pumpUploads();
       return;
     }
@@ -810,16 +873,85 @@
       return;
     }
     const idx = drafts.indexOf(d) + 1;
+    const label = f => f === 'film' ? 'Film' : f === 'iso' ? 'ISO' : f[0].toUpperCase() + f.slice(1);
     box.innerHTML =
       `<div class="ph-compose-hint">${drafts.length > 1 ? `Photo ${idx} of ${drafts.length} · ` : ''}camera details (read from the file, edit freely)</div>` +
       `<div class="ph-exif-grid">` + EDIT_FIELDS.map(f =>
-        `<label class="ph-field${f === 'camera' || f === 'lens' || f === 'film' ? ' wide' : ''}"><span>${f === 'film' ? 'Film' : f === 'iso' ? 'ISO' : f[0].toUpperCase() + f.slice(1)}</span>` +
+        `<label class="ph-field${f === 'camera' || f === 'lens' || f === 'film' ? ' wide' : ''}"><span>${label(f)}</span>` +
         `<input type="text" data-field="${f}" value="${esc(d.edited[f] || '')}" placeholder="${f === 'film' ? 'e.g. Portra 400' : ''}" maxlength="120" /></label>`
       ).join('') + `</div>`;
   }
   $('phComposeExif').addEventListener('input', e => {
     const f = e.target.dataset.field;
     if (f && activeDraft?.edited) activeDraft.edited[f] = e.target.value;
+  });
+
+  // ── Composer: shooting date ──
+  // Pre-filled with the earliest capture date among the photos, until you
+  // set one by hand. Empty means "unknown": the post sorts by when it was posted.
+  function autoShotDate() {
+    const hint = $('phShotHint');
+    if (shotEdited) { hint.textContent = ''; return; }
+    const taken = drafts.filter(d => d.status === 'done' && d.exif?.taken).map(d => d.exif.taken).sort()[0];
+    $('phShotDate').value = taken ? taken.slice(0, 10) : '';
+    hint.textContent = taken ? 'from the photos' : drafts.some(d => d.status === 'done') ? 'not in the files — set it for old photos' : '';
+  }
+  $('phShotDate').addEventListener('input', () => { shotEdited = true; $('phShotHint').textContent = ''; });
+
+  // ── Composer: tags ──
+  let roster = null;
+  async function loadRoster() {
+    if (roster) return;
+    try {
+      const r = await fetchTimeout('/api/presence', {}, 8000);
+      roster = ((await r.json()).roster || []).map(p => p.username).filter(Boolean);
+    } catch (e) { roster = null; }
+  }
+  function renderTags() {
+    const box = $('phTagsBox');
+    box.querySelectorAll('.ph-tag-chip').forEach(c => c.remove());
+    const input = $('phTagInput');
+    tags.forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'ph-tag-chip';
+      chip.innerHTML = `${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove"><i class="ti ti-x"></i></button>`;
+      box.insertBefore(chip, input);
+    });
+  }
+  function tagSuggestions() {
+    const q = $('phTagInput').value.trim().toLowerCase();
+    const list = $('phTagSuggest');
+    if (!q || !roster) { list.innerHTML = ''; return []; }
+    const matches = roster.filter(u => u !== me() && !tags.includes(u) && u.includes(q))
+      .sort((a, b) => (b.startsWith(q) - a.startsWith(q)) || a.localeCompare(b)).slice(0, 6);
+    list.innerHTML = matches.map((u, i) =>
+      `<button type="button" data-tag="${esc(u)}" class="${i === 0 ? 'hi' : ''}">${avatarHTML(u)}<span>${esc(u)}</span></button>`).join('');
+    return matches;
+  }
+  function addTag(u) {
+    if (!u || tags.includes(u) || u === me()) return;
+    tags.push(u);
+    $('phTagInput').value = '';
+    $('phTagSuggest').innerHTML = '';
+    renderTags();
+  }
+  $('phTagInput').addEventListener('input', tagSuggestions);
+  $('phTagInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const first = tagSuggestions()[0];
+      if (first) addTag(first);
+    } else if (e.key === 'Backspace' && !e.target.value && tags.length) {
+      tags.pop(); renderTags();
+    }
+  });
+  $('phTagInput').addEventListener('blur', () => setTimeout(() => { $('phTagSuggest').innerHTML = ''; }, 150));
+  $('phTagSuggest').addEventListener('mousedown', e => e.preventDefault()); // keep focus in the input
+  $('phTagSuggest').addEventListener('click', e => { const b = e.target.closest('[data-tag]'); if (b) addTag(b.dataset.tag); });
+  $('phTagsBox').addEventListener('click', e => {
+    const x = e.target.closest('[data-untag]');
+    if (x) { tags = tags.filter(t => t !== x.dataset.untag); renderTags(); return; }
+    $('phTagInput').focus();
   });
 
   function showComposeError(msg) {
@@ -844,6 +976,8 @@
     const body = {
       caption: $('phComposeCaption').value.trim(),
       photos: ready.map(d => ({ id: d.id, exif: d.edited })),
+      shot_at: $('phShotDate').value || '',
+      tags,
     };
     if (pickedSong) {
       body.song = {
@@ -864,7 +998,13 @@
       resetComposer();
       closeComposer();
       if (!isActive()) setActiveTab('photos');
-      applyPosts([data].concat(posts.filter(p => p.id !== data.id)), { keepSelection: false });
+      // Slot it in where it belongs on the timeline (an old shoot lands in
+      // the past, not at the end) and go there.
+      const next = posts.filter(p => p.id !== data.id);
+      let at = next.findIndex(p => before(p, data));
+      if (at < 0) at = next.length;
+      next.splice(at, 0, data);
+      applyPosts(next, { focusPostId: data.id });
       SFX && SFX.play('success');
     } catch (e) {
       showComposeError(e.message || 'couldn’t post');
@@ -939,7 +1079,7 @@
     previewAudio.volume = playerState.volume;
     previewAudio.addEventListener('loadedmetadata', () => {
       try { previewAudio.currentTime = Number($('phSongStart').value); } catch (e) {}
-      previewAudio.play().then(() => duckMain(true)).catch(() => {});
+      previewAudio.play().catch(() => {});
     }, { once: true });
     previewAudio.load();
     $('phSongPreview').innerHTML = '<i class="ti ti-player-stop"></i>';
@@ -947,7 +1087,6 @@
   function stopPreview() {
     if (!previewAudio.paused) previewAudio.pause();
     $('phSongPreview').innerHTML = '<i class="ti ti-player-play"></i>';
-    if (clipPostId === null) duckMain(false);
   }
   previewAudio.addEventListener('timeupdate', () => {
     if (previewAudio.currentTime > Number($('phSongStart').value) + CLIP_LEN_S) previewAudio.currentTime = Number($('phSongStart').value);
