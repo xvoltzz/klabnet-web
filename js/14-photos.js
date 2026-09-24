@@ -221,7 +221,7 @@
   const bdLayers = document.querySelectorAll('#phBackdrop .ph-bd-layer');
   let bdOn = 0, bdUrl = '';
   function setBackdrop() {
-    if (sel < 0 || !items[sel] || scrubbing) return;
+    if (sel < 0 || !items[sel] || scrubbing) return;  // a scrub updates it once it stops
     const url = fileUrl(items[sel].ph.id, 'thumb');
     if (url === bdUrl) return;
     bdUrl = url;
@@ -236,7 +236,7 @@
   const preloaded = new Map();
   function preload(i) {
     if (i < 0 || i >= items.length) return;
-    const u = fileUrl(items[i].ph.id, 'display');
+    const u = fileUrl(items[i].ph.id, sizeFor(items[i].ph));
     if (preloaded.has(u)) return;
     const im = new Image(); im.decoding = 'async'; im.src = u;
     // Decoded ahead of time too, not just downloaded: decoding a 2560px JPEG
@@ -255,14 +255,31 @@
   const railR = frame.querySelector('.ph-rail-r');
   const narrowMq = matchMedia('(max-width: 900px)');
   const RAIL_GAP = 28;
+  // Which copy is sharp enough for how big the photo is drawn on this
+  // screen: the 1440px one (a phone, a small window, a 1x monitor) or the
+  // 2560px one. Measured against the whole frame, so it errs toward sharp.
+  // Until the tab has been laid out, estimate from the window, so the photo
+  // that loads in the background on page load is already the right copy.
+  let frameBox = { w: window.innerWidth * 0.9, h: window.innerHeight * 0.62 };
+  let railsH = 0;  // on a phone, the height the rails under the photo take
+  function sizeFor(ph) {
+    const r = ph.w / ph.h;
+    const h = narrowMq.matches ? Math.max(frameBox.h * 0.45, frameBox.h - railsH) : frameBox.h;
+    const w = Math.min(frameBox.w, h * r);
+    const longest = Math.max(w, w / r) * (window.devicePixelRatio || 1);
+    // The 1440px copy up to ~1700 device pixels: a slight upscale there is
+    // invisible, and it's a fraction of the 2560px one's size.
+    return longest <= 1700 ? 'medium' : 'display';
+  }
   function fitImg() {
     if (sel < 0 || !items[sel]) return;
     const ph = items[sel].ph;
     const r = ph.w / ph.h;
     const fw = frame.clientWidth, fh = frame.clientHeight;
+    if (fw && fh) frameBox = { w: fw, h: fh };
     let w;
     if (narrowMq.matches) {
-      const railsH = railL.offsetHeight + railR.offsetHeight + 34;
+      railsH = railL.offsetHeight + railR.offsetHeight + 34;
       w = Math.min(fw, Math.max(fh * 0.45, fh - railsH) * r);
     } else {
       const railW = Math.round(Math.min(300, Math.max(236, fw * 0.17))); // 236: one row of reactions
@@ -288,7 +305,7 @@
     // 320px thumb is shown, already in cache from the strip. The ~1MB full
     // image is fetched once it comes to rest (settle()), so a scrub past 30
     // photos doesn't queue 30MB in front of the one you stop on.
-    const big = fileUrl(it.ph.id, 'display');
+    const big = fileUrl(it.ph.id, sizeFor(it.ph));
     const cached = preloaded.get(big);
     if (cached && cached.complete && cached.naturalWidth && cached._decoded) {
       mainImg.src = big; mainImg.classList.remove('lowres');
@@ -402,19 +419,24 @@
   function settle() {
     if (sel < 0 || !items[sel]) return;
     const i = sel;
-    const big = fileUrl(items[i].ph.id, 'display');
+    const big = fileUrl(items[i].ph.id, sizeFor(items[i].ph));
     preload(i);
     const show = () => { if (sel === i) { mainImg.src = big; mainImg.classList.remove('lowres'); } };
     preloaded.get(big)._ready.then(show);
     for (const d of [1, -1, 2]) preload(i + d);
   }
+  // A jump (arrow key, tapping a thumb) knows where it's going, so the
+  // photo switches and sharpens right away while the strip glides after
+  // it, instead of staying blurred for the whole glide and flashing every
+  // photo it passes on the way. Scrubbing clears it: the playhead leads again.
+  let jump = -1;
   function tick() {
     const d = target - pos;
     pos = Math.abs(d) < 0.3 ? target : pos + d * 0.22;
-    select(nearest(pos));
+    select(jump >= 0 ? jump : nearest(pos));
     renderStrip();
     raf = pos !== target ? requestAnimationFrame(tick) : 0;
-    if (!raf && !scrubbing) settle();
+    if (!raf) { jump = -1; if (!scrubbing) settle(); }
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
@@ -429,6 +451,7 @@
     scheduleClip();
   }
   function scrubActivity() {
+    jump = -1;
     if (!scrubbing) setScrubbing(true);
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => setScrubbing(false), 160);
@@ -438,6 +461,10 @@
     if (!items.length) return;
     i = Math.max(0, Math.min(items.length - 1, i));
     target = centers[i];
+    jump = i;
+    select(i);
+    settle();
+    setBackdrop();
     kick();
   }
   function goPost(dir) {
