@@ -4,7 +4,7 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'chat', 'music'];
+const TABS = ['feed', 'chat', 'music', 'photos'];
 
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
@@ -25,6 +25,10 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-chat-active', key === 'chat');
   // Same flex-fill idea as Chat, for the same reason — see body.tab-music-active's own CSS comment.
   document.body.classList.toggle('tab-music-active', key === 'music');
+  document.body.classList.toggle('tab-photos-active', key === 'photos');
+  // Photos starts/stops its song clips and refits its stage (which had no
+  // size while hidden). Nothing is fetched here: the tab loads in the background.
+  if (typeof window.klabPhotosTabChanged === 'function') window.klabPhotosTabChanged(key === 'photos');
   // Swaps the header's terminal-prompt branding to klab.chat while on
   // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro
   // typing animation already having finished; if it hasn't (a page load

@@ -62,7 +62,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.18.13" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.23.1" />
 </head>
 <body>
 
@@ -251,6 +251,7 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
       <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+      <button class="tab-nav-btn" data-tab-target="photos" title="Photos"><i class="ti ti-photo"></i><span>Photos</span></button>
     </nav>
     <div class="header-right">
       <button class="hdr-btn" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
@@ -438,6 +439,64 @@ window.KLAB_BOOT = (function() {
   </div>
   </div>
 
+  <!-- Photos. Stays dark in both themes, like any photo viewer. Built
+       and driven entirely by js/14-photos.js. -->
+  <div class="tab-panel" data-tab-panel="photos">
+  <div class="ph-shell" id="phShell">
+    <div class="ph-stage" id="phStage">
+      <div class="ph-ambient" id="phAmbient"></div>
+      <div class="ph-topbar">
+        <span class="ph-label">// photos</span>
+        <div class="ph-actions">
+          <button type="button" class="ph-btn" id="phSoundBtn" aria-pressed="true"></button>
+          <button type="button" class="ph-btn" id="phInfoBtn" aria-pressed="false" title="Details (i)"><i class="ti ti-aperture"></i></button>
+          <button type="button" class="ph-btn ph-btn-post" id="phPostBtn" title="Post photos"><i class="ti ti-plus"></i><span>Post</span></button>
+        </div>
+      </div>
+      <div class="ph-frame" id="phFrame"><img id="phImg" alt="" draggable="false" /></div>
+      <div class="ph-empty" id="phEmpty" hidden>
+        <i class="ti ti-photo"></i>
+        <div id="phEmptyText">loading photos…</div>
+        <button type="button" class="ph-btn ph-btn-post" id="phEmptyPost"><i class="ti ti-plus"></i><span>Post photos</span></button>
+      </div>
+      <div class="ph-overlay">
+        <div class="ph-card">
+          <div class="ph-who" id="phWho"></div>
+          <div class="ph-caption" id="phCaption"></div>
+          <div class="ph-dots" id="phDots"></div>
+        </div>
+        <div class="ph-right">
+          <button type="button" class="ph-song" id="phSong" title="Play / stop this song" hidden>
+            <span class="ph-song-art" id="phSongArt"></span>
+            <span class="ph-song-meta"><span class="t" id="phSongTitle"></span><span class="a" id="phSongArtist"></span></span>
+            <span class="ph-eq"><b></b><b></b><b></b></span>
+          </button>
+          <div class="ph-reacts" id="phReacts"></div>
+        </div>
+      </div>
+      <aside class="ph-info" id="phInfo">
+        <div class="ph-info-head"><span>Shot on</span><button type="button" class="ph-info-close" id="phInfoClose" title="Close"><i class="ti ti-x"></i></button></div>
+        <div class="ph-gear" id="phGear"></div>
+        <div class="ph-lens" id="phLens"></div>
+        <div class="ph-exif" id="phExif"></div>
+        <div class="ph-meta-row" id="phTakenRow"><i class="ti ti-calendar"></i><span id="phTaken"></span></div>
+        <a class="ph-meta-row ph-original" id="phOriginal" target="_blank" rel="noopener"><i class="ti ti-arrows-maximize"></i><span>Full resolution · <span id="phOriginalSize"></span></span></a>
+        <div class="ph-info-head ph-comments-head"><span>Comments</span></div>
+        <div class="ph-replies" id="phReplies"></div>
+        <form class="ph-reply-form" id="phReplyForm" autocomplete="off">
+          <input type="text" id="phReplyInput" placeholder="Add a comment…" maxlength="500" />
+        </form>
+        <button type="button" class="ph-delete" id="phDelete" hidden><i class="ti ti-trash"></i> Delete post</button>
+      </aside>
+    </div>
+    <div class="ph-strip-wrap" id="phStripWrap">
+      <div class="ph-strip" id="phStrip"></div>
+      <div class="ph-edge l"></div><div class="ph-edge r"></div>
+      <span class="ph-newest">NEWEST <i class="ti ti-arrow-right"></i></span>
+    </div>
+  </div>
+  </div>
+
   </div>
 
 
@@ -505,6 +564,41 @@ window.KLAB_BOOT = (function() {
 <!-- KEYBOARD SHORTCUTS HINTS — own dedicated backdrop (not the shared
      chatModal shell) so its own Escape/open-state handling never has to
      guess whether some OTHER modal is the one currently open. -->
+<div class="add-app-backdrop" id="phComposeBackdrop">
+  <div class="add-app-modal ph-compose">
+    <div class="add-app-title">
+      <span>// new photo post</span>
+      <button class="add-app-close" id="phComposeClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="ph-compose-body">
+      <input type="file" id="phComposeFile" accept="image/*,.heic,.heif" multiple hidden />
+      <div class="ph-compose-grid" id="phComposeGrid"></div>
+      <div class="ph-compose-exif" id="phComposeExif"></div>
+      <textarea class="ph-compose-caption" id="phComposeCaption" rows="2" maxlength="500" placeholder="Write a caption…"></textarea>
+      <div class="ph-compose-song">
+        <div id="phSongSearchWrap">
+          <div class="ph-song-search"><i class="ti ti-music"></i><input type="text" id="phSongSearch" placeholder="Add a song from the library…" autocomplete="off" /></div>
+          <div class="ph-song-results" id="phSongResults"></div>
+        </div>
+        <div class="ph-song-picked" id="phSongPicked" hidden>
+          <div class="ph-song-picked-row">
+            <img id="phSongPickedArt" alt="" />
+            <div class="ph-song-meta"><span class="t" id="phSongPickedTitle"></span><span class="a" id="phSongPickedArtist"></span></div>
+            <button type="button" class="ph-mini-btn" id="phSongPreview" title="Preview clip"><i class="ti ti-player-play"></i></button>
+            <button type="button" class="ph-mini-btn" id="phSongRemove" title="Remove song"><i class="ti ti-x"></i></button>
+          </div>
+          <input type="range" id="phSongStart" min="0" max="300" step="1" value="0" />
+          <div class="ph-compose-hint" id="phSongStartLabel"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ph-compose-foot">
+      <span class="ph-compose-error" id="phComposeError" hidden></span>
+      <button type="button" class="ph-compose-submit" id="phComposeSubmit" disabled>Post</button>
+    </div>
+  </div>
+</div>
+
 <div class="add-app-backdrop" id="keyHintsBackdrop">
   <div class="add-app-modal" style="width:min(560px, calc(100vw - 2rem));">
     <div class="add-app-title">
@@ -514,7 +608,7 @@ window.KLAB_BOOT = (function() {
     <div class="key-hints-body">
       <div class="key-hints-group">
         <div class="key-hints-group-label">Navigation</div>
-        <div class="key-hints-row"><span>Go to Feed / Chat / Music</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">f/c/m</kbd></span></div>
+        <div class="key-hints-row"><span>Go to Feed / Chat / Music / Photos</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">f/c/m/p</kbd></span></div>
         <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
         <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
         <div class="key-hints-row"><span>Focus search (Music tab)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
@@ -524,6 +618,13 @@ window.KLAB_BOOT = (function() {
         <div class="key-hints-row"><span>Play / Pause</span><span class="key-hints-keys"><kbd class="key-hint-key">Space</kbd></span></div>
         <div class="key-hints-row"><span>Next / Previous track</span><span class="key-hints-keys"><kbd class="key-hint-key">n</kbd><kbd class="key-hint-key">p</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
         <div class="key-hints-row"><span>Mute</span><span class="key-hints-keys"><kbd class="key-hint-key">m</kbd></span></div>
+      </div>
+      <div class="key-hints-group">
+        <div class="key-hints-group-label">Photos tab</div>
+        <div class="key-hints-row"><span>Previous / next photo</span><span class="key-hints-keys"><kbd class="key-hint-key">h</kbd><kbd class="key-hint-key">l</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
+        <div class="key-hints-row"><span>Older / newer post</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">↓</kbd><kbd class="key-hint-key">↑</kbd></span></div>
+        <div class="key-hints-row"><span>Camera details &amp; comments</span><span class="key-hints-keys"><kbd class="key-hint-key">i</kbd></span></div>
+        <div class="key-hints-row"><span>Back to the newest</span><span class="key-hints-keys"><kbd class="key-hint-key">G</kbd></span></div>
       </div>
       <div class="key-hints-group">
         <div class="key-hints-group-label">General</div>
@@ -622,21 +723,22 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.18.13';</script>
-<script defer src="js/00-util.js?v=v2026.09.18.13"></script>
-<script defer src="js/01-shell.js?v=v2026.09.18.13"></script>
-<script defer src="js/02-player.js?v=v2026.09.18.13"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.18.13"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.18.13"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.18.13"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.18.13"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.18.13"></script>
-<script defer src="js/08-chat.js?v=v2026.09.18.13"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.18.13"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.18.13"></script>
-<script defer src="js/11-presence.js?v=v2026.09.18.13"></script>
-<script defer src="js/12-feed.js?v=v2026.09.18.13"></script>
-<script defer src="js/13-tail.js?v=v2026.09.18.13"></script>
+<script>const KLABNET_VERSION = 'v2026.09.23.1';</script>
+<script defer src="js/00-util.js?v=v2026.09.23.1"></script>
+<script defer src="js/01-shell.js?v=v2026.09.23.1"></script>
+<script defer src="js/02-player.js?v=v2026.09.23.1"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.23.1"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.23.1"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.23.1"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.23.1"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.23.1"></script>
+<script defer src="js/08-chat.js?v=v2026.09.23.1"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.23.1"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.23.1"></script>
+<script defer src="js/11-presence.js?v=v2026.09.23.1"></script>
+<script defer src="js/12-feed.js?v=v2026.09.23.1"></script>
+<script defer src="js/13-tail.js?v=v2026.09.23.1"></script>
+<script defer src="js/14-photos.js?v=v2026.09.23.1"></script>
 
 </body>
 </html>
