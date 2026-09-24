@@ -4154,14 +4154,17 @@
       transition: right .28s ease; touch-action: pan-y;
     }
     .ph-shell.side-open .ph-frame { right: 340px; }
-    .ph-frame img {
+    /* `>`: only the photo. The rails beside it are inside .ph-frame too, and
+       a bare `.ph-frame img` pinned the poster's avatar in place like a
+       second photo while the text around it moved. */
+    .ph-frame > img {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       display: block; object-fit: cover; border-radius: 6px;
       box-shadow: 0 24px 80px var(--shadow-55);
       transition: filter .3s ease;
     }
-    .ph-frame img.lowres { filter: blur(8px); }
-    .ph-frame img:not([src]) { visibility: hidden; }
+    .ph-frame > img.lowres { filter: blur(8px); }
+    .ph-frame > img:not([src]) { visibility: hidden; }
     .ph-actions { position: absolute; top: 0; right: 0; z-index: 3; display: flex; gap: 8px; transition: right .28s ease; }
     .ph-btn {
       height: var(--control-h); min-width: var(--control-h); padding: 0 10px; border-radius: var(--radius-lg);
@@ -4446,12 +4449,12 @@
        compact. fitImg() leaves them the height they need. */
     @media (max-width: 900px) {
       .ph-frame { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
-      .ph-frame img { position: static; transform: none; flex: none; align-self: center; margin-bottom: 12px; }
+      .ph-frame > img { position: static; transform: none; flex: none; align-self: center; margin-bottom: 12px; }
       .ph-rail { position: static; width: auto; max-height: none; overflow: visible; gap: 6px; }
       .ph-rail-l { align-items: stretch; }
       .ph-rail-r { align-items: stretch; }
       .ph-rail-l { order: 2; }
-      .ph-frame img { order: 1; }
+      .ph-frame > img { order: 1; }
       .ph-rail-r { order: 3; margin-top: 10px; }
       .ph-gear { flex-direction: row; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
       .ph-song { align-self: flex-start; }
@@ -4461,7 +4464,7 @@
     @media (max-width: 760px) {
       body.tab-photos-active .dash { padding-bottom: .75rem; max-width: 100%; }
       .ph-shell { --ph-thumb: 38px; --ph-strip-h: 80px; gap: 8px; }
-      .ph-frame img { border-radius: 4px; }
+      .ph-frame > img { border-radius: 4px; }
       .ph-shell.side-open .ph-frame { right: 0; }
       /* the Sound/Post buttons get their own strip above the photo on a phone */
       .ph-frame { top: calc(var(--control-h) + 8px); }
