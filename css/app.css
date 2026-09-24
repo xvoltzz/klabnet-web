@@ -4557,10 +4557,29 @@
     @media (hover: none) { .mh-flow-nav { display: none; } }
 
     .mh-note { text-transform: none; letter-spacing: normal; opacity: .7; margin-left: 4px; }
+    /* No scrollbar: arrows on hover (and a fade at whichever edge has more)
+       do the job, and trackpad/touch scrolling works as before. */
+    .mh-row-wrap { position: relative; }
     .mh-row {
       display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 10px;
-      scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+      scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none;
     }
+    .mh-row::-webkit-scrollbar { display: none; }
+    .mh-row-wrap.more-r .mh-row { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 60px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 60px), transparent); }
+    .mh-row-wrap.more-l .mh-row { -webkit-mask-image: linear-gradient(90deg, transparent, #000 60px); mask-image: linear-gradient(90deg, transparent, #000 60px); }
+    .mh-row-wrap.more-l.more-r .mh-row { -webkit-mask-image: linear-gradient(90deg, transparent, #000 60px, #000 calc(100% - 60px), transparent); mask-image: linear-gradient(90deg, transparent, #000 60px, #000 calc(100% - 60px), transparent); }
+    .mh-row-nav {
+      position: absolute; top: calc(4px + 74px - 18px); z-index: 2;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      border: 1px solid var(--glass-border); background: var(--modal-glass); color: var(--text);
+      display: grid; place-items: center; font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .2s;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      box-shadow: 0 4px 14px var(--shadow-30);
+    }
+    .mh-row-nav.prev { left: 6px; }
+    .mh-row-nav.next { right: 6px; }
+    .mh-row-wrap.more-l:hover .mh-row-nav.prev, .mh-row-wrap.more-r:hover .mh-row-nav.next { opacity: 1; pointer-events: auto; }
+    @media (hover: none) { .mh-row-nav { display: none; } }
     .mh-card { flex: none; width: 148px; cursor: pointer; scroll-snap-align: start; }
     .mh-card-art { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--glass-fill); box-shadow: 0 6px 18px var(--shadow-30); }
     .mh-card-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
@@ -4584,5 +4603,6 @@
 
     @media (max-width: 760px) {
       .mh-card { width: 124px; }
+      .mh-row-nav { top: calc(4px + 62px - 18px); }
       .mh-flow-caption { padding: 0 16px; }
     }

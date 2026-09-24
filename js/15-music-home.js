@@ -207,8 +207,22 @@
   function albumRow(title, albums, note) {
     const sec = document.createElement('section');
     sec.className = 'mh-section';
-    sec.innerHTML = `<div class="picker-section-label">${esc(title)}${note ? ` <span class="mh-note">${esc(note)}</span>` : ''}</div><div class="mh-row"></div>`;
+    sec.innerHTML = `<div class="picker-section-label">${esc(title)}${note ? ` <span class="mh-note">${esc(note)}</span>` : ''}</div>` +
+      '<div class="mh-row-wrap"><div class="mh-row"></div>' +
+      '<button type="button" class="mh-row-nav prev" title="Back"><i class="ti ti-chevron-left"></i></button>' +
+      '<button type="button" class="mh-row-nav next" title="More"><i class="ti ti-chevron-right"></i></button></div>';
     const row = sec.querySelector('.mh-row');
+    const wrap = sec.querySelector('.mh-row-wrap');
+    // Which edges have more to scroll to: drives the arrows and the fades.
+    const edges = () => {
+      wrap.classList.toggle('more-l', row.scrollLeft > 4);
+      wrap.classList.toggle('more-r', row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
+    };
+    row.addEventListener('scroll', edges, { passive: true });
+    new ResizeObserver(edges).observe(row);
+    const page = dir => row.scrollBy({ left: dir * row.clientWidth * 0.85, behavior: 'smooth' });
+    sec.querySelector('.mh-row-nav.prev').addEventListener('click', () => page(-1));
+    sec.querySelector('.mh-row-nav.next').addEventListener('click', () => page(1));
     albums.forEach(a => {
       const card = document.createElement('div');
       card.className = 'mh-card';
