@@ -133,7 +133,7 @@ function renderArtistSearchResults(artists) {
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
-      <div class="picker-item-art-ph artist"><i class="ti ti-user-circle"></i></div>
+      ${artistPlaceholderHTML(artist.name)}
       <div class="picker-item-info">
         <div class="picker-item-title">${esc(artistName)}</div>
         <div class="picker-item-artist">${artist.albumCount || 0} albums</div>
@@ -205,6 +205,16 @@ async function hydrateArtistThumb(item, artistId) {
   } catch(e) {}
 }
 
+// An artist with no photo gets their initials on a colour derived from the
+// name (stable across renders), instead of an identical grey circle.
+function artistPlaceholderHTML(name) {
+  const n = String(name || '?');
+  let h = 0;
+  for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+  const initials = n.replace(/[^\p{L}\p{N} ]/gu, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || n[0];
+  return `<div class="picker-item-art-ph artist artist-initials" style="--h:${h % 360}">${esc(initials)}</div>`;
+}
+
 function renderArtistList(indexes) {
   pickerList.innerHTML = '';
   if (!indexes.length) { pickerList.innerHTML = '<div class="picker-empty">no artists found</div>'; return; }
@@ -218,7 +228,7 @@ function renderArtistList(indexes) {
       const item = document.createElement('div');
       item.className = 'picker-item';
       item.innerHTML = `
-        <div class="picker-item-art-ph artist"><i class="ti ti-user-circle"></i></div>
+        ${artistPlaceholderHTML(artist.name)}
         <div class="picker-item-info">
           <div class="picker-item-title">${esc(artist.name)||'Unknown'}</div>
           <div class="picker-item-artist">${artist.albumCount||0} albums</div>

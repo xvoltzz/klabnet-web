@@ -4606,3 +4606,237 @@
       .mh-row-nav { top: calc(4px + 62px - 18px); }
       .mh-flow-caption { padding: 0 16px; }
     }
+
+    /* ══ MUSIC — visual refresh, in the Music Home's design language ══
+       Big artwork, actions that appear on hover, one small-caps label
+       style, plain type on quiet surfaces, a single white primary pill.
+       Everything is scoped to #musicShell: the older music rules are a
+       stack of equally-specific selectors that have fought each other
+       before (see the MUSIC comment near the top), and one id outranks
+       them all without reaching for !important. */
+
+    /* Sidebar: Home, then Your library, then Browse. */
+    #musicShell .music-sidebar { width: 250px; gap: 0; }
+    #musicShell .music-nav { display: flex; flex-direction: column; gap: 18px; margin-top: 6px; }
+    #musicShell .music-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+    #musicShell .music-sidebar-label {
+      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--text-dimmer); padding: 0 12px 6px; margin: 0;
+    }
+    #musicShell .picker-tabs { gap: 2px; }
+    #musicShell .picker-tab {
+      height: 38px; padding: 0 12px; gap: 12px; border-radius: 10px;
+      font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim);
+      background: none; border: 1px solid transparent; box-shadow: none;
+    }
+    #musicShell .picker-tab i { font-size: 18px; width: 20px; color: inherit; opacity: .85; }
+    #musicShell .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
+    #musicShell .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
+    #musicShell .picker-tab.active i { color: var(--text); opacity: 1; }
+    #musicShell #favCount, #musicShell #queueCount, #musicShell #requestsCount {
+      flex: none; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums;
+    }
+    #musicShell .music-playlist-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+    #musicShell .music-playlist-row {
+      padding: 5px 8px 5px 10px; gap: 10px; border-radius: 10px; border: 1px solid transparent; background: none;
+    }
+    #musicShell .music-playlist-row:hover { background: var(--glass-fill); }
+    #musicShell .music-playlist-row.active { background: var(--glass-fill-h); border-color: var(--glass-border); }
+    #musicShell .music-playlist-row-art { width: 30px; height: 30px; border-radius: 6px; border: none; }
+    #musicShell .music-playlist-row-name { font-size: var(--fs-13); }
+    #musicShell .music-playlist-row-meta { font-size: var(--fs-11); }
+    #musicShell .music-new-playlist-btn {
+      height: 34px; margin-top: 2px; border-radius: 10px; font: 500 var(--fs-13) var(--font-ui);
+      color: var(--text-dimmer); background: none; border: 1px dashed var(--glass-border);
+    }
+    #musicShell .music-new-playlist-btn:hover { color: var(--text); border-color: var(--glass-border-h); background: var(--glass-fill); }
+    #musicShell .picker-search {
+      height: 40px; border-radius: 12px; padding: 0 8px 0 12px; gap: 10px;
+      background: var(--glass-fill); border: 1px solid var(--glass-border);
+    }
+    #musicShell .picker-search:focus-within { border-color: var(--glass-border-h); }
+    #musicShell .picker-search i { font-size: 15px; }
+    #musicShell .picker-search input { font: 400 var(--fs-14) var(--font-ui); }
+
+    /* The big title over each view. */
+    #musicShell .music-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 14px; flex: none; }
+    #musicShell .music-view-head h2 {
+      margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #musicShell .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
+    #musicShell .picker-section-label.music-dup-label { display: none; }
+    #musicShell .picker-section-label {
+      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; color: var(--text-dimmer);
+      padding: 14px 4px 8px;
+    }
+    #musicShell .picker-list > .picker-section-label:first-child { padding-top: 0; }
+
+    /* Song rows: art, title, artist, length; actions only on hover. */
+    #musicShell .picker-list .picker-item, #musicShell .ap-track {
+      gap: 14px; padding: 7px 12px; border-radius: 10px; border: 1px solid transparent; animation: none;
+    }
+    #musicShell .picker-list .picker-item:hover, #musicShell .ap-track:hover { background: var(--glass-fill); border-color: transparent; }
+    #musicShell .picker-list .picker-item-art, #musicShell .picker-list .picker-item-art-ph {
+      width: 44px; height: 44px; border-radius: 6px; border: none; box-shadow: 0 2px 8px var(--shadow-20);
+    }
+    #musicShell .picker-item-title { font: 500 var(--fs-14) var(--font-ui); letter-spacing: 0; }
+    #musicShell .picker-item-artist { font-size: var(--fs-12); letter-spacing: 0; margin-top: 3px; color: var(--text-dim); }
+    #musicShell .picker-item-dur { flex: none; min-width: 40px; text-align: right; font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+    #musicShell .type-badge { display: none; }
+    #musicShell .picker-item .picker-action { opacity: 0; transition: opacity .15s, color .15s, background-color .15s; }
+    #musicShell .picker-item:hover .picker-action,
+    #musicShell .picker-item .picker-action:focus-visible,
+    #musicShell .picker-action.fav-active, #musicShell .picker-action.login-active { opacity: 1; }
+    #musicShell .picker-action.fav-active { color: var(--danger-color); }
+    @media (hover: none) { #musicShell .picker-item .picker-action { opacity: 1; } }
+
+    /* Album and artist grids: Home's card, with play/queue over the art. */
+    #musicShell .picker-list.picker-list-grid {
+      grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 22px 18px; padding: 0 4px 12px;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item {
+      position: relative; padding: 0; gap: 0; background: none; border: none; transform: none;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item:hover { background: none; transform: none; }
+    #musicShell .picker-list.picker-list-grid .picker-item-art,
+    #musicShell .picker-list.picker-list-grid .picker-item-art-ph {
+      width: 100%; height: auto; aspect-ratio: 1; border-radius: 8px; border: none;
+      box-shadow: 0 6px 18px var(--shadow-30); transition: transform .25s ease;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item:hover .picker-item-art { transform: scale(1.03); }
+    #musicShell .picker-list.picker-list-grid .picker-item-art.artist,
+    #musicShell .picker-list.picker-list-grid .picker-item-art-ph.artist { border-radius: 50%; }
+    #musicShell .picker-list.picker-list-grid .picker-item-info { margin-top: 9px; }
+    #musicShell .picker-list.picker-list-grid .picker-item-title { font-size: var(--fs-13); font-weight: 600; white-space: nowrap; }
+    #musicShell .picker-list.picker-list-grid .picker-item-artist { white-space: nowrap; }
+    #musicShell .picker-list.picker-list-grid .picker-item:has(.artist) .picker-item-info { text-align: center; }
+    /* The actions sit in a square the size of the art, bottom-right. */
+    #musicShell .picker-list.picker-list-grid .picker-item-actions {
+      position: absolute; top: 0; left: 0; width: 100%; aspect-ratio: 1; padding: 8px;
+      display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; pointer-events: none;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action {
+      pointer-events: auto; width: 36px; height: 36px; border-radius: 50%; font-size: 16px;
+      background: var(--modal-glass); color: var(--text); border: 1px solid var(--glass-border);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      transform: translateY(6px); transition: opacity .18s, transform .18s;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item:hover .picker-action { transform: none; }
+    #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action[title="Play"] {
+      background: var(--text); color: var(--bg); border-color: transparent; box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item:has(.artist) .picker-item-actions { display: none; }
+    @media (hover: none) { #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action { transform: none; } }
+
+    /* Artists with no photo: initials on a colour from their name. */
+    #musicShell .artist-initials {
+      background: linear-gradient(135deg, hsl(var(--h) 42% 42%), hsl(calc(var(--h) + 35) 48% 26%));
+      color: rgba(255,255,255,0.92); font-weight: 700; font-size: 15px; letter-spacing: .02em;
+    }
+    #musicShell .picker-list.picker-list-grid .artist-initials { font-size: 34px; }
+
+    /* Genres: colour tiles. */
+    #musicShell .picker-list:has(> .genre-tile) {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; align-content: start; padding: 0 4px 12px;
+    }
+    #musicShell .picker-list:has(> .genre-tile) > .picker-section-label { grid-column: 1 / -1; }
+    #musicShell .picker-list .picker-item.genre-tile {
+      position: relative; height: 104px; padding: 14px 16px; border-radius: 14px; overflow: hidden;
+      flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px;
+      background: linear-gradient(135deg, hsl(var(--h) 55% 44%), hsl(calc(var(--h) + 40) 58% 26%));
+      transition: transform .2s ease, filter .2s ease;
+    }
+    #musicShell .picker-list .picker-item.genre-tile:hover { transform: translateY(-2px); filter: brightness(1.08); background: linear-gradient(135deg, hsl(var(--h) 55% 44%), hsl(calc(var(--h) + 40) 58% 26%)); }
+    #musicShell .genre-tile .picker-item-art-ph { display: none; }
+    #musicShell .genre-tile .picker-item-info { flex: none; width: 100%; }
+    #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; }
+    #musicShell .genre-tile .picker-item-artist { color: rgba(255,255,255,0.72); }
+    #musicShell .genre-tile .picker-item-actions { position: absolute; top: 10px; right: 10px; }
+    #musicShell .genre-tile .picker-action { background: rgba(255,255,255,0.92); color: #111; border-radius: 50%; width: 34px; height: 34px; }
+
+    /* Album / artist page: a hero with the cover blurred behind it. */
+    #musicShell .ap-card { background: none; border: none; box-shadow: none; }
+    #musicShell .ap-bg {
+      display: block; position: absolute; left: 0; right: 0; top: 0; height: 460px; z-index: 0; pointer-events: none;
+      background-size: cover; background-position: center; filter: blur(70px) saturate(1.5); opacity: .5;
+      -webkit-mask-image: linear-gradient(#000 30%, transparent); mask-image: linear-gradient(#000 30%, transparent);
+      border-radius: 16px;
+    }
+    [data-theme="light"] #musicShell .ap-bg { opacity: .35; }
+    #musicShell .ap-topbar { border-bottom: none; padding: 4px 4px 0; }
+    #musicShell .ap-back {
+      width: 36px; height: 36px; border-radius: 50%; font-size: 17px;
+      background: var(--modal-glass); color: var(--text); border: 1px solid var(--glass-border);
+    }
+    #musicShell .ap-hero { align-items: flex-end; gap: 28px; padding: 18px 20px 26px; border-bottom: none; }
+    #musicShell .ap-hero-img, #musicShell .ap-hero-img-ph {
+      width: 200px; height: 200px; border: none; box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+    }
+    #musicShell .ap-hero-img.square, #musicShell .ap-hero-img-ph.square { border-radius: 10px; }
+    #musicShell .ap-hero-kicker { font-size: var(--fs-11); font-weight: 600; letter-spacing: .16em; color: var(--text-dim); margin-bottom: 6px; }
+    #musicShell .ap-hero-name {
+      font-size: 44px; line-height: 1.08; letter-spacing: -0.02em; white-space: normal;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    #musicShell .ap-hero-artist-link { display: inline-block; margin-top: 10px; font-size: var(--fs-15); font-weight: 600; color: var(--text); }
+    #musicShell .ap-hero-sub { font-size: var(--fs-13); color: var(--text-dim); margin-top: 6px; }
+    #musicShell .ap-hero-sub:first-of-type { margin-top: 8px; }
+    #musicShell .ap-actions { padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; }
+    #musicShell .ap-btn-play, #musicShell .ap-btn-queue {
+      height: 40px; padding: 0 18px; border-radius: 20px; gap: 8px;
+      font: 600 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none; box-shadow: none;
+    }
+    #musicShell .ap-btn-play { padding: 0 22px; background: var(--text); color: var(--bg); border: none; }
+    #musicShell .ap-btn-play:hover { background: var(--text); opacity: .88; }
+    #musicShell .ap-btn-queue { background: var(--glass-fill-h); color: var(--text); border: 1px solid var(--glass-border); }
+    #musicShell .ap-btn-queue:hover { border-color: var(--glass-border-h); }
+    #musicShell .ap-sec-label { font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; color: var(--text-dimmer); padding: 22px 20px 8px; }
+    #musicShell .ap-track { margin: 0 8px; }
+    #musicShell .ap-track-num { width: 22px; text-align: center; font-size: var(--fs-12); color: var(--text-dimmer); }
+    #musicShell .ap-track-title { font: 500 var(--fs-14) var(--font-ui); }
+    #musicShell .ap-track-sub { font-size: var(--fs-12); }
+    #musicShell .ap-track-dur { font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+    #musicShell .ap-track-play { opacity: 0; transition: opacity .15s; }
+    #musicShell .ap-track:hover .ap-track-play { opacity: 1; }
+    #musicShell .ap-track.ap-now .ap-track-title { color: var(--text); font-weight: 700; }
+    #musicShell .ap-bio { padding: 0 20px; font-size: var(--fs-14); line-height: 1.6; color: var(--text-dim); max-height: 68px; }
+    /* Fade by transparency, not a painted gradient in the old card colour:
+       that showed as a dark box over the blurred hero. */
+    #musicShell .ap-bio::after { display: none; }
+    #musicShell .ap-bio:not(.exp) { -webkit-mask-image: linear-gradient(#000 45%, transparent); mask-image: linear-gradient(#000 45%, transparent); }
+    #musicShell .ap-bio.exp { max-height: 800px; }
+    #musicShell .ap-hero::after { display: none; }
+    #musicShell .ap-read-more { margin-left: 20px; letter-spacing: .08em; }
+    #musicShell .ap-disc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 16px; padding: 4px 20px 8px; }
+    #musicShell .ap-disc-card { padding: 0; background: none; border: none; box-shadow: none; width: auto; transform: none; }
+    #musicShell .ap-disc-card:hover { background: none; transform: none; }
+    #musicShell .ap-disc-card img { width: 100%; height: auto; aspect-ratio: 1; border-radius: 8px; border: none; box-shadow: 0 6px 18px var(--shadow-30); transition: transform .25s ease; }
+    #musicShell .ap-disc-card:hover img { transform: scale(1.03); }
+    #musicShell .ap-similar { padding: 0 20px; gap: 8px; }
+    #musicShell .ap-sim-chip {
+      height: 32px; padding: 0 14px; border-radius: 16px; display: inline-flex; align-items: center;
+      font: 500 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none;
+      background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text);
+    }
+    #musicShell .ap-sim-chip:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
+
+    @media (max-width: 760px) {
+      /* One sideways strip: groups flatten into it, labels drop out. */
+      #musicShell .music-sidebar { width: 100%; }
+      #musicShell .music-nav {
+        flex-direction: row; gap: 4px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      #musicShell .music-nav::-webkit-scrollbar { display: none; }
+      #musicShell .music-sidebar-group, #musicShell .music-nav .picker-tabs, #musicShell .music-playlist-nav { display: contents; }
+      #musicShell .music-sidebar-label { display: none; }
+      #musicShell .picker-tab, #musicShell .music-playlist-row, #musicShell .music-new-playlist-btn { flex: none; white-space: nowrap; }
+      #musicShell .music-view-head h2 { font-size: 24px; }
+      #musicShell .picker-list.picker-list-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 18px 12px; }
+      #musicShell .ap-hero { flex-direction: column; align-items: flex-start; gap: 16px; padding: 12px 12px 18px; }
+      #musicShell .ap-hero-img, #musicShell .ap-hero-img-ph { width: 160px; height: 160px; }
+      #musicShell .ap-hero-name { font-size: 30px; }
+      #musicShell .ap-actions, #musicShell .ap-bio, #musicShell .ap-similar { padding-left: 12px; padding-right: 12px; }
+      #musicShell .ap-disc-grid { padding: 4px 12px 8px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    }

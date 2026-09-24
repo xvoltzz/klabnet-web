@@ -23,7 +23,10 @@ async function loadGenres() {
 
     genres.forEach(genre => {
       const item = document.createElement('div');
-      item.className = 'picker-item';
+      item.className = 'picker-item genre-tile';
+      let hue = 0;
+      for (const ch of genre.value) hue = (hue * 31 + ch.charCodeAt(0)) >>> 0;
+      item.style.setProperty('--h', hue % 360);
       item.innerHTML = `
         <div class="picker-item-art-ph" style="font-size:20px;"><i class="ti ti-music-search"></i></div>
         <div class="picker-item-info" style="min-width:0;flex:1;">
@@ -128,6 +131,7 @@ function renderPlaylistNav() {
       document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
       row.classList.add('active');
       pickerTab = 'playlist';
+      setMusicViewTitle('playlist', pl.name);
       loadPlaylistView(pl);
     });
     nav.insertBefore(row, newBtn);
@@ -589,6 +593,7 @@ loadPickerTab = async function(tab) {
   // none of which needed to change) — this just reflows it via CSS.
   pickerList.classList.toggle('picker-list-grid', tab === 'albums' || tab === 'artists');
   pickerList.classList.toggle('mh-home', tab === 'random');
+  setMusicViewTitle(tab);
   return _origLoadPickerTabSort(tab);
 };
 
@@ -926,3 +931,53 @@ async function loadAlbumView(albumId, albumName, backFn) {
 // renderSongItem(), and having two listeners on the same element meant the
 // nav ran twice once the per-row capture handler was removed.
 
+
+
+// ══════════════════════════════════════════
+//  MUSIC VIEW TITLE — the big heading above whatever the sidebar opened.
+//  Each view still renders its own small section label first ("Albums
+//  (505)", "All Songs"); when that label just repeats the title it's hidden
+//  and its count moves up beside the title. Artist letter groups ("#", "A")
+//  and Home's own sections are left alone.
+// ══════════════════════════════════════════
+const MUSIC_VIEW_TITLES = {
+  recent: 'Recently played', songs: 'Songs', albums: 'Albums', artists: 'Artists', genres: 'Genres',
+  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search',
+};
+function musicGreeting() {
+  const h = new Date().getHours();
+  const part = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const who = window.KLAB_USER?.username;
+  return who && who !== 'anonymous' ? `${part}, ${who}` : part;
+}
+function setMusicViewTitle(tab, title) {
+  const t = document.getElementById('musicViewTitle');
+  if (!t) return;
+  t.textContent = title || (tab === 'random' ? musicGreeting() : MUSIC_VIEW_TITLES[tab] || '');
+  document.getElementById('musicViewSub').textContent = '';
+}
+window.setMusicViewTitle = setMusicViewTitle;
+// Straight from the sidebar too: some views (Requests) load through their
+// own wrapper around loadPickerTab and never reach the one above.
+document.querySelectorAll('.picker-tab').forEach(t => t.addEventListener('click', () => setMusicViewTitle(t.dataset.tab)));
+(function() {
+  const list = document.getElementById('pickerList');
+  const sub = document.getElementById('musicViewSub');
+  if (!list || !sub) return;
+  let queued = false;
+  const sync = () => {
+    queued = false;
+    const first = list.firstElementChild;
+    if (!first || !first.classList.contains('picker-section-label') || list.classList.contains('mh-home')) { sub.textContent = ''; return; }
+    const text = first.textContent.trim();
+    const m = text.match(/^(.*?)\s*\((\d+)\)$/);
+    const title = document.getElementById('musicViewTitle').textContent.trim().toLowerCase();
+    const label = (m ? m[1] : text).toLowerCase();
+    // Only a label that restates the title, e.g. "Albums (505)" or "All Songs"
+    if (label === title || label === 'all ' + title || (pickerTab === 'recent' && label.startsWith('recently'))) {
+      first.classList.add('music-dup-label');
+      sub.textContent = m ? `${Number(m[2]).toLocaleString()} ${title === 'songs' ? 'songs' : title}` : '';
+    }
+  };
+  new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(sync); } }).observe(list, { childList: true });
+})();

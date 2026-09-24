@@ -670,6 +670,7 @@ function renderSongItem(song, container) {
       <div class="picker-item-title">${esc(song.title) || 'Unknown'}</div>
       <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown Artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
     </div>
+    ${song.duration ? `<span class="picker-item-dur">${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, '0')}</span>` : ''}
     <div class="picker-item-actions">
       <span class="type-badge song">song</span>
       <button class="picker-action ${isFav ? 'fav-active' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}" data-fav>
