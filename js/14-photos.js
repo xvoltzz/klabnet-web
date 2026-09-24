@@ -248,14 +248,33 @@
   }
 
   // Size the <img> box from the photo's known aspect ratio, so the 320px
-  // placeholder fills exactly the frame the full image will.
+  // placeholder fills exactly the frame the full image will. On a wide
+  // screen the photo also leaves room for a rail on each side, and the
+  // rails read its drawn size back (--ph-img-w/-h) to hug its edges; on a
+  // narrow one the rails stack underneath and the photo takes what's left.
+  const railL = frame.querySelector('.ph-rail-l');
+  const railR = frame.querySelector('.ph-rail-r');
+  const narrowMq = matchMedia('(max-width: 900px)');
+  const RAIL_GAP = 28;
   function fitImg() {
     if (sel < 0 || !items[sel]) return;
     const ph = items[sel].ph;
     const r = ph.w / ph.h;
-    const w = Math.min(frame.clientWidth, frame.clientHeight * r);
+    const fw = frame.clientWidth, fh = frame.clientHeight;
+    let w;
+    if (narrowMq.matches) {
+      const railsH = railL.offsetHeight + railR.offsetHeight + 34;
+      w = Math.min(fw, Math.max(fh * 0.45, fh - railsH) * r);
+    } else {
+      const railW = Math.round(Math.min(300, Math.max(236, fw * 0.17))); // 236: one row of reactions
+      frame.style.setProperty('--ph-rail-w', railW + 'px');
+      w = Math.min(fw - 2 * (railW + RAIL_GAP), fh * r);
+    }
+    w = Math.max(0, w);
     mainImg.style.width = Math.round(w) + 'px';
     mainImg.style.height = Math.round(w / r) + 'px';
+    frame.style.setProperty('--ph-img-w', Math.round(w) + 'px');
+    frame.style.setProperty('--ph-img-h', Math.round(w / r) + 'px');
   }
 
   function select(i) {
@@ -278,7 +297,6 @@
       }, { once: true });
     }
     mainImg.alt = it.post.text || `Photo by ${it.post.username}`;
-    fitImg();
     for (const d of [1, -1, 2, -2, 3]) preload(i + d);
 
     renderPost(prevPost !== it.post);
@@ -296,19 +314,12 @@
 
   // The camera line and the settings under it. Always on screen, and it
   // follows the scrub live like everything else.
+  const SPEC_LABELS = [['aperture', 'Aperture'], ['shutter', 'Shutter'], ['iso', 'ISO'], ['focal', 'Focal'], ['film', 'Film']];
   function specsHTML(ex) {
-    const gear = [ex.camera && `<b>${esc(ex.camera)}</b>`, ex.lens && esc(ex.lens)].filter(Boolean).join(' · ');
-    const specs = [
-      ex.aperture && `<span class="ph-spec"><i class="ti ti-aperture"></i>${esc(ex.aperture)}</span>`,
-      ex.shutter && `<span class="ph-spec"><i class="ti ti-stopwatch"></i>${esc(ex.shutter)}</span>`,
-      ex.iso && `<span class="ph-spec"><i class="ti ti-brightness-half"></i>ISO ${esc(ex.iso)}</span>`,
-      ex.focal && `<span class="ph-spec"><i class="ti ti-ruler-2"></i>${esc(ex.focal)}</span>`,
-      ex.film && `<span class="ph-spec film"><i class="ti ti-movie"></i>${esc(ex.film)}</span>`,
-    ].filter(Boolean).join('');
-    return {
-      gear: gear || (specs ? '' : '<i class="ti ti-camera"></i> No camera details'),
-      specs,
-    };
+    const gear = [ex.camera && `<b>${esc(ex.camera)}</b>`, ex.lens && `<span>${esc(ex.lens)}</span>`].filter(Boolean).join('');
+    const specs = SPEC_LABELS.filter(([key]) => ex[key]).map(([key, label]) =>
+      `<div class="ph-spec"><span class="k">${label}</span><span class="v">${esc(ex[key])}</span></div>`).join('');
+    return { gear: gear || (specs ? '' : '<span>No camera details</span>'), specs };
   }
 
   // Details row + comments panel for the selected photo. `postChanged` is
@@ -317,7 +328,7 @@
     if (sel < 0 || !items[sel]) return;
     const { post, k, ph } = items[sel];
     $('phWho').innerHTML = avatarHTML(post.username) + nameHTML(post.username) +
-      `<span class="ph-when">· posted ${esc(fmtAgo(post.created))}</span>`;
+      `<span class="ph-when">posted ${esc(fmtAgo(post.created))}</span>`;
     $('phShot').innerHTML = post.shot_at ? `<i class="ti ti-calendar"></i> Shot ${esc(fmtShot(post.shot_at))}` : '';
     $('phCaption').textContent = post.text || '';
     $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
@@ -326,7 +337,6 @@
 
     const s = specsHTML(ph.exif || {});
     $('phGear').innerHTML = s.gear;
-    $('phGear').hidden = !s.gear;
     $('phSpecRow').innerHTML = s.specs;
 
     // The slot stays even without a song, so every post has the same shape.
@@ -355,6 +365,7 @@
       $('phReplies').dataset.postId = '';
       if (shell.classList.contains('side-open')) loadReplies(post);
     }
+    fitImg();
   }
 
   // ── Scrubbing ──
@@ -439,7 +450,8 @@
 
   // Swipe on the photo flips one photo; double-tap hearts it.
   let swipe = null, lastTap = 0;
-  frame.addEventListener('pointerdown', e => { swipe = { x: e.clientX, y: e.clientY }; });
+  // Only the photo itself: taps and selections in the rails beside it aren't swipes.
+  frame.addEventListener('pointerdown', e => { swipe = e.target.closest('.ph-rail') ? null : { x: e.clientX, y: e.clientY }; });
   frame.addEventListener('pointerup', e => {
     if (!swipe) return;
     const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;

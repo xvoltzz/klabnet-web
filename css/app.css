@@ -4150,11 +4150,12 @@
 
     .ph-stage { position: relative; flex: 1; min-height: 0; }
     .ph-frame {
-      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      position: absolute; inset: 0;
       transition: right .28s ease; touch-action: pan-y;
     }
     .ph-shell.side-open .ph-frame { right: 340px; }
     .ph-frame img {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       display: block; object-fit: cover; border-radius: 6px;
       box-shadow: 0 24px 80px var(--shadow-55);
       transition: filter .3s ease;
@@ -4169,7 +4170,7 @@
     }
     .ph-btn i { font-size: var(--fs-18); }
     .ph-btn:hover { border-color: var(--glass-border-h); }
-    .ph-shell.is-empty .ph-frame, .ph-shell.is-empty .ph-meta, .ph-shell.is-empty .ph-strip-wrap,
+    .ph-shell.is-empty .ph-frame, .ph-shell.is-empty .ph-strip-wrap,
     .ph-shell.is-empty .ph-side, .ph-shell.is-empty .ph-actions { display: none; }
     .ph-empty {
       position: absolute; inset: 0; z-index: 2;
@@ -4180,65 +4181,59 @@
     .ph-empty > i { font-size: 44px; color: var(--text-dimmer); }
 
     /* Post / camera / song row */
-    /* One band, edge to edge: post on the left, camera in the middle, song
-       and reactions on the right, all the same height. */
-    .ph-meta {
-      flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-      align-items: stretch; gap: 12px;
+    /* ── Rails beside the photo ──
+       fitImg() sets --ph-img-w / --ph-img-h (the photo's drawn size) and
+       --ph-rail-w on .ph-frame; the rails hang off the photo's left and
+       right edges and sit level with its bottom, like the card next to a
+       print on a gallery wall. Plain type on the backdrop, no cards. */
+    .ph-frame { --ph-gap: 28px; }
+    .ph-rail {
+      position: absolute; width: var(--ph-rail-w, 240px);
+      bottom: calc((100% - var(--ph-img-h, 0px)) / 2);
+      max-height: calc((100% + var(--ph-img-h, 0px)) / 2); overflow: hidden;
+      display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;
+      user-select: text; -webkit-user-select: text;
     }
-    .ph-card { min-width: 0; padding: 11px 14px; border-radius: 14px; }
-    .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); }
-    .ph-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex: none; }
+    .ph-rail-l { right: calc(50% + var(--ph-img-w, 0px) / 2 + var(--ph-gap)); align-items: flex-end; text-align: right; }
+    .ph-rail-r { left: calc(50% + var(--ph-img-w, 0px) / 2 + var(--ph-gap)); align-items: flex-start; }
+
+    .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); flex-wrap: wrap; }
+    .ph-rail-l .ph-who { justify-content: flex-end; }
+    .ph-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
     .ph-avatar-letter { display: grid; place-items: center; font-size: var(--fs-11); font-weight: 700; color: #000; }
-    .ph-name { background: none; border: none; padding: 0; font: 600 var(--fs-13) var(--font-ui); cursor: pointer; color: var(--text); }
+    .ph-name { background: none; border: none; padding: 0; font: 600 var(--fs-14) var(--font-ui); cursor: pointer; color: var(--text); }
     .ph-name:hover { text-decoration: underline; }
-    .ph-when { color: var(--text-dimmer); }
-    .ph-shot { display: flex; align-items: center; gap: 5px; margin-top: 5px; font-size: var(--fs-12); color: var(--text-dim); }
+    .ph-when { color: var(--text-dimmer); font-size: var(--fs-12); width: 100%; }
+    .ph-shot { display: flex; align-items: center; gap: 5px; font-size: var(--fs-12); color: var(--text-dim); letter-spacing: .02em; }
     .ph-shot:empty { display: none; }
-    .ph-caption { margin-top: 6px; font-size: var(--fs-14); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ph-caption { font-size: var(--fs-16); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
     .ph-caption:empty { display: none; }
-    .ph-tags { margin-top: 6px; font-size: var(--fs-12); color: var(--text-dim); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .ph-tags { font-size: var(--fs-12); color: var(--text-dim); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .ph-rail-l .ph-tags { justify-content: flex-end; }
     .ph-tags:empty { display: none; }
     .ph-tags .ph-name { font-size: var(--fs-12); }
     .ph-dots { display: flex; gap: 5px; }
-    .ph-dots:not(:empty) { margin-top: 9px; }
+    .ph-dots:empty { display: none; }
     .ph-dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--text-faint); transition: width .2s, background-color .2s; }
     .ph-dots span.on { background: var(--text); width: 16px; }
 
-    /* Camera details: always on screen. */
-    .ph-specs {
-      padding: 10px 18px 11px; border-radius: 14px; text-align: center; min-width: 300px; max-width: min(560px, 42vw);
-      display: flex; flex-direction: column; justify-content: center;
-    }
-    .ph-gear {
-      font-size: var(--fs-12); color: var(--text-dim);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .ph-gear b { color: var(--text); font-weight: 600; }
-    .ph-spec-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 16px; margin-top: 5px; }
-    .ph-spec { display: inline-flex; align-items: baseline; gap: 5px; font-size: var(--fs-16); font-weight: 600; font-variant-numeric: tabular-nums; }
-    .ph-spec i { font-size: var(--fs-14); color: var(--text-dimmer); align-self: center; }
-    .ph-spec.film { font-weight: 500; font-size: var(--fs-14); }
-    .ph-spec-none { font-size: var(--fs-13); color: var(--text-dimmer); }
+    /* Camera details: always on screen, a short spec sheet. */
+    .ph-gear { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-12); color: var(--text-dim); }
+    .ph-gear b { color: var(--text); font-size: var(--fs-14); font-weight: 600; }
+    .ph-gear:empty { display: none; }
+    .ph-spec-row { display: grid; grid-template-columns: auto auto; gap: 3px 14px; align-items: baseline; }
+    .ph-spec-row:empty { display: none; }
+    .ph-spec { display: contents; }
+    .ph-spec .k { font-size: var(--fs-10); letter-spacing: .12em; text-transform: uppercase; color: var(--text-dimmer); }
+    .ph-spec .v { font-size: var(--fs-15); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    .ph-right {
-      min-width: 0; padding: 8px; border-radius: 14px;
-      display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
-    }
-    /* Inside the panel these are plain fills, not glass on glass. */
     .ph-song {
-      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 10px;
-      width: 100%; cursor: pointer; font-family: var(--font-ui); text-align: left; color: var(--text);
-      background: var(--glass-fill); border: 1px solid transparent; transition: border-color .15s, background-color .15s;
+      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 12px; margin-top: 4px;
+      max-width: 100%; cursor: pointer; font-family: var(--font-ui); text-align: left; color: var(--text);
+      background: var(--glass-fill); border: 1px solid var(--glass-border); transition: border-color .15s, background-color .15s;
     }
-    .ph-song:hover { border-color: var(--glass-border); background: var(--glass-fill-h); }
-    .ph-song.none { cursor: default; background: none; }
-    .ph-song.none:hover { border-color: transparent; }
-    .ph-song.none .ph-song-art::before { content: '\f166'; font-family: 'tabler-icons'; }
-    .ph-song.none .ph-song-art { display: grid; place-items: center; color: var(--text-faint); font-size: 16px; }
-    .ph-song.none .t { color: var(--text-dimmer); font-weight: 500; }
-    .ph-song.none .ph-eq { display: none; }
-    .ph-song-meta { flex: 1; }
+    .ph-song:hover { border-color: var(--glass-border-h); background: var(--glass-fill-h); }
+    .ph-song.none { display: none; }
     .ph-song-art { width: 32px; height: 32px; border-radius: 6px; background: var(--glass-fill) center/cover; flex: none; }
     .ph-song-meta { min-width: 0; display: flex; flex-direction: column; }
     .ph-song-meta .t { font-size: var(--fs-13); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -4250,22 +4245,16 @@
     .ph-song.playing .ph-eq b:nth-child(3) { animation-delay: -.6s; }
     @keyframes phEq { 0%, 100% { height: 3px; } 50% { height: 14px; } }
     @media (prefers-reduced-motion: reduce) { .ph-song.playing .ph-eq b { animation: none; height: 10px; } }
-    .ph-reacts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+
+    .ph-reacts { display: flex; gap: 5px; }
     .ph-react {
-      height: 32px; padding: 0 8px; border-radius: 10px; font: 500 var(--fs-13) var(--font-ui);
+      height: 30px; padding: 0 9px; border-radius: 15px; flex: none; font: 500 var(--fs-13) var(--font-ui);
       display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer;
     }
-    .ph-right .ph-react {
-      background: var(--glass-fill); -webkit-backdrop-filter: none; backdrop-filter: none;
-      box-shadow: none; border-color: transparent;
-    }
-    .ph-right .ph-react:hover { border-color: var(--glass-border); }
-    .ph-right .ph-react.mine, .ph-right .ph-react-comments[aria-pressed="true"] { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
     .ph-react.zero { opacity: .72; }
     .ph-react:hover { opacity: 1; border-color: var(--glass-border-h); }
-    .ph-react.mine { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
+    .ph-react.mine, .ph-react-comments[aria-pressed="true"] { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
     .ph-react i { font-size: 15px; }
-    .ph-react-comments[aria-pressed="true"] { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
 
     .ph-heart {
       position: absolute; z-index: 6; font-size: 84px; pointer-events: none;
@@ -4440,9 +4429,22 @@
     }
     .ph-compose-submit:disabled { opacity: .45; cursor: default; }
 
+    /* No room beside the photo: it goes on top and the rails stack under it,
+       compact. fitImg() leaves them the height they need. */
     @media (max-width: 900px) {
-      .ph-meta { grid-template-columns: 1fr; align-items: stretch; gap: 8px; }
-      .ph-specs { max-width: none; min-width: 0; }
+      .ph-frame { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+      .ph-frame img { position: static; transform: none; flex: none; align-self: center; margin-bottom: 12px; }
+      .ph-rail { position: static; width: auto; max-height: none; overflow: visible; gap: 6px; }
+      .ph-rail-l { align-items: flex-start; text-align: left; }
+      .ph-rail-l .ph-who, .ph-rail-l .ph-tags { justify-content: flex-start; }
+      .ph-rail-l { order: 2; }
+      .ph-frame img { order: 1; }
+      .ph-rail-r { order: 3; margin-top: 10px; }
+      .ph-when { width: auto; }
+      .ph-when::before { content: '· '; }
+      .ph-gear { flex-direction: row; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
+      .ph-spec-row { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+      .ph-spec { display: inline-flex; align-items: baseline; gap: 5px; }
     }
     @media (max-width: 760px) {
       body.tab-photos-active .dash { padding-bottom: .75rem; max-width: 100%; }
@@ -4452,9 +4454,7 @@
       /* the Sound/Post buttons get their own strip above the photo on a phone */
       .ph-frame { top: calc(var(--control-h) + 8px); }
       .ph-side { left: 0; width: auto; top: auto; max-height: 85%; transform: translateY(calc(100% + 30px)); }
-      .ph-card { padding: 9px 12px; }
-      .ph-caption { font-size: var(--fs-13); }
-      .ph-spec { font-size: var(--fs-14); }
+      .ph-caption { font-size: var(--fs-14); }
       .ph-btn-post span { display: none; }
       .ph-exif-grid { grid-template-columns: 1fr 1fr; }
       .ph-field.wide, .ph-exif-grid .ph-field:nth-child(3) { grid-column: span 2; }

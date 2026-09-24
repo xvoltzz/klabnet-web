@@ -62,7 +62,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.24.1" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.24.2" />
 </head>
 <body>
 
@@ -449,7 +449,31 @@ window.KLAB_BOOT = (function() {
   <div class="tab-panel" data-tab-panel="photos">
   <div class="ph-shell" id="phShell">
     <div class="ph-stage" id="phStage">
-      <div class="ph-frame" id="phFrame"><img id="phImg" alt="" draggable="false" /></div>
+      <!-- The photo with its placard on the left (who, when, caption, tags)
+           and its camera details, song and reactions on the right. On a
+           wide screen both rails hug the photo's edges and line up with its
+           bottom (js/14-photos.js fitImg() sets the sizes they key off); on
+           a phone they stack under it. -->
+      <div class="ph-frame" id="phFrame">
+        <aside class="ph-rail ph-rail-l">
+          <div class="ph-who" id="phWho"></div>
+          <div class="ph-shot" id="phShot"></div>
+          <div class="ph-caption" id="phCaption"></div>
+          <div class="ph-tags" id="phTags"></div>
+          <div class="ph-dots" id="phDots"></div>
+        </aside>
+        <img id="phImg" alt="" draggable="false" />
+        <aside class="ph-rail ph-rail-r">
+          <div class="ph-gear" id="phGear"></div>
+          <div class="ph-spec-row" id="phSpecRow"></div>
+          <button type="button" class="ph-song" id="phSong" title="Play / stop this song">
+            <span class="ph-song-art" id="phSongArt"></span>
+            <span class="ph-song-meta"><span class="t" id="phSongTitle"></span><span class="a" id="phSongArtist"></span></span>
+            <span class="ph-eq"><b></b><b></b><b></b></span>
+          </button>
+          <div class="ph-reacts" id="phReacts"></div>
+        </aside>
+      </div>
       <div class="ph-actions">
         <button type="button" class="ph-btn" id="phSoundBtn" aria-pressed="true"></button>
         <button type="button" class="ph-btn ph-btn-post" id="phPostBtn" title="Post photos"><i class="ti ti-plus"></i><span>Post</span></button>
@@ -470,27 +494,6 @@ window.KLAB_BOOT = (function() {
           <button type="button" class="ph-delete" id="phDelete" hidden><i class="ti ti-trash"></i> Delete post</button>
         </div>
       </aside>
-    </div>
-    <div class="ph-meta">
-      <div class="ph-card ph-glass">
-        <div class="ph-who" id="phWho"></div>
-        <div class="ph-shot" id="phShot"></div>
-        <div class="ph-caption" id="phCaption"></div>
-        <div class="ph-tags" id="phTags"></div>
-        <div class="ph-dots" id="phDots"></div>
-      </div>
-      <div class="ph-specs ph-glass" id="phSpecs">
-        <div class="ph-gear" id="phGear"></div>
-        <div class="ph-spec-row" id="phSpecRow"></div>
-      </div>
-      <div class="ph-right ph-glass">
-        <button type="button" class="ph-song" id="phSong" title="Play / stop this song">
-          <span class="ph-song-art" id="phSongArt"></span>
-          <span class="ph-song-meta"><span class="t" id="phSongTitle"></span><span class="a" id="phSongArtist"></span></span>
-          <span class="ph-eq"><b></b><b></b><b></b></span>
-        </button>
-        <div class="ph-reacts" id="phReacts"></div>
-      </div>
     </div>
     <div class="ph-strip-wrap" id="phStripWrap">
       <div class="ph-strip" id="phStrip"></div>
@@ -731,22 +734,22 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.24.1';</script>
-<script defer src="js/00-util.js?v=v2026.09.24.1"></script>
-<script defer src="js/01-shell.js?v=v2026.09.24.1"></script>
-<script defer src="js/02-player.js?v=v2026.09.24.1"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.24.1"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.24.1"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.24.1"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.24.1"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.24.1"></script>
-<script defer src="js/08-chat.js?v=v2026.09.24.1"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.24.1"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.24.1"></script>
-<script defer src="js/11-presence.js?v=v2026.09.24.1"></script>
-<script defer src="js/12-feed.js?v=v2026.09.24.1"></script>
-<script defer src="js/13-tail.js?v=v2026.09.24.1"></script>
-<script defer src="js/14-photos.js?v=v2026.09.24.1"></script>
+<script>const KLABNET_VERSION = 'v2026.09.24.2';</script>
+<script defer src="js/00-util.js?v=v2026.09.24.2"></script>
+<script defer src="js/01-shell.js?v=v2026.09.24.2"></script>
+<script defer src="js/02-player.js?v=v2026.09.24.2"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.24.2"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.24.2"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.24.2"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.24.2"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.24.2"></script>
+<script defer src="js/08-chat.js?v=v2026.09.24.2"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.24.2"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.24.2"></script>
+<script defer src="js/11-presence.js?v=v2026.09.24.2"></script>
+<script defer src="js/12-feed.js?v=v2026.09.24.2"></script>
+<script defer src="js/13-tail.js?v=v2026.09.24.2"></script>
+<script defer src="js/14-photos.js?v=v2026.09.24.2"></script>
 
 </body>
 </html>
