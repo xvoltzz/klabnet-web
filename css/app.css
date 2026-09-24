@@ -4180,11 +4180,13 @@
     .ph-empty > i { font-size: 44px; color: var(--text-dimmer); }
 
     /* Post / camera / song row */
+    /* One band, edge to edge: post on the left, camera in the middle, song
+       and reactions on the right, all the same height. */
     .ph-meta {
       flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-      align-items: end; gap: 12px;
+      align-items: stretch; gap: 12px;
     }
-    .ph-card { justify-self: start; max-width: 100%; padding: 11px 14px; border-radius: 14px; }
+    .ph-card { min-width: 0; padding: 11px 14px; border-radius: 14px; }
     .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); }
     .ph-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex: none; }
     .ph-avatar-letter { display: grid; place-items: center; font-size: var(--fs-11); font-weight: 700; color: #000; }
@@ -4204,7 +4206,10 @@
     .ph-dots span.on { background: var(--text); width: 16px; }
 
     /* Camera details: always on screen. */
-    .ph-specs { padding: 10px 16px 11px; border-radius: 14px; text-align: center; min-width: 260px; max-width: min(560px, 42vw); }
+    .ph-specs {
+      padding: 10px 18px 11px; border-radius: 14px; text-align: center; min-width: 300px; max-width: min(560px, 42vw);
+      display: flex; flex-direction: column; justify-content: center;
+    }
     .ph-gear {
       font-size: var(--fs-12); color: var(--text-dim);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -4216,12 +4221,24 @@
     .ph-spec.film { font-weight: 500; font-size: var(--fs-14); }
     .ph-spec-none { font-size: var(--fs-13); color: var(--text-dimmer); }
 
-    .ph-right { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0; max-width: 100%; }
-    .ph-song {
-      display: flex; align-items: center; gap: 10px; padding: 7px 12px 7px 7px; border-radius: 12px;
-      max-width: 320px; cursor: pointer; font-family: var(--font-ui); text-align: left;
+    .ph-right {
+      min-width: 0; padding: 8px; border-radius: 14px;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
     }
-    .ph-song[hidden] { display: none; }
+    /* Inside the panel these are plain fills, not glass on glass. */
+    .ph-song {
+      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 10px;
+      width: 100%; cursor: pointer; font-family: var(--font-ui); text-align: left; color: var(--text);
+      background: var(--glass-fill); border: 1px solid transparent; transition: border-color .15s, background-color .15s;
+    }
+    .ph-song:hover { border-color: var(--glass-border); background: var(--glass-fill-h); }
+    .ph-song.none { cursor: default; background: none; }
+    .ph-song.none:hover { border-color: transparent; }
+    .ph-song.none .ph-song-art::before { content: '\f166'; font-family: 'tabler-icons'; }
+    .ph-song.none .ph-song-art { display: grid; place-items: center; color: var(--text-faint); font-size: 16px; }
+    .ph-song.none .t { color: var(--text-dimmer); font-weight: 500; }
+    .ph-song.none .ph-eq { display: none; }
+    .ph-song-meta { flex: 1; }
     .ph-song-art { width: 32px; height: 32px; border-radius: 6px; background: var(--glass-fill) center/cover; flex: none; }
     .ph-song-meta { min-width: 0; display: flex; flex-direction: column; }
     .ph-song-meta .t { font-size: var(--fs-13); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -4233,11 +4250,17 @@
     .ph-song.playing .ph-eq b:nth-child(3) { animation-delay: -.6s; }
     @keyframes phEq { 0%, 100% { height: 3px; } 50% { height: 14px; } }
     @media (prefers-reduced-motion: reduce) { .ph-song.playing .ph-eq b { animation: none; height: 10px; } }
-    .ph-reacts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .ph-reacts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
     .ph-react {
-      height: 30px; padding: 0 10px; border-radius: 15px; font: 500 var(--fs-13) var(--font-ui);
-      display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+      height: 32px; padding: 0 8px; border-radius: 10px; font: 500 var(--fs-13) var(--font-ui);
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer;
     }
+    .ph-right .ph-react {
+      background: var(--glass-fill); -webkit-backdrop-filter: none; backdrop-filter: none;
+      box-shadow: none; border-color: transparent;
+    }
+    .ph-right .ph-react:hover { border-color: var(--glass-border); }
+    .ph-right .ph-react.mine, .ph-right .ph-react-comments[aria-pressed="true"] { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
     .ph-react.zero { opacity: .72; }
     .ph-react:hover { opacity: 1; border-color: var(--glass-border-h); }
     .ph-react.mine { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
@@ -4419,11 +4442,7 @@
 
     @media (max-width: 900px) {
       .ph-meta { grid-template-columns: 1fr; align-items: stretch; gap: 8px; }
-      .ph-card, .ph-right { justify-self: stretch; }
       .ph-specs { max-width: none; min-width: 0; }
-      .ph-right { flex-direction: row; align-items: center; justify-content: space-between; }
-      .ph-song { max-width: 55%; }
-      .ph-reacts { flex-wrap: nowrap; }
     }
     @media (max-width: 760px) {
       body.tab-photos-active .dash { padding-bottom: .75rem; max-width: 100%; }
@@ -4433,7 +4452,6 @@
       /* the Sound/Post buttons get their own strip above the photo on a phone */
       .ph-frame { top: calc(var(--control-h) + 8px); }
       .ph-side { left: 0; width: auto; top: auto; max-height: 85%; transform: translateY(calc(100% + 30px)); }
-      .ph-react.zero { display: none; }
       .ph-card { padding: 9px 12px; }
       .ph-caption { font-size: var(--fs-13); }
       .ph-spec { font-size: var(--fs-14); }

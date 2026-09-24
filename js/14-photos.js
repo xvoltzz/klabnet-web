@@ -20,7 +20,7 @@
   const PAGE = 40;
   const POLL_MS = 45000;
   const SONG_DWELL_MS = 550;   // how long you have to stay on a post before its song starts
-  const CLIP_LEN_S = 30;       // clips loop over this window from the chosen start
+  const CLIP_LEN_S = 90;       // clips loop over this window from the chosen start
   const SOUND_KEY = 'klabnet_photos_sound';
 
   const fileUrl = (id, size) => `${API}/files/${id}/${size}`;
@@ -329,16 +329,16 @@
     $('phGear').hidden = !s.gear;
     $('phSpecRow').innerHTML = s.specs;
 
+    // The slot stays even without a song, so every post has the same shape.
     const song = post.song;
     const songEl = $('phSong');
-    songEl.hidden = !song;
-    if (song) {
-      $('phSongTitle').textContent = song.title || '';
-      $('phSongArtist').textContent = song.artist || '';
-      $('phSongArt').style.backgroundImage = song.coverArt
-        ? `url("${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}")` : '';
-      songEl.classList.toggle('playing', clipPostId === post.id && !clip.paused);
-    }
+    songEl.classList.toggle('none', !song);
+    songEl.disabled = !song;
+    $('phSongTitle').textContent = song ? song.title || '' : 'No song';
+    $('phSongArtist').textContent = song ? song.artist || '' : '';
+    $('phSongArt').style.backgroundImage = song?.coverArt
+      ? `url("${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}")` : '';
+    songEl.classList.toggle('playing', !!song && clipPostId === post.id && !clip.paused);
 
     const rx = post.reactions || {};
     const emojis = QUICK_REACTIONS.concat(Object.keys(rx).filter(e => !QUICK_REACTIONS.includes(e)));
@@ -664,7 +664,7 @@
     if (soundOn) { clipSuppressed = null; scheduleClip(); } else stopClip();
   });
   $('phSong').addEventListener('click', () => {
-    if (sel < 0) return;
+    if (sel < 0 || !items[sel].post.song) return;
     const post = items[sel].post;
     if (clipPostId === post.id) { clipSuppressed = post.id; stopClip(); }
     else { clipSuppressed = null; if (!soundOn) { soundOn = true; renderSoundBtn(); } playClip(post.song, post.id); }
