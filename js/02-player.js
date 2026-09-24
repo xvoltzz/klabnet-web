@@ -69,6 +69,23 @@ playerState.audio.addEventListener('pause', () => {
   setPlayIcon(false);
 });
 
+// Tell Navidrome a song was played, so its play counts (and with them the
+// Music Home's "Most played" row) mean something. It only counts a play when
+// the player reports one, and this player never did. Standard rule: once
+// half the song, or 4 minutes, has actually been heard. Once per play.
+let _scrobbledFor = null;
+playerState.audio.addEventListener('timeupdate', () => {
+  const song = playerState.currentSong, a = playerState.audio;
+  if (!song || _scrobbledFor === song || !a.duration) return;
+  if (a.currentTime < Math.min(a.duration / 2, 240)) return;
+  _scrobbledFor = song;
+  fetchTimeout(`${ND_URL}/rest/scrobble?id=${encodeURIComponent(song.id)}&submission=true&${subsonicParams()}`, {}, 8000).catch(() => {});
+});
+playerState.audio.addEventListener('play', () => {
+  // replaying the same song from the start counts again
+  if (playerState.audio.currentTime < 1) _scrobbledFor = null;
+});
+
 // Keeps the "now playing" highlight in any open album/artist track list
 // in sync with playback — needed because tracks also advance without a
 // click (auto-advance, prev/next, media session, presence sync).
@@ -627,6 +644,12 @@ async function loadPickerTab(tab) {
 
   if (myLoadToken !== _pickerLoadToken) return; // superseded by a newer tab switch / search
   pickerSongs = songs;
+  // Home is a front page for the library (js/15-music-home.js); these
+  // random songs become its "Shuffle picks" section.
+  if (tab === 'random' && window.klabRenderMusicHome) {
+    window.klabRenderMusicHome(pickerList, songs, () => loadPickerTab('random'));
+    return;
+  }
   const tabLabels = {random:'Songs',recent:'Recently Played',search:'Search Results'};
   renderPickerList(songs, tabLabels[pickerTab] || 'Songs');
 }

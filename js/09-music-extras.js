@@ -588,6 +588,7 @@ loadPickerTab = async function(tab) {
   // (renderAlbumList()/renderArtistList()/renderArtistSearchResults(),
   // none of which needed to change) — this just reflows it via CSS.
   pickerList.classList.toggle('picker-list-grid', tab === 'albums' || tab === 'artists');
+  pickerList.classList.toggle('mh-home', tab === 'random');
   return _origLoadPickerTabSort(tab);
 };
 

@@ -4490,3 +4490,99 @@
       .ph-field.wide, .ph-exif-grid .ph-field:nth-child(3) { grid-column: span 2; }
       .ph-compose-pair { grid-template-columns: 1fr; }
     }
+
+    /* ══ MUSIC HOME — Cover Flow + album rows (js/15-music-home.js) ══ */
+    .picker-list.mh-home { gap: 6px; }
+    .picker-list.mh-home > * { flex: none; }
+
+    .mh-flow {
+      position: relative; overflow: hidden; border-radius: 16px; outline: none;
+      /* stage offset + cover + a strip of reflection + the caption, so the
+         caption never lands on the cover whatever size the cover is */
+      height: calc(26px + var(--mh-h, 230px) + 38px + 104px); margin: 2px 0 10px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass-fill);
+      user-select: none; -webkit-user-select: none; touch-action: pan-y;
+    }
+    .mh-flow[hidden] { display: none; }
+    .mh-flow:focus-visible { border-color: var(--glass-border-h); }
+    .mh-flow-bg {
+      position: absolute; inset: -20%; background-size: cover; background-position: center;
+      filter: blur(50px) saturate(1.5); opacity: 0; transition: opacity .7s ease;
+    }
+    .mh-flow-bg.on { opacity: .42; }
+    [data-theme="light"] .mh-flow-bg.on { opacity: .3; }
+    .mh-flow-stage {
+      position: absolute; left: 0; right: 0; top: 26px; height: var(--mh-size, 230px);
+      perspective: calc(var(--mh-size, 230px) * 4.2); transform-style: preserve-3d;
+      cursor: grab;
+    }
+    .mh-flow.dragging .mh-flow-stage { cursor: grabbing; }
+    .mh-cover {
+      position: absolute; left: 50%; top: 0;
+      width: var(--mh-size, 230px); height: var(--mh-size, 230px); margin-left: calc(var(--mh-size, 230px) / -2);
+      will-change: transform; cursor: pointer;
+      -webkit-box-reflect: below 3px linear-gradient(transparent 62%, rgba(255,255,255,0.22));
+    }
+    .mh-cover img {
+      width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 4px;
+      background: #1a1b1e; pointer-events: none;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+    }
+    .mh-cover:not(.center) img { filter: brightness(.72); transition: filter .25s ease; }
+    .mh-flow-caption {
+      position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; padding: 0 60px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .mh-flow-caption .t { font-size: var(--fs-16); font-weight: 600; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-flow-caption .a { font-size: var(--fs-12); color: var(--text-dim); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-flow-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .mh-flow-actions button {
+      height: 30px; padding: 0 14px; border-radius: 15px; cursor: pointer;
+      font: 600 var(--fs-12) var(--font-ui); display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
+    }
+    .mh-flow-actions .mh-flow-play { background: var(--text); color: var(--bg); border-color: transparent; }
+    .mh-flow-actions button:hover { border-color: var(--glass-border-h); }
+    .mh-flow-nav {
+      position: absolute; top: calc(26px + var(--mh-size, 230px) / 2 - 18px); z-index: 200;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      border: 1px solid var(--glass-border); background: var(--modal-glass); color: var(--text);
+      display: grid; place-items: center; font-size: 18px; opacity: 0; transition: opacity .2s;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .mh-flow-nav.prev { left: 14px; }
+    .mh-flow-nav.next { right: 14px; }
+    .mh-flow:hover .mh-flow-nav, .mh-flow:focus-within .mh-flow-nav { opacity: 1; }
+    @media (hover: none) { .mh-flow-nav { display: none; } }
+
+    .mh-note { text-transform: none; letter-spacing: normal; opacity: .7; margin-left: 4px; }
+    .mh-row {
+      display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 10px;
+      scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+    }
+    .mh-card { flex: none; width: 148px; cursor: pointer; scroll-snap-align: start; }
+    .mh-card-art { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--glass-fill); box-shadow: 0 6px 18px var(--shadow-30); }
+    .mh-card-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+    .mh-card:hover .mh-card-art img { transform: scale(1.04); }
+    .mh-card-play {
+      position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: var(--text); color: var(--bg); cursor: pointer; display: grid; place-items: center;
+      font-size: 16px; opacity: 0; transform: translateY(6px); transition: opacity .18s, transform .18s;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+    .mh-card:hover .mh-card-play, .mh-card-play:focus-visible { opacity: 1; transform: none; }
+    @media (hover: none) { .mh-card-play { opacity: 1; transform: none; } }
+    .mh-card-t { margin-top: 8px; font-size: var(--fs-13); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-card-a { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-shuffle-label { display: flex; align-items: center; gap: 6px; }
+    .mh-reshuffle {
+      background: none; border: none; color: var(--text-dimmer); cursor: pointer; padding: 2px 4px; border-radius: 6px;
+      font-size: 14px; display: inline-grid; place-items: center;
+    }
+    .mh-reshuffle:hover { color: var(--text); background: var(--glass-fill-h); }
+
+    @media (max-width: 760px) {
+      .mh-card { width: 124px; }
+      .mh-flow-caption { padding: 0 16px; }
+    }
