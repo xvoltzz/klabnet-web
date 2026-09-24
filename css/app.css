@@ -4997,13 +4997,7 @@
     #feedList .feed-post:hover .feed-post-delete, #feedList .feed-post-delete:focus-visible { opacity: 1; }
     @media (hover: none) { #feedList .feed-post-delete { opacity: 1; } }
 
-    /* People rail: rows like the Music sidebar, not boxed cards. */
-    #presenceRail .presence-card {
-      border: 1px solid transparent; background: none; box-shadow: none; border-radius: 14px; padding: 10px 12px;
-      transition: background-color var(--m-fast) ease;
-    }
-    #presenceRail .presence-card:hover { background: var(--glass-fill); }
-    #presenceRail .presence-card.is-playing { background: var(--glass-fill); border-color: var(--glass-border); }
+    /* People rail: the cards keep their own background and border. */
     #presenceRail .presence-card-name { font-size: 14px; font-weight: 600; }
 
     /* Chat: rows light up on hover, grouped lines sit close, pill composer. */
