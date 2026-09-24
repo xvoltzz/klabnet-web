@@ -54,6 +54,7 @@
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
+  const _openReplyBoxes = new Set();      // postIds whose reply box was opened with the Reply button
 
   // Its own list, separate from the header's MOTD_PHRASES — same crude/
   // unhinged energy on purpose, just original lines rather than reusing
@@ -295,7 +296,9 @@
   // below fetches into _repliesCache as each post with replies renders.
   function feedRepliesSectionHTML(post) {
     const replies = _repliesCache.get(post.id) || [];
-    return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + '" data-post-id="' + post.id + '">' +
+    // The reply box only shows once a post has replies or you hit Reply,
+    // instead of an empty input under every post.
+    return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + (_openReplyBoxes.has(post.id) ? ' replying' : '') + '" data-post-id="' + post.id + '">' +
       replies.map(r => feedReplyHTML(post, r)).join('') +
       '<div class="feed-post-reply-composer">' +
         '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
@@ -370,6 +373,7 @@
         '<div class="feed-post-footer">' +
           pillsHTML +
           '<button type="button" class="feed-post-add-reaction" data-post-id="' + post.id + '" title="Add reaction"><i class="ti ti-mood-plus"></i></button>' +
+          '<button type="button" class="feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-message-circle"></i>' + (post.reply_count ? '<span>' + post.reply_count + '</span>' : '') + '</button>' +
           '<span class="feed-post-quick-reactions' + (quickPickerOpen ? ' open' : '') + '" data-post-id="' + post.id + '">' +
             FEED_QUICK_REACTIONS.map(e => '<button type="button" data-post-id="' + post.id + '" data-emoji="' + e + '">' + e + '</button>').join('') +
           '</span>' +
@@ -402,7 +406,7 @@
           ':' + profileColor(p.username) +
           ':' + (_feedAvatarCache.get(p.username) || '') +
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
-          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') +
+          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + fmtFeedTime(r.created) + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-');
@@ -893,6 +897,15 @@
     if (del) { deletePost(Number(del.dataset.postId)); return; }
     const pill = e.target.closest('.feed-post-reaction-pill');
     if (pill) { toggleFeedReaction(Number(pill.dataset.postId), pill.dataset.emoji); return; }
+    const replyOpen = e.target.closest('.feed-post-reply-open');
+    if (replyOpen) {
+      const postId = Number(replyOpen.dataset.postId);
+      _openReplyBoxes.add(postId);
+      const box = listEl.querySelector('.feed-post-replies[data-post-id="' + postId + '"]');
+      box?.classList.add('replying');
+      box?.querySelector('.feed-post-reply-input')?.focus();
+      return;
+    }
     const addReact = e.target.closest('.feed-post-add-reaction');
     if (addReact) {
       const postId = Number(addReact.dataset.postId);

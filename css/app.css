@@ -4929,3 +4929,143 @@
       .add-app-backdrop .add-app-modal, .settings-backdrop .settings-modal { transform: none; }
       #musicShell .ap-hero, #musicShell .ap-body, .tab-panel.active { animation: none; }
     }
+
+    /* ══ SITE REFRESH — Feed, People, Chat, Settings, player ══
+       Same language as Music and Photos: plain type on quiet surfaces, big
+       clear titles, actions that appear when you reach for them, one white
+       primary control. Scoped by id so it outranks the older rules. */
+
+    /* Section titles: "Feed" / "People" instead of "// feed" in tiny caps. */
+    .dash .sec-head .sec-label {
+      font: 700 22px/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text);
+    }
+    .dash .sec-head .sec-line { display: none; }
+    #presenceRail .sec-head .sec-label { font-size: 15px; font-weight: 600; color: var(--text-dim); }
+
+    /* Composer: one soft surface, the send button is the primary pill. */
+    #feedComposer {
+      border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      padding: 14px 16px 12px; box-shadow: none;
+    }
+    #feedComposer:focus-within { border-color: var(--glass-border-h); }
+    #feedComposer .feed-composer-text { font-size: 16px; }
+    #feedComposer .feed-composer-image-btn { border: none; background: none; color: var(--text-dim); border-radius: 50%; width: 36px; height: 36px; }
+    #feedComposer .feed-composer-image-btn:hover { background: var(--glass-fill-h); color: var(--text); }
+    #feedComposer .feed-composer-post-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
+    }
+
+    /* Posts: softer cards, the avatar beside the text, actions as glyphs. */
+    #feedList .feed-post {
+      border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      padding: 16px 18px; gap: 14px; box-shadow: none;
+      transition: border-color var(--m-med) ease, background-color var(--m-med) ease;
+    }
+    #feedList .feed-post:hover { border-color: var(--glass-border-h); }
+    #feedList .feed-post-avatar { width: 40px; height: 40px; font-size: 16px; border: none; }
+    #feedList .feed-post-name { font-size: 15px; font-weight: 600; }
+    #feedList .feed-post-time { font-size: 12px; color: var(--text-dimmer); }
+    #feedList .feed-post-text { font-size: 15px; line-height: 1.5; }
+    #feedList .feed-post-song { border-radius: 14px; border: none; background: var(--glass-fill-h); padding: 10px; }
+    #feedList .feed-post-song-art { width: 52px; height: 52px; border-radius: 8px; border: none; }
+    #feedList .feed-post-song-play {
+      width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
+    }
+    #feedList .feed-post-image { border-radius: 14px; }
+    #feedList .feed-post-footer { gap: 6px; margin-top: 10px; align-items: center; }
+    #feedList .feed-post-add-reaction, #feedList .feed-post-reply-open {
+      height: 30px; min-width: 30px; padding: 0 8px; border-radius: 15px; border: none; background: none; cursor: pointer;
+      color: var(--text-dim); display: inline-flex; align-items: center; justify-content: center; gap: 5px; font: 600 13px var(--font-ui);
+      transition: background-color var(--m-fast) ease, color var(--m-fast) ease;
+    }
+    #feedList .feed-post-add-reaction i, #feedList .feed-post-reply-open i { font-size: 18px; }
+    #feedList .feed-post-add-reaction:hover, #feedList .feed-post-reply-open:hover { background: var(--glass-fill-h); color: var(--text); }
+    #feedList .feed-post-reaction-pill {
+      height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid transparent; background: var(--glass-fill-h); font-size: 13px;
+    }
+    #feedList .feed-post-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.45); box-shadow: 0 0 12px rgba(var(--accent-rgb),0.14); }
+    /* Replies: shown when there are some, or once you hit Reply. */
+    #feedList .feed-post-replies:not(.has-replies):not(.replying) { display: none; }
+    #feedList .feed-post-replies { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--glass-border); gap: 8px; }
+    #feedList .feed-post-replies.replying .feed-post-reply-composer { animation: fadeInUp var(--m-med) var(--m-ease) both; }
+    #feedList .feed-post-reply-input { border-radius: 18px; height: 36px; padding: 0 14px; background: var(--glass-fill-h); border: 1px solid transparent; }
+    #feedList .feed-post-reply-input:focus { border-color: var(--glass-border-h); }
+    #feedList .feed-post-reply-send { width: 36px; height: 36px; border-radius: 50%; border: none; background: none; color: var(--text-dim); }
+    #feedList .feed-post-reply-send:hover { color: var(--text); background: var(--glass-fill-h); }
+    #feedList .feed-post-delete { opacity: 0; transition: opacity var(--m-fast) ease; }
+    #feedList .feed-post:hover .feed-post-delete, #feedList .feed-post-delete:focus-visible { opacity: 1; }
+    @media (hover: none) { #feedList .feed-post-delete { opacity: 1; } }
+
+    /* People rail: rows like the Music sidebar, not boxed cards. */
+    #presenceRail .presence-card {
+      border: 1px solid transparent; background: none; box-shadow: none; border-radius: 14px; padding: 10px 12px;
+      transition: background-color var(--m-fast) ease;
+    }
+    #presenceRail .presence-card:hover { background: var(--glass-fill); }
+    #presenceRail .presence-card.is-playing { background: var(--glass-fill); border-color: var(--glass-border); }
+    #presenceRail .presence-card-name { font-size: 14px; font-weight: 600; }
+
+    /* Chat: rows light up on hover, grouped lines sit close, pill composer. */
+    #chatShell .chat-msg { border-radius: 12px; padding: 6px 10px; margin: 0 -10px; transition: background-color var(--m-fast) ease; }
+    #chatShell .chat-msg:hover { background: var(--glass-fill); }
+    #chatShell .chat-msg.grouped { padding-top: 1px; padding-bottom: 1px; }
+    #chatShell .chat-msg:not(.grouped) { margin-top: 10px; }
+    #chatShell .chat-msg-avatar { border: none; }
+    #chatShell .chat-msg-sender { font-weight: 600; }
+    #chatShell .chat-msg-text { font-size: 15px; line-height: 1.45; }
+    #chatShell #chatComposerInput { border-radius: 22px; padding-left: 16px; background: var(--glass-fill); }
+    #chatShell #chatComposerInput:focus { border-color: var(--glass-border-h); }
+    #chatShell .chat-msg-reaction-pill { border-radius: 14px; background: var(--glass-fill-h); }
+    #chatShell .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.45); box-shadow: 0 0 12px rgba(var(--accent-rgb),0.14); }
+    #presenceRail .chat-channel-item { border-radius: 10px; height: 38px; font-size: 14px; }
+    #presenceRail .chat-channel-item.active { background: var(--glass-fill-h); color: var(--text); }
+    #presenceRail .chat-channel-unread-dot { box-shadow: 0 0 8px rgba(255,248,236,0.5); }
+
+    /* Settings: grouped lists (one rounded block per section, hairlines
+       between rows) rather than a stack of separately-boxed rows. */
+    #settingsBackdrop .settings-modal { border-radius: 20px; }
+    #settingsBackdrop .settings-section-label {
+      font-size: var(--fs-11); font-weight: 600; letter-spacing: .12em; color: var(--text-dimmer); padding: 0 4px;
+    }
+    #settingsBackdrop .settings-row {
+      margin: 0; border-radius: 0; border: none; background: var(--glass-fill); border-top: 1px solid var(--glass-border);
+    }
+    #settingsBackdrop .settings-section .settings-row:first-of-type { border-top: none; border-top-left-radius: 14px; border-top-right-radius: 14px; }
+    #settingsBackdrop .settings-section .settings-row:last-of-type { border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
+    #settingsBackdrop .settings-row-label { font-size: 14px; letter-spacing: 0; }
+    #settingsBackdrop .settings-row-sub { font-size: 12px; letter-spacing: 0; }
+
+    /* Player: the play button is the white primary control everywhere. */
+    #playerDock .ctrl-btn.play-btn, #fsPlayer .fs-play {
+      border-radius: 50%; border: none; background: var(--text); color: var(--bg);
+      box-shadow: var(--bloom-white);
+    }
+    #playerDock .ctrl-btn.play-btn:hover, #fsPlayer .fs-play:hover { background: var(--text); opacity: .9; }
+    #fsPlayer .fs-play { width: 76px; height: 76px; font-size: 30px; }
+    #fsPlayer .fs-btn:not(.fs-play) { border: none; background: none; border-radius: 50%; }
+    #fsPlayer .fs-btn:not(.fs-play):hover { background: rgba(255,255,255,0.1); opacity: 1 !important; }
+    #fsPlayer .fs-artist, #fsPlayer .fs-album { text-transform: none; letter-spacing: 0; }
+    #fsPlayer .fs-artist { font-size: 17px; font-weight: 600; }
+    #fsPlayer .fs-album { font-size: 14px; }
+    #fsPlayer .fs-title { font-size: 34px; letter-spacing: -0.015em; }
+
+    /* Toasts and the header menu: rounder, same glass. */
+    .toast, .toast-item { border-radius: 14px; }
+    #headerMoreMenu { border-radius: 16px; }
+    #headerMoreMenu .ctx-item { border-radius: 10px; }
+
+    @media (max-width: 760px) {
+      #feedList .feed-post { padding: 14px; gap: 12px; flex-direction: row; }
+      #feedList .feed-post-body { min-width: 0; }
+      #feedList .feed-post-avatar { width: 36px; height: 36px; }
+      .dash .sec-head .sec-label { font-size: 20px; }
+    }
+    /* Follow-up lines from the same person sit right under the first. */
+    #chatShell .chat-msg.grouped { margin-top: 0; }
+    #chatShell .chat-msg-avatar.grouped { height: 0; min-height: 0; visibility: hidden; }
+    /* Users / Channels: sentence case, like the rest of the site's switches. */
+    #presenceRail .rail-tab { text-transform: none; letter-spacing: 0; font: 500 13px var(--font-ui); border-radius: 9px; }
+    #chatShell .chat-msg-avatar { width: 36px; min-width: 36px; }
+    #chatShell .chat-msg-avatar:not(.grouped) { height: 36px; }
+    #chatShell .chat-msg:has(+ .chat-msg.grouped) { padding-bottom: 1px; }
