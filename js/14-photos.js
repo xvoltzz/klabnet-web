@@ -169,6 +169,7 @@
       d.style.left = x + 'px';
       const img = document.createElement('img');
       img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.draggable = false;
+      img.onload = () => img.classList.add('loaded');
       img.src = fileUrl(it.ph.id, 'thumb');
       d.appendChild(img);
       strip.appendChild(d);
@@ -293,10 +294,27 @@
     frame.style.setProperty('--ph-img-h', Math.round(w / r) + 'px');
   }
 
+  // A flip or jump crossfades: the outgoing photo is copied over the new
+  // one, exactly where it sits, and faded out. Not while scrubbing, where
+  // the photo should just follow the playhead.
+  function crossfadeOut() {
+    if (scrubbing || !mainImg.getAttribute('src') || !(window.klabMotionOk && window.klabMotionOk())) return;
+    const fr = frame.getBoundingClientRect(), r = mainImg.getBoundingClientRect();
+    if (!r.width) return;
+    const g = mainImg.cloneNode();
+    g.removeAttribute('id');
+    g.classList.add('ph-ghost');
+    Object.assign(g.style, { position: 'absolute', left: (r.left - fr.left) + 'px', top: (r.top - fr.top) + 'px',
+      width: r.width + 'px', height: r.height + 'px', transform: 'none', margin: '0' });
+    frame.appendChild(g);
+    g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => g.remove();
+  }
+
   function select(i) {
     if (i === sel || !items[i]) return;
     if (sel >= 0 && thumbEls[sel]) thumbEls[sel].classList.remove('sel');
     const prevPost = sel >= 0 && items[sel] ? items[sel].post : null;
+    if (sel >= 0) crossfadeOut();
     sel = i;
     thumbEls[i]?.classList.add('sel');
     const it = items[i];
@@ -316,6 +334,11 @@
     mainImg.alt = it.post.text || `Photo by ${it.post.username}`;
 
     renderPost(prevPost !== it.post ? 'post' : 'photo');
+    // A new post's details ease in beside it (skipped mid-scrub).
+    if (prevPost && prevPost !== it.post && !scrubbing && window.klabFadeUp) {
+      window.klabFadeUp(railL, { dy: 4, duration: 260 });
+      window.klabFadeUp(railR, { dy: 4, duration: 260, delay: 30 });
+    }
     setBackdrop();
     if (prevPost !== it.post) scheduleClip();
     if (i < 8) fetchOlder();

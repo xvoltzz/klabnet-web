@@ -4840,3 +4840,92 @@
       #musicShell .ap-actions, #musicShell .ap-bio, #musicShell .ap-similar { padding-left: 12px; padding-right: 12px; }
       #musicShell .ap-disc-grid { padding: 4px 12px 8px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
     }
+
+    /* ══ MOTION — shared timing, and the transitions that make it seamless ══
+       One easing curve and three durations for everything that moves, so
+       nothing on the site feels like it's on its own clock. js/16-motion.js
+       uses the same values for what it animates. */
+    :root {
+      --m-ease: cubic-bezier(.2,.8,.2,1);
+      --m-fast: 140ms;
+      --m-med: 220ms;
+      --m-slow: 320ms;
+    }
+    .tab-panel.active { animation: fadeInUp var(--m-med) var(--m-ease) both; }
+
+    /* Sliding pill (slidingPill() in js/16-motion.js): one highlight that
+       glides to the active item. The item's own active fill steps aside. */
+    .has-pill { position: relative; }
+    .motion-pill {
+      position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0;
+      border-radius: var(--radius-md);
+    }
+    .motion-pill.ready { transition: transform var(--m-slow) var(--m-ease), width var(--m-slow) var(--m-ease), height var(--m-slow) var(--m-ease), opacity var(--m-fast) ease; }
+    .has-pill > :not(.motion-pill) { position: relative; z-index: 1; }
+    .motion-pill-tabs { background: rgba(var(--accent-rgb),0.16); border: 1px solid rgba(var(--accent-rgb),0.4); }
+    .tab-nav.has-pill .tab-nav-btn.active { background: transparent; border-color: transparent; }
+    .motion-pill-music { background: var(--glass-fill-h); border: 1px solid var(--glass-border); border-radius: 10px; }
+    #musicShell .music-nav.has-pill .picker-tab.active,
+    #musicShell .music-nav.has-pill .music-playlist-row.active { background: transparent; border-color: transparent; }
+    #musicShell .music-nav.has-pill .music-sidebar-group,
+    #musicShell .music-nav.has-pill .picker-tabs { position: relative; z-index: 1; }
+
+    /* Modals leave the way they arrived: a fade (and a little drop) out,
+       not a snap. display is transitioned discretely so it switches off only
+       once the fade has finished; browsers without that just close instantly. */
+    .add-app-backdrop, .settings-backdrop {
+      opacity: 0;
+      transition: opacity var(--m-med) var(--m-ease), display var(--m-med) allow-discrete, overlay var(--m-med) allow-discrete;
+    }
+    .add-app-backdrop.open, .settings-backdrop.open { opacity: 1; animation: none; }
+    .add-app-backdrop .add-app-modal, .settings-backdrop .settings-modal {
+      animation: none; transform: translateY(10px) scale(.985); opacity: 0;
+      transition: transform var(--m-slow) var(--m-ease), opacity var(--m-med) var(--m-ease);
+    }
+    .add-app-backdrop.open .add-app-modal, .settings-backdrop.open .settings-modal { transform: none; opacity: 1; }
+    @starting-style {
+      .add-app-backdrop.open, .settings-backdrop.open { opacity: 0; }
+      .add-app-backdrop.open .add-app-modal, .settings-backdrop.open .settings-modal { transform: translateY(14px) scale(.98); opacity: 0; }
+    }
+
+    /* Artwork fades in as it loads instead of popping. */
+    #musicShell .picker-list-grid .picker-item-art { animation: fadeInSoft var(--m-slow) ease both; }
+    .mh-card-art img, .mh-cover img, .ph-thumb img { transition: opacity var(--m-slow) ease, transform .25s ease, filter .25s ease; }
+    .mh-card-art img:not(.loaded), .mh-cover img:not(.loaded), .ph-thumb img:not(.loaded) { opacity: 0; }
+    /* Album/artist page content arrives after its fetch; ease it in. */
+    #musicShell .ap-hero { animation: fadeInUp var(--m-slow) var(--m-ease) both; }
+    #musicShell .ap-body { animation: fadeInUp var(--m-slow) var(--m-ease) 60ms both; }
+    /* Photos: the photo that's leaving (a copy laid over the new one). */
+    .ph-ghost { pointer-events: none; z-index: 2; }
+
+    /* ══ BLOOM — lit things glow, softly ══
+       Anything emissive (the white primary pill, active highlights, the
+       liked heart, the equalizer, the selected photo, switches that are on,
+       online dots) gets a wide, low-alpha halo in its own colour, so it reads
+       as light spilling rather than an outline. Invisible by design against
+       a light page, where there's nothing for light to spill onto. */
+    :root { --bloom-white: 0 0 14px rgba(255,248,236,0.16), 0 0 38px rgba(255,248,236,0.07); }
+    [data-theme="light"] { --bloom-white: 0 2px 10px var(--shadow-30); }
+    .mh-flow-actions .mh-flow-play, #musicShell .ap-btn-play, .ph-compose-submit:not(:disabled),
+    .mh-card-play, #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action[title="Play"] {
+      box-shadow: var(--bloom-white);
+    }
+    .ctrl-btn.play-btn { box-shadow: 0 0 16px rgba(var(--accent-rgb),0.14), 0 0 40px rgba(var(--accent-rgb),0.06); }
+    .motion-pill-tabs { box-shadow: 0 0 18px rgba(var(--accent-rgb),0.16), 0 0 42px rgba(var(--accent-rgb),0.07), inset 0 1px 0 rgba(255,255,255,0.06); }
+    .motion-pill-music { box-shadow: 0 0 22px rgba(255,248,236,0.05); }
+    [data-theme="light"] .motion-pill-music { box-shadow: 0 1px 6px var(--shadow-20); }
+    .tab-nav-btn.active i, #musicShell .picker-tab.active i { filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+    .ph-like.mine i { filter: drop-shadow(0 0 6px rgba(255,79,139,0.55)) drop-shadow(0 0 16px rgba(255,79,139,0.25)); }
+    .ph-heart { filter: drop-shadow(0 0 22px rgba(255,79,139,0.55)); }
+    .ph-song.playing .ph-eq b, .ph-eq b { box-shadow: 0 0 6px rgba(255,248,236,0.35); }
+    .ph-thumb.sel { box-shadow: 0 0 0 2px var(--text), 0 0 18px rgba(255,248,236,0.22), 0 8px 24px var(--shadow-50); }
+    .s-toggle.on { box-shadow: 0 0 12px rgba(var(--accent-rgb),0.35), 0 0 28px rgba(var(--accent-rgb),0.14); }
+    .presence-card-online { box-shadow: 0 0 6px rgba(74,222,128,0.45), 0 0 14px rgba(74,222,128,0.18); }
+    #musicShell .picker-action.fav-active i { filter: drop-shadow(0 0 6px rgba(248,113,113,0.5)); }
+    .mh-cover.center img { box-shadow: 0 18px 40px rgba(0,0,0,0.45), 0 0 60px rgba(255,248,236,0.06); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .motion-pill.ready { transition: opacity var(--m-fast) ease; }
+      .add-app-backdrop .add-app-modal, .settings-backdrop .settings-modal { transform: none; }
+      #musicShell .ap-hero, #musicShell .ap-body, .tab-panel.active { animation: none; }
+    }

@@ -71,6 +71,7 @@
         c.dataset.i = i;
         const img = new Image();
         img.alt = ''; img.draggable = false; img.decoding = 'async';
+        img.onload = () => img.classList.add('loaded');
         img.src = art(a.coverArt || a.id, 500);
         c.appendChild(img);
         stage.appendChild(c);
@@ -227,7 +228,7 @@
       const card = document.createElement('div');
       card.className = 'mh-card';
       card.innerHTML =
-        `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, 300))}" alt="" loading="lazy" decoding="async" draggable="false" />` +
+        `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, 300))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
         `<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>` +
         `<div class="mh-card-t">${esc(a.name || a.title || '')}</div><div class="mh-card-a">${esc(a.artist || '')}</div>`;
       card.addEventListener('click', e => {
