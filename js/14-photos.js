@@ -16,7 +16,7 @@
 // ══════════════════════════════════════════
 (function() {
   const API = '/api/posts/photos';
-  const QUICK_REACTIONS = ['❤️', '🔥', '😂', '👍'];
+  const LIKE = '❤️';           // the one reaction on this tab (the feed's reactions API, this emoji)
   const PAGE = 40;
   const POLL_MS = 45000;
   const SONG_DWELL_MS = 550;   // how long you have to stay on a post before its song starts
@@ -48,18 +48,6 @@
   // Timeline order: sort_at ("YYYY-MM-DD HH:MM:SS") then id, both descending.
   const before = (a, b) => a.sort_at < b.sort_at || (a.sort_at === b.sort_at && a.id < b.id);
 
-  function fmtAgo(apiTime) {
-    const d = new Date(apiTime.replace(' ', 'T') + 'Z');
-    const s = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (s < 60) return 'just now';
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h`;
-    const days = Math.floor(h / 24);
-    if (days < 7) return `${days}d`;
-    return d.toLocaleDateString();
-  }
   // shot_at is local wall time with no zone, so it's parsed as local.
   const shotDate = shotAt => new Date(shotAt.slice(0, 10) + 'T12:00:00');
   const fmtShot = shotAt => shotDate(shotAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
@@ -305,9 +293,10 @@
     if (i < 8) fetchOlder();
   }
 
+  const avatarUrl = username => (window.klabResolveUserAvatar ? window.klabResolveUserAvatar(username) : null);
   function avatarHTML(username) {
-    const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(username) : null;
-    if (url) return `<img class="ph-avatar" src="${esc(url)}" alt="" />`;
+    const url = avatarUrl(username);
+    if (url) return `<img class="ph-avatar" src="${esc(url)}" alt="" width="26" height="26" />`;
     return `<span class="ph-avatar ph-avatar-letter" style="background:${profileColor(username)}">${esc(username[0] || '?').toUpperCase()}</span>`;
   }
   const nameHTML = u => `<button type="button" class="ph-name" data-username="${esc(u)}" style="color:${profileColor(u)}">${esc(u)}</button>`;
@@ -327,9 +316,20 @@
   function renderPost(postChanged) {
     if (sel < 0 || !items[sel]) return;
     const { post, k, ph } = items[sel];
-    $('phWho').innerHTML = avatarHTML(post.username) + nameHTML(post.username) +
-      `<span class="ph-when">posted ${esc(fmtAgo(post.created))}</span>`;
-    $('phShot').innerHTML = post.shot_at ? `<i class="ti ti-calendar"></i> Shot ${esc(fmtShot(post.shot_at))}` : '';
+    // Rebuilt only when something in it changed. Rewriting it on every
+    // frame of a scrub reloaded the avatar each time, so it flickered.
+    const whoKey = `${post.id}|${avatarUrl(post.username) || ''}`;
+    if ($('phWho').dataset.key !== whoKey) {
+      $('phWho').dataset.key = whoKey;
+      $('phWho').innerHTML = avatarHTML(post.username) + nameHTML(post.username);
+    }
+    // This tab is about when the photos were taken, not when they were
+    // posted. Only a post with no shooting date falls back to its post date.
+    const shotEl = $('phShot');
+    shotEl.classList.toggle('fallback', !post.shot_at);
+    shotEl.innerHTML = post.shot_at
+      ? `<i class="ti ti-camera"></i> Shot on ${esc(fmtShot(post.shot_at))}`
+      : `Posted ${esc(new Date(post.created.replace(' ', 'T') + 'Z').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }))}`;
     $('phCaption').textContent = post.text || '';
     $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
     $('phDots').innerHTML = post.photos.length > 1
@@ -350,13 +350,7 @@
       ? `url("${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}")` : '';
     songEl.classList.toggle('playing', !!song && clipPostId === post.id && !clip.paused);
 
-    const rx = post.reactions || {};
-    const emojis = QUICK_REACTIONS.concat(Object.keys(rx).filter(e => !QUICK_REACTIONS.includes(e)));
-    $('phReacts').innerHTML = emojis.map(e => {
-      const r = rx[e];
-      return `<button type="button" class="ph-react${r?.mine ? ' mine' : ''}${r ? '' : ' zero'}" data-emoji="${esc(e)}">${e}${r ? `<span>${r.count}</span>` : ''}</button>`;
-    }).join('') +
-      `<button type="button" class="ph-react ph-react-comments" data-comments="1" title="Comments (c)" aria-pressed="${shell.classList.contains('side-open')}"><i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
+    renderLikes(post);
 
     $('phOriginal').href = fileUrl(ph.id, 'original');
     $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
@@ -366,6 +360,22 @@
       if (shell.classList.contains('side-open')) loadReplies(post);
     }
     fitImg();
+  }
+
+  function renderLikes(post, pop) {
+    const liked = !!post.reactions?.[LIKE]?.mine;
+    const n = post.reactions?.[LIKE]?.count || 0;
+    $('phReacts').innerHTML =
+      `<button type="button" class="ph-like${liked ? ' mine' : ''}${pop ? ' pop' : ''}" data-like="1" title="${liked ? 'Unlike' : 'Like'}" aria-pressed="${liked}">` +
+        `<i class="ti ${liked ? 'ti-heart-filled' : 'ti-heart'}"></i>${n ? `<span>${n}</span>` : ''}</button>` +
+      `<button type="button" class="ph-cmt" data-comments="1" title="Comments (c)" aria-pressed="${shell.classList.contains('side-open')}">` +
+        `<i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
+    const who = post.likers || [];
+    const shown = who.slice(0, 3).map(nameHTML);
+    const rest = who.length - shown.length;
+    $('phLikers').innerHTML = !who.length ? '' : 'Liked by ' +
+      (rest > 0 ? shown.join(', ') + ` <span title="${esc(who.slice(3).join(', '))}">and ${rest} other${rest > 1 ? 's' : ''}</span>`
+        : shown.length > 1 ? shown.slice(0, -1).join(', ') + ' and ' + shown[shown.length - 1] : shown[0]);
   }
 
   // ── Scrubbing ──
@@ -466,11 +476,10 @@
   function heartBurst(e) {
     if (sel < 0) return;
     const post = items[sel].post;
-    if (!post.reactions?.['❤️']?.mine) toggleReaction(post, '❤️');
+    if (!post.reactions?.[LIKE]?.mine) toggleReaction(post, LIKE);
     const r = stage.getBoundingClientRect();
-    const h = document.createElement('div');
-    h.className = 'ph-heart';
-    h.textContent = '❤️';
+    const h = document.createElement('i');
+    h.className = 'ph-heart ti ti-heart-filled';
     h.style.left = (e.clientX - r.left) + 'px';
     h.style.top = (e.clientY - r.top) + 'px';
     stage.appendChild(h);
@@ -485,16 +494,21 @@
       }, 8000);
       if (!r.ok) throw new Error();
       post.reactions = (await r.json()).reactions || {};
-      if (sel >= 0 && items[sel].post === post) renderPost(false);
+      if (emoji === LIKE) {
+        const mine = !!post.reactions[LIKE]?.mine;
+        post.likers = (post.likers || []).filter(u => u !== me());
+        if (mine) post.likers.push(me());
+      }
+      if (sel >= 0 && items[sel].post === post) renderLikes(post, emoji === LIKE && !!post.reactions[LIKE]?.mine);
     } catch (e) { showToast('couldn’t react — try again', 'ti-alert-triangle'); }
   }
 
   $('phReacts').addEventListener('click', e => {
-    const b = e.target.closest('.ph-react');
+    const b = e.target.closest('button');
     if (!b || sel < 0) return;
     SFX && SFX.play('click');
     if (b.dataset.comments) { setSide(!shell.classList.contains('side-open')); return; }
-    toggleReaction(items[sel].post, b.dataset.emoji);
+    toggleReaction(items[sel].post, LIKE);
   });
 
   async function loadReplies(post) {
@@ -579,7 +593,7 @@
   // ── Comments panel ──
   function setSide(on) {
     shell.classList.toggle('side-open', on);
-    $('phReacts').querySelector('.ph-react-comments')?.setAttribute('aria-pressed', on);
+    $('phReacts').querySelector('.ph-cmt')?.setAttribute('aria-pressed', on);
     if (on && sel >= 0) loadReplies(items[sel].post);
     // the frame animates its right edge; refit once it settles
     setTimeout(fitImg, 300);

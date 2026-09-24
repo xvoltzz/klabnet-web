@@ -4133,7 +4133,7 @@
     .ph-shell.drop-hover .ph-stage { outline: 2px dashed var(--glass-border-h); outline-offset: -6px; border-radius: 14px; }
 
     /* Glass for everything floating over the backdrop — the .lg-blur recipe. */
-    .ph-glass, .ph-btn, .ph-react, .ph-side {
+    .ph-glass, .ph-btn, .ph-side {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 45%, rgba(255,255,255,0) 100%),
         var(--modal-glass);
@@ -4144,7 +4144,7 @@
       color: var(--text);
     }
     @media (prefers-reduced-transparency: reduce) {
-      .ph-glass, .ph-btn, .ph-react, .ph-side { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+      .ph-glass, .ph-btn, .ph-side { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
       .ph-bd-layer { display: none; }
     }
 
@@ -4190,26 +4190,30 @@
     .ph-rail {
       position: absolute; width: var(--ph-rail-w, 240px);
       bottom: calc((100% - var(--ph-img-h, 0px)) / 2);
-      max-height: calc((100% + var(--ph-img-h, 0px)) / 2); overflow: hidden;
       display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;
       user-select: text; -webkit-user-select: text;
     }
     .ph-rail-l { right: calc(50% + var(--ph-img-w, 0px) / 2 + var(--ph-gap)); align-items: flex-end; text-align: right; }
     .ph-rail-r { left: calc(50% + var(--ph-img-w, 0px) / 2 + var(--ph-gap)); align-items: flex-start; }
 
+    /* The post and the camera details each get a box; the song and the
+       heart sit loose under the camera box. */
+    .ph-box {
+      max-width: 100%; padding: 12px 14px; border-radius: 14px;
+      display: flex; flex-direction: column; gap: 8px; text-align: left;
+    }
     .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); flex-wrap: wrap; }
-    .ph-rail-l .ph-who { justify-content: flex-end; }
-    .ph-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+    .ph-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
     .ph-avatar-letter { display: grid; place-items: center; font-size: var(--fs-11); font-weight: 700; color: #000; }
     .ph-name { background: none; border: none; padding: 0; font: 600 var(--fs-14) var(--font-ui); cursor: pointer; color: var(--text); }
     .ph-name:hover { text-decoration: underline; }
-    .ph-when { color: var(--text-dimmer); font-size: var(--fs-12); width: 100%; }
-    .ph-shot { display: flex; align-items: center; gap: 5px; font-size: var(--fs-12); color: var(--text-dim); letter-spacing: .02em; }
+    .ph-shot { display: flex; align-items: center; gap: 6px; font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+    .ph-shot i { font-size: var(--fs-15); color: var(--text-dim); }
+    .ph-shot.fallback { font-size: var(--fs-12); font-weight: 400; color: var(--text-dimmer); }
     .ph-shot:empty { display: none; }
     .ph-caption { font-size: var(--fs-16); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
     .ph-caption:empty { display: none; }
     .ph-tags { font-size: var(--fs-12); color: var(--text-dim); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-    .ph-rail-l .ph-tags { justify-content: flex-end; }
     .ph-tags:empty { display: none; }
     .ph-tags .ph-name { font-size: var(--fs-12); }
     .ph-dots { display: flex; gap: 5px; }
@@ -4246,18 +4250,27 @@
     @keyframes phEq { 0%, 100% { height: 3px; } 50% { height: 14px; } }
     @media (prefers-reduced-motion: reduce) { .ph-song.playing .ph-eq b { animation: none; height: 10px; } }
 
-    .ph-reacts { display: flex; gap: 5px; }
-    .ph-react {
-      height: 30px; padding: 0 9px; border-radius: 15px; flex: none; font: 500 var(--fs-13) var(--font-ui);
-      display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer;
+    /* One reaction: a heart glyph that fills pink, plus the comment count. */
+    .ph-reacts { display: flex; align-items: center; gap: 14px; padding: 2px 4px 0; }
+    .ph-like, .ph-cmt {
+      background: none; border: none; padding: 2px; cursor: pointer; color: var(--text);
+      display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-14) var(--font-ui);
+      font-variant-numeric: tabular-nums; opacity: .85; transition: opacity .15s;
     }
-    .ph-react.zero { opacity: .72; }
-    .ph-react:hover { opacity: 1; border-color: var(--glass-border-h); }
-    .ph-react.mine, .ph-react-comments[aria-pressed="true"] { border-color: var(--glass-border-h); background-color: var(--glass-fill-h); }
-    .ph-react i { font-size: 15px; }
+    .ph-like:hover, .ph-cmt:hover { opacity: 1; }
+    .ph-like i, .ph-cmt i { font-size: 22px; }
+    .ph-like.mine { opacity: 1; }
+    .ph-like.mine i { color: var(--ph-pink); }
+    .ph-like.pop i { animation: phPop .35s cubic-bezier(.2,.9,.3,1.4); }
+    @keyframes phPop { 40% { transform: scale(1.3); } }
+    .ph-cmt[aria-pressed="true"] { opacity: 1; }
+    .ph-likers { font-size: var(--fs-12); color: var(--text-dim); padding: 0 4px; }
+    .ph-likers:empty { display: none; }
+    .ph-likers .ph-name { font-size: var(--fs-12); }
 
+    .ph-shell { --ph-pink: #ff4f8b; }
     .ph-heart {
-      position: absolute; z-index: 6; font-size: 84px; pointer-events: none;
+      position: absolute; z-index: 6; font-size: 96px; pointer-events: none; color: var(--ph-pink);
       transform: translate(-50%, -50%) scale(0.2); opacity: 0;
       animation: phHeart .9s cubic-bezier(.2,.9,.3,1.2) forwards;
       filter: drop-shadow(0 6px 24px rgba(0,0,0,0.5));
@@ -4435,14 +4448,13 @@
       .ph-frame { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
       .ph-frame img { position: static; transform: none; flex: none; align-self: center; margin-bottom: 12px; }
       .ph-rail { position: static; width: auto; max-height: none; overflow: visible; gap: 6px; }
-      .ph-rail-l { align-items: flex-start; text-align: left; }
-      .ph-rail-l .ph-who, .ph-rail-l .ph-tags { justify-content: flex-start; }
+      .ph-rail-l { align-items: stretch; }
+      .ph-rail-r { align-items: stretch; }
       .ph-rail-l { order: 2; }
       .ph-frame img { order: 1; }
       .ph-rail-r { order: 3; margin-top: 10px; }
-      .ph-when { width: auto; }
-      .ph-when::before { content: '· '; }
       .ph-gear { flex-direction: row; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
+      .ph-song { align-self: flex-start; }
       .ph-spec-row { display: flex; flex-wrap: wrap; gap: 2px 14px; }
       .ph-spec { display: inline-flex; align-items: baseline; gap: 5px; }
     }
