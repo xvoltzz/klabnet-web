@@ -4202,10 +4202,23 @@
     /* The post and the camera details each get a box; the song and the
        heart sit loose under the camera box. */
     .ph-box {
+      position: relative;
       max-width: 100%; padding: 12px 14px; border-radius: 14px;
       display: flex; flex-direction: column; gap: 8px; text-align: left;
     }
     .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); flex-wrap: wrap; }
+    /* Edit / delete, top-right of your own post's box. */
+    .ph-own { position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; }
+    .ph-own[hidden] { display: none; }
+    .ph-own button {
+      width: 28px; height: 28px; border-radius: 8px; border: none; background: none; cursor: pointer;
+      color: var(--text-dimmer); display: grid; place-items: center; font-size: 16px;
+      transition: color .15s, background-color .15s;
+    }
+    .ph-own button:hover { color: var(--text); background: var(--glass-fill-h); }
+    .ph-own #phDelete:hover { color: var(--danger-color); }
+    .ph-box:has(.ph-own:not([hidden])) .ph-who { padding-right: 60px; }
+    .add-app-modal.ph-edit { width: min(460px, calc(100vw - 2rem)); }
     .ph-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
     .ph-avatar-letter { display: grid; place-items: center; font-size: var(--fs-11); font-weight: 700; color: #000; }
     .ph-name { background: none; border: none; padding: 0; font: 600 var(--fs-14) var(--font-ui); cursor: pointer; color: var(--text); }

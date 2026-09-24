@@ -62,7 +62,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.24.6" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.24.7" />
 </head>
 <body>
 
@@ -457,6 +457,11 @@ window.KLAB_BOOT = (function() {
       <div class="ph-frame" id="phFrame">
         <aside class="ph-rail ph-rail-l">
           <div class="ph-box ph-glass">
+            <!-- Only on posts you can manage (yours, or any if you're an admin). -->
+            <div class="ph-own" id="phOwn" hidden>
+              <button type="button" id="phEditBtn" title="Edit date, caption, tags"><i class="ti ti-pencil"></i></button>
+              <button type="button" id="phDelete" title="Delete post"><i class="ti ti-trash"></i></button>
+            </div>
             <div class="ph-who" id="phWho"></div>
             <div class="ph-shot" id="phShot"></div>
             <div class="ph-caption" id="phCaption"></div>
@@ -496,7 +501,6 @@ window.KLAB_BOOT = (function() {
         </form>
         <div class="ph-side-foot">
           <a class="ph-original" id="phOriginal" target="_blank" rel="noopener"><i class="ti ti-arrows-maximize"></i> Full resolution · <span id="phOriginalSize"></span></a>
-          <button type="button" class="ph-delete" id="phDelete" hidden><i class="ti ti-trash"></i> Delete post</button>
         </div>
       </aside>
     </div>
@@ -611,6 +615,27 @@ window.KLAB_BOOT = (function() {
     <div class="ph-compose-foot">
       <span class="ph-compose-error" id="phComposeError" hidden></span>
       <button type="button" class="ph-compose-submit" id="phComposeSubmit" disabled>Post</button>
+    </div>
+  </div>
+</div>
+
+<div class="add-app-backdrop" id="phEditBackdrop">
+  <div class="add-app-modal ph-compose ph-edit">
+    <div class="add-app-title">
+      <span>// edit post</span>
+      <button class="add-app-close" id="phEditClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="ph-compose-body">
+      <label class="ph-field ph-date-field"><span>Shooting date</span><input type="date" id="phEditDate" /><em class="ph-compose-hint">Leave it empty to use the date saved in the photos.</em></label>
+      <label class="ph-field"><span>Caption</span><textarea class="ph-compose-caption" id="phEditCaption" rows="3" maxlength="500"></textarea></label>
+      <div class="ph-field ph-tags-field"><span>Tagged</span>
+        <div class="ph-tags-box" id="phEditTagsBox"><input type="text" id="phEditTagInput" placeholder="Type a name…" autocomplete="off" /></div>
+        <div class="ph-tag-suggest" id="phEditTagSuggest"></div>
+      </div>
+    </div>
+    <div class="ph-compose-foot">
+      <span class="ph-compose-error" id="phEditError" hidden></span>
+      <button type="button" class="ph-compose-submit" id="phEditSave">Save</button>
     </div>
   </div>
 </div>
@@ -739,22 +764,22 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.24.6';</script>
-<script defer src="js/00-util.js?v=v2026.09.24.6"></script>
-<script defer src="js/01-shell.js?v=v2026.09.24.6"></script>
-<script defer src="js/02-player.js?v=v2026.09.24.6"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.24.6"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.24.6"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.24.6"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.24.6"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.24.6"></script>
-<script defer src="js/08-chat.js?v=v2026.09.24.6"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.24.6"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.24.6"></script>
-<script defer src="js/11-presence.js?v=v2026.09.24.6"></script>
-<script defer src="js/12-feed.js?v=v2026.09.24.6"></script>
-<script defer src="js/13-tail.js?v=v2026.09.24.6"></script>
-<script defer src="js/14-photos.js?v=v2026.09.24.6"></script>
+<script>const KLABNET_VERSION = 'v2026.09.24.7';</script>
+<script defer src="js/00-util.js?v=v2026.09.24.7"></script>
+<script defer src="js/01-shell.js?v=v2026.09.24.7"></script>
+<script defer src="js/02-player.js?v=v2026.09.24.7"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.24.7"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.24.7"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.24.7"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.24.7"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.24.7"></script>
+<script defer src="js/08-chat.js?v=v2026.09.24.7"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.24.7"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.24.7"></script>
+<script defer src="js/11-presence.js?v=v2026.09.24.7"></script>
+<script defer src="js/12-feed.js?v=v2026.09.24.7"></script>
+<script defer src="js/13-tail.js?v=v2026.09.24.7"></script>
+<script defer src="js/14-photos.js?v=v2026.09.24.7"></script>
 
 </body>
 </html>

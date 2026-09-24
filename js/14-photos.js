@@ -388,7 +388,7 @@
 
     renderLikes(post);
 
-    $('phDelete').hidden = !(post.username === me() || window.KLAB_USER?.is_admin);
+    $('phOwn').hidden = !(post.username === me() || window.KLAB_USER?.is_admin);
     if (postChanged) {
       $('phReplies').dataset.postId = '';
       if (shell.classList.contains('side-open')) loadReplies(post);
@@ -507,9 +507,19 @@
 
   // Trackpad/wheel anywhere on the tab: a sideways swipe scrubs, and
   // scrolling down goes back in time. The comments panel keeps its own scroll.
+  //
+  // A mouse wheel is stepped instead: one click moves exactly one photo.
+  // A click arrives as a single ~100px jump (or as lines, in Firefox),
+  // and fed into the continuous scrub that's nearly two thumbs' worth.
+  // A trackpad sends a stream of small deltas, which keep scrubbing freely.
   shell.addEventListener('wheel', e => {
     if (!items.length || e.target.closest('.ph-side')) return;
     e.preventDefault();
+    const notch = e.deltaMode === 1 || (Math.abs(e.deltaX) < 1 && Math.abs(e.deltaY) >= 50);
+    if (notch) {
+      goTo(sel + (e.deltaY > 0 ? -1 : 1));
+      return;
+    }
     target = clampX(target + (e.deltaX - e.deltaY) * 0.9);
     scrubActivity();
     kick();
@@ -645,6 +655,55 @@
       applyPosts(posts.filter(p => p !== post), { keepSelection: false });
       showToast('post deleted', 'ti-trash');
     } catch (e) { showToast('couldn’t delete that post', 'ti-alert-triangle'); }
+  });
+
+  // ── Edit your own post ──
+  // Mostly for getting shooting dates right after the fact, so the timeline
+  // reads in the order things happened.
+  const editBackdrop = $('phEditBackdrop');
+  let editing = null;
+  const editTags = makeTagPicker('phEdit', () => editing?.username);
+  $('phEditBtn').addEventListener('click', () => {
+    if (sel < 0) return;
+    editing = items[sel].post;
+    loadRoster();
+    $('phEditDate').value = (editing.shot_at || '').slice(0, 10);
+    $('phEditDate').max = new Date().toISOString().slice(0, 10);
+    $('phEditCaption').value = editing.text || '';
+    editTags.set(editing.tags || []);
+    $('phEditError').hidden = true;
+    editBackdrop.classList.add('open');
+    SFX && SFX.play('open');
+    $('phEditDate').focus();
+  });
+  const closeEdit = () => { editBackdrop.classList.remove('open'); editing = null; };
+  $('phEditClose').addEventListener('click', closeEdit);
+  editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop) closeEdit(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && editBackdrop.classList.contains('open')) closeEdit(); });
+  trapFocusWithin(editBackdrop.querySelector('.add-app-modal'), () => editBackdrop.classList.contains('open'));
+  $('phEditSave').addEventListener('click', async () => {
+    if (!editing) return;
+    const btn = $('phEditSave');
+    btn.disabled = true;
+    try {
+      const r = await fetchTimeout(`${API}/${editing.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shot_at: $('phEditDate').value, caption: $('phEditCaption').value.trim(), tags: editTags.get() }),
+      }, 10000);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'couldn’t save');
+      // A new date can move the post along the timeline: re-slot it and follow it there.
+      const next = posts.filter(p => p.id !== data.id);
+      let at = next.findIndex(p => before(p, data));
+      if (at < 0) at = next.length;
+      next.splice(at, 0, data);
+      closeEdit();
+      applyPosts(next, { focusPostId: data.id });
+      showToast('post updated', 'ti-check');
+    } catch (e) {
+      $('phEditError').textContent = e.message || 'couldn’t save';
+      $('phEditError').hidden = false;
+    } finally { btn.disabled = false; }
   });
 
   // ── Comments panel ──
@@ -806,7 +865,6 @@
   let activeDraft = null; // the tile whose details are being edited
   let pickedSong = null;  // subsonic song object
   let draftKey = 0;
-  let tags = [];          // usernames tagged on this post
   let shotEdited = false; // the shooting date was set by hand, so stop auto-filling it
   const EDIT_FIELDS = ['camera', 'lens', 'film', 'aperture', 'shutter', 'iso', 'focal'];
 
@@ -825,11 +883,12 @@
   }
   function resetComposer() {
     drafts.forEach(d => { d.xhr?.abort(); if (d.preview) URL.revokeObjectURL(d.preview); });
-    drafts = []; activeDraft = null; pickedSong = null; tags = []; shotEdited = false;
+    drafts = []; activeDraft = null; pickedSong = null; shotEdited = false;
+    composerTags.set([]);
     $('phComposeCaption').value = '';
     $('phShotDate').value = '';
     $('phComposeError').hidden = true;
-    renderDrafts(); renderSongPick(); renderTags();
+    renderDrafts(); renderSongPick();
   }
 
   $('phPostBtn').addEventListener('click', () => openComposer());
@@ -990,52 +1049,58 @@
       roster = ((await r.json()).roster || []).map(p => p.username).filter(Boolean);
     } catch (e) { roster = null; }
   }
-  function renderTags() {
-    const box = $('phTagsBox');
-    box.querySelectorAll('.ph-tag-chip').forEach(c => c.remove());
-    const input = $('phTagInput');
-    tags.forEach(t => {
-      const chip = document.createElement('span');
-      chip.className = 'ph-tag-chip';
-      chip.innerHTML = `${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove"><i class="ti ti-x"></i></button>`;
-      box.insertBefore(chip, input);
-    });
-  }
-  function tagSuggestions() {
-    const q = $('phTagInput').value.trim().toLowerCase();
-    const list = $('phTagSuggest');
-    if (!q || !roster) { list.innerHTML = ''; return []; }
-    const matches = roster.filter(u => u !== me() && !tags.includes(u) && u.includes(q))
-      .sort((a, b) => (b.startsWith(q) - a.startsWith(q)) || a.localeCompare(b)).slice(0, 6);
-    list.innerHTML = matches.map((u, i) =>
-      `<button type="button" data-tag="${esc(u)}" class="${i === 0 ? 'hi' : ''}">${avatarHTML(u)}<span>${esc(u)}</span></button>`).join('');
-    return matches;
-  }
-  function addTag(u) {
-    if (!u || tags.includes(u) || u === me()) return;
-    tags.push(u);
-    $('phTagInput').value = '';
-    $('phTagSuggest').innerHTML = '';
-    renderTags();
-  }
-  $('phTagInput').addEventListener('input', tagSuggestions);
-  $('phTagInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const first = tagSuggestions()[0];
-      if (first) addTag(first);
-    } else if (e.key === 'Backspace' && !e.target.value && tags.length) {
-      tags.pop(); renderTags();
+  // A tag picker: chips for who's tagged, a type-ahead from the roster.
+  // Used by the composer and the edit dialog. `exclude()` names who can't be
+  // tagged (the post's author).
+  function makeTagPicker(prefix, exclude) {
+    const box = $(prefix + 'TagsBox'), input = $(prefix + 'TagInput'), list = $(prefix + 'TagSuggest');
+    let tags = [];
+    function render() {
+      box.querySelectorAll('.ph-tag-chip').forEach(c => c.remove());
+      tags.forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'ph-tag-chip';
+        chip.innerHTML = `${esc(t)}<button type="button" data-untag="${esc(t)}" title="Remove"><i class="ti ti-x"></i></button>`;
+        box.insertBefore(chip, input);
+      });
     }
-  });
-  $('phTagInput').addEventListener('blur', () => setTimeout(() => { $('phTagSuggest').innerHTML = ''; }, 150));
-  $('phTagSuggest').addEventListener('mousedown', e => e.preventDefault()); // keep focus in the input
-  $('phTagSuggest').addEventListener('click', e => { const b = e.target.closest('[data-tag]'); if (b) addTag(b.dataset.tag); });
-  $('phTagsBox').addEventListener('click', e => {
-    const x = e.target.closest('[data-untag]');
-    if (x) { tags = tags.filter(t => t !== x.dataset.untag); renderTags(); return; }
-    $('phTagInput').focus();
-  });
+    function suggestions() {
+      const q = input.value.trim().toLowerCase();
+      if (!q || !roster) { list.innerHTML = ''; return []; }
+      const matches = roster.filter(u => u !== exclude() && !tags.includes(u) && u.includes(q))
+        .sort((a, b) => (b.startsWith(q) - a.startsWith(q)) || a.localeCompare(b)).slice(0, 6);
+      list.innerHTML = matches.map((u, i) =>
+        `<button type="button" data-tag="${esc(u)}" class="${i === 0 ? 'hi' : ''}">${avatarHTML(u)}<span>${esc(u)}</span></button>`).join('');
+      return matches;
+    }
+    function add(u) {
+      if (!u || tags.includes(u) || u === exclude()) return;
+      tags.push(u);
+      input.value = '';
+      list.innerHTML = '';
+      render();
+    }
+    input.addEventListener('input', suggestions);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const first = suggestions()[0];
+        if (first) add(first);
+      } else if (e.key === 'Backspace' && !input.value && tags.length) {
+        tags.pop(); render();
+      }
+    });
+    input.addEventListener('blur', () => setTimeout(() => { list.innerHTML = ''; }, 150));
+    list.addEventListener('mousedown', e => e.preventDefault()); // keep focus in the input
+    list.addEventListener('click', e => { const b = e.target.closest('[data-tag]'); if (b) add(b.dataset.tag); });
+    box.addEventListener('click', e => {
+      const x = e.target.closest('[data-untag]');
+      if (x) { tags = tags.filter(t => t !== x.dataset.untag); render(); return; }
+      input.focus();
+    });
+    return { get: () => tags.slice(), set: t => { tags = t.slice(); input.value = ''; list.innerHTML = ''; render(); } };
+  }
+  const composerTags = makeTagPicker('ph', () => me());
 
   function showComposeError(msg) {
     const el = $('phComposeError');
@@ -1060,7 +1125,7 @@
       caption: $('phComposeCaption').value.trim(),
       photos: ready.map(d => ({ id: d.id, exif: d.edited })),
       shot_at: $('phShotDate').value || '',
-      tags,
+      tags: composerTags.get(),
     };
     if (pickedSong) {
       body.song = {
