@@ -4969,9 +4969,6 @@
     #feedList .feed-post-text { font-size: 15px; line-height: 1.5; }
     #feedList .feed-post-song { border-radius: 14px; border: none; background: var(--glass-fill-h); padding: 10px; }
     #feedList .feed-post-song-art { width: 52px; height: 52px; border-radius: 8px; border: none; }
-    #feedList .feed-post-song-play {
-      width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
-    }
     #feedList .feed-post-image { border-radius: 14px; }
     #feedList .feed-post-footer { gap: 6px; margin-top: 10px; align-items: center; }
     #feedList .feed-post-add-reaction, #feedList .feed-post-reply-open {
@@ -5030,13 +5027,7 @@
     #settingsBackdrop .settings-row-label { font-size: 14px; letter-spacing: 0; }
     #settingsBackdrop .settings-row-sub { font-size: 12px; letter-spacing: 0; }
 
-    /* Player: the play button is the white primary control everywhere. */
-    #playerDock .ctrl-btn.play-btn, #fsPlayer .fs-play {
-      border-radius: 50%; border: none; background: var(--text); color: var(--bg);
-      box-shadow: var(--bloom-white);
-    }
-    #playerDock .ctrl-btn.play-btn:hover, #fsPlayer .fs-play:hover { background: var(--text); opacity: .9; }
-    #fsPlayer .fs-play { width: 76px; height: 76px; font-size: 30px; }
+    /* Player: the fullscreen's secondary controls lose their boxes; play keeps its own look. */
     #fsPlayer .fs-btn:not(.fs-play) { border: none; background: none; border-radius: 50%; }
     #fsPlayer .fs-btn:not(.fs-play):hover { background: rgba(255,255,255,0.1); opacity: 1 !important; }
     #fsPlayer .fs-artist, #fsPlayer .fs-album { text-transform: none; letter-spacing: 0; }
