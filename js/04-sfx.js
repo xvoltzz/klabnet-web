@@ -118,17 +118,20 @@ const SFX = (() => {
     }
   }
 
-  // Soft airy swell (filtered noise), for panels opening and closing.
   let _noise = null;
-  function air(from, to, vel, dur, at) {
-    const c = getCtx();
-    const t = c.currentTime + (at || 0) + 0.005;
+  function noiseBuf(c) {
     if (!_noise) {
       _noise = c.createBuffer(1, c.sampleRate, c.sampleRate);
       const d = _noise.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    const src = c.createBufferSource(); src.buffer = _noise;
+    return _noise;
+  }
+  // Soft airy swell (filtered noise), for panels opening and closing.
+  function air(from, to, vel, dur, at) {
+    const c = getCtx();
+    const t = c.currentTime + (at || 0) + 0.005;
+    const src = c.createBufferSource(); src.buffer = noiseBuf(c);
     const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
     bp.frequency.setValueAtTime(from, t); bp.frequency.exponentialRampToValueAtTime(to, t + dur);
     const g = c.createGain();
@@ -137,6 +140,61 @@ const SFX = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(bp); bp.connect(g); g.connect(verb); g.connect(dry);
     src.start(t); src.stop(t + dur + 0.05);
+  }
+
+  // A record under your hand: seeking scratches it. dir is which way the
+  // needle went (1 forward, -1 back), amt how far/fast (0..1). Three
+  // layers: the hiss of the groove sweeping past (band-passed noise), the
+  // music itself sped up or slowed down (a filtered saw sliding in pitch),
+  // and a few crackles of dust.
+  function scratch(o) {
+    o = o || {};
+    const c = getCtx();
+    const t = c.currentTime + 0.004;
+    const dir = o.dir < 0 ? -1 : 1;
+    const amt = Math.max(0.15, Math.min(1, o.amt ?? 0.5));
+    const dur = 0.07 + amt * 0.13;
+    const out = c.createGain();
+    out.gain.value = 0.9;
+    out.connect(dry);
+    const send = c.createGain(); send.gain.value = 0.25; out.connect(send); send.connect(verb);
+
+    const src = c.createBufferSource(); src.buffer = noiseBuf(c);
+    src.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.4;
+    const f0 = dir > 0 ? 520 : 2800, f1 = dir > 0 ? 2400 + amt * 1600 : 380;
+    bp.frequency.setValueAtTime(f0, t);
+    bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.linearRampToValueAtTime(0.42 + amt * 0.3, t + dur * 0.22);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(ng); ng.connect(out);
+    src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+
+    const saw = c.createOscillator(); saw.type = 'sawtooth';
+    const p0 = dir > 0 ? 95 : 280, p1 = dir > 0 ? 260 + amt * 220 : 70;
+    saw.frequency.setValueAtTime(p0, t);
+    saw.frequency.exponentialRampToValueAtTime(p1, t + dur);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 3;
+    const sg = c.createGain();
+    sg.gain.setValueAtTime(0.0001, t);
+    sg.gain.linearRampToValueAtTime(0.11 + amt * 0.06, t + dur * 0.3);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    saw.connect(lp); lp.connect(sg); sg.connect(out);
+    saw.start(t); saw.stop(t + dur + 0.02);
+
+    const pops = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < pops; i++) {
+      const at = t + Math.random() * dur;
+      const k = c.createBufferSource(); k.buffer = noiseBuf(c);
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000;
+      const kg = c.createGain();
+      kg.gain.setValueAtTime(0.18 + Math.random() * 0.15, at);
+      kg.gain.exponentialRampToValueAtTime(0.0001, at + 0.006);
+      k.connect(hp); hp.connect(kg); kg.connect(out);
+      k.start(at, Math.random() * 0.8); k.stop(at + 0.01);
+    }
   }
 
   // A pad chord that breathes in under a DM.
@@ -208,6 +266,7 @@ const SFX = (() => {
     // out; a message landing is high, on the sender's own first note.
     send:     () => { air(600, 2200, 0.03, 0.14); note(N.D4, 0.42, 0.14, 0, { bright: 0.8 }); note(N.A4, 0.46, 0.24, 0.035, { tine: 1.3 }); },
     receive:  from => { const m = motif(from).notes[0]; note(m + 12, 0.6, 0.45, 0, { bright: 0.8, tine: 1.2 }); note(m, 0.4, 0.35, 0.02, { bright: 0.5, tine: 0 }); },
+    scratch:  o => scratch(o),
     dm:       from => person(from, 'dm'),
     message:  from => person(from, 'message'),
     mention:  from => person(from, 'mention'),

@@ -27,6 +27,33 @@ function typeNext() {
 }
 setTimeout(typeNext, 400);
 
+// Going to Chat, the prompt backspaces "klabnet>_" down to "klab" and
+// types ".chat>_" back on; leaving Chat does the reverse. Works from
+// whatever is on screen, so switching tabs mid-animation just changes
+// where it's headed.
+let _retypeTimer = 0;
+function retypePrompt(target) {
+  clearTimeout(_retypeTimer);
+  // Still on the intro? It lands on the right text by itself.
+  if (typed < FULL_TEXT.length) return;
+  if (!(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
+  const step = () => {
+    const cur = promptEl.textContent;
+    if (cur === target) return;
+    let same = 0;
+    while (same < cur.length && same < target.length && cur[same] === target[same]) same++;
+    if (cur.length > same) {
+      promptEl.textContent = cur.slice(0, -1);
+      // Backspacing is quicker than typing, with a beat before retyping.
+      _retypeTimer = setTimeout(step, cur.length - 1 === same ? 150 : 34 + Math.random() * 20);
+    } else {
+      promptEl.textContent = target.slice(0, cur.length + 1);
+      _retypeTimer = setTimeout(step, 55 + Math.random() * 45);
+    }
+  };
+  step();
+}
+
 // ══════════════════════════════════════════
 //  MOTD — a silly Minecraft-style splash text
 // ══════════════════════════════════════════

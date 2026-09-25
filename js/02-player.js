@@ -399,12 +399,25 @@ function makeSlider(trackEl, fillEl, dotEl, onChange) {
   }};
 }
 
+// Seeking scratches the record: the direction and how hard follow your
+// hand on the bar (a click is one quick zip toward where you clicked).
+let _scratchAt = 0;
+function scratchSeek(newTime) {
+  const a = playerState.audio;
+  if (typeof SFX === 'undefined' || !a.duration || !playerState.currentSong) return;
+  const d = newTime - a.currentTime;
+  const now = performance.now();
+  if (Math.abs(d) < 0.25 || now - _scratchAt < 55) return;
+  _scratchAt = now;
+  SFX.play('scratch', { dir: Math.sign(d), amt: Math.min(1, Math.abs(d) / Math.max(10, a.duration * 0.3)) });
+}
+
 // Progress slider
 const progSlider = makeSlider(
   document.getElementById('playerProgress'),
   document.getElementById('playerProgressFill'),
   document.getElementById('playerProgressDot'),
-  pct => { if (playerState.audio.duration) playerState.audio.currentTime = pct * playerState.audio.duration; }
+  pct => { if (playerState.audio.duration) { const t = pct * playerState.audio.duration; scratchSeek(t); playerState.audio.currentTime = t; } }
 );
 
 // Volume slider
@@ -435,7 +448,7 @@ makeSlider(
   document.getElementById('fsProg'),
   document.getElementById('fsProgFill'),
   document.getElementById('fsProgDot'),
-  pct => { if (playerState.audio.duration) playerState.audio.currentTime = pct * playerState.audio.duration; }
+  pct => { if (playerState.audio.duration) { const t = pct * playerState.audio.duration; scratchSeek(t); playerState.audio.currentTime = t; } }
 );
 
 // FS volume
