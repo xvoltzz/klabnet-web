@@ -784,10 +784,12 @@ function clearReply() {
 const _chatImageCache   = new Map(); // mxc:// -> blob URL or null
 const _chatImagePending = new Set();
 const CHAT_IMAGE_CACHE_MAX = 120; // see capBlobCache()'s own comment
-function ensureChatImageResolved(mxc) {
+function ensureChatImageResolved(mxc, animated) {
   if (!mxc || _chatImageCache.has(mxc) || _chatImagePending.has(mxc)) return;
   _chatImagePending.add(mxc);
-  MatrixChat.mxcToBlobUrl(mxc, { width: 400, height: 400, method: 'scale' }).then(url => {
+  // A server thumbnail of a GIF is one still frame, so GIFs load whole
+  // (they're GIPHY's under-2MB copies).
+  MatrixChat.mxcToBlobUrl(mxc, animated ? { full: true } : { width: 400, height: 400, method: 'scale' }).then(url => {
     _chatImageCache.set(mxc, url);
   }).catch(() => {
     _chatImageCache.set(mxc, null);
@@ -1030,9 +1032,10 @@ function renderTimeline() {
         `<span class="chat-msg-song-tx"><b>${esc(song.title || 'Unknown')}</b><span>${esc(song.artist || '')}</span></span><span class="chat-msg-song-play"><i class="ti ti-player-play"></i></span>`;
       body.appendChild(card);
     } else if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
-      ensureChatImageResolved(content.url);
+      const animated = content.info?.mimetype === 'image/gif';
+      ensureChatImageResolved(content.url, animated);
       const img = document.createElement('img');
-      img.className = 'chat-msg-image';
+      img.className = 'chat-msg-image' + (animated ? ' is-gif' : '');
       img.dataset.mxc = content.url;
       img.alt = content.body || '';
       const cachedUrl = _chatImageCache.get(content.url);
@@ -2830,6 +2833,31 @@ function ensureChatLoaded() {
 }
 
 
+
+// A GIF goes into the room as an ordinary image upload, so every Matrix
+// client shows it, not just klabnet.
+async function sendChatGif(g) {
+  const client = MatrixChat.client, roomId = _chatActiveRoomId;
+  if (!client || !roomId || !g?.url) return;
+  SFX && SFX.play('send');
+  try {
+    const res = await fetch(g.url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const name = (g.title || 'gif').replace(/[^\w -]+/g, '').trim().slice(0, 60) || 'gif';
+    const upload = await client.uploadContent(blob, { name: name + '.gif', type: 'image/gif' });
+    await client.sendMessage(roomId, {
+      msgtype: 'm.image', body: name + '.gif', url: upload.content_uri,
+      info: { mimetype: 'image/gif', size: blob.size, w: g.w || undefined, h: g.h || undefined },
+    });
+  } catch (e) {
+    console.error('[chat] gif send failed', e);
+    showToast("Couldn't send that GIF", 'ti-photo-x');
+  }
+}
+document.getElementById('chatGifBtn')?.addEventListener('click', e => {
+  window.klabGifPicker?.open(e.currentTarget, sendChatGif);
+});
 
 // ── Composer extras: a send button, and one tap to share what's playing ──
 async function shareNowPlaying() {

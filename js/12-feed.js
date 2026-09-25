@@ -344,6 +344,7 @@
       replies.map(r => feedReplyHTML(post, r)).join('') +
       '<div class="feed-post-reply-composer">' +
         '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
+        '<button type="button" class="feed-post-reply-gif" data-post-id="' + post.id + '" title="GIF"><span class="gif-glyph">GIF</span></button>' +
         '<button type="button" class="feed-post-reply-send" data-post-id="' + post.id + '" title="Send reply"><i class="ti ti-send-2"></i></button>' +
       '</div>' +
     '</div>';
@@ -1065,6 +1066,9 @@
   }
 
   imageBtnEl.addEventListener('click', () => fileEl.click());
+  document.getElementById('feedGifBtn')?.addEventListener('click', e => {
+    window.klabGifPicker?.open(e.currentTarget, g => klabInsertGif(textEl, g));
+  });
   fileEl.addEventListener('change', () => {
     const file = fileEl.files?.[0];
     if (!file) return;
@@ -1261,6 +1265,12 @@
       _openReactionPickers.delete(postId);
       floatEmoji(quickEmoji, quickEmoji.dataset.emoji);
       toggleFeedReaction(postId, quickEmoji.dataset.emoji);
+      return;
+    }
+    const replyGif = e.target.closest('.feed-post-reply-gif');
+    if (replyGif) {
+      const input = listEl.querySelector(`.feed-post-reply-input[data-post-id="${replyGif.dataset.postId}"]`);
+      if (input) window.klabGifPicker?.open(replyGif, g => klabInsertGif(input, g, { short: true }));
       return;
     }
     const replySend = e.target.closest('.feed-post-reply-send');
