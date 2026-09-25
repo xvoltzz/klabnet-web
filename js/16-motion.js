@@ -47,6 +47,10 @@
     probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:1px;visibility:hidden;pointer-events:none;z-index:-1';
     container.prepend(probe);
     let queued = false, placed = false, baseW = 0, baseH = 0, lastT = '', cur = null;
+    // What the nudge below found an engine was off by. Kept and added to
+    // every placement after, rather than applied once: the next place()
+    // would otherwise recompute the uncorrected spot and slide back.
+    const corr = { x: 0, y: 0, w: 0, h: 0 };
     let pressed = null; // an item being pressed: the pill heads there before the click lands
     function apply(x, y, w, h) {
       const t = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
@@ -61,6 +65,7 @@
       const dx = (r.left - pr.left) / cur.sx, dy = (r.top - pr.top) / cur.sy;
       const dw = (r.width - pr.width) / cur.sx, dh = (r.height - pr.height) / cur.sy;
       if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dw), Math.abs(dh)) < 0.75) return;
+      corr.x += dx; corr.y += dy; corr.w += dw; corr.h += dh;
       cur.x += dx; cur.y += dy; cur.w += dw; cur.h += dh;
       apply(cur.x, cur.y, cur.w, cur.h);
     });
@@ -71,8 +76,8 @@
       const o = probe.getBoundingClientRect(), r = el.getBoundingClientRect();
       const sx = o.width / 100, sy = o.height;
       if (!sx || !sy) return;
-      const x = (r.left - o.left) / sx, y = (r.top - o.top) / sy;
-      const w = r.width / sx, h = r.height / sy;
+      const x = (r.left - o.left) / sx + corr.x, y = (r.top - o.top) / sy + corr.y;
+      const w = r.width / sx + corr.w, h = r.height / sy + corr.h;
       cur = { el, x, y, w, h, sx, sy };
       // Size by scale from a fixed base, never by width/height: those only
       // animate on the main thread, so the pill froze whenever a tab was
@@ -80,9 +85,8 @@
       // first item's size, so the scale stays near 1 and the corners don't
       // visibly stretch.
       if (!baseW) { baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px'; }
-      const t = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
-      // Re-setting an unchanged value is a no-op, but a nudge that computed
-      // a slightly different one used to restart the slide mid-way.
+      // apply() skips a value that hasn't changed, so a re-place doesn't
+      // restart a slide mid-way.
       apply(x, y, w, h);
       pill.style.opacity = '1';
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }
@@ -107,7 +111,7 @@
     }
     new MutationObserver(schedule).observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
     new ResizeObserver(schedule).observe(container);
-    window.addEventListener('resize', schedule);
+    window.addEventListener('resize', () => { corr.x = corr.y = corr.w = corr.h = 0; schedule(); });
     document.fonts?.ready.then(schedule);
     schedule();
   }

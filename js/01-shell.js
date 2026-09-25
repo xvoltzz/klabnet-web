@@ -307,6 +307,27 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     if (e.target.id === 'keyHintsBackdrop') toggleKeyHints();
   });
 
+  // Tab / Shift+Tab flips straight through the pages, and 1–5 jumps to
+  // one. Tab keeps its usual job wherever it's needed: in a field, and in
+  // any open dialog or panel (those trap focus with it).
+  const pages = () => TABS.filter(isTabEnabled);
+  function currentPage() { return document.querySelector('.tab-panel.active')?.dataset.tabPanel; }
+  function dialogOpen() {
+    return !!document.querySelector('[class*="backdrop"].open, [class*="backdrop"].visible, .img-view-backdrop, .ap-panel.open, #apPanel.open')
+      || document.body.classList.contains('feed-composer-open');
+  }
+  function flipPage(dir) {
+    const P = pages(), i = P.indexOf(currentPage());
+    setActiveTab(P[(i + dir + P.length) % P.length]);
+    // A button left focused by a click would take the next Tab itself.
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || isEditableTarget() || dialogOpen()) return;
+    e.preventDefault();
+    flipPage(e.shiftKey ? -1 : 1);
+  });
+
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // never fight a browser/OS shortcut
     if (e.key === 'Escape') {
@@ -321,6 +342,12 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       if (e.key === 'g') { e.preventDefault(); scrollPaneToEdge(true); return; } // gg -> top
       if (GO_TO_TAB[e.key]) { e.preventDefault(); setActiveTab(GO_TO_TAB[e.key]); return; }
       return; // unrecognized second key — drop the pending g silently, vim does the same
+    }
+
+    if (/^[1-9]$/.test(e.key) && !document.body.classList.contains('tab-photos-active')) {
+      const P = pages(), target = P[+e.key - 1];
+      if (target) { e.preventDefault(); setActiveTab(target); }
+      return;
     }
 
     switch (e.key) {

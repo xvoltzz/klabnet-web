@@ -720,8 +720,14 @@ function sampleImageColor(imgUrl) {
   let pending = false;
   function updateMoreHint() {
     if (!more) return;
-    const hasMore = rail.scrollHeight > rail.clientHeight + 2
-      && (rail.scrollTop + rail.clientHeight) < rail.scrollHeight - 2;
+    // Measured with the hint out of the way: shown, its own box adds ~10px
+    // of scroll height, so it kept itself up forever as "more below" with
+    // nothing below it, fading out the offline toggle it sat on.
+    // And only for a real row's worth: a few px of decoration (a glow, a
+    // focus ring) overhanging the last card isn't "more people below".
+    more.hidden = true;
+    const hasMore = rail.scrollHeight > rail.clientHeight + 24
+      && (rail.scrollTop + rail.clientHeight) < rail.scrollHeight - 24;
     more.hidden = !hasMore;
   }
   function update() {
@@ -759,6 +765,15 @@ function sampleImageColor(imgUrl) {
   // New/removed listeners change rail.scrollHeight — recheck the hint
   // (not the max-height, which only depends on viewport geometry).
   new MutationObserver(scheduleMoreHint).observe(rail, { childList: true, subtree: true });
+  // Sizes also change with no mutation at all (fonts and avatars loading,
+  // the header settling at startup), which left the "more below" chevron
+  // and its fade stuck over the offline toggle with nothing below it.
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => { schedule(); scheduleMoreHint(); });
+    ro.observe(rail);
+    const inner = document.getElementById('presenceList');
+    if (inner) ro.observe(inner);
+  }
   schedule();
 })();
 

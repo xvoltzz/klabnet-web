@@ -26,7 +26,6 @@
   // ── Syntax highlighting, loaded the first time a post has a code block
   // that names its language. Until it arrives, code shows plain. ──
   let hljsState = window.hljs ? 'ready' : 'idle';
-  const hlWaiters = [];
   function wantHighlighter() {
     if (hljsState !== 'idle') return;
     hljsState = 'loading';
@@ -37,7 +36,6 @@
       cache.clear();
       // Posts already on screen: color them in place.
       document.querySelectorAll('pre.md-code code[data-lang]:not(.hljs)').forEach(highlightEl);
-      hlWaiters.splice(0).forEach(f => f());
     };
     s.onerror = () => { hljsState = 'failed'; };
     document.head.appendChild(s);
@@ -47,7 +45,6 @@
     if (!window.hljs || !lang || !hljs.getLanguage(lang)) return;
     try { hljs.highlightElement(code); } catch (e) {}
   }
-  window.klabMdWhenHighlighted = fn => hljsState === 'ready' ? fn() : hlWaiters.push(fn);
 
   const md = new marked.Marked({ gfm: true, breaks: true });
   md.use({
@@ -310,7 +307,10 @@
     after = after == null ? before : after;
     const { selectionStart: s, selectionEnd: e, value: v } = ta;
     const sel = v.slice(s, e);
-    if (v.slice(s - before.length, s) === before && v.slice(e, e + after.length) === after) {
+    // Only unwrap an exact match: italic's * sits inside bold's ** too.
+    const lone = before.length === 1 && after.length === 1;
+    if (v.slice(s - before.length, s) === before && v.slice(e, e + after.length) === after &&
+        !(lone && (v[s - 2] === before || v[e + 1] === after))) {
       replaceRange(ta, s - before.length, e + after.length, sel, s - before.length, e - before.length);
       return;
     }
@@ -466,9 +466,11 @@
         // Only inside lists: elsewhere Tab keeps moving focus.
         if (!/^\s*(?:[-*+]|\d+[.)]) /m.test(block)) return;
         e.preventDefault();
-        const next = block.split('\n').map(l => e.shiftKey ? l.replace(/^ {1,2}/, '') : '  ' + l).join('\n');
+        const lines = block.split('\n');
+        const next = lines.map(l => e.shiftKey ? l.replace(/^ {1,2}/, '') : '  ' + l).join('\n');
         const d = next.length - block.length;
-        replaceRange(ta, a, b, next, Math.max(a, s + (e.shiftKey ? Math.min(0, d) : 2)), e2 + d);
+        const firstD = e.shiftKey ? -(lines[0].length - lines[0].replace(/^ {1,2}/, '').length) : 2;
+        replaceRange(ta, a, b, next, Math.max(a, s + firstD), e2 + d);
       }
     });
     // Pasting a URL over selected text links it.

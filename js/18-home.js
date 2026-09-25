@@ -111,10 +111,18 @@
   }
 
   // ── what just happened ──
-  let liveT = 0;
-  function live(t, html) {
-    if (t < liveT) return;
-    liveT = t;
+  // On first load it shows the newest thing across every source. After
+  // that, anything Home hasn't seen before is shown the moment it arrives:
+  // the sources poll at different rates, so comparing times across them
+  // would quietly skip a post that landed between two presence polls.
+  let liveT = 0, liveReady = false;
+  const liveSeen = new Set();
+  setTimeout(() => { liveReady = true; }, 8000);
+  function live(key, t, html) {
+    const fresh = !liveSeen.has(key);
+    liveSeen.add(key);
+    if (liveReady ? !fresh : t < liveT) return;
+    liveT = Math.max(liveT, t);
     liveEl.hidden = false;
     liveEvEl.classList.remove('swap');
     void liveEvEl.offsetWidth;
@@ -181,7 +189,7 @@
   }
   function renderSpot() {
     const next = buildSlides();
-    const sig = next.map(s => s.key + ':' + s.html.length).join('|');
+    const sig = next.map(s => s.key + ':' + s.html.replace(/<span class="hm-t"[^>]*>[^<]*<\/span>/g, '')).join('|');
     if (sig === slideSig) return;
     const firstPaint = !slideSig;
     slideSig = sig;
@@ -194,12 +202,24 @@
     const keep = slides.findIndex(s => s.key === prevKey);
     cur = arrived || keep < 0 ? 0 : keep;
     slidesEl.innerHTML = slides.map((s, i) => '<div class="hm-slide' + (s.dark ? ' dark' : '') + (i === cur ? ' on' : '') + '">' + s.html + lbl('Featured<span>' + s.kind + '</span>') + '</div>').join('');
+    // Only the showing slide and the next one load their big images now;
+    // the rest wait for their turn (showSlide hydrates them). Moved aside
+    // in the same task as the innerHTML, before any fetch can start.
+    [...slidesEl.children].forEach((el, i) => {
+      if (i === cur || i === (cur + 1) % slides.length) return;
+      el.querySelectorAll('[style*="background-image"]').forEach(n => { n.dataset.bg = n.style.backgroundImage; n.style.backgroundImage = ''; });
+    });
     barsEl.innerHTML = slides.length > 1 ? slides.map(() => '<b><i></i></b>').join('') : '';
     if (arrived && motion()) { arriveEl.classList.remove('go'); void arriveEl.offsetWidth; arriveEl.classList.add('go'); }
     showSlide(cur);
   }
+  function hydrate(i) {
+    slidesEl.children[i]?.querySelectorAll('[data-bg]').forEach(n => { n.style.backgroundImage = n.dataset.bg; n.removeAttribute('data-bg'); });
+  }
   function showSlide(i) {
     cur = i;
+    hydrate(i);
+    if (slides.length > 1) hydrate((i + 1) % slides.length);
     [...slidesEl.children].forEach((el, j) => el.classList.toggle('on', j === i));
     [...barsEl.children].forEach((b, j) => {
       b.className = j < i ? 'done' : '';
@@ -212,6 +232,7 @@
   }
   spotEl.style.setProperty('--hm-slide', SLIDE_MS + 'ms');
   spotEl.addEventListener('click', e => {
+    if (e.target.closest('a, .md-spoiler, .md-code-copy')) return;
     const bar = e.target.closest('.hm-bars b');
     if (bar) { showSlide([...barsEl.children].indexOf(bar)); return; }
     slides[cur]?.go();
@@ -240,6 +261,7 @@
     topPostId = topId;
   }
   postsEl.addEventListener('click', e => {
+    if (e.target.closest('a, .md-spoiler, .md-code-copy')) return;
     const row = e.target.closest('.hm-pi') || postsEl.querySelector('.hm-pi');
     if (row) openPost(+row.dataset.post); else setActiveTab('feed');
   });
@@ -354,7 +376,7 @@
       const d = await getJSON('/api/posts?limit=8');
       S.posts = d.posts || [];
       const p = S.posts[0];
-      if (p) live(apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''));
+      if (p) live('post' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''));
       renderPosts(); renderSpot();
     } catch (e) {}
   }
@@ -363,7 +385,7 @@
       const d = await getJSON('/api/posts/photos?order=posted&limit=6');
       S.photoPosts = d.posts || [];
       const p = S.photoPosts[0];
-      if (p) live(apiTime(p.created), '<b>' + esc(p.username) + '</b> posted ' + (p.photos.length > 1 ? p.photos.length + ' photos' : 'a photo'));
+      if (p) live('photos' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted ' + (p.photos.length > 1 ? p.photos.length + ' photos' : 'a photo'));
       renderPhotos(); renderSpot();
     } catch (e) {}
   }
@@ -377,7 +399,7 @@
       if (lastSongs) now.forEach((song, u) => {
         if (lastSongs.get(u) !== song) {
           const l = L.find(x => x.username === u);
-          live(Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
+          live('play' + u + ':' + song, Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
         }
       });
       lastSongs = now;
@@ -391,12 +413,17 @@
       const d = await r.json();
       S.albums = d['subsonic-response']?.albumList2?.album || [];
       const a = S.albums[0];
-      if (a && a.created) live(new Date(a.created).getTime(), '<b>' + esc(a.name || '') + '</b> by ' + esc(a.artist || '') + ' was added');
+      if (a && a.created) live('album' + a.id, new Date(a.created).getTime(), '<b>' + esc(a.name || '') + '</b> by ' + esc(a.artist || '') + ' was added');
       renderFlow(); renderSpot(); restartFlow();
     } catch (e) {}
   }
   // Channels only. A DM has no business on a screen left up for the room.
+  // Whatever the chat SDK hands back, a problem here must never stop the
+  // rest of Home from refreshing.
   function loadChat() {
+    try { readChat(); } catch (e) { console.warn('[home] chat tile', e); }
+  }
+  function readChat() {
     const client = window.MatrixChat?.client;
     if (!client) return;
     const dms = typeof getDmRoomIds === 'function' ? getDmRoomIds() : new Set();
@@ -406,22 +433,22 @@
       room.getLiveTimeline().getEvents().forEach(ev => {
         if (ev.getType() !== 'm.room.message' || ev.getRelation()?.rel_type === 'm.replace' || ev.isRedacted?.()) return;
         const c = ev.getContent() || {};
-        if (!c.body) return;
-        out.push({ t: ev.getTs(), roomId: room.roomId, room: room.name, u: localpart(ev.getSender()),
+        if (typeof c.body !== 'string' || !c.body) return; // content is arbitrary JSON
+        out.push({ id: ev.getId(), t: ev.getTs(), roomId: room.roomId, room: room.name, u: localpart(ev.getSender()),
           body: c.msgtype === 'm.image' ? '📷' : c.body.replace(/^> .*\n\n?/gm, '') });
       });
     });
     out.sort((a, b) => a.t - b.t);
     S.chat = out.slice(-6);
     const m = S.chat[S.chat.length - 1];
-    if (m) live(m.t, '<b>' + esc(m.u) + '</b> in ' + esc(m.room || 'chat') + ': ' + esc(m.body.slice(0, 80)));
+    if (m) live('msg' + m.id, m.t, '<b>' + esc(m.u) + '</b> in ' + esc(m.room || 'chat') + ': ' + esc(m.body.slice(0, 80)));
     renderChat();
   }
   if (window.MatrixChat?.on) {
     let q = false;
     const soon = () => { if (!q) { q = true; setTimeout(() => { q = false; loadChat(); }, 300); } };
     MatrixChat.on('sync', state => { if (state === 'PREPARED') soon(); });
-    MatrixChat.on('timeline', soon);
+    MatrixChat.on('timeline', () => { if (active) soon(); }); // Home catches up on arrival anyway
   }
 
   // ── running only while visible ──

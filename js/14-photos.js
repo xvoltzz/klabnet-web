@@ -76,10 +76,13 @@
 
   async function fetchLatest() {
     if (document.hidden) return;
+    const asked = order;
     try {
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const fresh = (await r.json()).posts || [];
+      // Switched between Timeline and What's New while this was in flight.
+      if (asked !== order) return;
       // Merge: the newest page replaces whatever overlaps it; older pages
       // already loaded by scrubbing left stay put.
       const last = fresh[fresh.length - 1];
@@ -87,8 +90,11 @@
       if (!loadedOnce) hasOlder = fresh.length === PAGE;
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
-      if (pendingFocus && focusPhoto(pendingFocus.postId, pendingFocus.photoId)) pendingFocus = null;
+      // One try: a photo that isn't in the newest page shouldn't grab the
+      // selection minutes later when older pages happen to load.
+      if (pendingFocus) { focusPhoto(pendingFocus.postId, pendingFocus.photoId); pendingFocus = null; }
     } catch (e) {
+      pendingFocus = null;
       if (!loadedOnce) showEmpty('Couldn’t load photos. Retrying…');
     }
   }

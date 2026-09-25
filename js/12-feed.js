@@ -568,8 +568,12 @@
   // Home's links to a post land on it.
   window.klabFeedFocus = function(postId) {
     setActiveTab('feed');
-    requestAnimationFrame(() => {
-      const el = listEl.querySelector('.feed-post[data-post-id="' + Number(postId) + '"]');
+    const find = () => listEl.querySelector('.feed-post[data-post-id="' + Number(postId) + '"]');
+    requestAnimationFrame(async () => {
+      // Home polls on its own clock, so it can know about a post the feed
+      // hasn't fetched yet.
+      if (!find()) { await fetchFeed(); renderFeed(); }
+      const el = find();
       if (!el) return;
       el.scrollIntoView({ block: 'center', behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
       el.classList.remove('feed-post-flash'); void el.offsetWidth; el.classList.add('feed-post-flash');
