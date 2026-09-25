@@ -33,7 +33,7 @@
     pill.setAttribute('aria-hidden', 'true');
     container.prepend(pill);
     container.classList.add('has-pill');
-    // A fixed, invisible 100×100px marker at the pill's own origin. Its
+    // A fixed, invisible marker (100px wide, 1px tall) at the pill's own origin. Its
     // on-screen box gives the exact origin and the exact layout→screen
     // scale in whatever engine this is, so positioning needs nothing but
     // on-screen rects (the one measurement every browser must get right).
@@ -41,7 +41,10 @@
     // html { zoom }: Firefox at 4K put the pill off by its own logic.
     const probe = document.createElement('span');
     probe.setAttribute('aria-hidden', 'true');
-    probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:100px;visibility:hidden;pointer-events:none;z-index:-1';
+    // 1px tall: the tab bar scrolls sideways on a phone, which makes it a
+    // scroll container both ways, and a 100px-tall probe overflowed it —
+    // the whole bar could be scrolled up and down under the wheel.
+    probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:1px;visibility:hidden;pointer-events:none;z-index:-1';
     container.prepend(probe);
     let queued = false, placed = false, baseW = 0, baseH = 0, lastT = '', cur = null;
     let pressed = null; // an item being pressed: the pill heads there before the click lands
@@ -66,7 +69,7 @@
       const el = (pressed && pressed.isConnected ? pressed : null) || container.querySelector(activeSel);
       if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
       const o = probe.getBoundingClientRect(), r = el.getBoundingClientRect();
-      const sx = o.width / 100, sy = o.height / 100;
+      const sx = o.width / 100, sy = o.height;
       if (!sx || !sy) return;
       const x = (r.left - o.left) / sx, y = (r.top - o.top) / sy;
       const w = r.width / sx, h = r.height / sy;
