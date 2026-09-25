@@ -5581,7 +5581,7 @@
     /* ══ CHAT — laid out like Music: a sidebar and the conversation on the
        page, over a backdrop of whoever you're talking to. No panel around
        it, no boxes in boxes, no scroll bars. ══ */
-    .tab-panel[data-tab-panel="feed"] { max-width: 720px; margin: 0 auto; width: 100%; } /* no rail beside Feed any more */
+    .tab-panel[data-tab-panel="feed"] { max-width: 860px; margin: 0 auto; width: 100%; } /* no rail beside Feed any more */
     .chat-backdrop { opacity: 0 !important; }
     body.tab-chat-active .chat-backdrop { opacity: 1 !important; }
     body.tab-chat-active .dash { max-width: min(96vw, 1800px); }
@@ -5808,3 +5808,61 @@
     .hm-spot:hover .hm-flick { opacity: 1; }
     .hm-flick:hover { background: rgba(0,0,0,.55); }
     @media (hover: none) { .hm-flick { display: none; } }
+
+    /* ══ FEED, alive: the page takes on the post you're reading, posts are
+       shaped by what they are, and days are chapters. ══ */
+    .feed-backdrop { opacity: 0 !important; }
+    body.tab-feed-active .feed-backdrop { opacity: 1 !important; }
+    #feedList .feed-post { position: relative; overflow: hidden; isolation: isolate; background: rgba(10,10,11,.5); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
+    [data-theme="light"] #feedList .feed-post { background: rgba(255,255,253,.6); }
+    #feedList .feed-post.in-focus { border-color: var(--glass-border-h); }
+    #feedList .feed-post > :not(.feed-post-backart) { position: relative; z-index: 1; }
+
+    /* posts ease in as you reach them */
+    #feedList .feed-post:not(.seen) { opacity: 0; transform: translateY(14px); }
+    #feedList .feed-post.seen { transition: opacity .6s var(--m-ease), transform .6s var(--m-ease), border-color var(--m-med) ease; }
+
+    /* a one-liner is a statement */
+    #feedList .feed-post.is-shout .feed-post-text { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; margin: 8px 0 2px; }
+    #feedList .feed-post.is-shout::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background: radial-gradient(circle at 12% 110%, color-mix(in srgb, var(--name-color) 22%, transparent), transparent 60%); }
+
+    /* a song is a record: out of its sleeve and spinning while it plays */
+    .feed-post-backart { position: absolute; inset: -20%; z-index: 0; background: center / cover; filter: blur(46px) saturate(1.4); opacity: .26; pointer-events: none; }
+    #feedList .feed-post.is-song .feed-post-song { background: rgba(0,0,0,.18); }
+    [data-theme="light"] .feed-post-backart { opacity: .2; filter: blur(46px) saturate(1.2); }
+    [data-theme="light"] #feedList .feed-post.is-song .feed-post-song { background: rgba(255,255,253,.55); }
+    .feed-rec { position: relative; flex-shrink: 0; width: 52px; height: 52px; margin-right: 6px; transition: margin-right .7s var(--m-ease); }
+    .feed-rec .feed-post-song-art, .feed-rec .feed-post-song-art-ph { position: relative; z-index: 1; }
+    .feed-rec-disc { position: absolute; top: 3px; left: 3px; width: 46px; height: 46px; border-radius: 50%;
+      background: repeating-radial-gradient(circle, #0b0b0b 0 1.5px, #171717 1.5px 2.5px); box-shadow: 0 0 0 1px #222; transition: transform .7s var(--m-ease); }
+    .feed-rec-disc::after { content: ''; position: absolute; inset: 34%; border-radius: 50%; background: var(--art, #333) center / cover; box-shadow: 0 0 0 1.5px #000; }
+    #feedList .feed-post.is-song.playing .feed-rec { margin-right: 30px; }
+    #feedList .feed-post.is-song.playing .feed-rec-disc { transform: translateX(24px); animation: feedSpin 2.4s linear infinite; }
+    @keyframes feedSpin { from { transform: translateX(24px) rotate(0); } to { transform: translateX(24px) rotate(360deg); } }
+
+    /* a photo runs edge to edge */
+    #feedList .feed-post.is-photo .feed-post-image { display: block; width: calc(100% + 72px + 18px); max-width: none; max-height: 620px; object-fit: cover;
+      margin: 12px -18px 0 -72px; border-radius: 0; }
+
+    /* days are chapters */
+    #feedList .feed-day { position: sticky; top: 0; z-index: 5; display: flex; align-items: baseline; gap: 10px; margin: 18px -12px 2px; padding: 12px 12px 8px;
+      background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.18)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 0 0 8px 8px; }
+    [data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(250,248,244,.85), rgba(250,248,244,.45)); }
+    #feedList .feed-day:first-child { margin-top: 4px; }
+    #feedList .feed-day h3 { margin: 0; font: 700 20px var(--font-ui); letter-spacing: -0.01em; color: var(--text); }
+    #feedList .feed-day span { font-size: 12.5px; color: var(--text-dimmer); }
+
+    /* reactions float up */
+    .feed-floaty { position: fixed; z-index: 9999; pointer-events: none; font-size: 20px; animation: feedFloaty .95s var(--m-ease) forwards; }
+    @keyframes feedFloaty { to { transform: translateY(-64px) scale(1.35) rotate(var(--r)); opacity: 0; } }
+
+    @media (max-width: 760px) {
+      #feedList .feed-post.is-shout .feed-post-text { font-size: 21px; }
+      /* phones: 14px padding + 36px avatar + 12px gap */
+      #feedList .feed-post.is-photo .feed-post-image { width: calc(100% + 62px + 14px); margin: 12px -14px 0 -62px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #feedList .feed-post:not(.seen) { opacity: 1; transform: none; }
+      #feedList .feed-post.is-song.playing .feed-rec-disc { animation: none; }
+    }

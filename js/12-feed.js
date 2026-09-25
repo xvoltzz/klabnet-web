@@ -327,6 +327,12 @@
     '</div>';
   }
 
+  // A short, plain line reads as a statement: big type, no chrome.
+  function isShout(text) {
+    const t = String(text || '').trim();
+    return !!t && t.length <= 48 && !/\n/.test(t) && !/^[#>\-*+|`]|\d+\.\s|https?:\/\/|www\.|```|\*\*|__|~~|\|\||==/.test(t);
+  }
+
   function postHTML(post) {
     const me = window.KLAB_USER?.username;
     const canDelete = post.username === me || window.KLAB_USER?.is_admin;
@@ -348,10 +354,13 @@
       // only handles &"<>, not '), same reason renderSongItem's own
       // data-add-pl attribute uses it for the same kind of JSON payload.
       const playPayload = encodeURIComponent(JSON.stringify({ id: s.songId, title: s.title, artist: s.artist, album: s.album, coverArt: s.coverArt }));
+      // A record in its sleeve: the vinyl slides out and spins while this
+      // song is the one playing (see syncFeedRecords).
       songHTML = '<div class="feed-post-song" data-play-song="' + playPayload + '">' +
+        '<span class="feed-rec"><span class="feed-rec-disc"' + (artUrl ? ' style="--art:url(&quot;' + esc(artUrl) + '&quot;)"' : '') + '></span>' +
         (artUrl
           ? '<img class="feed-post-song-art" src="' + esc(artUrl) + '" alt="" loading="lazy" onerror="klabArtFallback(this,\'feed-post-song-art-ph\',\'ti-music\')" />'
-          : '<div class="feed-post-song-art-ph"><i class="ti ti-music"></i></div>') +
+          : '<div class="feed-post-song-art-ph"><i class="ti ti-music"></i></div>') + '</span>' +
         '<div class="feed-post-song-info">' +
           '<div class="feed-post-song-title">' + esc(s.title || 'Unknown') + '</div>' +
           '<div class="feed-post-song-artist">' + esc(s.artist || '') + (s.album ? ' · ' + esc(s.album) : '') + '</div>' +
@@ -378,7 +387,14 @@
       '</button>'
     ).join('');
     const quickPickerOpen = _openReactionPickers.has(post.id);
-    return '<div class="feed-post" data-post-id="' + post.id + '" style="--name-color:' + profileColor(post.username) + '">' +
+    const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
+    const songArt = post.song && post.song.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(post.song.coverArt)}&size=300&${subsonicParams()}` : '';
+    const kind = post.song ? ' is-song' : post.image_mxc ? ' is-photo' : (isShout(post.text) && !ytId ? ' is-shout' : '');
+    return '<div class="feed-post' + kind + '" data-post-id="' + post.id + '"' +
+      (post.song ? ' data-song-id="' + esc(post.song.songId || '') + '"' : '') +
+      ((imgUrl || songArt) ? ' data-amb="' + esc(imgUrl || songArt) + '"' : '') +
+      ' style="--name-color:' + profileColor(post.username) + '">' +
+      (songArt ? '<div class="feed-post-backart" style="background-image:url(&quot;' + esc(songArt) + '&quot;)"></div>' : '') +
       '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
@@ -437,11 +453,76 @@
       posts.map(p => postRenderKey(p, me)).join(',');
   }
 
+  const FEED_TZ = 'America/New_York';
+  const feedDate = created => new Date(String(created).replace(' ', 'T') + 'Z');
+  const feedDayKey = created => feedDate(created).toLocaleDateString('en-US', { timeZone: FEED_TZ });
+  const _dayHeaders = new Map();
+  function dayHeaderEl(dk, created, n) {
+    let el = _dayHeaders.get(dk);
+    if (!el) { el = document.createElement('div'); el.className = 'feed-day'; _dayHeaders.set(dk, el); }
+    const today = new Date().toLocaleDateString('en-US', { timeZone: FEED_TZ });
+    const yest = new Date(Date.now() - 864e5).toLocaleDateString('en-US', { timeZone: FEED_TZ });
+    const d = feedDate(created);
+    const name = dk === today ? 'Today' : dk === yest ? 'Yesterday' : d.toLocaleDateString('en-US', { timeZone: FEED_TZ, weekday: 'long' });
+    const html = '<h3>' + name + '</h3><span>' + d.toLocaleDateString('en-US', { timeZone: FEED_TZ, month: 'long', day: 'numeric' }) +
+      ' · ' + n + (n === 1 ? ' post' : ' posts') + '</span>';
+    if (el.innerHTML !== html) el.innerHTML = html;
+    return el;
+  }
+
+  // Posts ease in the first time they scroll into view.
+  const _seenPosts = new Set();
+  const _entryIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('seen');
+    _seenPosts.add(e.target.dataset.postId);
+    _entryIO.unobserve(e.target);
+  }), { rootMargin: '0px 0px -8% 0px' }) : null;
+
+  // The page takes on the post in the middle of the screen: its photo,
+  // its song's cover, or its author's color, like Photos and Home.
+  const _fbLayers = document.getElementById('feedBackdrop')?.children;
+  let _fbI = 0, _fbKey = '', _fbQueued = false;
+  function focusFeedBackdrop() {
+    _fbQueued = false;
+    if (!_fbLayers || !document.body.classList.contains('tab-feed-active')) return;
+    const mid = window.innerHeight * 0.45;
+    let best = null, bd = Infinity;
+    listEl.querySelectorAll(':scope > .feed-post').forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) return;
+      const d = Math.abs((r.top + r.bottom) / 2 - mid);
+      if (d < bd) { bd = d; best = el; }
+    });
+    if (!best) return;
+    listEl.querySelectorAll(':scope > .feed-post.in-focus').forEach(el => el !== best && el.classList.remove('in-focus'));
+    best.classList.add('in-focus');
+    const img = best.dataset.amb || '';
+    const tint = img ? '' : getComputedStyle(best).getPropertyValue('--name-color').trim();
+    const key = img || tint;
+    if (!key || key === _fbKey) return;
+    _fbKey = key; _fbI ^= 1;
+    _fbLayers[_fbI].style.backgroundImage = img ? 'url("' + img + '")' : 'radial-gradient(circle at 50% 40%, ' + tint + ', transparent 62%)';
+    _fbLayers[_fbI].classList.add('on');
+    _fbLayers[_fbI ^ 1].classList.remove('on');
+  }
+  const queueFeedBackdrop = () => { if (!_fbQueued) { _fbQueued = true; requestAnimationFrame(focusFeedBackdrop); } };
+  window.addEventListener('scroll', queueFeedBackdrop, { passive: true });
+
+  // A shared song that's the one playing right now shows its record out and spinning.
+  function syncFeedRecords() {
+    const id = playerState.currentSong?.id, on = !!playerState.playing;
+    listEl.querySelectorAll(':scope > .feed-post.is-song').forEach(el => el.classList.toggle('playing', on && !!id && el.dataset.songId === String(id)));
+  }
+  ['play', 'pause', 'ended', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, syncFeedRecords));
+
   function buildPostEl(post, key) {
     const wrap = document.createElement('div');
     wrap.innerHTML = postHTML(post);
     const el = wrap.firstElementChild;
     el.dataset.postKey = key;
+    if (_seenPosts.has(String(post.id)) || !_entryIO || !(window.klabMotionOk?.() ?? true)) el.classList.add('seen');
+    else _entryIO.observe(el);
     return el;
   }
 
@@ -487,7 +568,19 @@
       const existing = new Map();
       listEl.querySelectorAll(':scope > .feed-post[data-post-id]').forEach(el => existing.set(el.dataset.postId, el));
 
-      const desired = posts.map(p => {
+      // Day chapters (Eastern, where everyone is): a sticky header before the
+      // first post of each day. Headers are reused by day so they don't
+      // count as changes; they're in `keep` below like the posts.
+      const counts = new Map();
+      posts.forEach(p => { const k = feedDayKey(p.created); counts.set(k, (counts.get(k) || 0) + 1); });
+      let lastDay = null;
+      const desired = [];
+      posts.forEach(p => {
+        const dk = feedDayKey(p.created);
+        if (dk !== lastDay) { lastDay = dk; desired.push(dayHeaderEl(dk, p.created, counts.get(dk))); }
+        desired.push(postEl(p));
+      });
+      function postEl(p) {
         const id = String(p.id);
         const k  = postRenderKey(p, me);
         const el = existing.get(id);
@@ -498,7 +591,7 @@
         // has moved on.
         if (el && typingIn && el.contains(typingIn)) { deferred = true; return el; }
         return buildPostEl(p, k);
-      });
+      }
 
       // Drop everything that isn't staying BEFORE positioning: a replaced
       // node left in place shifts every index after it, so the position
@@ -524,6 +617,8 @@
     // do the work again rather than short-circuiting forever.
     _lastFeedRenderKey = deferred ? null : key;
     unfoldShortPosts();
+    syncFeedRecords();
+    queueFeedBackdrop();
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
@@ -1081,6 +1176,23 @@
     } catch (e) {}
   }
 
+  // A reaction you add floats up off the button.
+  function floatEmoji(from, emoji) {
+    if (!(window.klabMotionOk?.() ?? true)) return;
+    const r = from.getBoundingClientRect(), z = typeof zoomFactor === 'function' ? zoomFactor() : 1;
+    for (let k = 0; k < 3; k++) {
+      const f = document.createElement('span');
+      f.className = 'feed-floaty';
+      f.textContent = emoji;
+      f.style.left = (r.left / z + 6 + k * 9) + 'px';
+      f.style.top = (r.top / z - 4) + 'px';
+      f.style.setProperty('--r', ((k - 1) * 16) + 'deg');
+      f.style.animationDelay = (k * 70) + 'ms';
+      document.body.appendChild(f);
+      setTimeout(() => f.remove(), 1300);
+    }
+  }
+
   loadMoreEl.addEventListener('click', loadOlderPosts);
   listEl.addEventListener('click', (e) => {
     const nameClick = e.target.closest('.feed-post-name, .feed-post-reply-name, .feed-post-mention, .feed-post-avatar, .feed-post-reply-avatar');
@@ -1088,7 +1200,7 @@
     const del = e.target.closest('.feed-post-delete');
     if (del) { deletePost(Number(del.dataset.postId)); return; }
     const pill = e.target.closest('.feed-post-reaction-pill');
-    if (pill) { toggleFeedReaction(Number(pill.dataset.postId), pill.dataset.emoji); return; }
+    if (pill) { if (!pill.classList.contains('mine')) floatEmoji(pill, pill.dataset.emoji); toggleFeedReaction(Number(pill.dataset.postId), pill.dataset.emoji); return; }
     const replyOpen = e.target.closest('.feed-post-reply-open');
     if (replyOpen) {
       const postId = Number(replyOpen.dataset.postId);
@@ -1109,6 +1221,7 @@
     if (quickEmoji) {
       const postId = Number(quickEmoji.dataset.postId);
       _openReactionPickers.delete(postId);
+      floatEmoji(quickEmoji, quickEmoji.dataset.emoji);
       toggleFeedReaction(postId, quickEmoji.dataset.emoji);
       return;
     }

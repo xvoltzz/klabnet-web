@@ -33,6 +33,7 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-music-active', key === 'music');
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   document.body.classList.toggle('tab-home-active', key === 'home');
+  document.body.classList.toggle('tab-feed-active', key === 'feed');
   if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
