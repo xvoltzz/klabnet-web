@@ -5404,7 +5404,7 @@
     }
     .hm-tile {
       position: relative; overflow: hidden; isolation: isolate; min-height: 0; min-width: 0;
-      border-radius: 10px; background: var(--glass-fill); border: 1px solid var(--glass-border);
+      border-radius: 8px; background: var(--glass-fill); border: 1px solid var(--glass-border);
       padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column;
       transition: border-color var(--m-med) ease, background-color var(--m-med) ease;
     }
@@ -5438,7 +5438,7 @@
     .hm-big.long { font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; -webkit-line-clamp: 7; }
     .hm-cap { margin: 10px 0 12px; font: 700 21px/1.25 var(--font-ui); letter-spacing: -0.02em; max-width: 90%; }
     .hm-exif { display: flex; gap: 6px; flex-wrap: wrap; }
-    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 6px; background: rgba(0,0,0,.4); backdrop-filter: blur(10px); color: rgba(255,255,255,.88); }
+    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 4px; background: rgba(0,0,0,.4); backdrop-filter: blur(10px); color: rgba(255,255,255,.88); }
     .hm-album { display: flex; align-items: flex-end; gap: 22px; margin-top: 14px; }
     .hm-cv { width: min(40%, 280px); aspect-ratio: 1; flex-shrink: 0; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 24px 50px rgba(0,0,0,.6); }
     .hm-album b { display: block; font: 800 clamp(22px, 2.2vw, 34px)/1.1 var(--font-ui); letter-spacing: -0.03em; }
@@ -5457,7 +5457,7 @@
     @keyframes hmArrive { 15% { opacity: 1; } }
 
     /* latest posts */
-    .hm-posts { grid-column: 8 / span 5; grid-row: 1; }
+    .hm-posts { grid-column: 7 / span 3; grid-row: 3; }
     .hm-plist { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; min-height: 0;
       mask-image: linear-gradient(#000 80%, transparent); -webkit-mask-image: linear-gradient(#000 80%, transparent); }
     .hm-pi { display: flex; gap: 11px; align-items: flex-start; padding: 7px 4px; flex-shrink: 0; }
@@ -5471,7 +5471,7 @@
     @keyframes hmGlow { 20% { background: var(--glass-fill-h); } }
 
     /* listening */
-    .hm-listen { grid-column: 8 / span 5; grid-row: 2; }
+    .hm-listen { grid-column: 8 / span 5; grid-row: 1 / span 2; } /* the tall one: nobody gets cut off */
     .hm-lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; align-content: start; }
     .hm-pcard { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 4px; border-radius: 6px; }
     .hm-art { position: relative; width: 42px; height: 42px; flex-shrink: 0; border-radius: 5px; background: var(--tile-bg-h) center / cover; }
@@ -5488,7 +5488,7 @@
     .hm-quiet { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--text-dimmer); opacity: .5; }
 
     /* new music */
-    .hm-music { grid-column: 1 / span 4; grid-row: 3; padding: 0; }
+    .hm-music { grid-column: 1 / span 3; grid-row: 3; padding: 0; }
     .hm-flow { position: relative; flex: 1; min-height: 0; perspective: 700px; }
     .hm-fc {
       position: absolute; top: 54%; left: 50%; height: 64%; aspect-ratio: 1; transform-origin: center;
@@ -5499,7 +5499,7 @@
     .hm-fc.dim { filter: brightness(.5); }
 
     /* photos */
-    .hm-photos { grid-column: 5 / span 4; grid-row: 3; padding: 0; }
+    .hm-photos { grid-column: 4 / span 3; grid-row: 3; padding: 0; }
     .hm-pgrid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.3fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; }
     .hm-pgrid b { min-height: 0; background: var(--tile-bg-h) center / cover; }
     .hm-pgrid b:first-child { grid-row: span 2; }
@@ -5507,7 +5507,7 @@
     .hm-pgrid.n3 { grid-template-columns: 1.3fr 1fr; }
 
     /* chat */
-    .hm-chat { grid-column: 9 / span 4; grid-row: 3; }
+    .hm-chat { grid-column: 10 / span 3; grid-row: 3; }
     .hm-clist { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
       mask-image: linear-gradient(transparent, #000 25%); -webkit-mask-image: linear-gradient(transparent, #000 25%); }
     .hm-cm { display: flex; gap: 9px; font-size: 13.5px; line-height: 1.35; flex-shrink: 0; }
@@ -5779,7 +5779,22 @@
     }
 
     /* Home's Who's online: the classic presence cards, two across. */
-    .hm-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: hidden; min-height: 0;
-      mask-image: linear-gradient(#000 82%, transparent); -webkit-mask-image: linear-gradient(#000 82%, transparent); }
-    .hm-cards .presence-card { min-width: 0; }
+    .hm-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
+    .hm-cards::-webkit-scrollbar { display: none; }
+    .hm-cards .presence-card { min-width: 0; padding: 7px 10px; gap: 10px; }
+    .hm-cards .presence-card-avatar { width: 32px; height: 32px; font-size: 12px; }
     .hm-alone { flex: 0; margin-top: 10px; font-size: 13px; }
+
+    /* Home's clock: an old seven-segment LCD (DSEG7, OFL, self-hosted). */
+    @font-face { font-family: 'DSEG7'; font-weight: 700; font-display: swap; src: url('../fonts/dseg7-classic-bold.woff2?v=1') format('woff2'); }
+    .hm-clock { display: inline-flex; align-items: baseline; gap: 8px; font: inherit; }
+    .hm-lcd { display: inline-grid; font: 700 25px/1 'DSEG7', var(--font-mono, monospace); letter-spacing: 2px; transform: translateY(1px); }
+    .hm-lcd > span { grid-area: 1 / 1; }
+    .hm-lcd-ghost { color: rgba(var(--accent-rgb), .09); }
+    .hm-lcd-now { color: rgb(var(--accent-rgb)); text-shadow: 0 0 10px rgba(var(--accent-rgb), .55), 0 0 26px rgba(var(--accent-rgb), .22); }
+    .hm-lcd-colon { animation: hmLcdBlink 2s steps(1) infinite; }
+    @keyframes hmLcdBlink { 50% { opacity: .12; } }
+    .hm-ampm { font: 700 11px var(--font-ui); letter-spacing: .12em; color: var(--text-dimmer); }
+    [data-theme="light"] .hm-lcd-ghost { color: rgba(0,0,0,.06); }
+    [data-theme="light"] .hm-lcd-now { color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, #000); text-shadow: none; }
+    @media (prefers-reduced-motion: reduce) { .hm-lcd-colon { animation: none; } }

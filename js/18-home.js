@@ -104,7 +104,16 @@
     const clock = d.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
     if (clock === lastMinute) return;
     lastMinute = clock;
-    clockEl.textContent = clock;
+    // An old LCD clock: unlit "88:88" segments behind the lit digits.
+    // "!" is DSEG's blank digit, so 9:05 sits right-aligned like 12:05.
+    const m = /(\d{1,2}):(\d{2})\s*([AP]M)?/i.exec(clock);
+    if (m) {
+      const h = m[1].length === 1 ? '!' + m[1] : m[1];
+      clockEl.innerHTML = '<span class="hm-lcd" aria-hidden="true"><span class="hm-lcd-ghost">88:88</span>' +
+        '<span class="hm-lcd-now">' + h + '<span class="hm-lcd-colon">:</span>' + m[2] + '</span></span>' +
+        (m[3] ? '<span class="hm-ampm">' + m[3].toUpperCase() + '</span>' : '');
+      clockEl.setAttribute('aria-label', clock);
+    } else clockEl.textContent = clock;
     dateEl.textContent = d.toLocaleDateString('en-US', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric' });
     // Relative times move on with the clock.
     panel.querySelectorAll('.hm-t[data-t]').forEach(el => { el.textContent = ago(+el.dataset.t); });
