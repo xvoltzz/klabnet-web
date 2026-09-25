@@ -421,7 +421,7 @@
     // known, drawing the "you" card AND your stale entry: two of yourself,
     // until the next poll 8s later rebuilt the array correctly.
     const others = (rawOthers || []).filter(l => l && l.username !== me);
-    let html = '<div class="presence-sec">Online — ' + (others.length + (me && me !== 'anonymous' ? 1 : 0)) + '</div>';
+    let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
       html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
@@ -446,7 +446,7 @@
       const open = offlineExpanded();
       html += '<button type="button" class="presence-offline-toggle' + (open ? ' is-open' : '') + '" id="presenceOfflineToggle">' +
         '<i class="ti ti-chevron-right"></i>' +
-        '<span>Offline — ' + roster.length + '</span>' +
+        '<span>' + roster.length + ' offline</span>' +
         '</button>';
       html += '<div class="presence-offline-list"' + (open ? '' : ' hidden') + '>';
       roster.forEach(person => { html += offlineRowHTML(person); });
@@ -454,47 +454,10 @@
     }
     // Most 8s polls come back with nothing changed — skip the DOM
     // teardown/rebuild entirely when the output is identical to last time.
-    renderMePanel();
     if (html === _lastRenderedHTML) return;
     _lastRenderedHTML = html;
     list.innerHTML = html;
     applyUnreadDmDots();
-  }
-
-  // You, at the foot of Chat's sidebar (Discord's user panel): your note,
-  // or what you're playing, and the way into your profile and settings.
-  const mePanel = document.getElementById('chatMe');
-  let _lastMePanel = null;
-  function renderMePanel() {
-    if (!mePanel) return;
-    const me = window.KLAB_USER?.username;
-    if (!me || me === 'anonymous') return;
-    ensureAvatarResolved(me);
-    const url = _avatarCache.get(me);
-    const note = _notesCache.get(me);
-    const song = playerState.currentSong;
-    const status = note
-      ? '<span class="chat-me-note" title="Edit your note">' + esc(note) + '</span>'
-      : (playerState.playing && song
-          ? '<span class="chat-me-note" title="Add a note"><i class="ti ti-headphones"></i> ' + esc(song.title || '') + '</span>'
-          : '<span class="chat-me-note empty" title="Add a note">Add a note…</span>');
-    const html =
-      '<button type="button" class="chat-me-who" title="Your profile">' +
-        '<span class="chat-me-avatar">' + (url ? '<img src="' + esc(url) + '" alt="" />' : esc(me[0].toUpperCase())) + '<span class="chat-me-dot"></span></span>' +
-      '</button>' +
-      '<div class="chat-me-text"><b style="color:' + profileColor(me) + '">' + esc(me) + '</b>' + status + '</div>' +
-      '<button type="button" class="chat-icon-btn" data-me="settings" title="Settings"><i class="ti ti-settings"></i></button>';
-    if (html === _lastMePanel) return;
-    _lastMePanel = html;
-    mePanel.innerHTML = html;
-  }
-  if (mePanel) {
-    mePanel.addEventListener('click', e => {
-      if (e.target.closest('.chat-me-note')) { editMyNote(); return; }
-      if (e.target.closest('[data-me="settings"]')) { openSettings(); return; }
-      if (e.target.closest('.chat-me-who')) openProfileModal();
-    });
-    ['play', 'pause', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, renderMePanel));
   }
 
   // The rail is the DM list now, so an unread DM has to be visible here or

@@ -492,13 +492,7 @@ function buildChannelItem(room, icon) {
   const item = document.createElement('div');
   item.dataset.roomId = room.roomId; // updateChannelUnreadDots() targets rows by this instead of a full re-render
   item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
-  // A DM row leads with the other person's face instead of an icon.
-  const other = isDm && !invited ? dmOtherUsername(room) : null;
-  const face = other && window.klabResolveUserAvatar ? window.klabResolveUserAvatar(other) : null;
-  const lead = isDm && !invited
-    ? `<span class="chat-dm-avatar">${face ? `<img src="${esc(face)}" alt="" />` : esc((other || room.name || '?')[0].toUpperCase())}</span>`
-    : `<i class="ti ${invited ? 'ti-mail' : icon}"></i>`;
-  item.innerHTML = lead + `<span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
+  item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
     (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
     (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot" title="Online" aria-label="Online"></span>' : '')) +
     // DMs (only) get a close button, hidden until hover — leaves the
@@ -583,25 +577,19 @@ function renderChannelList() {
   const listKey = rooms.map(r => {
     const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? '1' : '0';
     const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
-    const face = dmIds.has(r.roomId) && window.klabResolveUserAvatar?.(dmOtherUsername(r)) ? 'a' : '';
-    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}${face}`;
+    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}`;
   }).join(',') + '|' + _chatActiveRoomId;
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
     list.innerHTML = '';
-    // Channels here; DMs go in their own section just below.
+    // Channels only. DMs aren't listed here any more — the presence rail
+    // above is the DM list now, since a person and "the DM with that
+    // person" were always the same thing shown twice. dmRooms still
+    // participates in `rooms` above so a DM can be the active room, and
+    // unread DMs surface as a dot on that person's card (see
+    // updateSocialUnreadBadge -> KLAB_REFRESH_PRESENCE_UNREAD).
     list.append(...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
-    // DMs have their own section again, Discord-style, now that the
-    // presence rail is gone.
-    const dmList = document.getElementById('chatDmList');
-    if (dmList) {
-      dmList.innerHTML = '';
-      dmList.append(...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
-      const sec = document.getElementById('chatDmSec');
-      if (sec) sec.hidden = !dmRooms.length;
-    }
   }
-  syncChatHead();
   // The active room can change without anyone tapping a row (the
   // auto-select above, or leaving the room you were in), so the mobile
   // bar's title is refreshed here rather than only in setChatMobileView().
@@ -2274,7 +2262,7 @@ const _baseTitle = document.title;
 // no way to feed back into renderTimeline() at all, which removes the
 // cycle rather than just hoping it converges cleanly.
 function updateChannelUnreadDots() {
-  document.querySelectorAll('#chatChannelsList .chat-channel-item[data-room-id], #chatDmList .chat-channel-item[data-room-id]').forEach(item => {
+  document.querySelectorAll('#chatChannelsList .chat-channel-item[data-room-id]').forEach(item => {
     const hasUnread = _chatUnreadRooms.has(item.dataset.roomId);
     item.classList.toggle('has-unread', hasUnread);
     const existingDot = item.querySelector('.chat-channel-unread-dot');
@@ -2384,36 +2372,6 @@ function setChatMobileView(view) {
   document.body.classList.toggle('chat-rooms-view', view === 'rooms');
   if (view !== 'rooms') syncChatMobileTitle();
 }
-// The bar over the conversation: # name and topic, or the person for a DM.
-function syncChatHead() {
-  const nameEl = document.getElementById('chatHeadName');
-  if (!nameEl) return;
-  const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
-  const isDm = !!room && getDmRoomIds().has(room.roomId);
-  document.getElementById('chatHeadIcon').className = 'ti ' + (isDm ? 'ti-at' : 'ti-hash');
-  nameEl.textContent = room?.name || '';
-  let topic = '';
-  try { topic = room?.currentState?.getStateEvents('m.room.topic', '')?.getContent()?.topic || ''; } catch (e) {}
-  document.getElementById('chatHeadTopic').textContent = topic;
-  const input = document.getElementById('chatComposerInput');
-  if (input && room) input.placeholder = 'Message ' + (isDm ? '@' : '#') + (room.name || '');
-}
-(function membersToggle() {
-  const btn = document.getElementById('chatMembersBtn');
-  const app = document.getElementById('chatApp');
-  if (!btn || !app) return;
-  const KEY = 'klabnet_chat_members';
-  const set = on => {
-    app.classList.toggle('hide-members', !on);
-    btn.setAttribute('aria-pressed', String(on));
-    btn.classList.toggle('on', on);
-    try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {}
-  };
-  let on = true;
-  try { on = localStorage.getItem(KEY) !== '0'; } catch (e) {}
-  set(on);
-  btn.addEventListener('click', () => { set(app.classList.contains('hide-members')); SFX && SFX.play('click'); });
-})();
 function syncChatMobileTitle() {
   const el = document.getElementById('chatMobileTitle');
   if (!el) return;
