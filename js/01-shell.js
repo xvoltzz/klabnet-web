@@ -161,34 +161,46 @@ const BG_KEY_LIGHT = 'klabnet_bg_light';
 // First entry of each list ('' hex) is "use the theme's own default" —
 // clearing back to whatever [data-theme="..."] already defines for --bg,
 // rather than a swatch of its own that'd drift if that default ever changes.
+// Tinted enough to tell apart at a glance (the first set sat within a few
+// shades of black / white and people couldn't see the difference), while
+// staying dark / light enough for the text on top to read comfortably.
 const BG_PALETTE_DARK = [
   { hex: '', label: 'Default (true black)' },
-  { hex: '#0a0a0c', label: 'OLED Charcoal' },
-  { hex: '#0d0f14', label: 'Slate' },
-  { hex: '#14100c', label: 'Espresso' },
-  { hex: '#05060d', label: 'Midnight' },
-  { hex: '#0f0a14', label: 'Deep Purple' },
-  { hex: '#0a120e', label: 'Forest' },
-  { hex: '#140a0d', label: 'Wine' },
-  { hex: '#061014', label: 'Ocean' },
-  { hex: '#111111', label: 'Graphite' },
+  { hex: '#16161a', label: 'OLED Charcoal' },
+  { hex: '#161c2a', label: 'Slate' },
+  { hex: '#26180f', label: 'Espresso' },
+  { hex: '#0b1433', label: 'Midnight' },
+  { hex: '#1f1033', label: 'Deep Purple' },
+  { hex: '#0c2517', label: 'Forest' },
+  { hex: '#2e0d19', label: 'Wine' },
+  { hex: '#05232e', label: 'Ocean' },
+  { hex: '#1f1f1f', label: 'Graphite' },
 ];
 const BG_PALETTE_LIGHT = [
   { hex: '', label: 'Default (warm white)' },
   { hex: '#ffffff', label: 'Pure White' },
-  { hex: '#eceae5', label: 'Soft Gray' },
-  { hex: '#faf3e6', label: 'Cream' },
-  { hex: '#eef2f7', label: 'Pale Sky' },
-  { hex: '#f8ecec', label: 'Blush' },
-  { hex: '#eaf5ee', label: 'Mint' },
-  { hex: '#f1eef8', label: 'Lavender' },
-  { hex: '#f6efe0', label: 'Sand' },
-  { hex: '#edf3f5', label: 'Ice' },
+  { hex: '#dedcd6', label: 'Soft Gray' },
+  { hex: '#fbe9c6', label: 'Cream' },
+  { hex: '#d6e5f8', label: 'Pale Sky' },
+  { hex: '#f7d6d8', label: 'Blush' },
+  { hex: '#d3f0dd', label: 'Mint' },
+  { hex: '#e3d8f8', label: 'Lavender' },
+  { hex: '#f0dcb4', label: 'Sand' },
+  { hex: '#d4ecf2', label: 'Ice' },
 ];
+// People who picked from the first set move to the same shade's new version.
+const BG_RENAMED = {
+  '#0a0a0c': '#16161a', '#0d0f14': '#161c2a', '#14100c': '#26180f', '#05060d': '#0b1433', '#0f0a14': '#1f1033',
+  '#0a120e': '#0c2517', '#140a0d': '#2e0d19', '#061014': '#05232e', '#111111': '#1f1f1f',
+  '#eceae5': '#dedcd6', '#faf3e6': '#fbe9c6', '#eef2f7': '#d6e5f8', '#f8ecec': '#f7d6d8', '#eaf5ee': '#d3f0dd',
+  '#f1eef8': '#e3d8f8', '#f6efe0': '#f0dcb4', '#edf3f5': '#d4ecf2',
+};
 
 function getCustomBg(theme) {
-  try { return localStorage.getItem(theme === 'dark' ? BG_KEY_DARK : BG_KEY_LIGHT) || ''; }
-  catch (e) { return ''; }
+  try {
+    const hex = localStorage.getItem(theme === 'dark' ? BG_KEY_DARK : BG_KEY_LIGHT) || '';
+    return BG_RENAMED[hex.toLowerCase()] || hex;
+  } catch (e) { return ''; }
 }
 function setCustomBg(theme, hex) {
   try { localStorage.setItem(theme === 'dark' ? BG_KEY_DARK : BG_KEY_LIGHT, hex || ''); } catch (e) {}

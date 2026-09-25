@@ -195,7 +195,7 @@ document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', async 
   if (!name) return;
   createPlaylist(name);
   SFX && SFX.play('star');
-  showToast(`"${name}" created`);
+  showToast(`"${name}" created`, 'ti-playlist-add');
 });
 
 function createPlaylist(name) {
@@ -212,7 +212,7 @@ function addSongToPlaylist(plId, song) {
   if (!pl) return;
   if (!pl.songs.find(s => s.id === song.id)) { pl.songs.push(song); }
   savePlaylists(pls);
-  showToast(`Added to "${pl.name}"`);
+  showToast(`Added to "${pl.name}"`, toastArt(song.coverArt));
 }
 
 // renderPlaylistList() (the old generic "Playlists" browse tab) removed —
@@ -366,7 +366,7 @@ function _dlFilename(song, ext) {
 function downloadSongOriginal(song) {
   if (!song || !song.id) return;
   _dlAnchor(`${ND_URL}/rest/download?id=${encodeURIComponent(song.id)}&${subsonicParams()}`);
-  showToast(`Downloading "${song.title}"`);
+  showToast(`Downloading "${song.title}"`, toastArt(song.coverArt));
 }
 
 let _dlMp3Busy = false;
@@ -374,11 +374,11 @@ async function downloadSongMp3(song) {
   if (!song || !song.id) return;
   // The whole file lands in memory before the browser sees any of it, so
   // don't let someone stack up five of these by spamming the menu.
-  if (_dlMp3Busy) { showToast('Already preparing a download'); return; }
+  if (_dlMp3Busy) { showToast('Already preparing a download', 'ti-hourglass'); return; }
   _dlMp3Busy = true;
   let objUrl = '';
   try {
-    showToast(`Converting "${song.title}" to MP3…`);
+    showToast(`Converting "${song.title}" to MP3…`, 'ti-transform');
     const url = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.id)}`
               + `&format=mp3&maxBitRate=${DL_MP3_BITRATE}&${subsonicParams()}`;
     // fetchTimeout's abort timer is cleared when the fetch promise settles
@@ -391,10 +391,10 @@ async function downloadSongMp3(song) {
     if (!blob.size) throw new Error('empty response');
     objUrl = URL.createObjectURL(blob);
     _dlAnchor(objUrl, _dlFilename(song, 'mp3'));
-    showToast(`Downloaded "${song.title}" (MP3)`);
+    showToast(`Downloaded "${song.title}" (MP3)`, toastArt(song.coverArt));
   } catch (err) {
     console.warn('[download] mp3 failed', err);
-    showToast('MP3 download failed — try the original');
+    showToast('MP3 download failed — try the original', 'ti-file-alert');
   } finally {
     _dlMp3Busy = false;
     // Revoking immediately can cancel the download in some browsers; the
@@ -409,7 +409,7 @@ async function downloadSongMp3(song) {
 function downloadAlbumZip(albumId, albumName) {
   if (!albumId) return;
   _dlAnchor(`${ND_URL}/rest/download?id=${encodeURIComponent(albumId)}&${subsonicParams()}`);
-  showToast(`Downloading "${albumName || 'album'}" (ZIP)`);
+  showToast(`Downloading "${albumName || 'album'}" (ZIP)`, toastArt(albumId));
 }
 
 // ══════════════════════════════════════════
@@ -464,8 +464,8 @@ function showSongCtx(x, y, song, contextSongs) {
   loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-star-filled' : 'ti-star'}"></i> ${isLogin ? 'Clear Login Song' : 'Set as Login Song'}`;
   loginItem.onclick = () => {
     hideSongCtx();
-    if (isLogin) { clearLoginSong(); showToast('Login song cleared'); }
-    else { setLoginSong(song); showToast(`"${song.title}" set as login song ★`); }
+    if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-star-off'); }
+    else { setLoginSong(song); showToast(`"${song.title}" set as login song ★`, toastArt(song.coverArt)); }
   };
 
   // Label the original with what it actually is ("Download FLAC"), since
@@ -545,7 +545,7 @@ async function loadAllSongs() {
           all.push(...page);
           if (page.length < _SONGS_PER_PAGE) break;
           offset += _SONGS_PER_PAGE;
-          if (page_i === 199) showToast('song list may be incomplete — hit the page limit');
+          if (page_i === 199) showToast('song list may be incomplete — hit the page limit', 'ti-list-details');
         }
         _songsCache = all;
       }
@@ -750,7 +750,7 @@ function renderMusicRequestsList() {
         if (!res.ok) throw new Error('failed');
         SFX && SFX.play('click');
         await loadMusicRequestsTab();
-      } catch (e) { showToast('Failed to update request'); }
+      } catch (e) { showToast('Failed to update request', 'ti-alert-triangle'); }
     });
   });
   pickerList.querySelectorAll('[data-req-delete]').forEach(btn => {
@@ -761,7 +761,7 @@ function renderMusicRequestsList() {
         const res = await fetchTimeout(`/api/music-requests/${btn.dataset.reqDelete}`, { method: 'DELETE' }, 8000);
         if (!res.ok) throw new Error('failed');
         await loadMusicRequestsTab();
-      } catch (e) { showToast('Failed to delete request'); }
+      } catch (e) { showToast('Failed to delete request', 'ti-trash-x'); }
     });
   });
   // window.klabResolveUserAvatar only re-renders the FEED module on a cache
@@ -843,11 +843,11 @@ function openMusicRequestModal() {
           }, 8000);
           if (!res.ok) throw new Error('failed');
           closeChatModal();
-          showToast(`Requested "${r.title}"`);
+          showToast(`Requested "${r.title}"`, r.cover_art_url ? { art: r.cover_art_url } : 'ti-music-plus');
           SFX && SFX.play('star');
           await loadMusicRequestsTab();
         } catch (e) {
-          showToast('Failed to submit request');
+          showToast('Failed to submit request', 'ti-music-x');
           btn.disabled = false;
         }
       });

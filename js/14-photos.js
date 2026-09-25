@@ -46,6 +46,10 @@
   let pos = 0, target = 0; // strip x currently under the playhead / where it's gliding to
   let sel = -1;
   let hasOlder = true, loadingOlder = false, loadedOnce = false;
+  // 'shot' is the timeline (when photos were taken, the default); 'posted'
+  // is "What's New" (by upload). Not remembered: the tab always opens on
+  // the timeline.
+  let order = 'shot';
 
   const isActive = () => panel.classList.contains('active');
   const me = () => (window.KLAB_USER?.username || '').toLowerCase();
@@ -73,7 +77,7 @@
   async function fetchLatest() {
     if (document.hidden) return;
     try {
-      const r = await fetchTimeout(`${API}?limit=${PAGE}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const fresh = (await r.json()).posts || [];
       // Merge: the newest page replaces whatever overlaps it; older pages
@@ -93,7 +97,7 @@
     loadingOlder = true;
     try {
       const last = posts[posts.length - 1];
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&before_sort=${encodeURIComponent(last.sort_at)}&before_id=${last.id}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(last.sort_at)}&before_id=${last.id}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       hasOlder = older.length === PAGE;
@@ -132,6 +136,21 @@
     renderStrip();
     setBackdrop();
   }
+
+  // ── Timeline / What's New ──
+  function setOrder(next) {
+    if (next === order) return;
+    order = next;
+    document.querySelectorAll('#phOrder button').forEach(b => b.setAttribute('aria-pressed', b.dataset.order === order));
+    posts = []; items = []; sel = -1; hasOlder = true; loadedOnce = false;
+    strip.textContent = ''; thumbEls = []; centers = [];
+    SFX && SFX.play('click');
+    fetchLatest();
+  }
+  document.getElementById('phOrder')?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-order]');
+    if (b) setOrder(b.dataset.order);
+  });
 
   // ── Empty / error state ──
   function showEmpty(msg) {
@@ -722,6 +741,7 @@
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'couldn’t save');
       // A new date can move the post along the timeline: re-slot it and follow it there.
+      if (order === 'posted') data.sort_at = data.created;
       const next = posts.filter(p => p.id !== data.id);
       let at = next.findIndex(p => before(p, data));
       if (at < 0) at = next.length;
@@ -1177,6 +1197,7 @@
       if (!isActive()) setActiveTab('photos');
       // Slot it in where it belongs on the timeline (an old shoot lands in
       // the past, not at the end) and go there.
+      if (order === 'posted') data.sort_at = data.created;
       const next = posts.filter(p => p.id !== data.id);
       let at = next.findIndex(p => before(p, data));
       if (at < 0) at = next.length;

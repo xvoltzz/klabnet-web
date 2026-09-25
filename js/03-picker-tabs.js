@@ -28,7 +28,7 @@ async function loadAlbums() {
         allAlbums.push(...page);
         if (page.length < pageSize) break; // no more pages
         offset += pageSize;
-        if (page_i === 49) showToast('album list may be incomplete — hit the page limit');
+        if (page_i === 49) showToast('album list may be incomplete — hit the page limit', 'ti-list-details');
       }
       _albumsCache = allAlbums;
     }
@@ -107,14 +107,14 @@ function renderAlbumList(albums, appendMode) {
       const t = await fetchTracks(); if (!t.length) return;
       queue = t.slice(1); updateQueueBadge();
       await playSong(t[0]);
-      showToast('Playing "' + album.name + '"');
+      showToast('Playing "' + album.name + '"', toastArt(album.coverArt || album.id));
     });
 
     queueBtn.addEventListener('click', async e => {
       e.stopPropagation();
       const t = await fetchTracks();
       queue.push(...t); updateQueueBadge();
-      showToast('Queued ' + t.length + ' tracks');
+      showToast('Queued ' + t.length + ' tracks', toastArt(album.coverArt || album.id));
     });
 
     item.addEventListener('click', e => {
@@ -314,13 +314,13 @@ async function loadArtistView(artist) {
         e.stopPropagation();
         const t = await getTracks(); if (!t.length) return;
         queue = t.slice(1); updateQueueBadge();
-        await playSong(t[0]); showToast(`Playing "${album.name}"`);
+        await playSong(t[0]); showToast(`Playing "${album.name}"`, toastArt(album.coverArt || album.id));
       });
       item.querySelector('[title="Queue album"]').addEventListener('click', async e => {
         e.stopPropagation();
         const t = await getTracks();
         queue.push(...t); updateQueueBadge();
-        showToast(`Queued ${t.length} tracks`);
+        showToast(`Queued ${t.length} tracks`, toastArt(album.coverArt || album.id));
       });
       item.addEventListener('click', () => {
         loadAlbumView(album.id, album.name, () => loadArtistView(artist));

@@ -199,7 +199,7 @@ document.getElementById('dockShuffle').addEventListener('click', () => {
 // ══════════════════════════════════════════
 function shareCurrentSongToFeed() {
   const song = playerState.currentSong;
-  if (!song) { showToast('Nothing playing to share'); return; }
+  if (!song) { showToast('Nothing playing to share', 'ti-player-stop'); return; }
   const lyric = window._klabLyrics?.getActiveLine?.() || null;
   setActiveTab('feed');
   // window.klabShareSongToFeed is exposed by the FEED module (a separate

@@ -33,7 +33,7 @@
     pill.setAttribute('aria-hidden', 'true');
     container.prepend(pill);
     container.classList.add('has-pill');
-    let queued = false, placed = false;
+    let queued = false, placed = false, baseW = 0, baseH = 0;
     function place() {
       queued = false;
       const el = container.querySelector(activeSel);
@@ -45,9 +45,14 @@
       const z = zoomFactor();
       const c = container.getBoundingClientRect(), r = el.getBoundingClientRect();
       const x = (r.left - c.left) / z + container.scrollLeft, y = (r.top - c.top) / z + container.scrollTop;
-      pill.style.width = r.width / z + 'px';
-      pill.style.height = r.height / z + 'px';
-      pill.style.transform = `translate(${x}px, ${y}px)`;
+      // Size by scale from a fixed base, never by width/height: those only
+      // animate on the main thread, so the pill froze whenever a tab was
+      // busy loading. transform runs on the GPU regardless. The base is the
+      // first item's size, so the scale stays near 1 and the corners don't
+      // visibly stretch.
+      const w = r.width / z, h = r.height / z;
+      if (!baseW) { baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px'; }
+      pill.style.transform = `translate(${x}px, ${y}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
       pill.style.opacity = '1';
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }
     }

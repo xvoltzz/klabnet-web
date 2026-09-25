@@ -538,9 +538,9 @@
         const results = data['subsonic-response']?.searchResult3?.song || [];
         song = results.find(s => s.title === title && (!artist || s.artist === artist)) || results[0] || null;
       }
-      if (!song) { showToast(`Couldn't sync with ${username}`); SFX && SFX.play('error'); return; }
+      if (!song) { showToast(`Couldn't sync with ${username}`, toastPerson(username)); SFX && SFX.play('error'); return; }
       await playSong(song);
-      showToast(`Sync'd with ${username}! 🎶`);
+      showToast(`Sync'd with ${username}! 🎶`, toastPerson(username));
       SFX && SFX.play('play');
       // gitea#2: this was previously a one-shot "copy their track, play it
       // from 0, never sync again" — startParty() below layers continuous
@@ -549,7 +549,7 @@
       // beat rather than staying stuck at 0.
       startParty(username);
     } catch(e) {
-      showToast(`Couldn't sync with ${username}`);
+      showToast(`Couldn't sync with ${username}`, toastPerson(username));
       SFX && SFX.play('error');
     }
   }
@@ -622,7 +622,7 @@
   function startParty(username) {
     const client = MatrixChat.client;
     if (!client) {
-      showToast('Connect chat in the Chat tab to use listening party');
+      showToast('Connect chat in the Chat tab to use listening party', 'ti-plug-connected-x');
       return;
     }
     const hostId = matrixIdFor(username);
@@ -633,7 +633,7 @@
     clearTimeout(_partyAckTimer);
     _partyAckTimer = setTimeout(() => {
       if (_partyHostId !== hostId) return; // already left/switched, not a failure
-      showToast(`${username} isn't available for a listening party right now`);
+      showToast(`${username} isn't available for a listening party right now`, toastPerson(username));
       leaveParty(false);
     }, PARTY_ACK_TIMEOUT_MS);
     sendToDeviceEvent(hostId, 'klab.sync_request', {}).catch(() => {});

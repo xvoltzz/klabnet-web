@@ -6,6 +6,12 @@
 // ══════════════════════════════════════════
 const TABS = ['feed', 'chat', 'music', 'photos'];
 
+// Heavy per-tab setup waits until the switch itself has reached the screen,
+// so the tab highlight and the panel's fade start moving straight away
+// instead of after that work. The panel fades in from transparent, so a
+// frame of not-yet-updated content is never visible.
+function afterSwitchPaints(fn) { requestAnimationFrame(() => setTimeout(fn, 0)); }
+
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
   return !!btn && !btn.hidden;
@@ -28,7 +34,7 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
-  if (typeof window.klabPhotosTabChanged === 'function') window.klabPhotosTabChanged(key === 'photos');
+  if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
   // Swaps the header's terminal-prompt branding to klab.chat while on
   // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro
   // typing animation already having finished; if it hasn't (a page load
@@ -73,12 +79,12 @@ function setActiveTab(key) {
     // block exists to fix, still half-open. Part of the "have to keep
     // scrolling down" report.
     if (typeof _forceScrollBottomOnNextRender !== 'undefined') _forceScrollBottomOnNextRender = true;
-    renderTimeline();
+    afterSwitchPaints(renderTimeline);
   }
   if (location.hash.slice(1) !== key) location.hash = key;
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
-  if (key === 'music' && typeof ensureMusicTabLoaded === 'function') ensureMusicTabLoaded();
+  if (key === 'music' && typeof ensureMusicTabLoaded === 'function') afterSwitchPaints(ensureMusicTabLoaded);
 }
 
 // Called after settings change a tab's availability — bumps off a now-hidden
@@ -167,7 +173,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
       body: JSON.stringify({})
     }, 8000);
   } catch(e) {}
-  showToast('preferences reset — reloading...');
+  showToast('preferences reset — reloading...', 'ti-restore');
   setTimeout(() => location.reload(), 1500);
 });
 

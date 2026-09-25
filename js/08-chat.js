@@ -501,7 +501,7 @@ function buildChannelItem(room, icon) {
     (isDm ? '<button class="chat-channel-close" title="Close DM"><i class="ti ti-x"></i></button>' : '');
   item.addEventListener('click', async () => {
     if (invited) {
-      try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`); return; }
+      try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`, 'ti-door-off'); return; }
     } else if (room.roomId === _chatActiveRoomId) {
       // Already the active room, so there's nothing to re-render — but on
       // mobile this row is still the only way into that conversation.
@@ -524,7 +524,7 @@ function buildChannelItem(room, icon) {
       if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
       renderChannelList();
     } catch (err) {
-      showToast(`Couldn't close DM: ${err.message || 'error'}`);
+      showToast(`Couldn't close DM: ${err.message || 'error'}`, 'ti-message-x');
     }
   });
   return item;
@@ -1194,7 +1194,7 @@ async function sendChatMessage() {
       });
     } catch (e) {
       console.error('[chat] image send failed', e);
-      showToast('Failed to send image');
+      showToast('Failed to send image', 'ti-photo-x');
     }
   }
   if (text) {
@@ -1226,7 +1226,7 @@ function initChatImageSend() {
   // wasn't wired up at all.
   function attachChatImage(file) {
     if (!file) return;
-    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)'); return; }
+    if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)', 'ti-photo-off'); return; }
     _pendingChatImage = file;
     const reader = new FileReader();
     reader.onload = () => {
@@ -1342,7 +1342,7 @@ function openFeedbackModal() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'failed');
       closeChatModal();
-      showToast(data.number ? `Filed as #${data.number} — thanks!` : 'Report sent — thanks!');
+      showToast(data.number ? `Filed as #${data.number} — thanks!` : 'Report sent — thanks!', 'ti-bug');
     } catch (e) {
       errEl.textContent = e.message === 'issue tracker not configured'
         ? "The issue tracker isn't hooked up yet — tell an admin."
@@ -1460,9 +1460,9 @@ function openBrowseModal() {
       await MatrixChat.client.joinRoom(idOrAlias);
       closeChatModal();
       renderChannelList();
-      showToast(`Joined ${idOrAlias}`);
+      showToast(`Joined ${idOrAlias}`, 'ti-door-enter');
     } catch (e) {
-      showToast(`Couldn't join: ${e.message || 'error'}`);
+      showToast(`Couldn't join: ${e.message || 'error'}`, 'ti-door-off');
     } finally {
       joinByIdBtn.disabled = false; joinByIdBtn.textContent = 'Join';
     }
@@ -1495,7 +1495,7 @@ function openBrowseModal() {
             renderChannelList();
           } catch (e) {
             btn.disabled = false; btn.textContent = 'Join';
-            showToast(`Couldn't join: ${e.message || 'error'}`);
+            showToast(`Couldn't join: ${e.message || 'error'}`, 'ti-door-off');
           }
         });
       }
@@ -1550,7 +1550,7 @@ function openCreateModal() {
       _chatActiveRoomId = room_id;
       renderChannelList();
       setChatMobileView('convo');
-      showToast(`Created #${name}`);
+      showToast(`Created #${name}`, 'ti-hash');
     } catch (e) {
       err.textContent = e.message || 'Failed to create channel.';
       err.hidden = false;
@@ -1566,7 +1566,7 @@ async function startDm(userId) {
   // m.direct/room list and wrongly conclude no DM with this person exists
   // yet, creating a duplicate room even if one's already there.
   if (!_chatSyncSettled) {
-    showToast('Still connecting — try again in a moment');
+    showToast('Still connecting — try again in a moment', 'ti-loader-2');
     return;
   }
   try {
@@ -1584,7 +1584,7 @@ async function startDm(userId) {
     renderChannelList();
     setChatMobileView('convo');
   } catch (e) {
-    showToast(`Couldn't start DM: ${e.message || 'error'}`);
+    showToast(`Couldn't start DM: ${e.message || 'error'}`, 'ti-message-x');
   }
 }
 
@@ -1594,7 +1594,7 @@ async function startDm(userId) {
 // Chat tab to start or resume a DM with them.
 function messageUser(username) {
   if (!MatrixChat.client) {
-    showToast('Connect chat in the Chat tab first');
+    showToast('Connect chat in the Chat tab first', 'ti-plug-connected-x');
     return;
   }
   const serverName = MatrixChat.client.getUserId().split(':')[1];
@@ -2017,7 +2017,7 @@ async function openProfileModal() {
   _profileModalBlobUrls.forEach(u => URL.revokeObjectURL(u));
   _profileModalBlobUrls = [];
   const client = MatrixChat.client;
-  if (!client) { showToast('Connect chat in the Chat tab first'); return; }
+  if (!client) { showToast('Connect chat in the Chat tab first', 'ti-plug-connected-x'); return; }
   const myId = client.getUserId();
   const myUsername = mxIdToUsername(myId);
   const myProfile = _profiles.get(myUsername) || { chat_color: '', bio: '', banner_mxc: '' };
@@ -2159,7 +2159,7 @@ async function openProfileModal() {
       _profiles.set(myUsername, { chat_color: saved.chat_color, bio: saved.bio, banner_mxc: saved.banner_mxc });
 
       closeChatModal();
-      showToast('Profile updated');
+      showToast('Profile updated', 'ti-user-check');
       // Presence rail's cache is keyed by username, private to that
       // module's own IIFE — invalidated via the exposed hook. The chat
       // timeline's cache (keyed by Matrix user ID) is in this same
@@ -2344,7 +2344,9 @@ function notifyNewMessage(event, room) {
   // actually read (a name plus a message body) than the usual one-line
   // status toasts, and is more likely to arrive while you're looking
   // elsewhere on the page.
-  showToast(`${senderName}: ${body.length > 60 ? body.slice(0, 60) + '…' : body}`, isDm ? 'ti-message-circle-2' : undefined, TOAST_DEFAULT_MS * 2, avatarUrl,
+  const where = isDm ? '' : ` in ${room.name || 'a channel'}`;
+  showToast({ title: `${senderName}${where}`, body: body.length > 90 ? body.slice(0, 90) + '…' : body },
+    toastPerson(mxIdToUsername(senderId)), TOAST_DEFAULT_MS * 2, avatarUrl,
     () => openChatRoom(room.roomId));
 }
 

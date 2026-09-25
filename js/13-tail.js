@@ -609,11 +609,26 @@ function sampleImageColor(imgUrl) {
         shuffleBtn.innerHTML = '<i class="ti ti-arrows-shuffle"></i> Shuffle';
         const queueBtn = document.createElement('button'); queueBtn.className = 'ap-btn-queue';
         queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i> Queue all';
+        // While a song from this album is what's playing, the button is
+        // Pause (and Play resumes it) instead of restarting the album.
+        const albumId = album.id;
+        const fromThisAlbum = () => !!playerState.currentSong && playerState.currentSong.albumId === albumId;
+        const syncPlayBtn = () => {
+          const playing = fromThisAlbum() && !playerState.audio.paused;
+          playBtn.innerHTML = playing ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play';
+        };
         playBtn.addEventListener('click', () => {
           if (!songs.length) return;
+          SFX && SFX.play('click');
+          if (fromThisAlbum()) { playerState.audio.paused ? playerState.audio.play().catch(() => {}) : playerState.audio.pause(); return; }
           playerState.playlist = songs; playerState.playlistIndex = 0;
-          playSong(songs[0]); SFX && SFX.play('click');
+          playSong(songs[0]);
         });
+        // One listener set per open page; each removes itself once this
+        // page's button has left the DOM.
+        const onAudio = () => { if (!playBtn.isConnected) { for (const t of ['play', 'pause', 'loadstart']) playerState.audio.removeEventListener(t, onAudio); return; } syncPlayBtn(); };
+        for (const t of ['play', 'pause', 'loadstart']) playerState.audio.addEventListener(t, onAudio);
+        syncPlayBtn();
         shuffleBtn.addEventListener('click', () => {
           if (!songs.length) return;
           playerState.playlist = songs;

@@ -860,6 +860,26 @@ pickerBackdrop.addEventListener('click', e => { if (e.target === pickerBackdrop)
 // ── Toast notification flyout — stacked cards hanging off the header
 //    buttons' bottom-right corner instead of a lone bottom-center pill ──
 const TOAST_DEFAULT_MS = 3200;
+// Every notification gets a picture of its own: pass `icon` as a Tabler
+// class ('ti-trash'), toastArt(coverArtOrAlbumId) for a cover, or
+// toastPerson(username) for someone's picture (their initial on their name
+// colour when they have none). `msg` can be { title, body } for two lines.
+function toastArt(coverArt) {
+  return coverArt ? { art: `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverArt)}&size=120&${subsonicParams()}` } : 'ti-music';
+}
+function toastPerson(username) { return { person: String(username || '').replace(/^@/, '').split(':')[0] }; }
+function toastIconHTML(icon, avatarUrl) {
+  if (avatarUrl) return `<img class="toast-item-pic round" src="${esc(avatarUrl)}" alt="" />`;
+  if (icon && icon.art) return `<img class="toast-item-pic" src="${esc(icon.art)}" alt="" />`;
+  if (icon && icon.person) {
+    const u = icon.person;
+    const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u) : null;
+    if (url) return `<img class="toast-item-pic round" src="${esc(url)}" alt="" />`;
+    const color = typeof profileColor === 'function' ? profileColor(u) : 'var(--text-dim)';
+    return `<span class="toast-item-pic round toast-item-initial" style="background:${color}">${esc((u[0] || '?').toUpperCase())}</span>`;
+  }
+  return `<span class="toast-item-pic toast-item-glyph"><i class="ti ${typeof icon === 'string' && icon ? icon : 'ti-bell'}"></i></span>`;
+}
 function showToast(msg, icon, durationMs, avatarUrl, onClick) {
   const host = document.getElementById('toastFlyout');
   if (!host) return;
@@ -872,13 +892,13 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick) {
 
   const item = document.createElement('div');
   item.className = 'toast-item' + (onClick ? ' clickable' : '');
-  // Chat notifications pass the sender's already-resolved avatar (see
-  // notifyNewMessage) so the toast shows who's messaging you rather than
-  // a generic icon; everything else still gets the plain Tabler icon.
-  item.innerHTML = avatarUrl
-    ? `<img class="toast-item-avatar" src="${esc(avatarUrl)}" alt="" /><span class="toast-item-msg"></span>`
-    : `<i class="ti ${icon || 'ti-bell'} toast-item-icon"></i><span class="toast-item-msg"></span>`;
-  item.querySelector('.toast-item-msg').textContent = msg;
+  item.innerHTML = toastIconHTML(icon, avatarUrl) + '<span class="toast-item-msg"></span>';
+  const msgEl = item.querySelector('.toast-item-msg');
+  if (msg && typeof msg === 'object') {
+    msgEl.innerHTML = `<span class="toast-item-title"></span><span class="toast-item-body"></span>`;
+    msgEl.firstChild.textContent = msg.title || '';
+    msgEl.lastChild.textContent = msg.body || '';
+  } else msgEl.textContent = msg;
   host.appendChild(item);
   // Double rAF so the enter transition reliably fires on the frame after insertion.
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
@@ -1095,6 +1115,6 @@ function updateQueueBadge() {
 function addToQueue(song) {
   queue.push(song);
   updateQueueBadge();
-  showToast(`"${song.title}" added to queue`);
+  showToast(`"${song.title}" added to queue`, toastArt(song.coverArt));
 }
 

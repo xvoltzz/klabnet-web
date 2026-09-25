@@ -4860,7 +4860,8 @@
       position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0;
       border-radius: var(--radius-md);
     }
-    .motion-pill.ready { transition: transform var(--m-slow) var(--m-ease), width var(--m-slow) var(--m-ease), height var(--m-slow) var(--m-ease), opacity var(--m-fast) ease; }
+    .motion-pill.ready { transition: transform var(--m-slow) var(--m-ease), opacity var(--m-fast) ease; }
+    .motion-pill { transform-origin: 0 0; will-change: transform; }
     .has-pill > :not(.motion-pill) { position: relative; z-index: 1; }
     .motion-pill-tabs { background: rgba(var(--accent-rgb),0.16); border: 1px solid rgba(var(--accent-rgb),0.4); }
     .tab-nav.has-pill .tab-nav-btn.active { background: transparent; border-color: transparent; }
@@ -5059,3 +5060,44 @@
     /* Sideways scrollers keep the sideways gesture to themselves, so reaching
        the end of one doesn't also fire the browser's swipe-back. */
     .mh-row, .mh-flow, .ph-shell, #musicShell .music-nav, .tab-nav { overscroll-behavior-x: contain; }
+
+    /* Photos: Timeline / What's new switch. */
+    .ph-order { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-lg); height: var(--control-h); }
+    .ph-order button {
+      display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: none; border-radius: 8px; cursor: pointer;
+      background: none; color: var(--text-dim); font: 500 var(--fs-13) var(--font-ui);
+      transition: background-color var(--m-fast) ease, color var(--m-fast) ease;
+    }
+    .ph-order button i { font-size: 16px; }
+    .ph-order button:hover { color: var(--text); }
+    .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); }
+    @media (max-width: 760px) { .ph-order button span { display: none; } }
+
+    /* ══ NOTIFICATIONS — bigger, boxier, always a picture ══
+       A card with a large square tile on the left: an album cover, the
+       person it's about (picture, or their initial on their colour), or the
+       notification's own icon. Two lines when there's a title. */
+    .toast-item {
+      gap: 14px; padding: 12px 18px 12px 12px; border-radius: 16px;
+      width: min(380px, calc(100vw - 2rem)); min-width: 0; max-width: none;
+      font-size: 14px; letter-spacing: 0; line-height: 1.35;
+      max-height: 200px;
+    }
+    .toast-item-pic {
+      width: 48px; height: 48px; flex-shrink: 0; border-radius: 10px; object-fit: cover;
+      display: grid; place-items: center; box-shadow: 0 4px 14px var(--shadow-30);
+    }
+    .toast-item-pic.round { border-radius: 50%; }
+    .toast-item-glyph {
+      background: rgba(var(--accent-rgb),0.16); border: 1px solid rgba(var(--accent-rgb),0.3);
+      color: rgba(var(--accent-rgb),1); font-size: 24px;
+      box-shadow: 0 0 18px rgba(var(--accent-rgb),0.12);
+    }
+    .toast-item-initial { color: #0b0b0c; font-weight: 700; font-size: 20px; }
+    .toast-item-msg { display: flex; flex-direction: column; gap: 2px; }
+    .toast-item-title { font-weight: 600; color: var(--text); }
+    .toast-item-body { color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    @media (max-width: 760px) {
+      .toast-item { min-width: 0; }
+      .toast-item-pic { width: 42px; height: 42px; }
+    }
