@@ -26,7 +26,7 @@
   // `container` gets one absolutely-positioned pill behind its items; it
   // follows the element matching `activeSel`. The container must be the
   // items' offset parent (position: relative in CSS).
-  function slidingPill(container, activeSel, className) {
+  function slidingPill(container, activeSel, className, itemSel) {
     if (!container) return;
     const pill = document.createElement('span');
     pill.className = 'motion-pill ' + className;
@@ -34,9 +34,10 @@
     container.prepend(pill);
     container.classList.add('has-pill');
     let queued = false, placed = false, baseW = 0, baseH = 0;
+    let pressed = null; // an item being pressed: the pill heads there before the click lands
     function place() {
       queued = false;
-      const el = container.querySelector(activeSel);
+      const el = (pressed && pressed.isConnected ? pressed : null) || container.querySelector(activeSel);
       if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
       // Rects rather than offsetLeft/Top: items can sit inside wrappers
       // (the Music sidebar's groups) that aren't the offset parent's direct children.
@@ -57,14 +58,31 @@
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }
     }
     const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
+    // A click only fires when the button comes back up, ~100ms after the
+    // press, and waiting for it read as the pill hesitating. So it starts
+    // moving on the press; if the press ends without a click (dragged
+    // off), it goes back to the active item.
+    if (itemSel) {
+      container.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        const item = e.target.closest(itemSel);
+        if (!item || !container.contains(item)) return;
+        pressed = item;
+        queued = false;
+        place();
+      });
+      const release = () => setTimeout(() => { pressed = null; schedule(); }, 0);
+      window.addEventListener('pointerup', release, true);
+      window.addEventListener('pointercancel', release, true);
+    }
     new MutationObserver(schedule).observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
     new ResizeObserver(schedule).observe(container);
     window.addEventListener('resize', schedule);
     document.fonts?.ready.then(schedule);
     schedule();
   }
-  slidingPill(document.getElementById('tabNav'), '.tab-nav-btn.active', 'motion-pill-tabs');
-  slidingPill(document.querySelector('#musicShell .music-nav'), '.picker-tab.active, .music-playlist-row.active', 'motion-pill-music');
+  slidingPill(document.getElementById('tabNav'), '.tab-nav-btn.active', 'motion-pill-tabs', '.tab-nav-btn');
+  slidingPill(document.querySelector('#musicShell .music-nav'), '.picker-tab.active, .music-playlist-row.active', 'motion-pill-music', '.picker-tab, .music-playlist-row');
 
   // ── Music views ──
   // Fade the whole list in when its content is replaced (a new view), not
