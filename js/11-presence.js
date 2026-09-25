@@ -274,6 +274,31 @@
     '</div>';
   }
 
+  // Chat's "Online now" row: a face per person with their note in a small
+  // bubble above it, Instagram-Notes-style (what notes were modeled on).
+  // Keeps the presence-card class and data-* attributes so the click
+  // (DM, or your own: profile), right-click (listen along / profile) and
+  // unread-dot handling below all work unchanged.
+  function faceHTML(username, song, artist, isMe, playing, songId, partyHost) {
+    ensureAvatarResolved(username);
+    const avatarUrl = _avatarCache.get(username);
+    const inner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username || '?')[0].toUpperCase());
+    const playable = !isMe && playing && (songId || song);
+    const attrs = ' data-username="' + esc(username || '') + '"' +
+      (playable ? ' data-song-id="' + esc(songId || '') + '" data-song-title="' + esc(song || '') + '" data-song-artist="' + esc(artist || '') + '"' : '');
+    const note = _notesCache.get(username);
+    let bubble = '';
+    if (isMe && partyHost) bubble = '<span class="chat-face-note presence-card-party-leave" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>';
+    else if (isMe) bubble = '<span class="chat-face-note presence-card-note-edit' + (note ? '' : ' empty') + '" title="' + (note ? 'Edit your note' : 'Add a note') + '">' + (note ? esc(note) : '+ note') + '</span>';
+    else if (note) bubble = '<span class="chat-face-note" title="' + esc(note) + '">' + esc(note) + '</span>';
+    const tip = isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username));
+    return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
+      ' style="--name-color:' + profileColor(username) + '" title="' + tip + '">' + bubble +
+      '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +
+        (playing && song ? '<span class="chat-face-eq"><i></i><i></i><i></i></span>' : '') + '</span>' +
+      '<span class="chat-face-name">' + (isMe ? 'you' : esc(username)) + '</span></div>';
+  }
+
   let _lastRenderedHTML = null;
   // ── Offline roster ─────
   // klabnet's own presence (above) only shows people currently on the
@@ -368,6 +393,38 @@
     '</div>';
   }
 
+  let _lastRoster = [];
+  // For chat: who's around and what they're doing, by username.
+  window.klabPresenceOf = function(username) {
+    const l = (_lastOthers || []).find(x => x && x.username === username);
+    return {
+      online: !!(window.KLAB_ONLINE_USERNAMES && window.KLAB_ONLINE_USERNAMES.has(username)),
+      song: l && l.playing ? l.song : '', artist: l && l.playing ? l.artist : '', songId: l && l.playing ? l.songId : '',
+      note: _notesCache.get(username) || '', avatar: _avatarCache.get(username) || null,
+    };
+  };
+  // Home's "Who's online": the full presence cards (banner, song, note),
+  // you first, then whoever's listening, then everyone else online.
+  window.klabPresenceCardsHTML = function() {
+    const me = window.KLAB_USER?.username;
+    const mySong = playerState.currentSong;
+    const others = (_lastOthers || []).filter(l => l && l.username !== me)
+      .sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0));
+    let html = '';
+    if (me && me !== 'anonymous') html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
+    others.forEach(l => { html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost); });
+    return { html, others: others.length };
+  };
+  // Everyone the site knows, online first, for chat's search.
+  window.klabRoster = function() {
+    const on = [...(window.KLAB_ONLINE_USERNAMES || [])].filter(Boolean);
+    return [...new Set([...on, ...(_lastRoster || []).map(p => p.username)])];
+  };
+  // Listen along from chat's header: the same path as the right-click menu.
+  window.klabListenAlong = function(username) {
+    const card = document.querySelector('#presenceList .presence-card.is-playable[data-username="' + CSS.escape(username) + '"]');
+    if (card) playFromCard(card);
+  };
   function renderList(rawOthers) {
     _lastOthers = rawOthers;
     const me = window.KLAB_USER?.username;
@@ -383,10 +440,11 @@
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
-      html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
+      html += faceHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     }
-    others.forEach(l => {
-      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost);
+    // Listening first, then everyone else online.
+    [...others].sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0)).forEach(l => {
+      html += faceHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
@@ -400,17 +458,10 @@
     // burying the handful of people actually around under a wall of
     // greyed-out ones. Collapsed behind a count by default, and rendered
     // as one-line rows rather than cards when opened. Online stays cards.
-    const roster = offlineRoster(onlineUsernames);
-    if (roster.length) {
-      const open = offlineExpanded();
-      html += '<button type="button" class="presence-offline-toggle' + (open ? ' is-open' : '') + '" id="presenceOfflineToggle">' +
-        '<i class="ti ti-chevron-right"></i>' +
-        '<span>' + roster.length + ' offline</span>' +
-        '</button>';
-      html += '<div class="presence-offline-list"' + (open ? '' : ' hidden') + '>';
-      roster.forEach(person => { html += offlineRowHTML(person); });
-      html += '</div>';
-    }
+    window.klabHomePresenceChanged && window.klabHomePresenceChanged();
+    // Everyone else is found with the sidebar's search (window.klabRoster).
+    _lastRoster = offlineRoster(onlineUsernames);
+    window.klabChatPresenceChanged && window.klabChatPresenceChanged();
     // Most 8s polls come back with nothing changed — skip the DOM
     // teardown/rebuild entirely when the output is identical to last time.
     if (html === _lastRenderedHTML) return;
@@ -700,7 +751,8 @@
   playerState.audio.addEventListener('play',  broadcastPartyTick);
   playerState.audio.addEventListener('pause', broadcastPartyTick);
 
-  list.addEventListener('click', e => {
+  // Shared by chat's faces and Home's cards.
+  const onCardClick = e => {
     if (e.target.closest('.presence-card-note-edit')) { editMyNote(); return; }
     if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
@@ -726,7 +778,7 @@
       SFX && SFX.play('nav');
       messageUser(card.dataset.username);
     }
-  });
+  };
 
   // ── Right-click context menu: Listen Party / Message ─────
   const presenceCtxMenu = document.getElementById('presenceCtxMenu');
@@ -746,13 +798,17 @@
     presenceCtxMenu.style.top  = Math.min(y / z, window.innerHeight / z - 140) + 'px';
     presenceCtxMenu.classList.add('visible');
   }
-  list.addEventListener('contextmenu', e => {
+  const onCardContext = e => {
     const card = e.target.closest('.presence-card, .presence-row');
     // Not yourself — listen-partying or DMing your own card makes no sense.
     if (!card || card.classList.contains('is-me') || !card.dataset.username) return;
     e.preventDefault();
     showPresenceCtx(e.clientX, e.clientY, card);
-  });
+  };
+  list.addEventListener('click', onCardClick);
+  list.addEventListener('contextmenu', onCardContext);
+  window.klabPresenceCardClick = onCardClick;
+  window.klabPresenceCardContext = onCardContext;
   document.addEventListener('click', e => { if (!presenceCtxMenu.contains(e.target)) hidePresenceCtx(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePresenceCtx(); });
 

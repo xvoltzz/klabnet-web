@@ -268,36 +268,26 @@
   });
 
   let listenSig = '';
-  function myListening() {
-    const song = typeof playerState !== 'undefined' ? playerState.currentSong : null;
-    if (!song || !me()) return null;
-    return { username: me(), song: song.title || '', artist: song.artist || '', coverArt: song.coverArt, playing: !!playerState.playing, you: true };
-  }
+  // "Who's online": the site's own presence cards (banner, what they're
+  // playing, their note in quotes), you first. Drawn by the presence
+  // module so they look and behave exactly as they always have: click to
+  // message, right-click to listen along or see their profile.
   function renderListen() {
-    // Only people actually playing something. A paused song still sits in
-    // presence, and listing it next to "Nobody's listening" contradicted it.
-    const mine = myListening();
-    const L = (mine ? [mine] : []).concat(S.listeners || []).filter(l => l.playing).slice(0, 4);
-    const html = L.length
-      ? '<div class="hm-lgrid">' + L.map(l =>
-          '<div class="hm-pcard" data-username="' + esc(l.username) + '">' +
-            '<div class="hm-art"' + ((l.coverArt || l.songId) ? ' style="background-image:url(&quot;' + esc(cover(l.coverArt || l.songId, 100)) + '&quot;)"' : '') + '>' + avatarHTML(l.username) + '</div>' +
-            '<div class="hm-pc-tx"><small style="color:' + color(l.username) + '">' + esc(l.username) + (l.you ? ' (you)' : '') + '</small><b>' + esc(l.song) + '</b><span>' + esc(l.artist || '') + '</span></div>' +
-            '<span class="hm-eq"><i></i><i></i><i></i></span>' +
-          '</div>').join('') + '</div>'
-      : '';
-    const full = lbl('Listening') + html + (L.length ? '' : '<div class="hm-quiet"><i class="ti ti-headphones-off"></i><span>Nobody\'s listening right now</span></div>');
+    const get = window.klabPresenceCardsHTML;
+    if (!get) return;
+    const { html, others } = get();
+    const full = lbl("Who's online") + '<div class="hm-cards">' + html + '</div>' +
+      (others ? '' : '<div class="hm-quiet hm-alone">Just you right now</div>');
     if (full === listenSig) return;
     listenSig = full;
     listenEl.innerHTML = full;
   }
+  window.klabHomePresenceChanged = () => { if (active) renderListen(); };
   if (typeof playerState !== 'undefined' && playerState.audio) {
     ['play', 'pause', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, () => { if (active) renderListen(); }));
   }
-  listenEl.addEventListener('click', e => {
-    const card = e.target.closest('.hm-pcard');
-    if (card && typeof openProfileView === 'function') openProfileView(card.dataset.username);
-  });
+  listenEl.addEventListener('click', e => window.klabPresenceCardClick && window.klabPresenceCardClick(e));
+  listenEl.addEventListener('contextmenu', e => window.klabPresenceCardContext && window.klabPresenceCardContext(e));
 
   let flowI = 0, flowTimer = 0, flowSig = '';
   function renderFlow() {

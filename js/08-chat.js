@@ -467,6 +467,75 @@ function ensureDmBookkeeping() {
 // The other party's username in a (2-member) DM room — same @user:server
 // -> username convention used everywhere else this session (avatar
 // lookups, DM bookkeeping). Returns null for group DMs/anything odd.
+// The newest real message in a room (not an edit, reaction or state event).
+function roomLastMessage(room) {
+  const evs = room.getLiveTimeline?.().getEvents?.() || [];
+  for (let i = evs.length - 1; i >= 0; i--) {
+    const ev = evs[i];
+    if (ev.getType() === 'm.room.message' && ev.getRelation?.()?.rel_type !== 'm.replace') return ev;
+  }
+  return null;
+}
+function roomLastTs(room) { const ev = roomLastMessage(room); return ev ? ev.getTs() : 0; }
+function shortAgo(ts) {
+  const m = (Date.now() - ts) / 60000;
+  if (m < 1) return 'now';
+  if (m < 60) return Math.round(m) + 'm';
+  if (m < 1440) return Math.round(m / 60) + 'h';
+  if (m < 7 * 1440) return new Date(ts).toLocaleDateString([], { weekday: 'short' });
+  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+function roomPreview(room, ev, isDm) {
+  if (!ev) return isDm ? 'Say hi' : 'No messages yet';
+  const me = MatrixChat.client?.getUserId();
+  const who = ev.getSender() === me ? 'You: ' : (isDm ? '' : mxIdToUsername(ev.getSender()) + ': ');
+  if (ev.isRedacted?.()) return who + 'message deleted';
+  const c = ev.getContent() || {};
+  if (c['klab.song']) return who + '🎵 ' + (c['klab.song'].title || 'a song');
+  if (c.msgtype === 'm.image') return who + '📷 Photo';
+  // Replies carry the quoted text as "> …" lines first; skip those.
+  const body = typeof c.body === 'string' ? c.body.replace(/^>.*\n?/gm, '').trim() : '';
+  return who + body;
+}
+
+// Sidebar search: filters conversations, and finds anyone on the site to
+// message (the people you haven't talked to yet aren't listed otherwise).
+function applyChatSearch() {
+  const input = document.getElementById('chatSearch');
+  const q = (input?.value || '').trim().toLowerCase();
+  document.querySelectorAll('#chatSide .chat-conv').forEach(el => { el.hidden = !!q && !el.dataset.search?.includes(q); });
+  const people = document.getElementById('chatPeopleResults');
+  const online = document.getElementById('presenceList');
+  if (online) online.closest('.chat-side-scroll')?.classList.toggle('searching', !!q);
+  // A section with nothing matching loses its label while searching.
+  for (const [lblSel, listId] of [['#chatChannelsList', 'chatChannelsList'], ['#chatDmLbl', 'chatDmList']]) {
+    const listEl = document.getElementById(listId);
+    const lbl = lblSel === '#chatChannelsList' ? listEl?.previousElementSibling : document.querySelector(lblSel);
+    if (lbl) lbl.classList.toggle('search-empty', !!q && !listEl?.querySelector('.chat-conv:not([hidden])'));
+  }
+  if (!people) return;
+  if (!q) { people.hidden = true; people.innerHTML = ''; return; }
+  const me = window.KLAB_USER?.username;
+  const dmWith = new Set([...document.querySelectorAll('#chatDmList .chat-conv')].map(el => el.dataset.search));
+  const found = (window.klabRoster ? window.klabRoster() : []).filter(u => u && u !== me && u.toLowerCase().includes(q) && ![...dmWith].some(d => d.split(' ').includes(u.toLowerCase()))).slice(0, 8);
+  people.hidden = !found.length;
+  people.innerHTML = found.length ? '<div class="chat-lbl">People</div>' + found.map(u =>
+    `<button type="button" class="chat-conv chat-person" data-person="${esc(u)}"><span class="chat-conv-face" style="--c:${profileColor(u)}">${esc(u[0].toUpperCase())}${window.KLAB_ONLINE_USERNAMES?.has(u) ? '<span class="chat-channel-online-dot"></span>' : ''}</span>` +
+    `<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name" style="color:${profileColor(u)}">${esc(u)}</span></span><span class="chat-conv-last">Message ${esc(u)}</span></span></button>`).join('') : '';
+}
+document.getElementById('chatSearch')?.addEventListener('input', applyChatSearch);
+document.getElementById('chatSearch')?.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.target.value = ''; applyChatSearch(); }
+  if (e.key === 'Enter') document.querySelector('#chatSide .chat-conv:not([hidden])')?.click();
+});
+document.getElementById('chatPeopleResults')?.addEventListener('click', e => {
+  const b = e.target.closest('[data-person]');
+  if (!b) return;
+  const input = document.getElementById('chatSearch'); if (input) input.value = '';
+  applyChatSearch();
+  messageUser(b.dataset.person);
+});
+
 function dmOtherUsername(room) {
   const myId = MatrixChat.client?.getUserId();
   const other = room.getJoinedMembers?.().find(m => m.userId !== myId);
@@ -491,14 +560,22 @@ function buildChannelItem(room, icon) {
   const hasUnread = _chatUnreadRooms.has(room.roomId);
   const item = document.createElement('div');
   item.dataset.roomId = room.roomId; // updateChannelUnreadDots() targets rows by this instead of a full re-render
-  item.className = 'chat-channel-item' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
-  item.innerHTML = `<i class="ti ${invited ? 'ti-mail' : icon}"></i><span class="chat-channel-name">${esc(room.name || 'Unnamed room')}</span>` +
-    (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
-    (invited ? '<span class="chat-channel-invited">invited</span>' : (dmOnline ? '<span class="chat-channel-online-dot" title="Online" aria-label="Online"></span>' : '')) +
-    // DMs (only) get a close button, hidden until hover — leaves the
-    // room outright rather than just hiding it client-side, so it's
-    // actually gone rather than reappearing on the next sync.
-    (isDm ? '<button class="chat-channel-close" title="Close DM"><i class="ti ti-x"></i></button>' : '');
+  item.className = 'chat-channel-item chat-conv' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
+  const other = isDm && !invited ? dmOtherUsername(room) : null;
+  item.dataset.search = ((room.name || '') + ' ' + (other || '')).toLowerCase();
+  let lead;
+  if (invited) lead = '<span class="chat-conv-lead"><i class="ti ti-mail"></i></span>';
+  else if (isDm) {
+    const face = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(other) : null;
+    lead = `<span class="chat-conv-face" style="--c:${profileColor(other || room.name || '')}">${face ? `<img src="${esc(face)}" alt="" />` : esc(((other || room.name || '?')[0] || '?').toUpperCase())}${dmOnline ? '<span class="chat-channel-online-dot"></span>' : ''}</span>`;
+  } else lead = '<span class="chat-conv-lead">#</span>';
+  const last = roomLastMessage(room);
+  item.innerHTML = lead +
+    `<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name"${isDm && other ? ` style="color:${profileColor(other)}"` : ''}>${esc(room.name || 'Unnamed room')}</span>` +
+      (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
+      `<span class="chat-conv-when">${last ? shortAgo(last.getTs()) : ''}</span></span>` +
+      `<span class="chat-conv-last">${invited ? 'invited you' : esc(roomPreview(room, last, isDm))}</span></span>` +
+    (isDm ? '<button class="chat-channel-close" title="Close conversation"><i class="ti ti-x"></i></button>' : '');
   item.addEventListener('click', async () => {
     if (invited) {
       try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`, 'ti-door-off'); return; }
@@ -557,9 +634,12 @@ function renderChannelList() {
     const membership = r.getMyMembership?.();
     return membership === 'join' || membership === 'invite';
   });
-  const dmRooms      = allRooms.filter(r => dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const channelRooms = allRooms.filter(r => !dmIds.has(r.roomId)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const rooms = [...dmRooms, ...channelRooms];
+  // Newest activity first, like any messaging app: a conversation that
+  // just got a message moves to the top of its section.
+  const byRecent = (a, b) => roomLastTs(b) - roomLastTs(a) || (a.name || '').localeCompare(b.name || '');
+  const dmRooms      = allRooms.filter(r => dmIds.has(r.roomId)).sort(byRecent);
+  const channelRooms = allRooms.filter(r => !dmIds.has(r.roomId)).sort(byRecent);
+  const rooms = [...channelRooms, ...dmRooms];
 
   if (!rooms.length) {
     if (_lastChannelListKey !== '') {
@@ -571,25 +651,30 @@ function renderChannelList() {
     return;
   }
   if (!_chatActiveRoomId || !rooms.some(r => r.roomId === _chatActiveRoomId)) {
-    _chatActiveRoomId = rooms[0].roomId;
+    _chatActiveRoomId = [...rooms].sort(byRecent)[0].roomId; // land where the conversation is
   }
 
   const listKey = rooms.map(r => {
     const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? '1' : '0';
     const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
-    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}`;
+    const last = roomLastMessage(r);
+    const face = dmIds.has(r.roomId) && window.klabResolveUserAvatar?.(dmOtherUsername(r)) ? 'a' : '';
+    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}:${last ? last.getId() : ''}${face}:${last ? shortAgo(last.getTs()) : ''}`;
   }).join(',') + '|' + _chatActiveRoomId;
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
     list.innerHTML = '';
-    // Channels only. DMs aren't listed here any more — the presence rail
-    // above is the DM list now, since a person and "the DM with that
-    // person" were always the same thing shown twice. dmRooms still
-    // participates in `rooms` above so a DM can be the active room, and
-    // unread DMs surface as a dot on that person's card (see
-    // updateSocialUnreadBadge -> KLAB_REFRESH_PRESENCE_UNREAD).
     list.append(...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
+    const dmList = document.getElementById('chatDmList');
+    if (dmList) {
+      dmList.innerHTML = '';
+      dmList.append(...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
+      const lbl = document.getElementById('chatDmLbl');
+      if (lbl) lbl.hidden = !dmRooms.length;
+    }
+    applyChatSearch();
   }
+  syncChatHead();
   // The active room can change without anyone tapping a row (the
   // auto-select above, or leaving the room you were in), so the mobile
   // bar's title is refreshed here rather than only in setChatMobileView().
@@ -783,6 +868,8 @@ function renderTimeline() {
     return;
   }
   if (input) input.disabled = false;
+  const isDmRoom = getDmRoomIds().has(room.roomId);
+  el.classList.toggle('is-dm', isDmRoom);
 
   const events = room.getLiveTimeline().getEvents().filter(ev => {
     if (ev.getType() !== 'm.room.message') return false;
@@ -849,6 +936,17 @@ function renderTimeline() {
   _lastTimelineRenderKey = renderKey;
 
   el.innerHTML = '';
+  if (!events.length) {
+    // An empty conversation says who it's with and gives you a way in.
+    const other = isDmRoom ? (dmOtherUsername(room) || room.name || '') : '';
+    el.innerHTML = `<div class="chat-hello">${isDmRoom
+      ? `<span class="chat-head-face chat-hello-face" style="--c:${profileColor(other)}">${esc((other[0] || '?').toUpperCase())}</span><h3>You and <span style="color:${profileColor(other)}">${esc(other)}</span></h3><p>This is the start of your conversation.</p>`
+      : `<span class="chat-head-hash chat-hello-face">#</span><h3>${esc(room.name || 'channel')}</h3><p>Nothing here yet. Say something.</p>`}
+      <div class="chat-hello-chips"><button type="button" class="chat-hello-chip" data-say="yo 👋">👋 Say yo</button>` +
+      (playerState.currentSong ? `<button type="button" class="chat-hello-chip" data-share-np>🎵 Share what you're playing</button>` : '') +
+      (isDmRoom ? `<button type="button" class="chat-hello-chip" data-say="what are you listening to">🎧 Ask what they're playing</button>` : '') + '</div></div>';
+    return;
+  }
   let lastSender = null;
   let lastDayKey = null;
   events.forEach(ev => {
@@ -869,7 +967,8 @@ function renderTimeline() {
     lastSender = senderId;
 
     const row = document.createElement('div');
-    row.className = 'chat-msg' + (grouped ? ' grouped' : '');
+    const mine = senderId === MatrixChat.client.getUserId();
+    row.className = 'chat-msg' + (grouped ? ' grouped' : '') + (mine ? ' mine' : '');
     row.dataset.eventId = ev.getId();
 
     if (!ev.isRedacted()) {
@@ -920,7 +1019,17 @@ function renderTimeline() {
       body.appendChild(quote);
     }
 
-    if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
+    const song = !ev.isRedacted() && content['klab.song'];
+    if (song && song.id) {
+      // A song shared from the player: a card you can play.
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'chat-msg-song';
+      card.dataset.song = encodeURIComponent(JSON.stringify({ id: song.id, title: song.title, artist: song.artist, album: song.album, coverArt: song.coverArt }));
+      card.innerHTML = (song.coverArt ? `<span class="chat-msg-song-art" style="background-image:url(&quot;${esc(coverUrl(song.coverArt, 100))}&quot;)"></span>` : '<span class="chat-msg-song-art"><i class="ti ti-music"></i></span>') +
+        `<span class="chat-msg-song-tx"><b>${esc(song.title || 'Unknown')}</b><span>${esc(song.artist || '')}</span></span><span class="chat-msg-song-play"><i class="ti ti-player-play"></i></span>`;
+      body.appendChild(card);
+    } else if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
       ensureChatImageResolved(content.url);
       const img = document.createElement('img');
       img.className = 'chat-msg-image';
@@ -2255,7 +2364,7 @@ const _baseTitle = document.title;
 // no way to feed back into renderTimeline() at all, which removes the
 // cycle rather than just hoping it converges cleanly.
 function updateChannelUnreadDots() {
-  document.querySelectorAll('#chatChannelsList .chat-channel-item[data-room-id]').forEach(item => {
+  document.querySelectorAll('#chatChannelsList .chat-channel-item[data-room-id], #chatDmList .chat-channel-item[data-room-id]').forEach(item => {
     const hasUnread = _chatUnreadRooms.has(item.dataset.roomId);
     item.classList.toggle('has-unread', hasUnread);
     const existingDot = item.querySelector('.chat-channel-unread-dot');
@@ -2366,6 +2475,84 @@ function setChatMobileView(view) {
   document.body.classList.toggle('chat-rooms-view', view === 'rooms');
   if (view !== 'rooms') syncChatMobileTitle();
 }
+// ── The bar over the conversation: who or what you're in ──
+function coverUrl(id, size) { return id ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(id)}&size=${size}&${subsonicParams()}` : ''; }
+let _chatBdI = 0, _chatBdKey = '';
+function setChatBackdrop(img, tint) {
+  const layers = document.getElementById('chatBackdrop')?.children;
+  const key = img || tint || '';
+  if (!layers || key === _chatBdKey) return;
+  _chatBdKey = key;
+  _chatBdI ^= 1;
+  layers[_chatBdI].style.backgroundImage = img ? `url("${img}")` : (tint ? `radial-gradient(circle at 55% 40%, ${tint}, transparent 62%)` : 'none');
+  layers[_chatBdI].classList.add('on');
+  layers[_chatBdI ^ 1].classList.remove('on');
+}
+let _chatHeadHTML = '';
+function syncChatHead() {
+  const head = document.getElementById('chatHead');
+  const client = MatrixChat.client;
+  if (!head || !client) return;
+  const room = _chatActiveRoomId && client.getRoom(_chatActiveRoomId);
+  const back = '<button type="button" class="chat-icon-btn chat-head-back" data-chat-back title="Back"><i class="ti ti-chevron-left"></i></button>';
+  let html = '', img = null, tint = null;
+  if (!room) html = '';
+  else if (getDmRoomIds().has(room.roomId)) {
+    const other = dmOtherUsername(room) || room.name || '';
+    const p = window.klabPresenceOf ? window.klabPresenceOf(other) : {};
+    const face = p.avatar || window.klabResolveUserAvatar?.(other);
+    const color = profileColor(other);
+    let sub;
+    if (p.song) {
+      sub = '<span class="chat-head-eq"><i></i><i></i><i></i></span>' +
+        (p.songId ? `<span class="chat-head-art" style="background-image:url(&quot;${esc(coverUrl(p.songId, 60))}&quot;)"></span>` : '') +
+        `<span>${esc(p.song)}${p.artist ? ' · ' + esc(p.artist) : ''}</span>`;
+      img = p.songId ? coverUrl(p.songId, 400) : null;
+    } else {
+      sub = `<span>${p.online ? 'online' : 'offline'}</span>` + (p.note ? `<span class="chat-head-note">“${esc(p.note)}”</span>` : '');
+    }
+    if (p.song && p.note) sub += `<span class="chat-head-note">“${esc(p.note)}”</span>`;
+    tint = color;
+    html = back +
+      `<span class="chat-head-face" style="--c:${color}">${face ? `<img src="${esc(face)}" alt="" />` : esc((other[0] || '?').toUpperCase())}${p.online ? '<span class="chat-channel-online-dot"></span>' : ''}</span>` +
+      `<div class="chat-head-who"><h2 style="color:${color}">${esc(room.name || other)}</h2><div class="chat-head-sub">${sub}</div></div>` +
+      (p.song ? `<button type="button" class="chat-head-btn" data-listen="${esc(other)}"><i class="ti ti-headphones"></i>Listen along</button>` : '') +
+      `<button type="button" class="chat-icon-btn" data-profile="${esc(other)}" title="Profile"><i class="ti ti-user-circle"></i></button>`;
+  } else {
+    let topic = '';
+    try { topic = room.currentState?.getStateEvents('m.room.topic', '')?.getContent()?.topic || ''; } catch (e) {}
+    const members = (room.getJoinedMembers?.() || []).map(m => mxIdToUsername(m.userId));
+    const here = members.filter(u => window.KLAB_ONLINE_USERNAMES?.has(u)).length;
+    const faces = members.slice(0, 5).map(u => `<span class="chat-head-mini" style="--c:${profileColor(u)}" title="${esc(u)}">${esc((u[0] || '?').toUpperCase())}</span>`).join('');
+    html = back + '<span class="chat-head-hash">#</span>' +
+      `<div class="chat-head-who"><h2>${esc(room.name || 'channel')}</h2><div class="chat-head-sub"><span>${esc(topic || members.length + ' members')}</span></div></div>` +
+      `<div class="chat-head-stack">${faces}<span>${here} here</span></div>`;
+    // The channel takes on the last song someone shared in it.
+    const evs = room.getLiveTimeline().getEvents();
+    for (let i = evs.length - 1; i >= 0; i--) {
+      const song = evs[i].getContent?.()?.['klab.song'];
+      if (song && song.coverArt) { img = coverUrl(song.coverArt, 400); break; }
+    }
+    if (!img) tint = 'rgba(var(--accent-rgb),0.9)';
+  }
+  if (html !== _chatHeadHTML) { _chatHeadHTML = html; head.innerHTML = html; }
+  setChatBackdrop(img, tint);
+  const input = document.getElementById('chatComposerInput');
+  if (input && room) {
+    const isDm = getDmRoomIds().has(room.roomId);
+    input.placeholder = 'Message ' + (isDm ? '' : '#') + (room.name || '');
+  }
+}
+document.getElementById('chatHead')?.addEventListener('click', e => {
+  if (e.target.closest('[data-chat-back]')) { setChatMobileView('rooms'); return; }
+  const listen = e.target.closest('[data-listen]');
+  if (listen) { window.klabListenAlong?.(listen.dataset.listen); return; }
+  const prof = e.target.closest('[data-profile]');
+  if (prof && typeof openProfileView === 'function') openProfileView(prof.dataset.profile);
+});
+// Presence moves (someone starts a song, goes offline, writes a note).
+window.klabChatPresenceChanged = () => { if (MatrixChat.client) syncChatHead(); };
+
 function syncChatMobileTitle() {
   const el = document.getElementById('chatMobileTitle');
   if (!el) return;
@@ -2607,3 +2794,38 @@ function ensureChatLoaded() {
   window.KLAB_BOOT?.mark('matrix');
 }
 
+
+
+// ── Composer extras: a send button, and one tap to share what's playing ──
+async function shareNowPlaying() {
+  const s = playerState.currentSong, client = MatrixChat.client;
+  if (!s || !client || !_chatActiveRoomId) return;
+  const song = { id: s.id, title: s.title || '', artist: s.artist || '', album: s.album || '', coverArt: s.coverArt || '' };
+  try {
+    await client.sendMessage(_chatActiveRoomId, { msgtype: 'm.text', body: `🎵 ${song.title}${song.artist ? ' — ' + song.artist : ''}`, 'klab.song': song });
+    SFX && SFX.play('star');
+  } catch (e) { showToast("Couldn't share that song", 'ti-music-x'); }
+}
+function syncShareChip() {
+  const btn = document.getElementById('chatShareNp');
+  const s = playerState.currentSong;
+  if (!btn) return;
+  btn.hidden = !s;
+  if (!s) return;
+  document.getElementById('chatShareNpTitle').textContent = s.title || '';
+  document.getElementById('chatShareNpArt').style.backgroundImage = s.coverArt ? `url("${coverUrl(s.coverArt, 60)}")` : '';
+}
+document.getElementById('chatSendBtn')?.addEventListener('click', () => sendChatMessage());
+document.getElementById('chatShareNp')?.addEventListener('click', shareNowPlaying);
+['play', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, syncShareChip));
+syncShareChip();
+document.getElementById('chatTimeline')?.addEventListener('click', e => {
+  const say = e.target.closest('[data-say]');
+  if (say) {
+    const input = document.getElementById('chatComposerInput');
+    input.value = say.dataset.say; sendChatMessage(); return;
+  }
+  if (e.target.closest('[data-share-np]')) { shareNowPlaying(); return; }
+  const card = e.target.closest('.chat-msg-song');
+  if (card) { try { playSong(JSON.parse(decodeURIComponent(card.dataset.song))); } catch (err) {} }
+});

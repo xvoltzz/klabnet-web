@@ -51,7 +51,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.25.27" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.09.25.28" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -63,7 +63,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.27" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.28" />
 </head>
 <body>
 
@@ -234,6 +234,7 @@ window.KLAB_BOOT = (function() {
 <!-- Photos tab backdrop: a blur of the current photo behind the whole page. -->
 <div class="ph-backdrop" id="phBackdrop" aria-hidden="true"><div class="ph-bd-layer"></div><div class="ph-bd-layer"></div></div>
 <div class="hm-backdrop" id="hmBackdrop" aria-hidden="true"><div class="hm-bd-layer"></div><div class="hm-bd-layer"></div></div>
+<div class="hm-backdrop chat-backdrop" id="chatBackdrop" aria-hidden="true"><div class="hm-bd-layer"></div><div class="hm-bd-layer"></div></div>
 
 <div class="dash">
 
@@ -274,42 +275,8 @@ window.KLAB_BOOT = (function() {
   </header>
 
   <div class="dash-body">
-  <!-- Presence lives outside every tab-panel, same as the player dock — the
-       site is meant to always show who's around, not just on one tab. It's
-       first in .dash-body so it's the LEFT column on wide viewports; on
-       narrow ones the 880px rule stacks it and `order` puts it back below
-       the tab content, since on a phone the content should come first. -->
-  <aside class="sec sec-global-presence presence-rail" id="presenceRail">
-    <!-- Chat-tab only. Off Chat there are no channels, so the rail is just
-         the roster and keeps its plain "// users" header below instead. -->
-    <div class="rail-tabs" id="railTabs">
-      <button type="button" class="rail-tab active" data-rail-tab="users">Users</button>
-      <button type="button" class="rail-tab" data-rail-tab="channels">Channels</button>
-      <div class="chat-channels-toolbar">
-        <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
-        <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
-      </div>
-    </div>
-
-    <div class="rail-pane" id="railPaneUsers">
-      <div class="sec-head"><span class="sec-label">People</span><div class="sec-line"></div></div>
-      <div class="presence-grid" id="presenceList"></div>
-      <!-- Shown/hidden by JS (see PRESENCE RAIL SCROLL BOUNDS) based on
-           whether there's actually more to scroll to, and again as you
-           scroll to the true bottom — enough people online now that this
-           needed to be more than "just cut off with no hint more exist". -->
-      <div class="presence-rail-more" id="presenceRailMore" hidden><i class="ti ti-chevron-down"></i></div>
-    </div>
-
-    <!-- Channels live in this same rail rather than in a second sidebar
-         inside the chat pane. Having a "who's around" list on one side and
-         a "who you've DM'd" list on the other was the same information
-         twice — a person is now the entry point to their DM (click a
-         card), and this is just the rooms. -->
-    <div class="rail-pane rail-channels" id="railChannels">
-      <div class="chat-channels-list" id="chatChannelsList"></div>
-    </div>
-  </aside>
+  <!-- The People rail used to sit beside Feed and Chat. Who's around
+       lives in Chat's sidebar now (and on Home). -->
 
   <div class="dash-main">
 
@@ -435,7 +402,25 @@ window.KLAB_BOOT = (function() {
       <div class="chat-app" id="chatApp" hidden>
         <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
         <div class="chat-body">
+          <!-- Laid out like Music: a sidebar and the conversation, straight
+               on the page over a backdrop, no panel around them. -->
+          <aside class="chat-side" id="chatSide">
+            <label class="chat-search"><i class="ti ti-search"></i><input type="text" id="chatSearch" placeholder="Find someone or a channel" autocomplete="off" /></label>
+            <div class="chat-side-scroll">
+              <div class="chat-lbl">Online now</div>
+              <div class="presence-grid chat-online" id="presenceList"></div>
+              <div class="chat-lbl chat-lbl-row"><span>Channels</span>
+                <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
+                <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
+              </div>
+              <div class="chat-convos" id="chatChannelsList"></div>
+              <div class="chat-lbl" id="chatDmLbl">Messages</div>
+              <div class="chat-convos" id="chatDmList"></div>
+              <div class="chat-convos" id="chatPeopleResults" hidden></div>
+            </div>
+          </aside>
           <div class="chat-main">
+            <div class="chat-head" id="chatHead"></div>
             <!-- Mobile only (see the mobile block at the end of the CSS).
                  The desktop layout shows both panes at once, so the room
                  you're in is obvious from the highlighted sidebar row;
@@ -454,7 +439,6 @@ window.KLAB_BOOT = (function() {
                 <button class="chat-image-preview-remove" id="chatImagePreviewRemove" title="Remove image"><i class="ti ti-x"></i></button>
               </div>
               <div class="chat-composer-row">
-                <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
                 <input type="file" accept="image/*" id="chatImageInput" hidden />
                 <button class="chat-icon-btn chat-image-btn" id="chatImageBtn" type="button" title="Send an image"><i class="ti ti-photo"></i></button>
                 <!-- A textarea, not an <input>: a single-line input showed a
@@ -462,6 +446,9 @@ window.KLAB_BOOT = (function() {
                      around to read back what you'd written. Enter still
                      sends; Shift+Enter makes a newline. -->
                 <textarea id="chatComposerInput" placeholder="Message…" rows="1" autocomplete="off" disabled></textarea>
+                <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
+                <button class="chat-share-np" id="chatShareNp" type="button" title="Share what you're playing" hidden><span class="chat-share-np-art" id="chatShareNpArt"></span><span id="chatShareNpTitle"></span></button>
+                <button class="chat-send" id="chatSendBtn" type="button" title="Send"><i class="ti ti-arrow-up"></i></button>
               </div>
               <div class="chat-emoji-picker" id="chatEmojiPicker" hidden></div>
             </div>
@@ -860,29 +847,29 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.25.27';</script>
-<script defer src="js/00-util.js?v=v2026.09.25.27"></script>
-<script defer src="js/01-shell.js?v=v2026.09.25.27"></script>
-<script defer src="js/02-player.js?v=v2026.09.25.27"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.25.27"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.25.27"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.25.27"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.25.27"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.25.27"></script>
-<script defer src="js/08-chat.js?v=v2026.09.25.27"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.25.27"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.25.27"></script>
-<script defer src="js/11-presence.js?v=v2026.09.25.27"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.25.27"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.25.27"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.25.27"></script>
-<script defer src="js/12-feed.js?v=v2026.09.25.27"></script>
-<script defer src="js/13-tail.js?v=v2026.09.25.27"></script>
-<script defer src="js/14-photos.js?v=v2026.09.25.27"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.25.27"></script>
-<script defer src="js/16-motion.js?v=v2026.09.25.27"></script>
-<script defer src="js/17-history.js?v=v2026.09.25.27"></script>
-<script defer src="js/18-home.js?v=v2026.09.25.27"></script>
+<script>const KLABNET_VERSION = 'v2026.09.25.28';</script>
+<script defer src="js/00-util.js?v=v2026.09.25.28"></script>
+<script defer src="js/01-shell.js?v=v2026.09.25.28"></script>
+<script defer src="js/02-player.js?v=v2026.09.25.28"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.25.28"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.25.28"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.25.28"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.25.28"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.25.28"></script>
+<script defer src="js/08-chat.js?v=v2026.09.25.28"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.25.28"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.25.28"></script>
+<script defer src="js/11-presence.js?v=v2026.09.25.28"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.25.28"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.25.28"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.25.28"></script>
+<script defer src="js/12-feed.js?v=v2026.09.25.28"></script>
+<script defer src="js/13-tail.js?v=v2026.09.25.28"></script>
+<script defer src="js/14-photos.js?v=v2026.09.25.28"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.25.28"></script>
+<script defer src="js/16-motion.js?v=v2026.09.25.28"></script>
+<script defer src="js/17-history.js?v=v2026.09.25.28"></script>
+<script defer src="js/18-home.js?v=v2026.09.25.28"></script>
 
 </body>
 </html>
