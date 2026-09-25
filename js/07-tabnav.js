@@ -34,6 +34,7 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
+  if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
   // Swaps the header's terminal-prompt branding to klab.chat while on
   // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro

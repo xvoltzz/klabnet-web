@@ -62,7 +62,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.17" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.18" />
 </head>
 <body>
 
@@ -317,9 +317,34 @@ window.KLAB_BOOT = (function() {
       <button class="feed-mentions-btn" id="feedMentionsBtn" title="Mentions"><i class="ti ti-at"></i><span class="feed-mentions-dot" id="feedMentionsDot" hidden></span></button>
     </div>
     <div class="feed-composer" id="feedComposer">
-      <div class="feed-composer-text-wrap">
-        <div class="feed-composer-highlight" id="feedComposerHighlight" aria-hidden="true"></div>
-        <textarea class="feed-composer-text" id="feedComposerText" placeholder="what's going on?" rows="2"></textarea>
+      <div class="feed-composer-panes">
+        <div class="feed-composer-text-wrap">
+          <div class="feed-composer-highlight" id="feedComposerHighlight" aria-hidden="true"></div>
+          <textarea class="feed-composer-text" id="feedComposerText" placeholder="what's going on?" rows="2" aria-label="Write a post (markdown works)"></textarea>
+        </div>
+        <div class="feed-composer-live" id="feedComposerLive" aria-live="off" hidden>
+          <div class="feed-composer-live-label">Preview</div>
+          <div class="feed-post-text md" id="feedComposerLiveBody"></div>
+        </div>
+      </div>
+      <div class="feed-md-help" id="feedMdHelp" hidden>
+        <div><code>**bold**</code><b>bold</b><kbd>⌘B</kbd></div>
+        <div><code>*italic*</code><i>italic</i><kbd>⌘I</kbd></div>
+        <div><code>~~strike~~</code><s>strike</s><kbd>⌘⇧X</kbd></div>
+        <div><code>==highlight==</code><mark>highlight</mark><kbd>⌘⇧H</kbd></div>
+        <div><code>||spoiler||</code><span class="md-spoiler">spoiler</span><kbd>⌘⇧S</kbd></div>
+        <div><code>`code`</code><code class="md-inline-code">code</code><kbd>⌘E</kbd></div>
+        <div><code>[text](url)</code><span class="rich-link">text</span><kbd>⌘K</kbd></div>
+        <div><code># Heading</code><span>heading</span><kbd>⌘⌥H</kbd></div>
+        <div><code>- list</code><span>bullets</span><kbd>⌘⇧8</kbd></div>
+        <div><code>1. list</code><span>numbers</span><kbd>⌘⇧7</kbd></div>
+        <div><code>- [ ] todo</code><span>checklist</span><kbd>⌘⇧9</kbd></div>
+        <div><code>&gt; quote</code><span>quote</span><kbd>⌘⇧.</kbd></div>
+        <div><code>&gt; [!TIP]</code><span>callout: NOTE, TIP, WARNING…</span></div>
+        <div><code>```js</code><span>code block, highlighted</span><kbd>⌘⌥C</kbd></div>
+        <div><code>| a | b |</code><span>table</span></div>
+        <div><code>![alt](url)</code><span>image from a link</span></div>
+        <p>Select text and type <code>*</code> <code>_</code> <code>~</code> <code>`</code> <code>=</code> or <code>|</code> to wrap it. Paste a link over selected text to link it. Lists keep going when you press Enter. <kbd>⌘⌥P</kbd> toggles the preview, <kbd>⌘↵</kbd> posts.</p>
       </div>
       <div class="feed-composer-preview-wrap" id="feedComposerPreviewWrap" hidden>
         <img class="feed-composer-preview" id="feedComposerPreview" alt="" />
@@ -337,8 +362,32 @@ window.KLAB_BOOT = (function() {
       <div class="feed-composer-row">
         <input type="file" accept="image/*" id="feedComposerImage" hidden />
         <button class="feed-composer-image-btn" id="feedComposerImageBtn" title="Add an image"><i class="ti ti-photo"></i></button>
+        <div class="feed-md-toolbar" id="feedMdToolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" data-md="bold" title="Bold (⌘B)"><i class="ti ti-bold"></i></button>
+          <button type="button" data-md="italic" title="Italic (⌘I)"><i class="ti ti-italic"></i></button>
+          <button type="button" data-md="strike" title="Strikethrough (⌘⇧X)"><i class="ti ti-strikethrough"></i></button>
+          <button type="button" data-md="heading" title="Heading (⌘⌥H)"><i class="ti ti-heading"></i></button>
+          <button type="button" data-md="mark" title="Highlight (⌘⇧H)"><i class="ti ti-highlight"></i></button>
+          <button type="button" data-md="spoiler" title="Spoiler (⌘⇧S)"><i class="ti ti-eye-off"></i></button>
+          <span class="feed-md-sep"></span>
+          <button type="button" data-md="ul" title="Bulleted list (⌘⇧8)"><i class="ti ti-list"></i></button>
+          <button type="button" data-md="ol" title="Numbered list (⌘⇧7)"><i class="ti ti-list-numbers"></i></button>
+          <button type="button" data-md="task" title="Checklist (⌘⇧9)"><i class="ti ti-list-check"></i></button>
+          <button type="button" data-md="quote" title="Quote (⌘⇧.)"><i class="ti ti-quote"></i></button>
+          <button type="button" data-md="callout" title="Callout"><i class="ti ti-info-square-rounded"></i></button>
+          <span class="feed-md-sep"></span>
+          <button type="button" data-md="link" title="Link (⌘K)"><i class="ti ti-link"></i></button>
+          <button type="button" data-md="code" title="Code (⌘E)"><i class="ti ti-code"></i></button>
+          <button type="button" data-md="codeblock" title="Code block (⌘⌥C)"><i class="ti ti-source-code"></i></button>
+          <button type="button" data-md="table" title="Table"><i class="ti ti-table"></i></button>
+          <button type="button" data-md="hr" title="Divider"><i class="ti ti-separator-horizontal"></i></button>
+        </div>
         <span class="feed-composer-error" id="feedComposerError" hidden></span>
-        <button class="feed-composer-post-btn" id="feedComposerPostBtn" title="Post"><i class="ti ti-send-2"></i></button>
+        <span class="feed-composer-count" id="feedComposerCount" hidden></span>
+        <button type="button" class="feed-md-tool" id="feedMdHelpBtn" title="Markdown cheatsheet" aria-expanded="false"><i class="ti ti-markdown"></i></button>
+        <button type="button" class="feed-md-tool" id="feedMdPreviewBtn" title="Live preview (⌘⌥P)" aria-pressed="false"><i class="ti ti-eye"></i></button>
+        <button type="button" class="feed-md-tool" id="feedMdExpandBtn" title="Big editor" aria-pressed="false"><i class="ti ti-arrows-maximize"></i></button>
+        <button class="feed-composer-post-btn" id="feedComposerPostBtn" title="Post (⌘↵)"><i class="ti ti-send-2"></i></button>
       </div>
     </div>
     <div class="feed-list" id="feedList"></div>
@@ -782,25 +831,28 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.25.17';</script>
-<script defer src="js/00-util.js?v=v2026.09.25.17"></script>
-<script defer src="js/01-shell.js?v=v2026.09.25.17"></script>
-<script defer src="js/02-player.js?v=v2026.09.25.17"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.25.17"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.25.17"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.25.17"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.25.17"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.25.17"></script>
-<script defer src="js/08-chat.js?v=v2026.09.25.17"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.25.17"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.25.17"></script>
-<script defer src="js/11-presence.js?v=v2026.09.25.17"></script>
-<script defer src="js/12-feed.js?v=v2026.09.25.17"></script>
-<script defer src="js/13-tail.js?v=v2026.09.25.17"></script>
-<script defer src="js/14-photos.js?v=v2026.09.25.17"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.25.17"></script>
-<script defer src="js/16-motion.js?v=v2026.09.25.17"></script>
-<script defer src="js/17-history.js?v=v2026.09.25.17"></script>
+<script>const KLABNET_VERSION = 'v2026.09.25.18';</script>
+<script defer src="js/00-util.js?v=v2026.09.25.18"></script>
+<script defer src="js/01-shell.js?v=v2026.09.25.18"></script>
+<script defer src="js/02-player.js?v=v2026.09.25.18"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.25.18"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.25.18"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.25.18"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.25.18"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.25.18"></script>
+<script defer src="js/08-chat.js?v=v2026.09.25.18"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.25.18"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.25.18"></script>
+<script defer src="js/11-presence.js?v=v2026.09.25.18"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.25.18"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.25.18"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.25.18"></script>
+<script defer src="js/12-feed.js?v=v2026.09.25.18"></script>
+<script defer src="js/13-tail.js?v=v2026.09.25.18"></script>
+<script defer src="js/14-photos.js?v=v2026.09.25.18"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.25.18"></script>
+<script defer src="js/16-motion.js?v=v2026.09.25.18"></script>
+<script defer src="js/17-history.js?v=v2026.09.25.18"></script>
 
 </body>
 </html>

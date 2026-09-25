@@ -33,6 +33,8 @@
   const FEED_MAX_LOADED = 300; // caps how many posts loadOlderPosts() keeps resident — see its own comment
   const MENTIONS_SEEN_KEY = 'klabnet_feed_mentions_seen_v1'; // { username: highest post id already seen mentioning them }
   const FEED_QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
+  const FEED_MAX_CHARS = 10000; // matches FEED_POST_MAX_CHARS in klabnet-api; replies stay short
+  const DRAFT_KEY = 'klabnet_feed_draft_v1';
 
   let _feedPosts     = [];   // newest-first
   // Fingerprint of the last _feedPosts merge that actually triggered a
@@ -55,6 +57,7 @@
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
   const _openReplyBoxes = new Set();      // postIds whose reply box was opened with the Reply button
+  const _expandedPosts = new Set();       // long posts someone hit "Show more" on
 
   // Its own list, separate from the header's MOTD_PHRASES — same crude/
   // unhinged energy on purpose, just original lines rather than reusing
@@ -124,6 +127,19 @@
   // URL stays part of the URL instead of turning into a mention.
   function richText(rawText, me) {
     return linkifyHTML(rawText, seg => mentionHTML(seg, me));
+  }
+
+  // Posts are markdown. Before this, a post was plain text; old posts
+  // read the same either way, since plain text is valid markdown and
+  // line breaks are kept (breaks: true in 11b-markdown.js).
+  function postTextHTML(post, me) {
+    if (!window.klabMarkdown) return '<div class="feed-post-text">' + richText(post.text, me) + '</div>';
+    const folded = klabMdIsLong(post.text) && !_expandedPosts.has(post.id);
+    return '<div class="feed-post-text md' + (folded ? ' md-folded' : '') + '">' + klabMarkdown(post.text, me) + '</div>' +
+      (folded ? '<button type="button" class="feed-post-more" data-post-id="' + post.id + '">Show more<i class="ti ti-chevron-down"></i></button>' : '');
+  }
+  function replyTextHTML(text, me) {
+    return window.klabMarkdown ? klabMarkdown(text, me, { inline: true }) : richText(text, me);
   }
 
   function textMentions(text, username) {
@@ -287,7 +303,7 @@
           '<span class="feed-post-reply-time">' + fmtFeedTime(reply.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply" aria-label="Delete reply"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
-        '<div class="feed-post-reply-text">' + richText(reply.text, me) + '</div>' +
+        '<div class="feed-post-reply-text">' + replyTextHTML(reply.text, me) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -366,7 +382,7 @@
           '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
-        (post.text ? '<div class="feed-post-text">' + richText(post.text, me) + '</div>' : '') +
+        (post.text ? postTextHTML(post, me) : '') +
         imageHTML +
         embedHTML +
         songHTML +
@@ -406,7 +422,7 @@
           ':' + profileColor(p.username) +
           ':' + (_feedAvatarCache.get(p.username) || '') +
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
-          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') +
+          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + fmtFeedTime(r.created) + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-');
@@ -503,10 +519,24 @@
     // typing guard held a post back, leave it null so the next render has to
     // do the work again rather than short-circuiting forever.
     _lastFeedRenderKey = deferred ? null : key;
+    unfoldShortPosts();
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
   }
+
+  // "Is it long" is guessed from the text; once it's on screen, a folded
+  // post that actually fits gets its button taken away. Skipped while the
+  // feed is hidden (everything measures 0 there) and re-checked on return.
+  function unfoldShortPosts() {
+    listEl.querySelectorAll('.feed-post-text.md-folded').forEach(el => {
+      if (!el.clientHeight || el.scrollHeight > el.clientHeight + 8) return;
+      el.classList.remove('md-folded');
+      const btn = el.nextElementSibling;
+      if (btn && btn.classList.contains('feed-post-more')) btn.remove();
+    });
+  }
+  window.klabFeedShown = unfoldShortPosts;
 
   // Avatar/image/reply resolutions land one at a time; a cold load of 50
   // posts fired ~35 separate full rebuilds, each re-creating every <img> on
@@ -639,7 +669,91 @@
     }
   }
 
+  // ── Composer extras: live preview, the big editor, count, draft ──
+  const composerEl   = document.getElementById('feedComposer');
+  const toolbarEl    = document.getElementById('feedMdToolbar');
+  const liveEl       = document.getElementById('feedComposerLive');
+  const liveBodyEl   = document.getElementById('feedComposerLiveBody');
+  const helpEl       = document.getElementById('feedMdHelp');
+  const helpBtnEl    = document.getElementById('feedMdHelpBtn');
+  const previewBtnEl = document.getElementById('feedMdPreviewBtn');
+  const expandBtnEl  = document.getElementById('feedMdExpandBtn');
+  const countEl      = document.getElementById('feedComposerCount');
+  const composerScrimEl = document.createElement('div');
+  composerScrimEl.className = 'feed-composer-scrim';
+  const composerHome = document.createComment('feed composer');
+  let _previewOn = false, _previewQueued = false;
+
+  function renderPreview() {
+    _previewQueued = false;
+    if (liveEl.hidden || !window.klabMarkdown) return;
+    const v = textEl.value;
+    liveBodyEl.innerHTML = v.trim()
+      ? klabMarkdown(v, window.KLAB_USER?.username, { nocache: true })
+      : '<span class="feed-composer-live-empty">Nothing to preview yet</span>';
+  }
+  function updateComposerExtras() {
+    if (!_previewQueued && !liveEl.hidden) { _previewQueued = true; requestAnimationFrame(renderPreview); }
+    const n = textEl.value.length;
+    countEl.hidden = n < FEED_MAX_CHARS * 0.8;
+    if (!countEl.hidden) {
+      countEl.textContent = n.toLocaleString() + ' / ' + FEED_MAX_CHARS.toLocaleString();
+      countEl.classList.toggle('over', n > FEED_MAX_CHARS);
+    }
+    composerEl.classList.toggle('has-text', n > 0);
+  }
+  function setPreview(on) {
+    _previewOn = on;
+    // The big editor always shows it, side by side.
+    liveEl.hidden = !(on || composerEl.classList.contains('expanded'));
+    previewBtnEl.classList.toggle('on', on);
+    previewBtnEl.setAttribute('aria-pressed', String(on));
+    renderPreview();
+  }
+  function setExpanded(on) {
+    const run = () => {
+      // Lifted out to <body> while big: inside the feed column, an
+      // ancestor's stacking context put it under its own scrim and pinned
+      // "fixed" to the column. A marker keeps its place for the way back.
+      if (on && !composerHome.isConnected) {
+        composerEl.before(composerHome);
+        document.body.appendChild(composerScrimEl);
+        document.body.appendChild(composerEl);
+      } else if (!on && composerHome.isConnected) {
+        composerHome.replaceWith(composerEl);
+        composerScrimEl.remove();
+      }
+      composerEl.classList.toggle('expanded', on);
+      document.body.classList.toggle('feed-composer-open', on);
+      expandBtnEl.classList.toggle('on', on);
+      expandBtnEl.setAttribute('aria-pressed', String(on));
+      expandBtnEl.title = on ? 'Back to normal size (Esc)' : 'Big editor';
+      expandBtnEl.innerHTML = '<i class="ti ti-arrows-' + (on ? 'minimize' : 'maximize') + '"></i>';
+      setPreview(_previewOn);
+      autoGrowComposer();
+    };
+    // Morph between the two sizes where the browser can.
+    if (document.startViewTransition && window.klabMotionOk?.()) {
+      composerEl.style.viewTransitionName = 'feed-composer';
+      const t = document.startViewTransition(run);
+      t.finished.finally(() => { composerEl.style.viewTransitionName = ''; textEl.focus(); });
+    } else { run(); textEl.focus(); }
+  }
+  let _draftTimer = 0;
+  function saveDraftNow() {
+    clearTimeout(_draftTimer);
+    try { textEl.value ? localStorage.setItem(DRAFT_KEY, textEl.value) : localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  }
+  function saveDraftSoon() { clearTimeout(_draftTimer); _draftTimer = setTimeout(saveDraftNow, 400); }
+
   function autoGrowComposer() {
+    updateComposerExtras();
+    if (composerEl.classList.contains('expanded')) {
+      // The big editor is a fixed-height pane that scrolls; no growing.
+      textEl.style.height = ''; textEl.style.overflowY = 'auto';
+      if (highlightEl) { highlightEl.innerHTML = window.klabMdSyntax ? klabMdSyntax(textEl.value) : mentionHTML(textEl.value, null); highlightEl.scrollTop = textEl.scrollTop; }
+      return;
+    }
     textEl.style.height = '44px'; // shrink first so deleting text un-grows it, not just growing one-way
     // Read scrollHeight once — it forces a synchronous reflow either way
     // (the write just above is still pending), but reading it a second
@@ -650,7 +764,7 @@
     textEl.style.height = Math.min(sh, 220) + 'px';
     textEl.style.overflowY = sh > 220 ? 'auto' : 'hidden';
     if (highlightEl) {
-      highlightEl.innerHTML = mentionHTML(textEl.value, null);
+      highlightEl.innerHTML = window.klabMdSyntax ? klabMdSyntax(textEl.value) : mentionHTML(textEl.value, null);
       highlightEl.scrollTop = textEl.scrollTop;
     }
   }
@@ -688,6 +802,8 @@
 
   function clearComposer() {
     textEl.value = '';
+    saveDraftNow();
+    if (composerEl.classList.contains('expanded')) setExpanded(false);
     _pendingFile = null;
     fileEl.value = '';
     previewWrapEl.hidden = true;
@@ -700,6 +816,11 @@
   async function submitPost() {
     const text = textEl.value.trim();
     if (!text && !_pendingFile && !_pendingSong) return;
+    if (text.length > FEED_MAX_CHARS) {
+      errEl.textContent = 'Too long by ' + (text.length - FEED_MAX_CHARS).toLocaleString() + ' characters';
+      errEl.hidden = false;
+      return;
+    }
     errEl.hidden = true;
     postBtnEl.disabled = true;
     postBtnEl.innerHTML = '<i class="ti ti-loader-2 loading-spinner"></i>';
@@ -794,6 +915,33 @@
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitPost();
   });
   textEl.addEventListener('input', autoGrowComposer);
+  textEl.addEventListener('input', saveDraftSoon);
+  if (window.klabMdEditor) {
+    klabMdEditor(textEl, { onTogglePreview: () => setPreview(!_previewOn) });
+    toolbarEl.addEventListener('mousedown', e => e.preventDefault()); // keep the textarea's selection
+    toolbarEl.addEventListener('click', e => {
+      const b = e.target.closest('button[data-md]');
+      if (b) klabMdActions[b.dataset.md](textEl);
+    });
+  } else {
+    toolbarEl.hidden = true;
+  }
+  helpBtnEl.addEventListener('click', () => {
+    helpEl.hidden = !helpEl.hidden;
+    helpBtnEl.setAttribute('aria-expanded', String(!helpEl.hidden));
+    helpBtnEl.classList.toggle('on', !helpEl.hidden);
+  });
+  previewBtnEl.addEventListener('click', () => setPreview(!_previewOn));
+  expandBtnEl.addEventListener('click', () => setExpanded(!composerEl.classList.contains('expanded')));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && composerEl.classList.contains('expanded')) { e.preventDefault(); setExpanded(false); textEl.focus(); }
+  });
+  composerScrimEl.addEventListener('click', () => setExpanded(false));
+  // A draft survives a reload or a closed tab.
+  try {
+    const d = localStorage.getItem(DRAFT_KEY);
+    if (d && !textEl.value) { textEl.value = d; autoGrowComposer(); }
+  } catch (e) {}
   if (highlightEl) textEl.addEventListener('scroll', () => { highlightEl.scrollTop = textEl.scrollTop; });
   if (mentionsBtnEl) {
     mentionsBtnEl.addEventListener('click', () => {
@@ -929,6 +1077,21 @@
     }
     const replyDelete = e.target.closest('.feed-post-reply-delete');
     if (replyDelete) { deleteFeedReply(Number(replyDelete.dataset.postId), Number(replyDelete.dataset.replyId)); return; }
+    const more = e.target.closest('.feed-post-more');
+    if (more) {
+      // Unfold in place instead of rebuilding the post (that would reload
+      // its image or video), then record the new state as already drawn.
+      const postId = Number(more.dataset.postId);
+      _expandedPosts.add(postId);
+      const postEl = more.closest('.feed-post');
+      postEl.querySelector('.feed-post-text')?.classList.remove('md-folded');
+      more.remove();
+      const post = _feedPosts.find(p => p.id === postId);
+      if (post) postEl.dataset.postKey = postRenderKey(post, window.KLAB_USER?.username);
+      return;
+    }
+    const mdImg = e.target.closest('.feed-post-text .md-img');
+    if (mdImg) { openImageViewer({ thumbSrc: mdImg.src, alt: mdImg.alt }); return; }
     const photo = e.target.closest('.feed-post-image');
     if (photo) {
       openImageViewer({ thumbSrc: photo.src, mxc: photo.dataset.mxc, alt: photo.alt });
