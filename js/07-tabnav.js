@@ -1,10 +1,10 @@
 // ══════════════════════════════════════════
-//  TAB NAV — Feed / Apps / Chat / Music / KLABCRAFT router
+//  TAB NAV — Home / Feed / Chat / Music / Photos router
 //  Hash-based so tabs are bookmarkable and back/forward works. The floating
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['feed', 'chat', 'music', 'photos'];
+const TABS = ['home', 'feed', 'chat', 'music', 'photos'];
 
 // Heavy per-tab setup waits until the switch itself has reached the screen,
 // so the tab highlight and the panel's fade start moving straight away
@@ -18,7 +18,7 @@ function isTabEnabled(key) {
 }
 
 function setActiveTab(key) {
-  if (!TABS.includes(key) || !isTabEnabled(key)) key = 'feed';
+  if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   // Captured before the tab-panel/body-class toggles below — used further
   // down to detect "just arrived on Chat" vs. "already there".
   const enteringChat = key === 'chat' && !document.body.classList.contains('tab-chat-active');
@@ -32,6 +32,8 @@ function setActiveTab(key) {
   // Same flex-fill idea as Chat, for the same reason — see body.tab-music-active's own CSS comment.
   document.body.classList.toggle('tab-music-active', key === 'music');
   document.body.classList.toggle('tab-photos-active', key === 'photos');
+  document.body.classList.toggle('tab-home-active', key === 'home');
+  if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
   if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
@@ -91,16 +93,16 @@ function setActiveTab(key) {
 // Called after settings change a tab's availability — bumps off a now-hidden
 // active tab back to Feed instead of leaving the user on a blank panel.
 function refreshActiveTabAvailability() {
-  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'feed';
-  if (!isTabEnabled(current)) setActiveTab('feed');
+  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
+  if (!isTabEnabled(current)) setActiveTab('home');
 }
 
 function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
   });
-  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'feed'));
-  setActiveTab(location.hash.slice(1) || 'feed');
+  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'home'));
+  setActiveTab(location.hash.slice(1) || 'home');
 }
 
 function openSettings() {

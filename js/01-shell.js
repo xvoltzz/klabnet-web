@@ -257,7 +257,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 //  never hijacked.
 // ══════════════════════════════════════════
 (function() {
-  const GO_TO_TAB = { f: 'feed', c: 'chat', m: 'music', p: 'photos' };
+  const GO_TO_TAB = { h: 'home', f: 'feed', c: 'chat', m: 'music', p: 'photos' };
   let awaitingG = false;
   let awaitingGTimer = null;
 

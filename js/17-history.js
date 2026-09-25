@@ -16,7 +16,7 @@
   const current = {};      // tab -> descriptor of what that tab shows now
 
   const same = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
-  const activeTab = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'feed';
+  const activeTab = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
 
   function push(desc) {
     if (restoring || !desc) return;

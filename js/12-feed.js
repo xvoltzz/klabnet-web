@@ -565,6 +565,12 @@
     ensureFeedAvatar(username);
     return _feedAvatarCache.get(username) || null;
   };
+  // Same idea for a post's attached image (Home shows them).
+  window.klabResolveFeedImage = function(mxc) {
+    if (!mxc) return null;
+    ensureFeedImage(mxc);
+    return _feedImageCache.get(mxc) || null;
+  };
 
   async function fetchFeed() {
     if (_feedPending) return;
