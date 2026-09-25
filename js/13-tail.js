@@ -611,8 +611,11 @@ function sampleImageColor(imgUrl) {
         queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i> Queue all';
         // While a song from this album is what's playing, the button is
         // Pause (and Play resumes it) instead of restarting the album.
-        const albumId = album.id;
-        const fromThisAlbum = () => !!playerState.currentSong && playerState.currentSong.albumId === albumId;
+        // Not named albumId: that's openAlbumPage's own parameter, and a
+        // const of the same name here put every earlier use of it in this
+        // block (the album fetch) in the temporal dead zone.
+        const thisAlbumId = album.id;
+        const fromThisAlbum = () => !!playerState.currentSong && playerState.currentSong.albumId === thisAlbumId;
         const syncPlayBtn = () => {
           const playing = fromThisAlbum() && !playerState.audio.paused;
           playBtn.innerHTML = playing ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play';
