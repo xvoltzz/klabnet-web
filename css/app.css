@@ -5882,6 +5882,10 @@
     /* The button glyph: a tiny boxed "GIF" in the terminal face */
     .gif-glyph { display: inline-flex; align-items: center; justify-content: center; height: 16px; padding: 0 3px; border: 1.5px solid currentColor; border-radius: 3px;
       font: 700 8.5px/1 'JetBrains Mono', monospace; letter-spacing: .04em; }
+    /* A flex box, not the button's inline line box: inline, the glyph sat
+       on the text baseline and hung ~4px low next to the icon buttons. */
+    #chatGifBtn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; padding: 4px 5px; line-height: 1; }
+    #feedGifBtn { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
     #feedList .feed-post-reply-gif { flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: none; background: none; color: var(--text-dim);
       display: flex; align-items: center; justify-content: center; cursor: pointer; }
     #feedList .feed-post-reply-gif:hover { color: var(--text); background: var(--glass-fill-h); }
