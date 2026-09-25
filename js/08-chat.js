@@ -1277,6 +1277,7 @@ async function sendChatMessage() {
   if ((!text && !_pendingChatImage) || !_chatActiveRoomId) return;
   const roomId = _chatActiveRoomId;
   const client = MatrixChat.client;
+  SFX && SFX.play('send');
   input.value = '';
   autoGrowChatComposer(); // back to one line, or it keeps the sent message's height
   clearTimeout(_typingStopTimers.get(roomId));
@@ -2433,7 +2434,7 @@ function notifyNewMessage(event, room) {
   const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')
     && room.roomId === _chatActiveRoomId;
   // Open on this room but in a background browser tab: you're not reading it.
-  if (onThisRoomAlready && !document.hidden) return;
+  if (onThisRoomAlready && !document.hidden) { SFX && SFX.play('receive', mxIdToUsername(event.getSender())); return; }
   _chatUnreadRooms.add(room.roomId);
   updateSocialUnreadBadge();
   const senderName = event.sender?.name || event.getSender();

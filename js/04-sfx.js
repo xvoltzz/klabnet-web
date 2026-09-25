@@ -204,6 +204,10 @@ const SFX = (() => {
     // A dull, soft "bonk" a half step off the scale: clearly wrong, never harsh.
     error:    () => { note(65, 0.36, 0.3, 0, { bright: 0.5, tine: 0 }); note(62, 0.34, 0.45, 0.1, { bright: 0.4, tine: 0 }); },
     notify:   () => { note(N.Fs5, 0.36, 0.5); note(N.A5, 0.3, 0.6, 0.09); },
+    // Chat, while you're in the conversation. Sending flicks up and out;
+    // a message landing is a soft drop on the sender's own first note.
+    send:     () => { air(900, 3200, 0.03, 0.14); note(N.D5, 0.3, 0.12, 0, { bright: 0.8 }); note(N.A5, 0.34, 0.2, 0.035, { tine: 1.3 }); },
+    receive:  from => { const m = motif(from).notes[0]; note(m, 0.34, 0.45, 0, { bright: 0.9 }); note(m - 12, 0.22, 0.35, 0.02, { bright: 0.5, tine: 0 }); },
     dm:       from => person(from, 'dm'),
     message:  from => person(from, 'message'),
     mention:  from => person(from, 'mention'),
@@ -217,7 +221,7 @@ const SFX = (() => {
     _sfxVol = Math.max(0, Math.min(1, v));
     if (master && ctx) master.gain.setTargetAtTime(_sfxVol, ctx.currentTime, 0.02);
   }
-  let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity;
+  let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity, _lastRecvAt = -Infinity;
   function playGated(type, from) {
     if (typeof _settings !== 'undefined') {
       if (!_settings.sfxEnabled) return;
@@ -228,6 +232,7 @@ const SFX = (() => {
     if (_lastType === type && now - _lastAt < 42) return;
     // A burst of messages is one sound, not a pileup.
     if (NOTIF.has(type)) { if (now - _lastNotifAt < 900) return; _lastNotifAt = now; }
+    if (type === 'receive') { if (now - _lastRecvAt < 600) return; _lastRecvAt = now; }
     _lastType = type; _lastAt = now;
     play(type, from);
     setVolume(_sfxVol);

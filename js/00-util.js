@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', syncToastFlyout);
 // Call it right after setting an element's backgroundImage.
 window.klabSoften = (function() {
   let ok = false;
-  try { ok = 'filter' in document.createElement('canvas').getContext('2d'); } catch (e) {}
+  try { ok = !!document.createElement('canvas').getContext('2d'); } catch (e) {}
   const LONG = 96;                 // canvas px on the long side; the blur hides the rest
   const baked = new Map();         // key -> Promise<blob url | null>
   const images = new Map();        // src -> Promise<HTMLImageElement | null>
@@ -222,25 +222,78 @@ window.klabSoften = (function() {
     return images.get(src);
   }
 
+  // The filter is applied by hand, not with the canvas's own ctx.filter:
+  // browsers disagree on that (and it's what looked wrong in Firefox), and
+  // at this size plain pixel math is instant and identical everywhere.
+  function parseFilter(filter) {
+    const ops = [];
+    const re = /(blur|saturate|brightness|contrast)\(([\d.]+)(px|%)?\)/g;
+    let m, rest = filter;
+    while ((m = re.exec(filter))) { ops.push([m[1], +m[2] / (m[3] === '%' ? 100 : 1)]); rest = rest.replace(m[0], ''); }
+    return rest.trim() ? null : ops;               // anything else: leave it live
+  }
+  // Three box blurs in a row approximate a Gaussian; edges clamp.
+  function boxBlur(px, w, h, r) {
+    if (r < 1) return;
+    const tmp = new Float32Array(px.length);
+    const pass = (src, dst, horiz) => {
+      const len = horiz ? w : h, lines = horiz ? h : w, win = 2 * r + 1;
+      for (let l = 0; l < lines; l++) for (let c = 0; c < 4; c++) {
+        const at = i => ((horiz ? l * w + Math.min(len - 1, Math.max(0, i)) : Math.min(len - 1, Math.max(0, i)) * w + l) * 4 + c);
+        let sum = 0;
+        for (let i = -r; i <= r; i++) sum += src[at(i)];
+        for (let i = 0; i < len; i++) { dst[at(i)] = sum / win; sum += src[at(i + r + 1)] - src[at(i - r)]; }
+      }
+    };
+    for (let k = 0; k < 3; k++) { pass(px, tmp, true); pass(tmp, px, false); }
+  }
+
   async function bake(src, filter, w, h) {
+    const ops = parseFilter(filter);
+    if (!ops) return null;
     const img = await load(src);
     if (!img || !img.naturalWidth) return null;
     const k = LONG / Math.max(w, h);   // canvas px per element px
     const cw = Math.max(8, Math.round(w * k)), ch = Math.max(8, Math.round(h * k));
-    let blur = 0;
-    const f = filter.replace(/blur\(([\d.]+)px\)/, (_, px) => { blur = Math.max(1, +px * k); return 'blur(' + blur.toFixed(2) + 'px)'; });
-    const c = document.createElement('canvas');
-    c.width = cw; c.height = ch;
-    const ctx = c.getContext('2d');
-    ctx.filter = f;
-    // Cover-fit, drawn past the edges so the blur has real pixels to pull
-    // in instead of fading the border to transparent.
-    const m = blur * 2.5;
-    const s = Math.max((cw + 2 * m) / img.naturalWidth, (ch + 2 * m) / img.naturalHeight);
+    const sigma = (ops.find(o => o[0] === 'blur')?.[1] || 0) * k;
+    // Three box passes of radius r give a Gaussian of sigma ~ r.
+    const r = Math.max(1, Math.round(sigma));
+    // Cover-fit, drawn past the edges so the blur has real pixels to pull in.
+    const m = Math.ceil(r * 3);
+    const W = cw + 2 * m, H = ch + 2 * m;
+    const work = document.createElement('canvas');
+    work.width = W; work.height = H;
+    const wctx = work.getContext('2d', { willReadFrequently: true });
+    const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
     const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
     try {
-      ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-      const blob = await new Promise(r => c.toBlob(r));
+      wctx.imageSmoothingQuality = 'high';
+      wctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      const data = wctx.getImageData(0, 0, W, H);
+      const px = new Float32Array(data.data);
+      boxBlur(px, W, H, r);
+      // The rest of the filter, in the order CSS applies it.
+      for (const [fn, v] of ops) {
+        if (fn === 'blur') continue;
+        for (let i = 0; i < px.length; i += 4) {
+          let R = px[i], G = px[i + 1], B = px[i + 2];
+          if (fn === 'brightness') { R *= v; G *= v; B *= v; }
+          else if (fn === 'contrast') { R = (R - 128) * v + 128; G = (G - 128) * v + 128; B = (B - 128) * v + 128; }
+          else if (fn === 'saturate') {   // the CSS Filter Effects matrix
+            const r2 = (0.213 + 0.787 * v) * R + (0.715 - 0.715 * v) * G + (0.072 - 0.072 * v) * B;
+            const g2 = (0.213 - 0.213 * v) * R + (0.715 + 0.285 * v) * G + (0.072 - 0.072 * v) * B;
+            const b2 = (0.213 - 0.213 * v) * R + (0.715 - 0.715 * v) * G + (0.072 + 0.928 * v) * B;
+            R = r2; G = g2; B = b2;
+          }
+          px[i] = R; px[i + 1] = G; px[i + 2] = B;
+        }
+      }
+      for (let i = 0; i < px.length; i++) data.data[i] = px[i];   // clamps to 0..255
+      wctx.putImageData(data, 0, 0);
+      const c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      c.getContext('2d').drawImage(work, m, m, cw, ch, 0, 0, cw, ch);
+      const blob = await new Promise(res => c.toBlob(res));
       return blob ? URL.createObjectURL(blob) : null;
     } catch (e) { return null; }  // tainted (no CORS): keep the live filter
   }
