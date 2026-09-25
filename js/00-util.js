@@ -209,6 +209,7 @@ window.klabSoften = (function() {
   const LONG = 96;                 // canvas px on the long side; the blur hides the rest
   const baked = new Map();         // key -> Promise<blob url | null>
   const images = new Map();        // src -> Promise<HTMLImageElement | null>
+  const ours = new Set();          // blob urls this made (feed images are blob urls too)
 
   function load(src) {
     if (!images.has(src)) images.set(src, new Promise(res => {
@@ -294,15 +295,19 @@ window.klabSoften = (function() {
       c.width = cw; c.height = ch;
       c.getContext('2d').drawImage(work, m, m, cw, ch, 0, 0, cw, ch);
       const blob = await new Promise(res => c.toBlob(res));
-      return blob ? URL.createObjectURL(blob) : null;
+      if (!blob) return null;
+      const url = URL.createObjectURL(blob);
+      ours.add(url);
+      return url;
     } catch (e) { return null; }  // tainted (no CORS): keep the live filter
   }
 
   function soften(el) {
     if (!el) return;
     const bg = el.style.backgroundImage || '';
-    if (bg.includes('blob:')) return;              // already baked
     el.classList.remove('soft', 'soft-grad');
+    const m0 = bg.match(/url\(["']?(.+?)["']?\)/);
+    if (m0 && ours.has(m0[1])) { el.classList.add('soft'); return; }   // already baked
     // A color tint is already soft; it only needs the filter taken off
     // (the CSS dims it by opacity instead of brightness).
     if (/^radial-gradient/.test(bg)) { el.classList.add('soft-grad'); return; }
