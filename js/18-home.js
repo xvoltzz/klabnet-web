@@ -93,6 +93,7 @@
     bdI ^= 1;
     const layer = bdLayers[bdI];
     layer.style.backgroundImage = img ? 'url("' + img + '")' : 'radial-gradient(circle at 40% 45%, ' + tint + ', transparent 62%)';
+    window.klabSoften?.(layer);
     layer.classList.add('on');
     bdLayers[bdI ^ 1].classList.remove('on');
   }
@@ -225,6 +226,7 @@
   }
   function hydrate(i) {
     slidesEl.children[i]?.querySelectorAll('[data-bg]').forEach(n => { n.style.backgroundImage = n.dataset.bg; n.removeAttribute('data-bg'); });
+    slidesEl.children[i]?.querySelectorAll('.hm-blur').forEach(n => window.klabSoften?.(n));
   }
   function showSlide(i) {
     cur = i;

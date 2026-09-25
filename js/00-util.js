@@ -193,3 +193,97 @@ function syncToastFlyout() {
 window.addEventListener('resize', syncToastFlyout);
 window.addEventListener('orientationchange', syncToastFlyout);
 document.addEventListener('DOMContentLoaded', syncToastFlyout);
+
+// ── Pre-blurred backdrops ──
+// Firefox's renderer redraws a CSS `filter: blur()` every frame it
+// composites, where Chrome rasterizes it once and reuses the result. A
+// full-screen blur(80px) behind a page with a blinking clock was being
+// recomputed ~60 times a second at 4K. So each blurred background is baked
+// once instead: the element's own computed filter (blur, saturate,
+// brightness) is drawn into a tiny canvas, scaled down with the image, and
+// the element gets that image with its live filter switched off (.soft).
+// Call it right after setting an element's backgroundImage.
+window.klabSoften = (function() {
+  let ok = false;
+  try { ok = 'filter' in document.createElement('canvas').getContext('2d'); } catch (e) {}
+  const LONG = 96;                 // canvas px on the long side; the blur hides the rest
+  const baked = new Map();         // key -> Promise<blob url | null>
+  const images = new Map();        // src -> Promise<HTMLImageElement | null>
+
+  function load(src) {
+    if (!images.has(src)) images.set(src, new Promise(res => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.decoding = 'async';
+      img.onload = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src;
+    }));
+    return images.get(src);
+  }
+
+  async function bake(src, filter, w, h) {
+    const img = await load(src);
+    if (!img || !img.naturalWidth) return null;
+    const k = LONG / Math.max(w, h);   // canvas px per element px
+    const cw = Math.max(8, Math.round(w * k)), ch = Math.max(8, Math.round(h * k));
+    let blur = 0;
+    const f = filter.replace(/blur\(([\d.]+)px\)/, (_, px) => { blur = Math.max(1, +px * k); return 'blur(' + blur.toFixed(2) + 'px)'; });
+    const c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    const ctx = c.getContext('2d');
+    ctx.filter = f;
+    // Cover-fit, drawn past the edges so the blur has real pixels to pull
+    // in instead of fading the border to transparent.
+    const m = blur * 2.5;
+    const s = Math.max((cw + 2 * m) / img.naturalWidth, (ch + 2 * m) / img.naturalHeight);
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    try {
+      ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      const blob = await new Promise(r => c.toBlob(r));
+      return blob ? URL.createObjectURL(blob) : null;
+    } catch (e) { return null; }  // tainted (no CORS): keep the live filter
+  }
+
+  function soften(el) {
+    if (!el) return;
+    const bg = el.style.backgroundImage || '';
+    if (bg.includes('blob:')) return;              // already baked
+    el.classList.remove('soft', 'soft-grad');
+    // A color tint is already soft; it only needs the filter taken off
+    // (the CSS dims it by opacity instead of brightness).
+    if (/^radial-gradient/.test(bg)) { el.classList.add('soft-grad'); return; }
+    const m = bg.match(/url\(["']?(.+?)["']?\)/);
+    if (!ok || !m) return;
+    // Wait a tick so a freshly built element is attached and styled.
+    setTimeout(async () => {
+      if (el.style.backgroundImage !== bg || !el.isConnected) return;
+      const filter = getComputedStyle(el).filter;
+      if (!filter || filter === 'none' || !/blur\(/.test(filter)) return;
+      const r = el.getBoundingClientRect();
+      const w = r.width || 1000, h = r.height || 625;
+      // Sizes are bucketed so similar boxes share one bake.
+      const bw = Math.max(100, Math.round(w / 100) * 100), bh = Math.max(100, Math.round(h / 100) * 100);
+      const key = m[1] + '|' + filter + '|' + bw + 'x' + bh;
+      if (!baked.has(key)) {
+        if (baked.size > 240) baked.delete(baked.keys().next().value);
+        baked.set(key, bake(m[1], filter, bw, bh));
+      }
+      const url = await baked.get(key);
+      if (!url || el.style.backgroundImage !== bg) return;
+      el.dataset.softSrc = bg;
+      el.style.backgroundImage = 'url("' + url + '")';
+      el.classList.add('soft');
+    }, 0);
+  }
+
+  // Light and dark use different filters, so a theme flip re-bakes.
+  new MutationObserver(() => {
+    document.querySelectorAll('.soft[data-soft-src]').forEach(el => {
+      el.style.backgroundImage = el.dataset.softSrc;
+      soften(el);
+    });
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  return soften;
+})();

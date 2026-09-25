@@ -2416,6 +2416,10 @@ function markRoomRead(roomId) {
 // showToast() already plays the sitewide, user-customizable "notify" SFX
 // (see SFX.play('notify') inside its own wrapper), so this gets sound
 // support for free rather than needing its own notification primitive.
+function mentionsMe(body) {
+  const me = window.KLAB_USER?.username;
+  return !!me && new RegExp('(^|[^\\w])@' + me.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w])', 'i').test(body || '');
+}
 function notifyNewMessage(event, room) {
   // The initial sync (up to 50 messages/room, per initialSyncLimit) replays
   // as live 'Room.timeline' events, same as anything genuinely new — without
@@ -2452,7 +2456,10 @@ function notifyNewMessage(event, room) {
     toastPerson(mxIdToUsername(senderId)), TOAST_DEFAULT_MS * 2, avatarUrl,
     () => openChatRoom(room.roomId),
     // Quick reply straight from the notification, threaded to the message.
-    { onReply: text => MatrixChat.client.sendMessage(room.roomId, {
+    // The sound is the sender's own motif: low and warm for a DM, with a
+    // sparkle when a channel message mentions you.
+    { sound: isDm ? 'dm' : (mentionsMe(body) ? 'mention' : 'message'), from: mxIdToUsername(senderId),
+      onReply: text => MatrixChat.client.sendMessage(room.roomId, {
         msgtype: 'm.text', body: text,
         'm.relates_to': { 'm.in_reply_to': { event_id: event.getId() } },
       }) });
@@ -2485,6 +2492,7 @@ function setChatBackdrop(img, tint) {
   _chatBdKey = key;
   _chatBdI ^= 1;
   layers[_chatBdI].style.backgroundImage = img ? `url("${img}")` : (tint ? `radial-gradient(circle at 55% 40%, ${tint}, transparent 62%)` : 'none');
+  window.klabSoften?.(layers[_chatBdI]);
   layers[_chatBdI].classList.add('on');
   layers[_chatBdI ^ 1].classList.remove('on');
 }

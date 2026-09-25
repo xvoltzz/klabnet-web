@@ -1,33 +1,67 @@
 // ══════════════════════════════════════════
-//  FRUTIGER AERO SOUND EFFECTS
+//  SOUND — klabnet's own little instrument
+//
+//  Everything is one voice, synthesized live: a soft FM electric-piano
+//  mallet (a warm body plus a short glassy "tine" on the attack), played
+//  in D major pentatonic so any two sounds that overlap still agree, and
+//  sent into a small generated room so nothing sounds like a bare beep.
+//  Notes are humanized (a few cents of drift, a little velocity wobble),
+//  so a run of clicks never sounds like a machine repeating itself.
+//
+//  People have sounds too: every username hashes to its own three-note
+//  motif, so a message from someone sounds like *them*. DMs play it low
+//  and warm with a soft chord under it; channel messages play just the
+//  first two notes, lighter; a mention adds a sparkle on top.
 // ══════════════════════════════════════════
 const SFX = (() => {
-  let ctx = null;
-  let compressor = null;
-  let masterGain = null;
+  let ctx = null, master = null, verb = null, dry = null;
   let _sfxVol = 0.7;
+
+  // D major pentatonic, D3..D7, as frequencies.
+  const PENTA = [];
+  [50, 52, 54, 57, 59].forEach(m => { for (let o = 0; o < 5; o++) PENTA.push(m + 12 * o); });
+  PENTA.sort((a, b) => a - b);
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const N = { D4: 62, E4: 64, Fs4: 66, A4: 69, B4: 71, D5: 74, E5: 76, Fs5: 78, A5: 81, B5: 83, D6: 86, E6: 88, Fs6: 90, A6: 93 };
+
+  function impulse(c, secs, decay) {
+    const len = Math.floor(c.sampleRate * secs);
+    const buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      let lp = 0;
+      for (let i = 0; i < len; i++) {
+        // Darkened noise (one-pole lowpass) so the tail is a room, not hiss.
+        lp += 0.28 * ((Math.random() * 2 - 1) - lp);
+        d[i] = lp * Math.pow(1 - i / len, decay);
+      }
+    }
+    return buf;
+  }
+
   function getCtx() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Master gain — actual volume control
-      masterGain = ctx.createGain();
-      masterGain.gain.value = _sfxVol;
-      // Compressor after gain — prevents clipping
-      compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-6, ctx.currentTime);
-      compressor.knee.setValueAtTime(3, ctx.currentTime);
-      compressor.ratio.setValueAtTime(4, ctx.currentTime);
-      compressor.attack.setValueAtTime(0.001, ctx.currentTime);
-      compressor.release.setValueAtTime(0.1, ctx.currentTime);
-      masterGain.connect(compressor);
-      compressor.connect(ctx.destination);
+      master = ctx.createGain();
+      master.gain.value = _sfxVol;
+      // Takes the edge off anything bright before it reaches ears.
+      const tame = ctx.createBiquadFilter();
+      tame.type = 'lowpass'; tame.frequency.value = 7000; tame.Q.value = 0.3;
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 3;
+      comp.attack.value = 0.003; comp.release.value = 0.12;
+      master.connect(tame); tame.connect(comp); comp.connect(ctx.destination);
+      dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
+      const conv = ctx.createConvolver();
+      conv.buffer = impulse(ctx, 1.5, 3.2);
+      verb = ctx.createGain(); verb.gain.value = 0.24;
+      verb.connect(conv); conv.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
-  function dest() { getCtx(); return masterGain; }
 
-  // Unlock AudioContext — browsers require resume() inside a user gesture
+  // Browsers only start audio inside a user gesture.
   let _unlocked = false;
   function unlock() {
     if (_unlocked) return;
@@ -35,176 +69,170 @@ const SFX = (() => {
     const c = getCtx();
     if (c.state !== 'running') c.resume();
   }
-  // Resume on any gesture — mousemove counts in most browsers
-  ['click','keydown','mousedown','pointerdown'].forEach(ev =>
-    document.addEventListener(ev, unlock, { passive: true })
-  );
-  // Also pre-create context on first mousemove so hover works immediately after click.
-  // Self-removes once the context is confirmed running — no need to keep
-  // checking on every mousemove for the rest of the session after that.
+  ['click', 'keydown', 'mousedown', 'pointerdown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
   function _resumeOnMove() {
-    if (!ctx) return; // don't create until after first click
+    if (!ctx) return;
     if (ctx.state === 'suspended') { ctx.resume(); return; }
     if (ctx.state === 'running') document.removeEventListener('mousemove', _resumeOnMove);
   }
   document.addEventListener('mousemove', _resumeOnMove, { passive: true });
 
-  // Helpers ─────────────────────────────────────────────
-  // tone: soft rounded sine through a gentle lowpass — PS3 XMB-style chime
-  function tone(freq, gain, attack, decay, offset, type) {
-    const c = getCtx(); const t = c.currentTime + (offset||0);
-    const o = c.createOscillator(); const og = c.createGain();
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 3000; lp.Q.value = 0.5;
-    o.connect(lp); lp.connect(og); og.connect(dest());
-    o.type = type||'sine';
-    o.frequency.setValueAtTime(freq, t);
-    og.gain.setValueAtTime(0.0001, t);
-    og.gain.linearRampToValueAtTime(gain, t + attack);
-    og.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-    o.start(t); o.stop(t + attack + decay + 0.02);
-  }
-  // swell: soft filtered-noise breath — used for the airy open/close whoosh
-  function thud(freq, gain, decay, offset) {
-    const c = getCtx(); const t = c.currentTime + (offset||0);
-    const bufSize = Math.max(1, Math.floor(c.sampleRate * decay));
-    const buf = c.createBuffer(1, bufSize, c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i=0; i<bufSize; i++) data[i] = (Math.random()*2-1);
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    const bp = c.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 1;
-    const ng = c.createGain();
-    src.connect(bp); bp.connect(ng); ng.connect(dest());
-    ng.gain.setValueAtTime(0.0001, t);
-    ng.gain.linearRampToValueAtTime(gain, t + decay * 0.3);
-    ng.gain.exponentialRampToValueAtTime(0.0001, t + decay);
-    src.start(t); src.stop(t + decay + 0.02);
+  const wob = (x, amt) => x * (1 + (Math.random() * 2 - 1) * amt);
+
+  // One mallet note. vel 0..1, decay in seconds, wet = reverb send.
+  function note(midi, vel, decay, at, o) {
+    o = o || {};
+    const c = getCtx();
+    const t = c.currentTime + (at || 0) + 0.005;
+    const f = hz(midi) * Math.pow(2, (Math.random() * 2 - 1) * 4 / 1200);   // ±4 cents
+    const v = wob(vel, 0.08);
+    const out = c.createGain();
+    const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+    // Higher notes sit a little right, lower a little left, like a keyboard.
+    let tail = out;
+    if (pan) { pan.pan.value = Math.max(-0.5, Math.min(0.5, (midi - 74) / 40)); out.connect(pan); tail = pan; }
+    tail.connect(dry);
+    if (!o.dry) tail.connect(verb);
+
+    // Body: sine carrier, modulator at 1:1 whose depth falls away, so the
+    // note opens bright and settles into a round tone.
+    const car = c.createOscillator(), mod = c.createOscillator(), modG = c.createGain(), amp = c.createGain();
+    car.frequency.value = f; mod.frequency.value = f * (o.ratio || 1);
+    const idx = (o.bright ?? 1.1) * f;
+    modG.gain.setValueAtTime(idx, t);
+    modG.gain.exponentialRampToValueAtTime(Math.max(1, idx * 0.04), t + Math.min(0.35, decay * 0.6));
+    mod.connect(modG); modG.connect(car.frequency); car.connect(amp); amp.connect(out);
+    amp.gain.setValueAtTime(0.0001, t);
+    amp.gain.linearRampToValueAtTime(v * 0.5, t + 0.004);
+    amp.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    car.start(t); mod.start(t); car.stop(t + decay + 0.05); mod.stop(t + decay + 0.05);
+
+    // Tine: a quick inharmonic ping on the attack, the "glass" in it.
+    if (o.tine !== 0) {
+      const tn = c.createOscillator(), tg = c.createGain();
+      tn.type = 'sine'; tn.frequency.value = f * 4.2;
+      tg.gain.setValueAtTime(0.0001, t);
+      tg.gain.linearRampToValueAtTime(v * 0.09 * (o.tine ?? 1), t + 0.002);
+      tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      tn.connect(tg); tg.connect(out); tn.start(t); tn.stop(t + 0.08);
+    }
   }
 
-  function play(type) {
-    try {
-      const c = getCtx();
-      const t = c.currentTime;
+  // Soft airy swell (filtered noise), for panels opening and closing.
+  let _noise = null;
+  function air(from, to, vel, dur, at) {
+    const c = getCtx();
+    const t = c.currentTime + (at || 0) + 0.005;
+    if (!_noise) {
+      _noise = c.createBuffer(1, c.sampleRate, c.sampleRate);
+      const d = _noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = c.createBufferSource(); src.buffer = _noise;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(from, t); bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vel, t + dur * 0.45);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(verb); g.connect(dry);
+    src.start(t); src.stop(t + dur + 0.05);
+  }
 
-      if (type === 'glass' || type === 'click') {
-        // Soft two-tone confirm blip — rounded, no percussive edge
-        tone(660, 0.26, 0.008, 0.10);
-        tone(880, 0.18, 0.008, 0.14, 0.03);
-      }
-      else if (type === 'browse') {
-        // Barely-there whisper tick
-        tone(1600, 0.05, 0.004, 0.05);
-      }
-      else if (type === 'nav') {
-        // Forward navigation — soft ascending step
-        tone(587, 0.14, 0.006, 0.09);
-        tone(784, 0.10, 0.006, 0.10, 0.05);
-      }
-      else if (type === 'nav_back') {
-        // Back navigation — soft descending step
-        tone(784, 0.12, 0.006, 0.09);
-        tone(587, 0.09, 0.006, 0.10, 0.05);
-      }
-      else if (type === 'hover') {
-        // Soft mallet tap — quiet, quick, rounded, bypasses compressor
-        const hg = c.createGain();
-        hg.connect(c.destination);
-        const lp = c.createBiquadFilter();
-        lp.type = 'lowpass'; lp.frequency.value = 2200;
-        const o = c.createOscillator(); const og = c.createGain();
-        o.connect(lp); lp.connect(og); og.connect(hg);
-        o.type = 'sine'; o.frequency.setValueAtTime(1046, t);
-        og.gain.setValueAtTime(0.0001, t);
-        og.gain.linearRampToValueAtTime(0.09, t + 0.006);
-        og.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-        o.start(t); o.stop(t + 0.07);
-        return;
-      }
-      else if (type === 'open') {
-        // Gentle rising breath + soft confirm
-        thud(700, 0.14, 0.16);
-        tone(392, 0.22, 0.01, 0.20);
-        tone(587, 0.16, 0.01, 0.22, 0.09);
-      }
-      else if (type === 'close') {
-        // Gentle falling breath
-        tone(587, 0.16, 0.01, 0.16);
-        thud(480, 0.12, 0.16, 0.05);
-        tone(392, 0.18, 0.01, 0.18, 0.08);
-      }
-      else if (type === 'play') {
-        // Warm ascending two-tone — the classic soft "confirm"
-        tone(392, 0.30, 0.008, 0.16);
-        tone(587, 0.24, 0.008, 0.20, 0.07);
-      }
-      else if (type === 'pause') {
-        // Soft descending settle — reversed play feel
-        tone(587, 0.24, 0.008, 0.14);
-        tone(392, 0.22, 0.008, 0.18, 0.06);
-      }
-      else if (type === 'skip') {
-        // Two soft rounded taps, gentle pitch lift
-        tone(660, 0.20, 0.006, 0.08);
-        tone(784, 0.18, 0.006, 0.09, 0.09);
-      }
-      else if (type === 'picker') {
-        // Gentle, spaced arpeggio — mellow chime, C major
-        [[523, 0.18, 0.16, 0.000],
-         [659, 0.16, 0.18, 0.085],
-         [784, 0.14, 0.20, 0.170],
-         [1046,0.11, 0.22, 0.255]].forEach(([f,g,decay,o]) => {
-          tone(f, g, 0.008, decay, o);
-        });
-      }
-      else if (type === 'queue') {
-        // Soft short confirm
-        tone(523, 0.22, 0.006, 0.14);
-        tone(659, 0.16, 0.006, 0.14, 0.05);
-      }
-      else if (type === 'star') {
-        // Twinkly, soft ascending run
-        [[784, 0.20, 0.16, 0.000],
-         [988, 0.17, 0.16, 0.06],
-         [1175,0.14, 0.16, 0.12],
-         [1568,0.11, 0.18, 0.18]].forEach(([f,g,decay,o]) => {
-          tone(f, g, 0.006, decay, o);
-        });
-      }
-      else if (type === 'error') {
-        // Soft low descending tone — rounded, not harsh
-        tone(220, 0.28, 0.01, 0.20);
-        tone(175, 0.24, 0.01, 0.24, 0.10);
-      }
-      else if (type === 'notify') {
-        // Two warm gentle tones
-        tone(528, 0.30, 0.01, 0.24);
-        tone(660, 0.22, 0.01, 0.24, 0.09);
-      }
-    } catch(e) { /* audio not available */ }
+  // A pad chord that breathes in under a DM.
+  function pad(midis, vel, dur, at) {
+    const c = getCtx();
+    const t = c.currentTime + (at || 0) + 0.005;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vel, t + dur * 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    lp.connect(g); g.connect(verb); g.connect(dry);
+    midis.forEach((m, i) => [-5, 5].forEach(cents => {
+      const o = c.createOscillator(); o.type = 'triangle';
+      o.frequency.value = hz(m) * Math.pow(2, cents / 1200);
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.05);
+    }));
+  }
+
+  // ── People: a motif per username ──
+  function hash(s) { let h = 2166136261; for (const ch of String(s || '')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  const RHYTHMS = [[0, 0.09, 0.18], [0, 0.12, 0.2], [0, 0.07, 0.21], [0, 0.1, 0.15], [0, 0.14, 0.24]];
+  function motif(user) {
+    const h = hash(String(user || '').toLowerCase());
+    // Three steps through the scale, starting somewhere in D5..A5, never
+    // jumping more than a few scale degrees, so every motif is singable.
+    const start = PENTA.indexOf(74) + (h % 4);
+    const steps = [0, ((h >>> 3) % 7) - 3, ((h >>> 7) % 7) - 3];
+    let i = start;
+    const notes = steps.map((s, k) => (i = Math.max(0, Math.min(PENTA.length - 1, i + (k ? s || 2 : 0))), PENTA[i]));
+    return { notes, rhythm: RHYTHMS[(h >>> 11) % RHYTHMS.length] };
+  }
+  function person(user, kind) {
+    const { notes, rhythm } = motif(user);
+    if (kind === 'dm') {
+      // Low and close: the motif an octave down, with a chord breathing under it.
+      pad([50, 57, 66], 0.03, 1.3);
+      notes.forEach((m, k) => note(m - 12, 0.4, 0.9, 0.04 + rhythm[k] * 1.25, { bright: 0.8 }));
+    } else if (kind === 'mention') {
+      notes.forEach((m, k) => note(m, 0.5, 0.6, rhythm[k]));
+      note(notes[2] + 12, 0.22, 0.5, rhythm[2] + 0.1, { tine: 1.6 });
+    } else {
+      // A channel message: just the first two notes, light.
+      note(notes[0], 0.34, 0.45, 0);
+      note(notes[1], 0.28, 0.5, rhythm[1]);
+    }
+  }
+
+  const SOUNDS = {
+    click:    () => { note(N.A5, 0.62, 0.16, 0, { bright: 0.7 }); },
+    glass:    () => SOUNDS.click(),
+    browse:   () => { note(N.D6, 0.14, 0.06, 0, { dry: 1, tine: 0.6 }); },
+    hover:    () => { note(N.D6, 0.3, 0.05, 0, { dry: 1, bright: 0.4, tine: 0.5 }); },
+    nav:      () => { note(N.D5, 0.26, 0.16); note(N.A5, 0.2, 0.2, 0.05); },
+    nav_back: () => { note(N.A5, 0.24, 0.16); note(N.D5, 0.2, 0.2, 0.05); },
+    open:     () => { air(500, 1800, 0.05, 0.28); note(N.D4, 0.3, 0.4); note(N.A4, 0.26, 0.4, 0.05); note(N.D5, 0.22, 0.5, 0.1); },
+    close:    () => { air(1600, 450, 0.045, 0.26); note(N.D5, 0.24, 0.3); note(N.A4, 0.2, 0.4, 0.06); },
+    play:     () => { note(N.D4, 0.34, 0.6); note(N.A4, 0.26, 0.6, 0.012); note(N.Fs5, 0.24, 0.7, 0.07); },
+    pause:    () => { note(N.A4, 0.26, 0.4); note(N.D4, 0.28, 0.5, 0.06, { bright: 0.6 }); },
+    skip:     () => { note(N.E5, 0.24, 0.14); note(N.A5, 0.22, 0.2, 0.06); },
+    picker:   () => { [N.D5, N.Fs5, N.A5, N.D6].forEach((m, i) => note(m, 0.26 - i * 0.03, 0.45, i * 0.06)); },
+    queue:    () => { note(N.A5, 0.26, 0.2); note(N.D6, 0.22, 0.3, 0.05); },
+    star:     () => { [N.A5, N.B5, N.D6, N.Fs6, N.A6].forEach((m, i) => note(m, 0.24 - i * 0.03, 0.4, i * 0.045, { tine: 1.4 })); },
+    success:  () => { [N.D5, N.Fs5, N.A5, N.D6].forEach((m, i) => note(m, 0.28, 0.5, i * 0.05)); },
+    // A dull, soft "bonk" a half step off the scale: clearly wrong, never harsh.
+    error:    () => { note(65, 0.36, 0.3, 0, { bright: 0.5, tine: 0 }); note(62, 0.34, 0.45, 0.1, { bright: 0.4, tine: 0 }); },
+    notify:   () => { note(N.Fs5, 0.36, 0.5); note(N.A5, 0.3, 0.6, 0.09); },
+    dm:       from => person(from, 'dm'),
+    message:  from => person(from, 'message'),
+    mention:  from => person(from, 'mention'),
+  };
+  const NOTIF = new Set(['notify', 'dm', 'message', 'mention']);
+
+  function play(type, from) {
+    try { (SOUNDS[type] || (() => {}))(from); } catch (e) { /* audio not available */ }
   }
   function setVolume(v) {
     _sfxVol = Math.max(0, Math.min(1, v));
-    if (masterGain && ctx) {
-      masterGain.gain.setTargetAtTime(_sfxVol, ctx.currentTime, 0.02);
-    }
+    if (master && ctx) master.gain.setTargetAtTime(_sfxVol, ctx.currentTime, 0.02);
   }
-  function playGated(type) {
+  let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity;
+  function playGated(type, from) {
     if (typeof _settings !== 'undefined') {
       if (!_settings.sfxEnabled) return;
-      if (!_settings.notifSound && type === 'notify') return;
+      if (!_settings.notifSound && NOTIF.has(type)) return;
       _sfxVol = _settings.sfxVolume ?? 0.7;
     }
     const now = performance.now();
-    if (playGated._lastType === type && now - playGated._lastAt < 42) return;
-    playGated._lastType = type;
-    playGated._lastAt = now;
-    play(type);
-    // Apply volume every play so slider changes take effect
+    if (_lastType === type && now - _lastAt < 42) return;
+    // A burst of messages is one sound, not a pileup.
+    if (NOTIF.has(type)) { if (now - _lastNotifAt < 900) return; _lastNotifAt = now; }
+    _lastType = type; _lastAt = now;
+    play(type, from);
     setVolume(_sfxVol);
   }
-  return { play: playGated, setVolume, _getCtx: () => ctx };
+  return { play: playGated, setVolume, motif, _getCtx: () => ctx };
 })();
 
 // Wire SFX to UI elements
@@ -259,7 +287,13 @@ const _origShowToast = showToast;
 // Passes every argument through: it used to forward only the first four,
 // which silently dropped the click action (jump to the chat) and the
 // quick-reply option from every chat notification.
-showToast = function(...args) { SFX.play('notify'); return _origShowToast(...args); };
+// A toast can name its own sound (opts.sound, opts.from): chat messages
+// play the sender's motif instead of the generic chime.
+showToast = function(...args) {
+  const o = args[5] || {};
+  SFX.play(o.sound || 'notify', o.from);
+  return _origShowToast(...args);
+};
 
 // Patch addToQueue to play queue sound
 const _origAddToQueue = addToQueue;

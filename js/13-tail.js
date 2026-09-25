@@ -365,6 +365,7 @@ function sampleImageColor(imgUrl) {
   function setBg(url) {
     if (!url) return;
     bg.style.backgroundImage = `url(${url})`;
+    window.klabSoften?.(bg);
   }
 
   function loading() {

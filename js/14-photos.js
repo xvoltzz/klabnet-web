@@ -275,6 +275,7 @@
     bdUrl = url;
     const next = bdLayers[1 - bdOn];
     next.style.backgroundImage = `url("${url}")`;
+    window.klabSoften?.(next);
     next.classList.add('on');
     bdLayers[bdOn].classList.remove('on');
     bdOn = 1 - bdOn;

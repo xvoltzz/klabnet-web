@@ -5384,6 +5384,10 @@
       filter: blur(80px) saturate(1.4) brightness(0.55); opacity: 0; transition: opacity 1.2s ease;
     }
     .hm-bd-layer.on { opacity: 1; }
+    /* klabSoften() baked the blur into the image (Firefox re-blurs a live filter every frame) */
+    .soft, .soft-grad { filter: none !important; }
+    .hm-bd-layer.on.soft-grad { opacity: .55; }
+    [data-theme="light"] .hm-bd-layer.on.soft-grad { opacity: .9; }
     [data-theme="light"] .hm-bd-layer { filter: blur(80px) saturate(1.3) brightness(1.1); }
     [data-theme="light"] .hm-backdrop::after { content: ''; position: absolute; inset: 0; background: var(--bg); opacity: .66; }
 
@@ -5586,7 +5590,8 @@
        it, no boxes in boxes, no scroll bars. ══ */
     .tab-panel[data-tab-panel="feed"] { max-width: 860px; margin: 0 auto; width: 100%; } /* no rail beside Feed any more */
     .chat-backdrop { opacity: 0 !important; }
-    body.tab-chat-active .chat-backdrop { opacity: 1 !important; }
+    body.tab-chat-active .chat-backdrop { opacity: 1 !important; visibility: visible; transition-delay: 0s; }
+    body:not(.tab-chat-active) .chat-backdrop { visibility: hidden; }
     body.tab-chat-active .dash { max-width: min(96vw, 1800px); }
     #chatApp .chat-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; min-height: 0; flex: 1; }
     #chatApp, #chatApp * { scrollbar-width: none; }

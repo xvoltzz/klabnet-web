@@ -1105,6 +1105,7 @@ function updateFSUI(song) {
   const curEl  = document.getElementById('fsBg' + cur);
   nextEl.style.opacity = '0';
   nextEl.style.backgroundImage = `url(${bgUrl})`;
+  window.klabSoften?.(nextEl);
   const _fsBgImg = new Image();
   _fsBgImg.onload = () => {
     if (myFsBgToken !== _fsBgToken) return; // a newer track change superseded this load

@@ -117,6 +117,7 @@
       if (!a) return;
       const next = bgs[1 - bgOn];
       next.style.backgroundImage = `url("${art(a.coverArt || a.id, 200)}")`;
+      window.klabSoften?.(next);
       next.classList.add('on');
       bgs[bgOn].classList.remove('on');
       bgOn = 1 - bgOn;

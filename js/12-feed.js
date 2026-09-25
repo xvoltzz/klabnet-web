@@ -483,7 +483,11 @@
   // to measure the whole list (it can be well over a thousand posts).
   const _onScreen = new Set();
   const _visIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
-    if (e.isIntersecting && e.target.isConnected) _onScreen.add(e.target);
+    if (e.isIntersecting && e.target.isConnected) {
+      _onScreen.add(e.target);
+      const art = e.target.querySelector(':scope > .feed-post-backart:not(.soft)');
+      if (art) window.klabSoften?.(art);
+    }
     else { _onScreen.delete(e.target); if (!e.target.isConnected) _visIO.unobserve(e.target); }
   })) : null;
 
@@ -513,6 +517,7 @@
     if (!key || key === _fbKey) return;
     _fbKey = key; _fbI ^= 1;
     _fbLayers[_fbI].style.backgroundImage = img ? 'url("' + img + '")' : 'radial-gradient(circle at 50% 40%, ' + tint + ', transparent 62%)';
+    window.klabSoften?.(_fbLayers[_fbI]);
     _fbLayers[_fbI].classList.add('on');
     _fbLayers[_fbI ^ 1].classList.remove('on');
   }
