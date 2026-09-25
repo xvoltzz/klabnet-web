@@ -241,12 +241,57 @@
     if (active && slides.length > 1) slideTimer = setTimeout(() => showSlide((cur + 1) % slides.length), SLIDE_MS);
   }
   spotEl.style.setProperty('--hm-slide', SLIDE_MS + 'ms');
+  // Flicking through: arrows, a two-finger swipe, or a drag / touch swipe.
+  function flick(dir) {
+    if (slides.length < 2) return;
+    showSlide((cur + dir + slides.length) % slides.length);
+    const el = slidesEl.children[cur];
+    if (el && motion()) el.animate([{ transform: `translateX(${dir * 24}px)`, opacity: 0.4 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+  let dragFrom = null, dragged = false;
   spotEl.addEventListener('click', e => {
+    if (dragged) { dragged = false; return; } // the end of a swipe isn't a click
     if (e.target.closest('a, .md-spoiler, .md-code-copy')) return;
+    const f = e.target.closest('[data-flick]');
+    if (f) { flick(+f.dataset.flick); return; }
     const bar = e.target.closest('.hm-bars b');
     if (bar) { showSlide([...barsEl.children].indexOf(bar)); return; }
     slides[cur]?.go();
   });
+  // Trackpad: horizontal wheel movement, one slide per gesture. Taking it
+  // also stops the browser reading the swipe as Back.
+  let wheelSum = 0, wheelLock = 0, wheelIdle = 0;
+  spotEl.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    clearTimeout(wheelIdle);
+    wheelIdle = setTimeout(() => { wheelSum = 0; }, 160);
+    if (Date.now() < wheelLock) return;
+    wheelSum += e.deltaX;
+    if (Math.abs(wheelSum) > 50) { flick(wheelSum > 0 ? 1 : -1); wheelSum = 0; wheelLock = Date.now() + 550; }
+  }, { passive: false });
+  spotEl.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('[data-flick], .hm-bars, a')) return;
+    dragFrom = { x: e.clientX, y: e.clientY, z: typeof zoomFactor === 'function' ? zoomFactor() : 1 };
+    dragged = false;
+  });
+  spotEl.addEventListener('pointermove', e => {
+    if (!dragFrom) return;
+    const dx = (e.clientX - dragFrom.x) / dragFrom.z;
+    if (!dragged && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - dragFrom.y)) { dragged = true; spotEl.setPointerCapture?.(e.pointerId); }
+    if (dragged) { const el = slidesEl.children[cur]; if (el) el.style.transform = `translateX(${dx * 0.35}px)`; }
+  });
+  const endDrag = e => {
+    if (!dragFrom) return;
+    const dx = (e.clientX - dragFrom.x) / dragFrom.z;
+    const el = slidesEl.children[cur];
+    if (el) el.style.transform = '';
+    dragFrom = null;
+    if (dragged && Math.abs(dx) > 50) flick(dx < 0 ? 1 : -1);
+    else if (dragged) setTimeout(() => { dragged = false; }, 0);
+  };
+  spotEl.addEventListener('pointerup', endDrag);
+  spotEl.addEventListener('pointercancel', endDrag);
 
   // ── tiles ──
   let postsSig = '', topPostId = null;

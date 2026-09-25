@@ -5798,3 +5798,13 @@
     [data-theme="light"] .hm-lcd-ghost { color: rgba(0,0,0,.06); }
     [data-theme="light"] .hm-lcd-now { color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, #000); text-shadow: none; }
     @media (prefers-reduced-motion: reduce) { .hm-lcd-colon { animation: none; } }
+
+    /* Flicking through the spotlight */
+    .hm-spot { touch-action: pan-y; }
+    .hm-spot .hm-slide { transition: opacity .9s ease, transform .3s var(--m-ease); }
+    .hm-flick { position: absolute; top: 50%; z-index: 6; width: 34px; height: 34px; margin-top: -17px; border-radius: 8px; border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.35); backdrop-filter: blur(10px); color: #fff; font-size: 18px; cursor: pointer; opacity: 0; transition: opacity var(--m-fast), background-color var(--m-fast); }
+    .hm-flick.prev { left: 12px; } .hm-flick.next { right: 12px; }
+    .hm-spot:hover .hm-flick { opacity: 1; }
+    .hm-flick:hover { background: rgba(0,0,0,.55); }
+    @media (hover: none) { .hm-flick { display: none; } }
