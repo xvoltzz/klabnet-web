@@ -5079,7 +5079,7 @@
        notification's own icon. Two lines when there's a title. */
     .toast-item {
       gap: 14px; padding: 12px 18px 12px 12px; border-radius: 16px;
-      width: min(380px, calc(100vw - 2rem)); min-width: 0; max-width: none;
+      width: min(340px, calc(100vw - 2rem)); min-width: 0; max-width: none;
       font-size: 14px; letter-spacing: 0; line-height: 1.35;
       max-height: 200px;
     }
@@ -5101,3 +5101,20 @@
       .toast-item { min-width: 0; }
       .toast-item-pic { width: 42px; height: 42px; }
     }
+
+    /* One box at a time: where a sliding highlight marks the active item,
+       hovering only brightens an item's text. A hover box of its own fought
+       the highlight (two boxes, then the highlight sliding over the hover
+       one on click). Colours change on the highlight's own clock. */
+    .tab-nav.has-pill .tab-nav-btn,
+    .tab-nav.has-pill .tab-nav-btn:hover:not(.active),
+    #musicShell .music-nav.has-pill .picker-tab,
+    #musicShell .music-nav.has-pill .picker-tab:hover:not(.active),
+    #musicShell .music-nav.has-pill .music-playlist-row,
+    #musicShell .music-nav.has-pill .music-playlist-row:hover:not(.active) {
+      background: transparent; border-color: transparent;
+      transition: color var(--m-slow) var(--m-ease);
+    }
+    .tab-nav.has-pill .tab-nav-btn:hover:not(.active),
+    #musicShell .music-nav.has-pill .picker-tab:hover:not(.active),
+    #musicShell .music-nav.has-pill .music-playlist-row:hover:not(.active) { color: var(--text); }

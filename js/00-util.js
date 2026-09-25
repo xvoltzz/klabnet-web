@@ -164,12 +164,19 @@ function anchorPanelUnder(panel, anchorEl, gap) {
 // open/close moment of its own, so it re-syncs on the things that can move
 // the header: viewport resize, and the orientation/zoom changes that come
 // with it.
+// Notifications sit just below the header's right-hand buttons, hugging
+// the screen's right edge rather than the buttons' edge: on wide screens
+// the header is inset, and right-aligning to it pushed the stack toward
+// the middle of the page.
 function syncToastFlyout() {
-  anchorPanelUnder(
-    document.getElementById('toastFlyout'),
-    document.querySelector('.header-right'),
-    11
-  );
+  const host = document.getElementById('toastFlyout');
+  const tray = document.querySelector('.header-right');
+  if (!host || !tray) return;
+  const r = tray.getBoundingClientRect();
+  if (!r.width && !r.height) return;
+  host.style.top = (r.bottom / zoomFactor() + 10) + 'px';
+  host.style.right = '16px';
+  host.style.left = 'auto';
 }
 window.addEventListener('resize', syncToastFlyout);
 window.addEventListener('orientationchange', syncToastFlyout);
