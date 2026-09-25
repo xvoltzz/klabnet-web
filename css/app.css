@@ -5430,7 +5430,8 @@
     .hm-slide.dark { background: #0b0b0c; color: #fff; }
     .hm-slide.dark::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.45), transparent 22%, transparent 42%, rgba(0,0,0,.82)); }
     .hm-slide.dark .hm-t { color: rgba(255,255,255,.65); }
-    .hm-content { position: absolute; left: 26px; right: 26px; bottom: 24px; z-index: 2; }
+    .hm-content { position: absolute; left: 26px; right: 26px; bottom: 24px; top: 58px; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+    .hm-content > * { flex-shrink: 0; }
     .hm-who { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
     .hm-count { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; opacity: .75; }
     .hm-big { margin-top: 14px; font: 800 clamp(26px, 2.5vw, 44px)/1.1 var(--font-ui); letter-spacing: -0.03em; color: var(--text); display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; max-width: 94%; }
@@ -5514,6 +5515,37 @@
     .hm-cm .hm-av.on::after { width: 7px; height: 7px; }
     .hm-cm .hm-name { margin-right: 6px; }
     .hm-cm-body { color: var(--text); overflow-wrap: anywhere; }
+
+    /* One quiet word per tile. */
+    .hm-lbl { flex-shrink: 0; margin: 0 0 8px 2px; font: 600 12.5px var(--font-ui); color: var(--text-dimmer); position: relative; z-index: 3; }
+    .hm-lbl span::before { content: '·'; margin: 0 6px; }
+    .hm-slide .hm-lbl { position: absolute; top: 28px; left: 24px; margin: 0; }
+    .hm-slide.dark .hm-lbl { color: rgba(255,255,255,.72); text-shadow: 0 1px 8px rgba(0,0,0,.4); }
+    .hm-music .hm-lbl { position: absolute; top: 14px; left: 16px; margin: 0; }
+    .hm-photos .hm-lbl { position: absolute; top: 12px; left: 14px; margin: 0; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+    .hm-quiet { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-dimmer); font-size: 13.5px; text-align: center; }
+    .hm-quiet i { font-size: 24px; opacity: .6; }
+    .hm-lgrid + .hm-quiet { flex: 0; margin-top: 14px; flex-direction: row; font-size: 13px; }
+    .hm-lgrid + .hm-quiet i { font-size: 16px; }
+
+    /* Posts as markdown: full size in the spotlight, compact in the list. */
+    .hm-content > .hm-big.md { flex-shrink: 1; }
+    .hm-big.md { display: block; -webkit-line-clamp: unset; font-weight: 700; white-space: normal;
+      min-height: 0; overflow: hidden; mask-image: linear-gradient(#000 82%, transparent); -webkit-mask-image: linear-gradient(#000 82%, transparent); }
+    .hm-big.md p { margin: 0 0 .3em; }
+    .hm-big.md h1, .hm-big.md h2, .hm-big.md h3 { margin: 0 0 .25em; font-size: 1.15em; }
+    .hm-big.md ul, .hm-big.md ol, .hm-big.md blockquote, .hm-big.md .md-table { font-size: .62em; font-weight: 500; letter-spacing: -0.01em; }
+    .hm-big.md li ul, .hm-big.md li ol, .hm-big.md blockquote blockquote { font-size: 1em; }
+    .hm-big.md pre.md-code { font-size: 13px; font-weight: 400; letter-spacing: 0; }
+    .hm-big.md .md-img { max-height: 30vh; }
+    .hm-pi-md { margin-top: 2px; font-size: 14.5px; line-height: 1.4; color: var(--text); max-height: 4.3em; overflow: hidden; overflow-wrap: anywhere;
+      mask-image: linear-gradient(#000 62%, transparent); -webkit-mask-image: linear-gradient(#000 62%, transparent); }
+    .hm-pi-md p, .hm-pi-md ul, .hm-pi-md ol, .hm-pi-md blockquote { margin: 0; }
+    .hm-pi-md h1, .hm-pi-md h2, .hm-pi-md h3, .hm-pi-md h4 { margin: 0; font-size: 1.05em; }
+    .hm-pi-md pre.md-code { padding: 6px 10px; font-size: 11.5px; margin: 2px 0; }
+    .hm-pi-md .md-code-copy, .hm-pi-md .md-code-lang, .hm-pi-md .md-img, .hm-pi-md hr, .hm-pi-md .md-table { display: none; }
+    .hm-pi-md .md-callout { padding: 2px 8px; }
+    .hm-pi-song { margin-top: 2px; font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* Too small to fit one screen: let it scroll like any other tab. */
     @media (max-width: 1000px), (max-height: 700px) {

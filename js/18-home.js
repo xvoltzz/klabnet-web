@@ -7,7 +7,7 @@
 //      Cover Flow, the newest photos, and the latest chat in channels (never
 //      DMs; this screen is meant to sit on a second monitor).
 //    · One line up top says what just happened.
-//  No labels on purpose: the content is the explanation.
+//  Labels are kept to one quiet word per tile ("Featured", "Feed", …).
 //  It only polls while Home is showing and the page is visible. "Today" is
 //  Eastern time, where everyone is.
 // ══════════════════════════════════════════
@@ -73,6 +73,10 @@
     plainCache.set(md, v);
     return v;
   }
+  // Posts render as markdown here too, just smaller.
+  const mdHTML = text => window.klabMarkdown ? klabMarkdown(text, me()) : esc(plain(text));
+  const lbl = t => '<div class="hm-lbl">' + t + '</div>';
+
   async function getJSON(url) {
     const r = await fetchTimeout(url, {}, 8000);
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -126,7 +130,7 @@
     const text = plain(p.text);
     if (p.song) {
       const art = cover(p.song.coverArt, 600);
-      return { key: 'p' + p.id, t, img: cover(p.song.coverArt, 300), go, dark: true,
+      return { key: 'p' + p.id, t, img: cover(p.song.coverArt, 300), go, dark: true, kind: 'Song',
         html: '<div class="hm-blur" style="background-image:url(&quot;' + esc(art) + '&quot;)"></div>' +
           '<div class="hm-content">' + who + '<div class="hm-album">' +
             (art ? '<div class="hm-cv" style="background-image:url(&quot;' + esc(art) + '&quot;)"></div>' : '') +
@@ -135,21 +139,21 @@
     }
     const img = p.image_mxc && window.klabResolveFeedImage ? window.klabResolveFeedImage(p.image_mxc) : null;
     if (img) {
-      return { key: 'p' + p.id + 'i', t, img, go, dark: true,
+      return { key: 'p' + p.id + 'i', t, img, go, dark: true, kind: 'Post',
         html: '<div class="hm-img" style="background-image:url(&quot;' + esc(img) + '&quot;)"></div>' +
           '<div class="hm-content">' + who + (text ? '<div class="hm-cap">' + esc(text) + '</div>' : '') + '</div>' };
     }
     if (!text) return null;
-    return { key: 'p' + p.id, t, tint: color(u), go,
+    return { key: 'p' + p.id, t, tint: color(u), go, kind: 'Post',
       html: '<div class="hm-tint" style="background:radial-gradient(circle at 18% 95%, ' + color(u) + ', transparent 62%)"></div>' +
-        '<div class="hm-content">' + who + '<div class="hm-big' + (text.length > 140 ? ' long' : '') + '">' + esc(text) + '</div></div>' };
+        '<div class="hm-content">' + who + '<div class="hm-big md' + (text.length > 140 ? ' long' : '') + '">' + mdHTML(p.text) + '</div></div>' };
   }
   function photoSlide(pp) {
     const ph = pp.photos && pp.photos[0];
     if (!ph) return null;
     const t = apiTime(pp.created), u = pp.username, ex = ph.exif || {};
     const chips = [ex.camera, ex.focal, ex.aperture, ex.shutter, ex.iso && ('ISO ' + String(ex.iso).replace(/^ISO\s*/i, '')), ex.film].filter(Boolean);
-    return { key: 'ph' + pp.id, t, img: photoFile(ph.id, 'thumb'), go: () => setActiveTab('photos'), dark: true,
+    return { key: 'ph' + pp.id, t, img: photoFile(ph.id, 'thumb'), go: () => setActiveTab('photos'), dark: true, kind: 'Photos',
       html: '<div class="hm-img" style="background-image:url(&quot;' + photoFile(ph.id, 'display') + '&quot;)"></div>' +
         '<div class="hm-content"><div class="hm-who">' + avatarHTML(u) + nameHTML(u) + timeHTML(t) +
           (pp.photos.length > 1 ? '<span class="hm-count"><i class="ti ti-photo"></i>' + pp.photos.length + '</span>' : '') + '</div>' +
@@ -160,7 +164,7 @@
   function albumSlide(a) {
     const t = a.created ? new Date(a.created).getTime() : 0;
     const art = cover(a.coverArt || a.id, 600);
-    return { key: 'al' + a.id, t, img: cover(a.coverArt || a.id, 300), go: () => openAlbum(a), dark: true,
+    return { key: 'al' + a.id, t, img: cover(a.coverArt || a.id, 300), go: () => openAlbum(a), dark: true, kind: 'New album',
       html: '<div class="hm-blur" style="background-image:url(&quot;' + esc(art) + '&quot;)"></div>' +
         '<div class="hm-content"><div class="hm-album"><div class="hm-cv" style="background-image:url(&quot;' + esc(art) + '&quot;)"></div>' +
           '<div><b>' + esc(a.name || a.title || '') + '</b><span>' + esc(a.artist || '') + (a.year ? ' · ' + a.year : '') + '</span></div></div></div>' };
@@ -186,7 +190,7 @@
     newestKey = slides[0].key;
     const keep = slides.findIndex(s => s.key === prevKey);
     cur = arrived || keep < 0 ? 0 : keep;
-    slidesEl.innerHTML = slides.map((s, i) => '<div class="hm-slide' + (s.dark ? ' dark' : '') + (i === cur ? ' on' : '') + '">' + s.html + '</div>').join('');
+    slidesEl.innerHTML = slides.map((s, i) => '<div class="hm-slide' + (s.dark ? ' dark' : '') + (i === cur ? ' on' : '') + '">' + s.html + lbl('Featured<span>' + s.kind + '</span>') + '</div>').join('');
     barsEl.innerHTML = slides.length > 1 ? slides.map(() => '<b><i></i></b>').join('') : '';
     if (arrived && motion()) { arriveEl.classList.remove('go'); void arriveEl.offsetWidth; arriveEl.classList.add('go'); }
     showSlide(cur);
@@ -217,16 +221,16 @@
     const html = list.map(p => {
       const t = apiTime(p.created);
       const img = p.song ? cover(p.song.coverArt, 100) : (p.image_mxc && window.klabResolveFeedImage ? window.klabResolveFeedImage(p.image_mxc) : null);
-      const text = plain(p.text);
       return '<div class="hm-pi">' + avatarHTML(p.username) +
         '<div class="hm-pi-tx"><div class="hm-pi-hd">' + nameHTML(p.username) + timeHTML(t) + '</div>' +
-          '<p>' + (p.song ? '<i class="ti ti-music"></i> ' + esc(p.song.title || '') + (text ? ' · ' : '') : '') + esc(text) + '</p></div>' +
+          (p.song ? '<div class="hm-pi-song"><i class="ti ti-music"></i> ' + esc(p.song.title || '') + (p.song.artist ? ' · ' + esc(p.song.artist) : '') + '</div>' : '') +
+          (p.text ? '<div class="hm-pi-md md">' + mdHTML(p.text) + '</div>' : '') + '</div>' +
         (img ? '<div class="hm-th" style="background-image:url(&quot;' + esc(img) + '&quot;)"></div>' : '') +
       '</div>';
     }).join('');
     if (html === postsSig) return;
     postsSig = html;
-    postsEl.innerHTML = '<div class="hm-plist">' + html + '</div>';
+    postsEl.innerHTML = lbl('Feed') + '<div class="hm-plist">' + html + '</div>';
     // A post that wasn't here a moment ago slides in at the top.
     const topId = list[0]?.id ?? null;
     if (topPostId !== null && topId !== topPostId && motion()) postsEl.querySelector('.hm-pi')?.classList.add('hm-enter');
@@ -235,19 +239,30 @@
   postsEl.addEventListener('click', () => setActiveTab('feed'));
 
   let listenSig = '';
+  function myListening() {
+    const song = typeof playerState !== 'undefined' ? playerState.currentSong : null;
+    if (!song || !me()) return null;
+    return { username: me(), song: song.title || '', artist: song.artist || '', coverArt: song.coverArt, playing: !!playerState.playing, you: true };
+  }
   function renderListen() {
-    const L = (S.listeners || []).slice(0, 4);
+    const mine = myListening();
+    const L = (mine ? [mine] : []).concat(S.listeners || []).slice(0, 4);
     const html = L.length
       ? '<div class="hm-lgrid">' + L.map(l =>
           '<div class="hm-pcard" data-username="' + esc(l.username) + '">' +
-            '<div class="hm-art"' + (l.songId ? ' style="background-image:url(&quot;' + esc(cover(l.songId, 100)) + '&quot;)"' : '') + '>' + avatarHTML(l.username) + '</div>' +
-            '<div class="hm-pc-tx"><small style="color:' + color(l.username) + '">' + esc(l.username) + (l.playing ? '' : ' · paused') + '</small><b>' + esc(l.song) + '</b><span>' + esc(l.artist || '') + '</span></div>' +
+            '<div class="hm-art"' + ((l.coverArt || l.songId) ? ' style="background-image:url(&quot;' + esc(cover(l.coverArt || l.songId, 100)) + '&quot;)"' : '') + '>' + avatarHTML(l.username) + '</div>' +
+            '<div class="hm-pc-tx"><small style="color:' + color(l.username) + '">' + esc(l.username) + (l.you ? ' (you)' : '') + (l.playing ? '' : ' · paused') + '</small><b>' + esc(l.song) + '</b><span>' + esc(l.artist || '') + '</span></div>' +
             (l.playing ? '<span class="hm-eq"><i></i><i></i><i></i></span>' : '') +
           '</div>').join('') + '</div>'
-      : '<div class="hm-quiet"><i class="ti ti-headphones-off"></i></div>';
-    if (html === listenSig) return;
-    listenSig = html;
-    listenEl.innerHTML = html;
+      : '';
+    const anyone = L.some(l => l.playing);
+    const full = lbl('Listening') + html + (anyone ? '' : '<div class="hm-quiet"><i class="ti ti-headphones-off"></i><span>Nobody\'s listening right now</span></div>');
+    if (full === listenSig) return;
+    listenSig = full;
+    listenEl.innerHTML = full;
+  }
+  if (typeof playerState !== 'undefined' && playerState.audio) {
+    ['play', 'pause', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, () => { if (active) renderListen(); }));
   }
   listenEl.addEventListener('click', e => {
     const card = e.target.closest('.hm-pcard');
@@ -260,6 +275,7 @@
     const sig = A.map(a => a.id).join(',');
     if (sig !== flowSig) {
       flowSig = sig;
+      if (!flowEl.previousElementSibling) flowEl.insertAdjacentHTML('beforebegin', lbl('New music'));
       flowEl.innerHTML = A.map((a, i) => '<button type="button" class="hm-fc" data-i="' + i + '" title="' + esc((a.name || '') + ' · ' + (a.artist || '')) + '" style="background-image:url(&quot;' + esc(cover(a.coverArt || a.id, 300)) + '&quot;)"></button>').join('');
       flowI = 0;
     }
@@ -298,7 +314,7 @@
     const html = tiles.map((id, i) => '<b style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'display') + '&quot;)"></b>').join('');
     if (html === photosSig) return;
     photosSig = html;
-    photosEl.innerHTML = '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>';
+    photosEl.innerHTML = lbl('Photos') + '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>';
   }
   photosEl.addEventListener('click', () => setActiveTab('photos'));
 
@@ -310,7 +326,7 @@
         '<div>' + nameHTML(m.u) + '<span class="hm-cm-body">' + esc(m.body) + '</span></div></div>').join('');
     if (html === chatSig && chatSig) return;
     chatSig = html;
-    chatEl.innerHTML = html ? '<div class="hm-clist">' + html + '</div>' : '<div class="hm-quiet"><i class="ti ti-message-circle"></i></div>';
+    chatEl.innerHTML = lbl('Chat') + (html ? '<div class="hm-clist">' + html + '</div>' : '<div class="hm-quiet"><i class="ti ti-message-circle"></i></div>');
   }
   chatEl.addEventListener('click', e => {
     const m = e.target.closest('.hm-cm');
