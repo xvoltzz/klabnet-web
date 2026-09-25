@@ -5491,7 +5491,7 @@
     .hm-music { grid-column: 1 / span 4; grid-row: 3; padding: 0; }
     .hm-flow { position: relative; flex: 1; min-height: 0; perspective: 700px; }
     .hm-fc {
-      position: absolute; top: 50%; left: 50%; height: 72%; aspect-ratio: 1; transform-origin: center;
+      position: absolute; top: 54%; left: 50%; height: 64%; aspect-ratio: 1; transform-origin: center;
       translate: -50% -50%; border: none; padding: 0; border-radius: 6px; cursor: pointer;
       background: var(--tile-bg-h) center / cover; box-shadow: 0 14px 28px rgba(0,0,0,.55);
       transition: transform .8s var(--m-ease), opacity .8s, filter .8s;
@@ -5515,6 +5515,12 @@
     .hm-cm .hm-av.on::after { width: 7px; height: 7px; }
     .hm-cm .hm-name { margin-right: 6px; }
     .hm-cm-body { color: var(--text); overflow-wrap: anywhere; }
+
+    .hm-np { flex-shrink: 0; padding: 0 16px 12px; text-align: center; font-size: 13px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hm-np b { font-weight: 700; color: var(--text); }
+    .hm-np span { color: var(--text-dimmer); margin-left: 6px; }
+    #feedList .feed-post.feed-post-flash { animation: feedFlash 2.2s var(--m-ease); }
+    @keyframes feedFlash { 12% { border-color: rgba(var(--accent-rgb),.7); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.18), 0 0 30px rgba(var(--accent-rgb),.2); } }
 
     /* One quiet word per tile. */
     .hm-lbl { flex-shrink: 0; margin: 0 0 8px 2px; font: 600 12.5px var(--font-ui); color: var(--text-dimmer); position: relative; z-index: 3; }

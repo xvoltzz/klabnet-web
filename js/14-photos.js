@@ -87,6 +87,7 @@
       if (!loadedOnce) hasOlder = fresh.length === PAGE;
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
+      if (pendingFocus && focusPhoto(pendingFocus.postId, pendingFocus.photoId)) pendingFocus = null;
     } catch (e) {
       if (!loadedOnce) showEmpty('Couldn’t load photos. Retrying…');
     }
@@ -136,6 +137,23 @@
     renderStrip();
     setBackdrop();
   }
+
+  // ── Opening one photo from elsewhere (Home) ──
+  // If it isn't in what's loaded (the timeline orders by shooting date, so a
+  // fresh upload of old photos sits far back), What's New has it up front.
+  let pendingFocus = null;
+  function focusPhoto(postId, photoId) {
+    const idx = items.findIndex(it => it.post.id === postId && (photoId == null || it.ph.id === photoId));
+    if (idx < 0) return false;
+    goTo(idx);
+    return true;
+  }
+  window.klabOpenPhoto = function(postId, photoId) {
+    setActiveTab('photos');
+    if (focusPhoto(postId, photoId)) return;
+    pendingFocus = { postId, photoId };
+    if (order !== 'posted') setOrder('posted'); else fetchLatest();
+  };
 
   // ── Timeline / What's New ──
   function setOrder(next) {

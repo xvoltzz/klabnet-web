@@ -565,6 +565,16 @@
     ensureFeedAvatar(username);
     return _feedAvatarCache.get(username) || null;
   };
+  // Home's links to a post land on it.
+  window.klabFeedFocus = function(postId) {
+    setActiveTab('feed');
+    requestAnimationFrame(() => {
+      const el = listEl.querySelector('.feed-post[data-post-id="' + Number(postId) + '"]');
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
+      el.classList.remove('feed-post-flash'); void el.offsetWidth; el.classList.add('feed-post-flash');
+    });
+  };
   // Same idea for a post's attached image (Home shows them).
   window.klabResolveFeedImage = function(mxc) {
     if (!mxc) return null;

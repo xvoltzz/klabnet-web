@@ -18,6 +18,7 @@
   const $ = id => document.getElementById(id);
   const dateEl = $('hmDate'), clockEl = $('hmClock'), liveEl = $('hmLive'), liveEvEl = $('hmLiveEv');
   const spotEl = $('hmSpot'), slidesEl = $('hmSlides'), barsEl = $('hmBars'), arriveEl = $('hmArrive');
+  const musicEl = $('hmMusic');
   const postsEl = $('hmPosts'), listenEl = $('hmListen'), flowEl = $('hmFlow'), photosEl = $('hmPhotos'), chatEl = $('hmChat');
   const bdLayers = $('hmBackdrop').children;
 
@@ -123,10 +124,12 @@
 
   // ── spotlight ──
   let slides = [], cur = 0, slideTimer = 0, slideSig = '', newestKey = null;
+  const openPost = id => (window.klabFeedFocus ? window.klabFeedFocus(id) : setActiveTab('feed'));
+  const openPhoto = (postId, photoId) => (window.klabOpenPhoto ? window.klabOpenPhoto(postId, photoId) : setActiveTab('photos'));
   function postSlide(p) {
     const t = apiTime(p.created), u = p.username;
     const who = '<div class="hm-who">' + avatarHTML(u) + nameHTML(u) + timeHTML(t) + '</div>';
-    const go = () => setActiveTab('feed');
+    const go = () => openPost(p.id);
     const text = plain(p.text);
     if (p.song) {
       const art = cover(p.song.coverArt, 600);
@@ -153,7 +156,7 @@
     if (!ph) return null;
     const t = apiTime(pp.created), u = pp.username, ex = ph.exif || {};
     const chips = [ex.camera, ex.focal, ex.aperture, ex.shutter, ex.iso && ('ISO ' + String(ex.iso).replace(/^ISO\s*/i, '')), ex.film].filter(Boolean);
-    return { key: 'ph' + pp.id, t, img: photoFile(ph.id, 'thumb'), go: () => setActiveTab('photos'), dark: true, kind: 'Photos',
+    return { key: 'ph' + pp.id, t, img: photoFile(ph.id, 'thumb'), go: () => openPhoto(pp.id, ph.id), dark: true, kind: 'Photos',
       html: '<div class="hm-img" style="background-image:url(&quot;' + photoFile(ph.id, 'display') + '&quot;)"></div>' +
         '<div class="hm-content"><div class="hm-who">' + avatarHTML(u) + nameHTML(u) + timeHTML(t) +
           (pp.photos.length > 1 ? '<span class="hm-count"><i class="ti ti-photo"></i>' + pp.photos.length + '</span>' : '') + '</div>' +
@@ -221,7 +224,7 @@
     const html = list.map(p => {
       const t = apiTime(p.created);
       const img = p.song ? cover(p.song.coverArt, 100) : (p.image_mxc && window.klabResolveFeedImage ? window.klabResolveFeedImage(p.image_mxc) : null);
-      return '<div class="hm-pi">' + avatarHTML(p.username) +
+      return '<div class="hm-pi" data-post="' + p.id + '">' + avatarHTML(p.username) +
         '<div class="hm-pi-tx"><div class="hm-pi-hd">' + nameHTML(p.username) + timeHTML(t) + '</div>' +
           (p.song ? '<div class="hm-pi-song"><i class="ti ti-music"></i> ' + esc(p.song.title || '') + (p.song.artist ? ' · ' + esc(p.song.artist) : '') + '</div>' : '') +
           (p.text ? '<div class="hm-pi-md md">' + mdHTML(p.text) + '</div>' : '') + '</div>' +
@@ -236,7 +239,10 @@
     if (topPostId !== null && topId !== topPostId && motion()) postsEl.querySelector('.hm-pi')?.classList.add('hm-enter');
     topPostId = topId;
   }
-  postsEl.addEventListener('click', () => setActiveTab('feed'));
+  postsEl.addEventListener('click', e => {
+    const row = e.target.closest('.hm-pi') || postsEl.querySelector('.hm-pi');
+    if (row) openPost(+row.dataset.post); else setActiveTab('feed');
+  });
 
   let listenSig = '';
   function myListening() {
@@ -289,6 +295,10 @@
       c.style.opacity = ad > 2 ? 0 : 1;
       c.classList.toggle('dim', d !== 0);
     });
+    const a = (S.albums || [])[flowI];
+    let np = musicEl.querySelector('.hm-np');
+    if (!np) { np = document.createElement('div'); np.className = 'hm-np'; musicEl.appendChild(np); }
+    np.innerHTML = a ? '<b>' + esc(a.name || a.title || '') + '</b><span>' + esc(a.artist || '') + '</span>' : '';
   }
   flowEl.addEventListener('click', e => {
     const c = e.target.closest('.hm-fc');
@@ -310,13 +320,16 @@
   let photosSig = '';
   function renderPhotos() {
     const tiles = [];
-    (S.photoPosts || []).forEach(pp => (pp.photos || []).forEach(ph => { if (tiles.length < 5) tiles.push(ph.id); }));
-    const html = tiles.map((id, i) => '<b style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'display') + '&quot;)"></b>').join('');
+    (S.photoPosts || []).forEach(pp => (pp.photos || []).forEach(ph => { if (tiles.length < 5) tiles.push([pp.id, ph.id]); }));
+    const html = tiles.map(([post, id], i) => '<b data-post="' + post + '" data-photo="' + id + '" style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'display') + '&quot;)"></b>').join('');
     if (html === photosSig) return;
     photosSig = html;
     photosEl.innerHTML = lbl('Photos') + '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>';
   }
-  photosEl.addEventListener('click', () => setActiveTab('photos'));
+  photosEl.addEventListener('click', e => {
+    const b = e.target.closest('.hm-pgrid b') || photosEl.querySelector('.hm-pgrid b');
+    if (b) openPhoto(+b.dataset.post, b.dataset.photo); else setActiveTab('photos');
+  });
 
   let chatSig = '';
   function renderChat() {
@@ -329,7 +342,7 @@
     chatEl.innerHTML = lbl('Chat') + (html ? '<div class="hm-clist">' + html + '</div>' : '<div class="hm-quiet"><i class="ti ti-message-circle"></i></div>');
   }
   chatEl.addEventListener('click', e => {
-    const m = e.target.closest('.hm-cm');
+    const m = e.target.closest('.hm-cm') || [...chatEl.querySelectorAll('.hm-cm')].pop();
     if (m && typeof openChatRoom === 'function') openChatRoom(m.dataset.room);
     else setActiveTab('chat');
   });
