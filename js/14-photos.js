@@ -23,7 +23,11 @@
   const CLIP_LEN_S = 90;       // clips loop over this window from the chosen start
   const SOUND_KEY = 'klabnet_photos_sound';
 
-  const fileUrl = (id, size) => `${API}/files/${id}/${size}`;
+  // ?v= matches the API's DERIV_VERSION: files are served as immutable, so a
+  // new version of the smaller copies needs a new URL to reach browsers
+  // that cached the old ones. The original never changes.
+  const COPY_VERSION = 2;
+  const fileUrl = (id, size) => `${API}/files/${id}/${size}` + (size === 'original' ? '' : `?v=${COPY_VERSION}`);
   const $ = id => document.getElementById(id);
 
   const panel   = document.querySelector('.tab-panel[data-tab-panel="photos"]');
