@@ -33,29 +33,54 @@
     pill.setAttribute('aria-hidden', 'true');
     container.prepend(pill);
     container.classList.add('has-pill');
-    let queued = false, placed = false, baseW = 0, baseH = 0;
+    // A fixed, invisible 100×100px marker at the pill's own origin. Its
+    // on-screen box gives the exact origin and the exact layout→screen
+    // scale in whatever engine this is, so positioning needs nothing but
+    // on-screen rects (the one measurement every browser must get right).
+    // Offsets and zoom conventions differ between engines under
+    // html { zoom }: Firefox at 4K put the pill off by its own logic.
+    const probe = document.createElement('span');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:100px;visibility:hidden;pointer-events:none;z-index:-1';
+    container.prepend(probe);
+    let queued = false, placed = false, baseW = 0, baseH = 0, lastT = '', cur = null;
     let pressed = null; // an item being pressed: the pill heads there before the click lands
+    function apply(x, y, w, h) {
+      const t = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
+      if (t !== lastT) { pill.style.transform = t; lastT = t; }
+    }
+    // Once a slide ends, check where the pill actually is on screen against
+    // its item and nudge it onto the item if an engine placed it off. Only
+    // on-screen rects are compared, so this holds under any zoom handling.
+    pill.addEventListener('transitionend', e => {
+      if (e.propertyName !== 'transform' || !cur || !cur.el.isConnected) return;
+      const pr = pill.getBoundingClientRect(), r = cur.el.getBoundingClientRect();
+      const dx = (r.left - pr.left) / cur.sx, dy = (r.top - pr.top) / cur.sy;
+      const dw = (r.width - pr.width) / cur.sx, dh = (r.height - pr.height) / cur.sy;
+      if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dw), Math.abs(dh)) < 0.75) return;
+      cur.x += dx; cur.y += dy; cur.w += dw; cur.h += dh;
+      apply(cur.x, cur.y, cur.w, cur.h);
+    });
     function place() {
       queued = false;
       const el = (pressed && pressed.isConnected ? pressed : null) || container.querySelector(activeSel);
       if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
-      // Layout offsets, summed up to the container: plain CSS px in every
-      // engine, whatever the page zoom, and whole numbers, so the pill
-      // lands on exact pixels inside the tray.
-      let x = 0, y = 0, n = el;
-      while (n && n !== container) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
-      if (n !== container) { // container isn't in the offset chain: fall back to rects
-        const z = zoomFactor(), c = container.getBoundingClientRect(), rr = el.getBoundingClientRect();
-        x = (rr.left - c.left) / z + container.scrollLeft; y = (rr.top - c.top) / z + container.scrollTop;
-      }
+      const o = probe.getBoundingClientRect(), r = el.getBoundingClientRect();
+      const sx = o.width / 100, sy = o.height / 100;
+      if (!sx || !sy) return;
+      const x = (r.left - o.left) / sx, y = (r.top - o.top) / sy;
+      const w = r.width / sx, h = r.height / sy;
+      cur = { el, x, y, w, h, sx, sy };
       // Size by scale from a fixed base, never by width/height: those only
       // animate on the main thread, so the pill froze whenever a tab was
       // busy loading. transform runs on the GPU regardless. The base is the
       // first item's size, so the scale stays near 1 and the corners don't
       // visibly stretch.
-      const w = el.offsetWidth, h = el.offsetHeight;
       if (!baseW) { baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px'; }
-      pill.style.transform = `translate(${x}px, ${y}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
+      const t = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
+      // Re-setting an unchanged value is a no-op, but a nudge that computed
+      // a slightly different one used to restart the slide mid-way.
+      apply(x, y, w, h);
       pill.style.opacity = '1';
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }
     }
