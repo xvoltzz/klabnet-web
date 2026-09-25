@@ -204,10 +204,10 @@ const SFX = (() => {
     // A dull, soft "bonk" a half step off the scale: clearly wrong, never harsh.
     error:    () => { note(65, 0.36, 0.3, 0, { bright: 0.5, tine: 0 }); note(62, 0.34, 0.45, 0.1, { bright: 0.4, tine: 0 }); },
     notify:   () => { note(N.Fs5, 0.36, 0.5); note(N.A5, 0.3, 0.6, 0.09); },
-    // Chat, while you're in the conversation. Sending flicks up and out;
-    // a message landing is a soft drop on the sender's own first note.
-    send:     () => { air(900, 3200, 0.03, 0.14); note(N.D5, 0.3, 0.12, 0, { bright: 0.8 }); note(N.A5, 0.34, 0.2, 0.035, { tine: 1.3 }); },
-    receive:  from => { const m = motif(from).notes[0]; note(m, 0.66, 0.45, 0, { bright: 0.9 }); note(m - 12, 0.44, 0.35, 0.02, { bright: 0.5, tine: 0 }); },
+    // Chat, while you're in the conversation. Sending is low and flicks
+    // out; a message landing is high, on the sender's own first note.
+    send:     () => { air(600, 2200, 0.03, 0.14); note(N.D4, 0.42, 0.14, 0, { bright: 0.8 }); note(N.A4, 0.46, 0.24, 0.035, { tine: 1.3 }); },
+    receive:  from => { const m = motif(from).notes[0]; note(m + 12, 0.6, 0.45, 0, { bright: 0.8, tine: 1.2 }); note(m, 0.4, 0.35, 0.02, { bright: 0.5, tine: 0 }); },
     dm:       from => person(from, 'dm'),
     message:  from => person(from, 'message'),
     mention:  from => person(from, 'mention'),
