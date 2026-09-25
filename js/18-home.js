@@ -251,18 +251,19 @@
     return { username: me(), song: song.title || '', artist: song.artist || '', coverArt: song.coverArt, playing: !!playerState.playing, you: true };
   }
   function renderListen() {
+    // Only people actually playing something. A paused song still sits in
+    // presence, and listing it next to "Nobody's listening" contradicted it.
     const mine = myListening();
-    const L = (mine ? [mine] : []).concat(S.listeners || []).slice(0, 4);
+    const L = (mine ? [mine] : []).concat(S.listeners || []).filter(l => l.playing).slice(0, 4);
     const html = L.length
       ? '<div class="hm-lgrid">' + L.map(l =>
           '<div class="hm-pcard" data-username="' + esc(l.username) + '">' +
             '<div class="hm-art"' + ((l.coverArt || l.songId) ? ' style="background-image:url(&quot;' + esc(cover(l.coverArt || l.songId, 100)) + '&quot;)"' : '') + '>' + avatarHTML(l.username) + '</div>' +
-            '<div class="hm-pc-tx"><small style="color:' + color(l.username) + '">' + esc(l.username) + (l.you ? ' (you)' : '') + (l.playing ? '' : ' · paused') + '</small><b>' + esc(l.song) + '</b><span>' + esc(l.artist || '') + '</span></div>' +
-            (l.playing ? '<span class="hm-eq"><i></i><i></i><i></i></span>' : '') +
+            '<div class="hm-pc-tx"><small style="color:' + color(l.username) + '">' + esc(l.username) + (l.you ? ' (you)' : '') + '</small><b>' + esc(l.song) + '</b><span>' + esc(l.artist || '') + '</span></div>' +
+            '<span class="hm-eq"><i></i><i></i><i></i></span>' +
           '</div>').join('') + '</div>'
       : '';
-    const anyone = L.some(l => l.playing);
-    const full = lbl('Listening') + html + (anyone ? '' : '<div class="hm-quiet"><i class="ti ti-headphones-off"></i><span>Nobody\'s listening right now</span></div>');
+    const full = lbl('Listening') + html + (L.length ? '' : '<div class="hm-quiet"><i class="ti ti-headphones-off"></i><span>Nobody\'s listening right now</span></div>');
     if (full === listenSig) return;
     listenSig = full;
     listenEl.innerHTML = full;

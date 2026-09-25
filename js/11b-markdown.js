@@ -83,7 +83,7 @@
             try { body = hljs.highlight(text, { language: l, ignoreIllegals: true }).value; cls = ' hljs'; } catch (e) {}
           } else wantHighlighter();
         }
-        return '<pre class="md-code">' + (l ? '<span class="md-code-lang">' + esc(l) + '</span>' : '') +
+        return '<pre class="md-code">' +
           '<code' + (l ? ' data-lang="' + esc(l) + '" class="language-' + esc(l) + cls + '"' : '') + '>' + body + '</code></pre>';
       },
       image({ href, title, text }) {
