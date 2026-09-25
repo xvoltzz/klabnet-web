@@ -479,6 +479,14 @@
     _entryIO.unobserve(e.target);
   }), { rootMargin: '0px 0px -8% 0px' }) : null;
 
+  // Which posts are on screen, kept by the browser so scrolling never has
+  // to measure the whole list (it can be well over a thousand posts).
+  const _onScreen = new Set();
+  const _visIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting && e.target.isConnected) _onScreen.add(e.target);
+    else { _onScreen.delete(e.target); if (!e.target.isConnected) _visIO.unobserve(e.target); }
+  })) : null;
+
   // The page takes on the post in the middle of the screen: its photo,
   // its song's cover, or its author's color, like Photos and Home.
   const _fbLayers = document.getElementById('feedBackdrop')?.children;
@@ -488,13 +496,15 @@
     if (!_fbLayers || !document.body.classList.contains('tab-feed-active')) return;
     const mid = window.innerHeight * 0.45;
     let best = null, bd = Infinity;
-    listEl.querySelectorAll(':scope > .feed-post').forEach(el => {
+    (_visIO ? _onScreen : listEl.querySelectorAll(':scope > .feed-post')).forEach(el => {
+      if (!el.isConnected) return;
       const r = el.getBoundingClientRect();
       if (r.bottom < 0 || r.top > window.innerHeight) return;
       const d = Math.abs((r.top + r.bottom) / 2 - mid);
       if (d < bd) { bd = d; best = el; }
     });
     if (!best) return;
+    if (best.classList.contains('in-focus') && _fbKey) return;
     listEl.querySelectorAll(':scope > .feed-post.in-focus').forEach(el => el !== best && el.classList.remove('in-focus'));
     best.classList.add('in-focus');
     const img = best.dataset.amb || '';
@@ -523,6 +533,7 @@
     el.dataset.postKey = key;
     if (_seenPosts.has(String(post.id)) || !_entryIO || !(window.klabMotionOk?.() ?? true)) el.classList.add('seen');
     else _entryIO.observe(el);
+    _visIO?.observe(el);
     return el;
   }
 
