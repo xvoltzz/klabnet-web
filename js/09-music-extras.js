@@ -84,6 +84,7 @@ async function loadGenres() {
       _genresCache = await buildGenres();
       _genresAt = Date.now();
     }
+    if (pickerTab !== 'genres') return; // moved on while the library was read
     const genres = applySort(_genresCache, 'genres');
 
     if (!genres.length) { pickerList.innerHTML = '<div class="picker-empty">no genres found</div>'; return; }
@@ -549,9 +550,10 @@ async function loadAllSongs() {
         }
         _songsCache = all;
       }
+      if (pickerTab !== 'songs') return;
       renderSongsTabSorted();
     }
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load songs</div>'; }
+  } catch(e) { if (pickerTab === 'songs') pickerList.innerHTML = '<div class="picker-empty">failed to load songs</div>'; }
 }
 
 // Fast path — one page at a time, straight from the network, in server order.
@@ -565,6 +567,7 @@ async function loadSongsIncremental() {
   pickerList.appendChild(lbl);
 
   const first = await _fetchSongsPage(0);
+  if (pickerTab !== 'songs' || !lbl.isConnected) return;
   pickerSongs = [...first];
   renderSongItems(first, pickerList);
   _songsOffset = first.length;
@@ -579,6 +582,7 @@ async function loadSongsIncremental() {
     if (!entry.isIntersecting) return;
     _songsObserver.unobserve(sentinel);
     const more = await _fetchSongsPage(_songsOffset);
+    if (pickerTab !== 'songs' || !sentinel.isConnected) return; // another view by now
     if (!more.length) { sentinel.remove(); lbl.textContent = `All Songs (${_songsOffset})`; return; }
     pickerSongs = [...pickerSongs, ...more];
     sentinel.remove();
@@ -657,6 +661,7 @@ loadPickerTab = async function(tab) {
 //  cache, exposed there for exactly this kind of outside reuse).
 // ══════════════════════════════════════════
 let _musicRequests = [];
+let _reqAvatarTries = 0;
 
 const _origLoadPickerTabRequests = loadPickerTab;
 loadPickerTab = async function(tab) {
@@ -685,8 +690,10 @@ async function fetchMusicRequests() {
 }
 
 async function loadMusicRequestsTab() {
+  _reqAvatarTries = 0;
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   await fetchMusicRequests();
+  if (pickerTab !== 'requests') return;
   renderMusicRequestsList();
 }
 
@@ -768,7 +775,9 @@ function renderMusicRequestsList() {
   // miss resolving (see its own comment) — this tab needs its own nudge to
   // pick up a newly-resolved requester avatar instead of showing the
   // fallback initial forever.
-  if (anyUnresolvedAvatar) setTimeout(() => { if (pickerTab === 'requests') renderMusicRequestsList(); }, 900);
+  // A few tries, not forever: a user with no avatar stays unresolved, and
+  // this used to rebuild the list every 900ms for as long as it was open.
+  if (anyUnresolvedAvatar && _reqAvatarTries++ < 5) setTimeout(() => { if (pickerTab === 'requests') renderMusicRequestsList(); }, 900);
 }
 
 function openMusicRequestModal() {

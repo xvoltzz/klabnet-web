@@ -30,12 +30,8 @@
       if (document.getElementById('fsPlayer')?.classList.contains('open')) {
         closeFS();
       }
-      // Picker no longer has its own open/closed state (it's just the Music
-      // tab's content) — with nothing else to back out of, head to Feed.
-      else if (document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active')) {
-        setActiveTab('feed');
-        SFX && SFX.play('nav_back');
-      }
+      // Anywhere else, Back is the browser's: 17-history.js gives Music's
+      // sections, genres and playlists their own entries.
       else {
         if (history.length > 1) history.back();
         else window.location.href = '/';

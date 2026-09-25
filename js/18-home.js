@@ -165,7 +165,8 @@
     const t = apiTime(pp.created), u = pp.username, ex = ph.exif || {};
     const chips = [ex.camera, ex.focal, ex.aperture, ex.shutter, ex.iso && ('ISO ' + String(ex.iso).replace(/^ISO\s*/i, '')), ex.film].filter(Boolean);
     return { key: 'ph' + pp.id, t, img: photoFile(ph.id, 'thumb'), go: () => openPhoto(pp.id, ph.id), dark: true, kind: 'Photos',
-      html: '<div class="hm-img" style="background-image:url(&quot;' + photoFile(ph.id, 'display') + '&quot;)"></div>' +
+      // The 1440px copy: the spotlight is never wider than ~1,500 device px.
+      html: '<div class="hm-img" style="background-image:url(&quot;' + photoFile(ph.id, 'medium') + '&quot;)"></div>' +
         '<div class="hm-content"><div class="hm-who">' + avatarHTML(u) + nameHTML(u) + timeHTML(t) +
           (pp.photos.length > 1 ? '<span class="hm-count"><i class="ti ti-photo"></i>' + pp.photos.length + '</span>' : '') + '</div>' +
           (pp.text ? '<div class="hm-cap">' + esc(plain(pp.text)) + '</div>' : '') +
@@ -344,7 +345,7 @@
   function renderPhotos() {
     const tiles = [];
     (S.photoPosts || []).forEach(pp => (pp.photos || []).forEach(ph => { if (tiles.length < 5) tiles.push([pp.id, ph.id]); }));
-    const html = tiles.map(([post, id], i) => '<b data-post="' + post + '" data-photo="' + id + '" style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'display') + '&quot;)"></b>').join('');
+    const html = tiles.map(([post, id], i) => '<b data-post="' + post + '" data-photo="' + id + '" style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'medium') + '&quot;)"></b>').join('');
     if (html === photosSig) return;
     photosSig = html;
     photosEl.innerHTML = lbl('Photos') + '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>';

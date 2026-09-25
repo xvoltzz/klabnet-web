@@ -487,8 +487,19 @@
   let raf = 0, scrubbing = false, idleTimer = 0;
   const moving = () => scrubbing || pos !== target;
   // At rest: show the selected photo sharp and warm up its neighbours.
+  let warmed = false;
+  function warmSoon() {
+    if (warmed) return;
+    warmed = true;
+    const idle = window.requestIdleCallback || (f => setTimeout(f, 200));
+    setTimeout(() => idle(() => { if (!isActive() && sel >= 0) preload(sel); }), 5000);
+  }
   function settle() {
+    // Nothing big loads while the tab is hidden (it used to warm up ~1MB of
+    // photos at startup behind Home); arriving on the tab settles again.
+    // Just the first photo is warmed, once the page has gone quiet.
     if (sel < 0 || !items[sel]) return;
+    if (!isActive()) { warmSoon(); return; }
     const i = sel;
     const big = fileUrl(items[i].ph.id, sizeFor(items[i].ph));
     preload(i);

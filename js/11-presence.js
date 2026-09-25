@@ -68,9 +68,13 @@
   }
   const _persistedAvatars = loadPersistedAvatars();
 
+  // Looked up live this session (as opposed to shown from the saved copy).
+  // The saved copy used to count as resolved, so once chat connected
+  // nobody's changed avatar ever showed up.
+  const _avatarLive = new Set();
   function ensureAvatarResolved(username) {
-    if (!username || _avatarCache.has(username) || _avatarPending.has(username)) return;
-    if (_persistedAvatars[username]) _avatarCache.set(username, _persistedAvatars[username]);
+    if (!username || _avatarLive.has(username) || _avatarPending.has(username)) return;
+    if (!_avatarCache.has(username) && _persistedAvatars[username]) _avatarCache.set(username, _persistedAvatars[username]);
     const client = MatrixChat.client;
     if (!client) return;
     _avatarPending.add(username);
@@ -96,6 +100,7 @@
         if (!_avatarCache.has(username)) _avatarCache.set(username, null);
       } finally {
         _avatarPending.delete(username);
+        _avatarLive.add(username);
         // Rebuild with whatever we last fetched — the resolved avatar changes
         // the HTML this time, so the diff check below won't skip it.
         renderList(_lastOthers);
@@ -120,7 +125,7 @@
       // invalidateMsgAvatar() — this used to leak the old blob URL here too.
       const oldUrl = _avatarCache.get(me);
       if (oldUrl) URL.revokeObjectURL(oldUrl);
-      _avatarCache.delete(me); clearPersistedAvatar(me);
+      _avatarCache.delete(me); _avatarLive.delete(me); clearPersistedAvatar(me);
     }
     renderList(_lastOthers);
   };
@@ -270,35 +275,18 @@
   }
 
   let _lastRenderedHTML = null;
-  // ── Offline roster (Matrix presence) ─────
-  // klabnet's own presence (above) only ever shows people currently
-  // active on the site. This supplements it with everyone else from your
-  // joined rooms' membership, via Matrix's own — separate — presence
-  // protocol: entirely client-side, no klabnet-api change. Only appears
-  // for viewers who've connected chat (needs MatrixChat.client), and
-  // needs the homeserver's use_presence setting on to show real
-  // last-seen data — with it off, entries just read "offline" plainly
-  // rather than erroring visibly.
-  const _offlineStatusCache = new Map(); // matrix userId -> status text
-  let _offlineTimer = null;
+  // ── Offline roster ─────
+  // klabnet's own presence (above) only shows people currently on the
+  // site. The roster adds everyone else it has ever seen (from
+  // /api/presence) and, once chat is connected, members of your joined
+  // rooms, as plain name rows. (It used to also ask the chat server for
+  // each one's last-seen time every 30s, which was never displayed.)
   let _notesTimer = null;
   let _profilesTimer = null;
 
-  function fmtAgo(ms) {
-    const s = Math.floor(ms / 1000);
-    if (s < 60) return 'just now';
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
-
   // Capped two ways: a room with a huge membership (e.g. a big public
   // channel) is skipped entirely rather than flooding the roster with
-  // people you don't really know, and the total is capped regardless —
-  // otherwise refreshOfflineRoster() would fire one getPresence() REST
-  // call per member, unbounded, every 30s.
+  // people you don't really know, and the total is capped regardless.
   const OFFLINE_ROSTER_ROOM_MEMBER_CAP = 50;
   const OFFLINE_ROSTER_MAX = 40;
   // Filled by the presence poll (GET /api/presence -> roster). Server-side
@@ -356,35 +344,6 @@
     return roster;
   }
 
-  // Matrix's own presence is a different signal from "on klabnet" — a
-  // phone with Element (or any Matrix client) running in the background
-  // keeps a persistent connection, so the homeserver reports someone
-  // "online" more or less permanently whether or not they're anywhere
-  // near this site. A flat "online elsewhere" label reads as a stuck/
-  // broken status when it's actually just... always true for them. A
-  // rotating silly line (same idea as the MOTD splash text) owns that
-  // instead of pretending it's a precise status.
-  const MATRIX_ELSEWHERE_PHRASES = [
-    'lurking off-site', 'ghosting klabnet', 'somewhere else, probably',
-    'on the matrix, not on klabnet', 'phoning it in', 'off the grid (kinda)',
-    'in another tab', 'living their own life', 'not here, spiritually',
-  ];
-  async function refreshOfflineRoster(onlineUsernames) {
-    const client = MatrixChat.client;
-    if (!client) return;
-    await Promise.all(offlineRoster(onlineUsernames).map(async person => {
-      try {
-        const status = await client.getPresence(person.userId);
-        const text = status.presence === 'offline'
-          ? (status.last_active_ago != null ? `last seen ${fmtAgo(status.last_active_ago)}` : 'offline')
-          : MATRIX_ELSEWHERE_PHRASES[Math.floor(Math.random() * MATRIX_ELSEWHERE_PHRASES.length)];
-        _offlineStatusCache.set(person.userId, text);
-      } catch (e) {
-        _offlineStatusCache.set(person.userId, 'offline');
-      }
-    }));
-    renderList(_lastOthers);
-  }
 
   // Persisted so it doesn't snap shut on every poll-driven re-render, or
   // every page load for someone who likes it open.
@@ -515,8 +474,6 @@
     SFX && SFX.play('click');
   });
   try { setRailTab(localStorage.getItem(RAIL_TAB_KEY) || 'users'); } catch (e) { setRailTab('users'); }
-  // Jumping to a room should show it selected, so surface the channels pane.
-  window.KLAB_SHOW_RAIL_CHANNELS = () => setRailTab('channels');
 
   // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
@@ -573,7 +530,7 @@
 
   let _partyHostId       = null;   // matrix userId we're currently following, or null
   let _partyHostLabel    = '';     // their klabnet username, for the banner
-  let _applyingPartyTick = false;  // true only while our own tick handler is driving playSong — distinguishes that from the user picking a new track themselves
+  let _applyingPartyTick = 0;      // >0 only while our own tick handler is driving playSong — distinguishes that from the user picking a new track themselves
   const _partySubscribers = new Map(); // matrix userId -> expiry ms, people currently following ME
   // For the Photos tab, which pauses your music on arrival but must not
   // break a listening party you're hosting or following.
@@ -668,12 +625,19 @@
   // slow tick or two doesn't spuriously drop us.
   setInterval(() => { if (_partyHostId) sendToDeviceEvent(_partyHostId, 'klab.sync_request', {}).catch(() => {}); }, 60000);
 
+  // A counter, not a flag: the host's track change sends two ticks (one
+  // from playSong, one from the audio 'play' event), and with a flag the
+  // first to finish cleared it while the second was still loading, so
+  // the wrapper below took that load for your own pick and left the party.
+  let _partyLoadingId = null;
   async function applyPartyTick(content) {
     if (!_partyHostId) return;
     const song = playerState.currentSong;
-    _applyingPartyTick = true;
+    if (content.songId && content.songId === _partyLoadingId) return; // already on its way
+    _applyingPartyTick++;
     try {
       if (content.songId && content.songId !== song?.id) {
+        _partyLoadingId = content.songId;
         const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${content.songId}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         const newSong = data['subsonic-response']?.song || null;
@@ -690,8 +654,21 @@
       }
     } catch (e) {
     } finally {
-      _applyingPartyTick = false;
+      _applyingPartyTick--;
+      if (_partyLoadingId === content.songId) _partyLoadingId = null;
     }
+  }
+  // Ticks come every 5s while the host is there. Silence for 20s means
+  // they closed the tab or went offline: stop showing "with X" forever.
+  const PARTY_GONE_MS = 20000;
+  function armPartyWatchdog() {
+    clearTimeout(_partyAckTimer);
+    const host = _partyHostId, label = _partyHostLabel;
+    _partyAckTimer = setTimeout(() => {
+      if (_partyHostId !== host) return;
+      showToast(`${label} stopped the listening party`, toastPerson(label));
+      leaveParty(false);
+    }, PARTY_GONE_MS);
   }
 
   MatrixChat.on('toDevice', event => {
@@ -701,7 +678,7 @@
       _partySubscribers.set(sender, Date.now() + PARTY_SUB_TTL_MS);
       broadcastPartyTick(); // catch this subscriber up immediately, don't make them wait for the next 5s tick
     } else if (type === 'klab.sync_tick' && sender === _partyHostId) {
-      clearTimeout(_partyAckTimer); // the host responded — no longer a "did this even work" case
+      armPartyWatchdog(); // the host is there; expect the next tick soon
       applyPartyTick(event.getContent());
     } else if (type === 'klab.sync_stop') {
       _partySubscribers.delete(sender);
@@ -717,7 +694,7 @@
   const _origPlaySongParty = playSong;
   playSong = async function(song) {
     await _origPlaySongParty(song);
-    if (_partyHostId && !_applyingPartyTick) leaveParty();
+    if (_partyHostId && _applyingPartyTick === 0) leaveParty();
     broadcastPartyTick();
   };
   playerState.audio.addEventListener('play',  broadcastPartyTick);
@@ -827,14 +804,6 @@
     }
   }
 
-  // Offline roster refreshes far less often than the 8s music-presence
-  // poll — last-seen data doesn't need second-by-second freshness, and
-  // it's one getPresence() REST call per roster member.
-  const OFFLINE_POLL_MS = 30000;
-  function refreshOfflineRosterNow() {
-    const me = window.KLAB_USER?.username;
-    refreshOfflineRoster(new Set([me, ...(_lastOthers || []).map(l => l.username)]));
-  }
 
   // ── Notes — Instagram-Notes-style ephemeral status text, one per user.
   // One bulk GET decorates every card (online AND offline) rather than a
@@ -887,17 +856,17 @@
     renderList(_lastOthers);
     window.KLAB_REFRESH_FEED && window.KLAB_REFRESH_FEED();
   }
+  // Notes and profiles change rarely; half a minute is plenty.
+  const NOTES_POLL_MS = 30000;
   function startPoll() {
     if (_timer) return;
-    fetchPresence(); refreshOfflineRosterNow(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
+    fetchPresence(); fetchNotes(); fetchProfiles().then(refreshAfterProfiles);
     _timer = setInterval(fetchPresence, POLL_MS);
-    _offlineTimer = setInterval(refreshOfflineRosterNow, OFFLINE_POLL_MS);
-    _notesTimer = setInterval(fetchNotes, OFFLINE_POLL_MS);
-    _profilesTimer = setInterval(() => fetchProfiles().then(refreshAfterProfiles), OFFLINE_POLL_MS);
+    _notesTimer = setInterval(fetchNotes, NOTES_POLL_MS);
+    _profilesTimer = setInterval(() => fetchProfiles().then(refreshAfterProfiles), NOTES_POLL_MS);
   }
   function stopPoll() {
     clearInterval(_timer); _timer = null;
-    clearInterval(_offlineTimer); _offlineTimer = null;
     clearInterval(_notesTimer); _notesTimer = null;
     clearInterval(_profilesTimer); _profilesTimer = null;
   }

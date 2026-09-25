@@ -250,13 +250,16 @@ async function loadRandomSongs() {
   } catch(e) { console.warn('Failed to load songs', e); return []; }
 }
 
+// Set while the login song starts, so it starts at 0 and fades in rather
+// than blasting for a moment (playSong's wrappers don't pass options on).
+let _playSilently = false;
 async function playSong(song) {
   if (!song) return;
   playerState.currentSong = song;
   updatePlayerUI(song);
   const streamUrl = `${ND_URL}/rest/stream?id=${song.id}&${subsonicParams()}`;
   playerState.audio.src = streamUrl;
-  playerState.audio.volume = playerState.volume;
+  playerState.audio.volume = _playSilently ? 0 : playerState.volume;
   try {
     await playerState.audio.play();
     playerState.playing = true;
@@ -290,6 +293,7 @@ async function nextSong() {
   if (typeof queue !== "undefined" && queue.length) {
     const next = queue.shift();
     updateQueueBadge();
+    if (typeof pickerTab !== 'undefined' && pickerTab === 'queue' && typeof renderQueueList === 'function') renderQueueList();
     await playSong(next);
     return;
   }
@@ -332,7 +336,9 @@ playerState.audio.addEventListener('timeupdate', () => {
   if (typeof progSlider !== 'undefined') progSlider.setPct(pct);
 });
 
-playerState.audio.addEventListener('ended', nextSong);
+// Arrow functions, not the function itself: shuffle (05-favorites.js)
+// replaces the global nextSong later, and a captured reference skipped it.
+playerState.audio.addEventListener('ended', () => nextSong());
 
 // ── SLIDER UTILITY ──
 function makeSlider(trackEl, fillEl, dotEl, onChange) {
@@ -442,12 +448,13 @@ const fsVolSlider = makeSlider(
     playerState.volume = pct;
     playerState.audio.volume = pct;
     volSlider.setPct(pct);
+    localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
   }
 );
 fsVolSlider.setPct(playerState.volume);
 
 document.getElementById('btnPlay').addEventListener('click', togglePlay);
-document.getElementById('btnNext').addEventListener('click', nextSong);
+document.getElementById('btnNext').addEventListener('click', () => nextSong());
 document.getElementById('btnPrev').addEventListener('click', prevSong);
 
 // ══════════════════════════════════════════
@@ -489,8 +496,8 @@ async function tryPlayLoginSong() {
   if (!_settings.loginSong) return;
   const song = getLoginSong();
   if (!song) return;
-  playerState.audio.volume = 0;
-  await playSong(song);
+  _playSilently = true;
+  try { await playSong(song); } finally { _playSilently = false; }
   // Fade in over 2s
   let vol = 0;
   clearInterval(_loginFadeInterval);
@@ -759,7 +766,19 @@ function ensureSongRowDelegation() {
       // this is still right after another row changed the login song.
       const cur = getLoginSong();
       if (cur && cur.id === song.id) clearLoginSong(); else setLoginSong(song);
-      renderPickerList(pickerSongs);
+      // Just the stars. Re-rendering the list threw away whatever else the
+      // view had (search sections, a playlist's controls, infinite scroll).
+      const nowId = getLoginSong()?.id;
+      document.querySelectorAll('.picker-item').forEach(r => {
+        if (!r._song) return;
+        const on = r._song.id === nowId;
+        r.classList.toggle('is-login-song', on);
+        const b = r.querySelector('[data-login]');
+        if (!b) return;
+        b.classList.toggle('login-active', on);
+        b.title = on ? 'Clear login song' : 'Set as login song';
+        const i = b.querySelector('i'); if (i) i.className = 'ti ' + (on ? 'ti-star-filled' : 'ti-star');
+      });
       return;
     }
 
@@ -890,7 +909,11 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
   // dismissed through the normal animated path (not a bare .remove())
   // so evicting the oldest toast mid-burst collapses smoothly instead of
   // just popping the rest of the stack up a slot.
-  while (host.children.length >= 4) dismissToast(host.firstElementChild);
+  // Count only the ones still on their way in: a dismissed toast lingers
+  // for its fade, and counting those made this loop spin forever (a
+  // "Queue all" of 5+ tracks froze the page).
+  let live;
+  while ((live = host.querySelectorAll('.toast-item:not(.leaving)')).length >= 4) dismissToast(live[0]);
 
   const item = document.createElement('div');
   item.className = 'toast-item' + (onClick ? ' clickable' : '');
@@ -1108,7 +1131,7 @@ function updateFSUI(song) {
 // FS controls mirror main player
 document.getElementById('fsPlay').addEventListener('click', togglePlay);
 document.getElementById('fsPrev').addEventListener('click', prevSong);
-document.getElementById('fsNext').addEventListener('click', nextSong);
+document.getElementById('fsNext').addEventListener('click', () => nextSong());
 
 // FS sliders handled by makeSlider
 

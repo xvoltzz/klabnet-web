@@ -30,7 +30,11 @@
 
   const FEED_MAX_IMAGE_BYTES = 8 * 1024 * 1024; // client-side sanity cap — Matrix's own content-repo limit is the real backstop
   const FEED_PAGE_SIZE = 50;
-  const FEED_MAX_LOADED = 300; // caps how many posts loadOlderPosts() keeps resident — see its own comment
+  // Caps how many posts loadOlderPosts() keeps resident — see its own
+  // comment. Was 300, and past it the trim cut off the very page just
+  // loaded, so "Load older" stopped doing anything. Rendering only rebuilds
+  // posts that changed, so a long scrollback is cheap to keep.
+  const FEED_MAX_LOADED = 1500;
   const MENTIONS_SEEN_KEY = 'klabnet_feed_mentions_seen_v1'; // { username: highest post id already seen mentioning them }
   const FEED_QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
   const FEED_MAX_CHARS = 10000; // matches FEED_POST_MAX_CHARS in klabnet-api; replies stay short
@@ -618,7 +622,18 @@
       // the user had already paged in via "Load older", snapping the list
       // back to just the newest 50 out from under them.
       const byId = new Map(_feedPosts.map(p => [p.id, p]));
-      fresh.forEach(p => byId.set(p.id, p));
+      // Someone else's deleted post: anything inside the range this page
+      // covers that the server no longer returns is gone (all of it, when
+      // the page is the whole feed).
+      const freshIds = new Set(fresh.map(p => p.id));
+      const oldestFresh = fresh.length === FEED_PAGE_SIZE ? fresh[fresh.length - 1].id : -Infinity;
+      byId.forEach((p, id) => { if (id >= oldestFresh && !freshIds.has(id)) byId.delete(id); });
+      fresh.forEach(p => {
+        // New replies from other people: the count moved, so refetch them.
+        const cached = _repliesCache.get(p.id);
+        if (cached && cached.length !== (p.reply_count || 0)) _repliesCache.delete(p.id);
+        byId.set(p.id, p);
+      });
       _feedPosts = [...byId.values()].sort((a, b) => b.id - a.id);
       // _feedHasMore is otherwise owned by loadOlderPosts() once pagination
       // has started — only the very first load should derive it from this
@@ -834,6 +849,7 @@
   }
 
   async function submitPost() {
+    if (postBtnEl.disabled) return; // already sending: ⌘↵ held down or pressed twice
     const text = textEl.value.trim();
     if (!text && !_pendingFile && !_pendingSong) return;
     if (text.length > FEED_MAX_CHARS) {
@@ -861,8 +877,16 @@
         const d = await r.json().catch(() => ({}));
         throw new Error(d.error || 'Failed to post');
       }
-      clearComposer();
+      // Anything typed while it was sending stays; only what was sent goes.
+      if (textEl.value.trim() === text) clearComposer();
+      else {
+        _pendingFile = null; fileEl.value = ''; previewWrapEl.hidden = true;
+        imageBtnEl.classList.remove('has-image'); setPendingSong(null);
+      }
       SFX && SFX.play('star');
+      // A 30s poll already in flight would make fetchFeed() return at once,
+      // leaving your own post missing until the next one.
+      for (let i = 0; i < 40 && _feedPending; i++) await new Promise(r => setTimeout(r, 100));
       await fetchFeed();
     } catch (e) {
       errEl.textContent = e.message || 'Failed to post';
@@ -1144,7 +1168,15 @@
   // click Load older" (whatever else happens to call renderFeed() first).
   // PREPARED is the same "client is actually usable now" signal the chat
   // module's own sync handler treats as settled.
-  MatrixChat.on('sync', state => { if (state === 'PREPARED') renderFeed(); });
+  // Forced: nothing in the render keys has changed yet at this point (the
+  // caches are still empty), so a plain renderFeed() skipped every post and
+  // their ensureFeed*() lookups never ran.
+  MatrixChat.on('sync', state => {
+    if (state !== 'PREPARED') return;
+    _lastFeedRenderKey = null;
+    listEl.querySelectorAll('.feed-post[data-post-key]').forEach(el => { el.dataset.postKey = ''; });
+    renderFeed();
+  });
 })();
 
 // ── Volume icon mute toggle ──────────────

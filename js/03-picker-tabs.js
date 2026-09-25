@@ -32,9 +32,11 @@ async function loadAlbums() {
       }
       _albumsCache = allAlbums;
     }
+    // Moved on to another view while this loaded: it isn't ours to draw on.
+    if (pickerTab !== 'albums') return;
     renderAlbumList(applySort(_albumsCache, 'albums'));
     showSortBtn('albums');
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
+  } catch(e) { if (pickerTab === 'albums') pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
 }
 
 async function loadArtists() {
@@ -42,8 +44,9 @@ async function loadArtists() {
   try {
     const res = await fetchTimeout(`${ND_URL}/rest/getArtists?${subsonicParams()}`, {}, 8000);
     const data = await res.json();
+    if (pickerTab !== 'artists') return;
     renderArtistList(data['subsonic-response']?.artists?.index || []);
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
+  } catch(e) { if (pickerTab === 'artists') pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
 }
 
 function renderAlbumList(albums, appendMode) {
@@ -105,7 +108,8 @@ function renderAlbumList(albums, appendMode) {
     playBtn.addEventListener('click', async e => {
       e.stopPropagation();
       const t = await fetchTracks(); if (!t.length) return;
-      queue = t.slice(1); updateQueueBadge();
+      // The album becomes what's playing; songs you queued stay queued.
+      playerState.playlist = t; playerState.playlistIndex = 0;
       await playSong(t[0]);
       showToast('Playing "' + album.name + '"', toastArt(album.coverArt || album.id));
     });
@@ -313,7 +317,7 @@ async function loadArtistView(artist) {
       item.querySelector('[title="Play album"]').addEventListener('click', async e => {
         e.stopPropagation();
         const t = await getTracks(); if (!t.length) return;
-        queue = t.slice(1); updateQueueBadge();
+        playerState.playlist = t; playerState.playlistIndex = 0;
         await playSong(t[0]); showToast(`Playing "${album.name}"`, toastArt(album.coverArt || album.id));
       });
       item.querySelector('[title="Queue album"]').addEventListener('click', async e => {
@@ -361,10 +365,12 @@ function renderQueueList() {
       </div>`;
     item.querySelector('[title="Remove"]').addEventListener('click', e => {
       e.stopPropagation();
-      queue.splice(idx, 1); updateQueueBadge(); renderQueueList();
+      const at = queue.indexOf(song); if (at >= 0) queue.splice(at, 1);
+      updateQueueBadge(); renderQueueList();
     });
     item.addEventListener('click', async () => {
-      const s = queue.splice(idx, 1)[0];
+      const at = queue.indexOf(song); if (at < 0) { renderQueueList(); return; }
+      const s = queue.splice(at, 1)[0];
       updateQueueBadge(); await playSong(s);
     });
     pickerList.appendChild(item);

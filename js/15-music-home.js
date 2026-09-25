@@ -152,8 +152,11 @@
     // middle one opens it.
     let drag = null;
     stage.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
       drag = { x: e.clientX, start: target, moved: false, id: e.pointerId, z: zoomFactor() };
     });
+    // Released outside the stage without having dragged: forget the press.
+    window.addEventListener('pointerup', () => { if (drag && !drag.moved) drag = null; });
     stage.addEventListener('pointermove', e => {
       if (!drag) return;
       const dx = (e.clientX - drag.x) / drag.z; // pointer px are zoomed on big screens

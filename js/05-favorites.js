@@ -150,7 +150,9 @@ updateFSUI = function(song) {
 // Shuffle integration — if shuffle on, pick random from playlist on next
 const _origNextSong2 = nextSong;
 nextSong = async function() {
-  if (_shuffleOn && playerState.playlist.length > 1) {
+  // Songs you queued come first, shuffle or not.
+  const queued = typeof queue !== 'undefined' && queue.length;
+  if (_shuffleOn && !queued && playerState.playlist.length > 1) {
     let idx;
     do { idx = Math.floor(Math.random() * playerState.playlist.length); }
     while (idx === playerState.playlistIndex);

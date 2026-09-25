@@ -810,7 +810,7 @@ function renderTimeline() {
   // event we'd acknowledge has actually changed breaks the loop at the
   // source; the receipt listener no longer force-rebuilding at all (see
   // updateSeenLine()) closes it from the other side too.
-  if (document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
+  if (!document.hidden && document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
     markRoomRead(room.roomId);
     const lastEvent = events[events.length - 1];
     if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
@@ -957,7 +957,8 @@ function renderTimeline() {
         pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '');
         pill.dataset.targetId = ev.getId();
         pill.dataset.emoji = emoji;
-        pill.innerHTML = `${emoji} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+        // The key is whatever a remote client sent; it's text, never markup.
+        pill.innerHTML = `${esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
         pills.appendChild(pill);
       });
       body.appendChild(pills);
@@ -1067,11 +1068,10 @@ async function maybeLoadOlderMessages() {
   try {
     await MatrixChat.client.scrollback(room, 30);
     _lastTimelineRenderKey = null; // force a rebuild — scrollback's events don't fire the 'timeline' emit (backfill is filtered out there)
+    // renderTimeline() keeps the same messages on screen itself (scrolled
+    // up, it restores oldScrollTop + the added height). Adding that height
+    // here too threw you a page past where you were.
     renderTimeline();
-    // Keep the same messages on-screen instead of jumping — the rebuild
-    // clears scrollTop to 0, so shift it back down by exactly the height
-    // the newly-prepended older messages added.
-    el.scrollTop += el.scrollHeight - prevHeight;
   } catch (e) {
   } finally {
     _paginatingRoomId = null;
@@ -1205,7 +1205,9 @@ async function sendChatMessage() {
     if (!image && replyRelation) Object.assign(content, replyRelation);
     client.sendMessage(roomId, content).catch(e => {
       console.error('[chat] send failed', e);
-      input.value = text; // hand the text back so nothing typed is lost
+      // Hand the text back without clobbering anything typed since.
+      input.value = input.value.trim() ? text + '\n' + input.value : text;
+      showToast("Couldn't send that message; it's back in the box", 'ti-message-x');
     });
   }
 }
@@ -1356,18 +1358,42 @@ function openFeedbackModal() {
   titleEl.focus();
 }
 
-function openChatModal(title, bodyHTML) {
+// onDismiss: called when the modal closes any way other than the caller's
+// own buttons (X, Escape, the backdrop), so an awaited dialog always answers.
+let _chatModalOnDismiss = null;
+function openChatModal(title, bodyHTML, onDismiss) {
+  const prev = _chatModalOnDismiss;
+  _chatModalOnDismiss = onDismiss || null;
+  if (prev) prev(); // a dialog replaced by another still gets its answer
   document.getElementById('chatModalTitle').textContent = title;
   document.getElementById('chatModalBody').innerHTML = bodyHTML;
   document.getElementById('chatModalBackdrop').classList.add('open');
 }
 function closeChatModal() {
   document.getElementById('chatModalBackdrop').classList.remove('open');
+  const f = _chatModalOnDismiss;
+  _chatModalOnDismiss = null;
+  if (f) f();
 }
 trapFocusWithin(
   document.querySelector('#chatModalBackdrop .add-app-modal'),
   () => document.getElementById('chatModalBackdrop').classList.contains('open')
 );
+// Coming back to a tab left open on a room: now it's been read.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) return;
+  if (typeof renderTimeline === 'function') renderTimeline();
+});
+// Bound at load, not when chat connects: the playlist and delete dialogs
+// use this modal too, and before chat was connected their X (and a click
+// outside) did nothing.
+document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
+document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
+  if (e.target.id === 'chatModalBackdrop') closeChatModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('chatModalBackdrop')?.classList.contains('open')) closeChatModal();
+});
 
 // ── In-site replacements for prompt()/confirm() — same shared modal shell
 // as everything else above, so a text-entry or yes/no dialog looks like
@@ -1388,12 +1414,12 @@ function showInputDialog(title, message, placeholder, defaultValue) {
         <button class="ap-btn-queue" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
         <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;margin-top:0;">OK</button>
       </div>
-    `);
+    `, () => resolve(null));
     const field = document.getElementById('inputDialogField');
     if (defaultValue) field.value = defaultValue;
     field.focus();
     field.select();
-    const cleanup = result => { closeChatModal(); resolve(result); };
+    const cleanup = result => { resolve(result); closeChatModal(); };
     document.getElementById('inputDialogCancel').addEventListener('click', () => cleanup(null));
     document.getElementById('inputDialogOk').addEventListener('click', () => cleanup(field.value.trim()));
     field.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('inputDialogOk').click(); });
@@ -1407,8 +1433,8 @@ function showConfirmDialog(title, message, confirmLabel) {
         <button class="ap-btn-queue" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
         <button class="chat-connect-btn" id="confirmDialogOk" style="flex:1;justify-content:center;margin-top:0;color:var(--danger-color);border-color:var(--danger-color);">${esc(confirmLabel || 'Confirm')}</button>
       </div>
-    `);
-    const cleanup = result => { closeChatModal(); resolve(result); };
+    `, () => resolve(false));
+    const cleanup = result => { resolve(result); closeChatModal(); };
     document.getElementById('confirmDialogCancel').addEventListener('click', () => cleanup(false));
     document.getElementById('confirmDialogOk').addEventListener('click', () => cleanup(true));
   });
@@ -1417,7 +1443,7 @@ function showConfirmDialog(title, message, confirmLabel) {
 // same .chat-modal-row pattern the channel-browse/DM modals already use.
 function showChoiceDialog(title, items, emptyMessage) {
   return new Promise(resolve => {
-    openChatModal(title, `<div class="chat-modal-list" id="choiceDialogList"></div>`);
+    openChatModal(title, `<div class="chat-modal-list" id="choiceDialogList"></div>`, () => resolve(null));
     const listEl = document.getElementById('choiceDialogList');
     if (!items.length) {
       listEl.innerHTML = `<div class="picker-empty">${esc(emptyMessage || 'nothing to choose from')}</div>`;
@@ -1431,7 +1457,7 @@ function showChoiceDialog(title, items, emptyMessage) {
           `<div class="chat-modal-row-name">${esc(item.label)}</div>` +
           (item.sub ? `<div class="chat-modal-row-sub">${esc(item.sub)}</div>` : '') +
         '</div>';
-      row.addEventListener('click', () => { closeChatModal(); resolve(i); });
+      row.addEventListener('click', () => { resolve(i); closeChatModal(); });
       listEl.appendChild(row);
     });
   });
@@ -1573,7 +1599,19 @@ async function startDm(userId) {
     // Reuse an existing DM with this person if one's already recorded in
     // m.direct, rather than spinning up a duplicate room every time.
     const directContent = client.getAccountData('m.direct')?.getContent() || {};
-    let roomId = (directContent[userId] || []).find(id => client.getRoom(id));
+    // Only a room you're still in (or invited to) and they haven't left.
+    // getRoom() keeps returning rooms after a leave, so a closed DM used to
+    // be "reused" and then filtered straight back out of the list.
+    const live = id => {
+      const room = client.getRoom(id);
+      if (!room) return false;
+      const mine = room.getMyMembership?.();
+      const theirs = room.getMember?.(userId)?.membership;
+      return (mine === 'join' || mine === 'invite') && theirs !== 'leave' && theirs !== 'ban';
+    };
+    let roomId = (directContent[userId] || []).find(live);
+    // An invite you haven't accepted yet: accept it by opening it.
+    if (roomId && client.getRoom(roomId)?.getMyMembership?.() === 'invite') await client.joinRoom(roomId);
     if (!roomId) {
       const res = await client.createRoom({ is_direct: true, invite: [userId], preset: 'trusted_private_chat' });
       roomId = res.room_id;
@@ -1609,51 +1647,6 @@ function messageUser(username) {
     setActiveTab('chat');
     setChatMobileView('convo');
   });
-}
-
-function openDmModal() {
-  openChatModal('// new message', `
-    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="chatDmSearch" placeholder="search users..." autocomplete="off" /></div>
-    <div class="chat-modal-list" id="chatDmList"></div>
-  `);
-  const listEl   = document.getElementById('chatDmList');
-  const searchEl = document.getElementById('chatDmSearch');
-  const myId     = MatrixChat.client.getUserId();
-
-  function renderResults(users) {
-    listEl.innerHTML = '';
-    if (!users.length) { listEl.innerHTML = '<div class="picker-empty">no users found</div>'; return; }
-    users.forEach(u => {
-      const row = document.createElement('div');
-      row.className = 'chat-modal-row';
-      row.innerHTML =
-        '<div class="chat-modal-row-info">' +
-          `<div class="chat-modal-row-name">${esc(u.display_name || u.user_id)}</div>` +
-          `<div class="chat-modal-row-sub">${esc(u.user_id)}</div>` +
-        '</div>' +
-        '<button class="chat-modal-row-btn">Message</button>';
-      row.querySelector('button').addEventListener('click', () => startDm(u.user_id));
-      listEl.appendChild(row);
-    });
-  }
-
-  async function search(term) {
-    if (!term) { listEl.innerHTML = ''; return; }
-    listEl.innerHTML = '<div class="picker-empty">searching...</div>';
-    try {
-      const res = await MatrixChat.client.searchUserDirectory({ term, limit: 20 });
-      renderResults((res.results || []).filter(u => u.user_id !== myId));
-    } catch (e) {
-      listEl.innerHTML = '<div class="picker-empty">search failed</div>';
-    }
-  }
-
-  let debounce;
-  searchEl.addEventListener('input', () => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => search(searchEl.value.trim()), 350);
-  });
-  searchEl.focus();
 }
 
 // Pan/zoom cropper for the profile avatar (circle) and banner (wide strip)
@@ -2326,7 +2319,8 @@ function notifyNewMessage(event, room) {
   if (event.getSender() === MatrixChat.client.getUserId()) return; // our own message
   const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')
     && room.roomId === _chatActiveRoomId;
-  if (onThisRoomAlready) return;
+  // Open on this room but in a background browser tab: you're not reading it.
+  if (onThisRoomAlready && !document.hidden) return;
   _chatUnreadRooms.add(room.roomId);
   updateSocialUnreadBadge();
   const senderName = event.sender?.name || event.getSender();
@@ -2552,10 +2546,6 @@ function showChatApp() {
     document.getElementById('chatMobileBack')?.addEventListener('click', () => setChatMobileView('rooms'));
     document.getElementById('chatBrowseBtn')?.addEventListener('click', openBrowseModal);
     document.getElementById('chatCreateBtn')?.addEventListener('click', openCreateModal);
-    document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
-    document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
-      if (e.target.id === 'chatModalBackdrop') closeChatModal();
-    });
   }
   renderChannelList();
 }

@@ -90,12 +90,6 @@ function setActiveTab(key) {
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') afterSwitchPaints(ensureMusicTabLoaded);
 }
 
-// Called after settings change a tab's availability — bumps off a now-hidden
-// active tab back to Feed instead of leaving the user on a blank panel.
-function refreshActiveTabAvailability() {
-  const current = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
-  if (!isTabEnabled(current)) setActiveTab('home');
-}
 
 function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {

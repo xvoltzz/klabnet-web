@@ -124,14 +124,19 @@ async function loadServerPrefs() {
     if (typeof invalidateFavCache === 'function') invalidateFavCache();
     if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
     if (typeof applyCustomBg === 'function') applyCustomBg(); // server prefs may have just changed the active theme's color
+    _prefsSnapshot = currentPrefs();
 
   } catch(e) {
 
   }
 }
 
-async function saveServerPrefs() {
-  if (window.KLAB_USER.username === 'anonymous') return; // don't save for anon
+// What this tab last loaded from or saved to the server. A tab only uploads
+// when its prefs differ from that, so one left open for days on another
+// device can't overwrite favorites or playlists changed somewhere else
+// (every hide used to upload everything it had).
+let _prefsSnapshot = null;
+function currentPrefs() {
   const parse = (k, fallback) => {
     try { return JSON.parse(localStorage.getItem(k)) || fallback; } catch(e) { return fallback; }
   };
@@ -144,12 +149,20 @@ async function saveServerPrefs() {
     bg_dark:       localStorage.getItem(PREF_KEYS.bg_dark)  || '',
     bg_light:      localStorage.getItem(PREF_KEYS.bg_light) || '',
   };
+  return JSON.stringify(prefs);
+}
+
+async function saveServerPrefs() {
+  if (window.KLAB_USER.username === 'anonymous') return; // don't save for anon
+  const body = currentPrefs();
+  if (body === _prefsSnapshot) return; // nothing changed here
   try {
-    await fetchTimeout('/api/prefs', {
+    const res = await fetchTimeout('/api/prefs', {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(prefs),
+      body,
     }, 8000);
+    if (res.ok) _prefsSnapshot = body;
   } catch(e) {
     // Server not reachable — localStorage already saved, no data loss
   }
@@ -182,7 +195,9 @@ if (_origRemFav) {
 
 // Save on page hide (tab close, navigate away)
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') saveServerPrefs();
+  if (document.visibilityState === 'hidden') { saveServerPrefs(); return; }
+  // Back on a tab with nothing unsaved: pick up changes made elsewhere.
+  if (_prefsSnapshot !== null && currentPrefs() === _prefsSnapshot) loadServerPrefs();
 });
 
 // ── Boot sequence ──
