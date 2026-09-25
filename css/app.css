@@ -4130,7 +4130,7 @@
       display: flex; flex-direction: column; gap: 12px;
       user-select: none; -webkit-user-select: none;
     }
-    .ph-shell.drop-hover .ph-stage { outline: 2px dashed var(--glass-border-h); outline-offset: -6px; border-radius: 14px; }
+    .ph-shell.drop-hover .ph-stage { outline: 2px dashed var(--glass-border-h); outline-offset: -6px; border-radius: 8px; }
 
     /* Glass for everything floating over the backdrop — the .lg-blur recipe. */
     .ph-glass, .ph-btn, .ph-side {
@@ -4203,7 +4203,7 @@
        heart sit loose under the camera box. */
     .ph-box {
       position: relative;
-      max-width: 100%; padding: 12px 14px; border-radius: 14px;
+      max-width: 100%; padding: 12px 14px; border-radius: 8px;
       display: flex; flex-direction: column; gap: 8px; text-align: left;
     }
     .ph-who { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); flex-wrap: wrap; }
@@ -4248,7 +4248,7 @@
     .ph-spec .v { font-size: var(--fs-15); font-weight: 600; font-variant-numeric: tabular-nums; }
 
     .ph-song {
-      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 12px; margin-top: 4px;
+      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 8px; margin-top: 4px;
       max-width: 100%; cursor: pointer; font-family: var(--font-ui); text-align: left; color: var(--text);
       background: var(--glass-fill); border: 1px solid var(--glass-border); transition: border-color .15s, background-color .15s;
     }
@@ -4300,7 +4300,7 @@
     /* Comments panel */
     .ph-side {
       position: absolute; top: calc(var(--control-h) + 10px); right: 0; bottom: 0; width: 320px; z-index: 4;
-      border-radius: 16px; padding: 14px 16px; overflow-y: auto; overscroll-behavior: contain;
+      border-radius: 10px; padding: 14px 16px; overflow-y: auto; overscroll-behavior: contain;
       display: flex; flex-direction: column;
       transform: translateX(calc(100% + 40px)); opacity: 0;
       transition: transform .28s ease, opacity .28s ease;
@@ -4390,7 +4390,7 @@
       font-size: var(--fs-10); text-align: center; padding: 6px;
     }
     .ph-tile-x {
-      position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+      position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 6px;
       border: none; background: rgba(0,0,0,0.6); color: #fff; cursor: pointer;
       display: grid; place-items: center; font-size: 13px;
     }
@@ -4413,7 +4413,7 @@
     .ph-tags-box { display: flex; flex-wrap: wrap; gap: 5px; padding: 5px 6px; min-height: 36px; cursor: text; }
     .ph-tags-box input { flex: 1; min-width: 90px; border: none; background: none; padding: 2px 3px; }
     .ph-tag-chip {
-      display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 8px; border-radius: 12px;
+      display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 8px; border-radius: 8px;
       background: var(--glass-fill-h); border: 1px solid var(--glass-border); font-size: var(--fs-12);
     }
     .ph-tag-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 0 2px; font-size: 12px; }
@@ -4445,7 +4445,7 @@
     .ph-song-picked-row img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex: none; background: var(--glass-fill); }
     .ph-song-picked-row .ph-song-meta { flex: 1; }
     .ph-mini-btn {
-      width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-fill);
       color: var(--text); cursor: pointer; display: grid; place-items: center; flex: none;
     }
     .ph-mini-btn:hover { border-color: var(--glass-border-h); }
@@ -4496,7 +4496,7 @@
     .picker-list.mh-home > * { flex: none; }
 
     .mh-flow {
-      position: relative; overflow: hidden; border-radius: 16px; outline: none;
+      position: relative; overflow: hidden; border-radius: 10px; outline: none;
       /* stage offset + cover + a strip of reflection + the caption, so the
          caption never lands on the cover whatever size the cover is */
       height: calc(26px + var(--mh-h, 230px) + 38px + 104px); margin: 2px 0 10px;
@@ -4538,7 +4538,7 @@
     .mh-flow-caption .a { font-size: var(--fs-12); color: var(--text-dim); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mh-flow-actions { display: flex; gap: 8px; margin-top: 8px; }
     .mh-flow-actions button {
-      height: 30px; padding: 0 14px; border-radius: 15px; cursor: pointer;
+      height: 30px; padding: 0 14px; border-radius: 8px; cursor: pointer;
       font: 600 var(--fs-12) var(--font-ui); display: inline-flex; align-items: center; gap: 6px;
       border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
     }
@@ -4546,7 +4546,7 @@
     .mh-flow-actions button:hover { border-color: var(--glass-border-h); }
     .mh-flow-nav {
       position: absolute; top: calc(26px + var(--mh-size, 230px) / 2 - 18px); z-index: 200;
-      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
       border: 1px solid var(--glass-border); background: var(--modal-glass); color: var(--text);
       display: grid; place-items: center; font-size: 18px; opacity: 0; transition: opacity .2s;
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -4570,7 +4570,7 @@
     .mh-row-wrap.more-l.more-r .mh-row { -webkit-mask-image: linear-gradient(90deg, transparent, #000 60px, #000 calc(100% - 60px), transparent); mask-image: linear-gradient(90deg, transparent, #000 60px, #000 calc(100% - 60px), transparent); }
     .mh-row-nav {
       position: absolute; top: calc(4px + 74px - 18px); z-index: 2;
-      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
       border: 1px solid var(--glass-border); background: var(--modal-glass); color: var(--text);
       display: grid; place-items: center; font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .2s;
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -4585,7 +4585,7 @@
     .mh-card-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
     .mh-card:hover .mh-card-art img { transform: scale(1.04); }
     .mh-card-play {
-      position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: 50%;
+      position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: 8px;
       border: none; background: var(--text); color: var(--bg); cursor: pointer; display: grid; place-items: center;
       font-size: 16px; opacity: 0; transform: translateY(6px); transition: opacity .18s, transform .18s;
       box-shadow: 0 4px 14px rgba(0,0,0,0.35);
@@ -4651,7 +4651,7 @@
     }
     #musicShell .music-new-playlist-btn:hover { color: var(--text); border-color: var(--glass-border-h); background: var(--glass-fill); }
     #musicShell .picker-search {
-      height: 40px; border-radius: 12px; padding: 0 8px 0 12px; gap: 10px;
+      height: 40px; border-radius: 8px; padding: 0 8px 0 12px; gap: 10px;
       background: var(--glass-fill); border: 1px solid var(--glass-border);
     }
     #musicShell .picker-search:focus-within { border-color: var(--glass-border-h); }
@@ -4717,7 +4717,7 @@
       display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; pointer-events: none;
     }
     #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action {
-      pointer-events: auto; width: 36px; height: 36px; border-radius: 50%; font-size: 16px;
+      pointer-events: auto; width: 36px; height: 36px; border-radius: 8px; font-size: 16px;
       background: var(--modal-glass); color: var(--text); border: 1px solid var(--glass-border);
       -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
       transform: translateY(6px); transition: opacity .18s, transform .18s;
@@ -4742,7 +4742,7 @@
     }
     #musicShell .picker-list:has(> .genre-tile) > .picker-section-label { grid-column: 1 / -1; }
     #musicShell .picker-list .picker-item.genre-tile {
-      position: relative; height: 104px; padding: 14px 16px; border-radius: 14px; overflow: hidden;
+      position: relative; height: 104px; padding: 14px 16px; border-radius: 8px; overflow: hidden;
       flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px;
       background: linear-gradient(135deg, hsl(var(--h) 55% 44%), hsl(calc(var(--h) + 40) 58% 26%));
       transition: transform .2s ease, filter .2s ease;
@@ -4753,7 +4753,7 @@
     #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; }
     #musicShell .genre-tile .picker-item-artist { color: rgba(255,255,255,0.72); }
     #musicShell .genre-tile .picker-item-actions { position: absolute; top: 10px; right: 10px; }
-    #musicShell .genre-tile .picker-action { background: rgba(255,255,255,0.92); color: #111; border-radius: 50%; width: 34px; height: 34px; }
+    #musicShell .genre-tile .picker-action { background: rgba(255,255,255,0.92); color: #111; border-radius: 8px; width: 34px; height: 34px; }
 
     /* Album / artist page: a hero with the cover blurred behind it. */
     #musicShell .ap-card { background: none; border: none; box-shadow: none; }
@@ -4761,12 +4761,12 @@
       display: block; position: absolute; left: 0; right: 0; top: 0; height: 460px; z-index: 0; pointer-events: none;
       background-size: cover; background-position: center; filter: blur(70px) saturate(1.5); opacity: .5;
       -webkit-mask-image: linear-gradient(#000 30%, transparent); mask-image: linear-gradient(#000 30%, transparent);
-      border-radius: 16px;
+      border-radius: 10px;
     }
     [data-theme="light"] #musicShell .ap-bg { opacity: .35; }
     #musicShell .ap-topbar { border-bottom: none; padding: 4px 4px 0; }
     #musicShell .ap-back {
-      width: 36px; height: 36px; border-radius: 50%; font-size: 17px;
+      width: 36px; height: 36px; border-radius: 8px; font-size: 17px;
       background: var(--modal-glass); color: var(--text); border: 1px solid var(--glass-border);
     }
     #musicShell .ap-hero { align-items: flex-end; gap: 28px; padding: 18px 20px 26px; border-bottom: none; }
@@ -4784,7 +4784,7 @@
     #musicShell .ap-hero-sub:first-of-type { margin-top: 8px; }
     #musicShell .ap-actions { padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; }
     #musicShell .ap-btn-play, #musicShell .ap-btn-queue {
-      height: 40px; padding: 0 18px; border-radius: 20px; gap: 8px;
+      height: 40px; padding: 0 18px; border-radius: 10px; gap: 8px;
       font: 600 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none; box-shadow: none;
     }
     #musicShell .ap-btn-play { padding: 0 22px; background: var(--text); color: var(--bg); border: none; }
@@ -4815,7 +4815,7 @@
     #musicShell .ap-disc-card:hover img { transform: scale(1.03); }
     #musicShell .ap-similar { padding: 0 20px; gap: 8px; }
     #musicShell .ap-sim-chip {
-      height: 32px; padding: 0 14px; border-radius: 16px; display: inline-flex; align-items: center;
+      height: 32px; padding: 0 14px; border-radius: 10px; display: inline-flex; align-items: center;
       font: 500 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none;
       background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text);
     }
@@ -4945,21 +4945,21 @@
 
     /* Composer: one soft surface, the send button is the primary pill. */
     #feedComposer {
-      border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
       padding: 14px 16px 12px; box-shadow: none;
     }
     #feedComposer:focus-within { border-color: var(--glass-border-h); }
     #feedComposer .feed-composer-text { font-size: 16px; }
-    #feedComposer .feed-composer-image-btn { border: none; background: none; color: var(--text-dim); border-radius: 50%; width: 36px; height: 36px; }
+    #feedComposer .feed-composer-image-btn { border: none; background: none; color: var(--text-dim); border-radius: 8px; width: 36px; height: 36px; }
     #feedComposer .feed-composer-image-btn:hover { background: var(--glass-fill-h); color: var(--text); }
     #feedComposer .feed-composer-post-btn {
-      width: 38px; height: 38px; border-radius: 50%; border: none;
+      width: 38px; height: 38px; border-radius: 8px; border: none;
       background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
     }
 
     /* Posts: softer cards, the avatar beside the text, actions as glyphs. */
     #feedList .feed-post {
-      border-radius: 18px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
       padding: 16px 18px; gap: 14px; box-shadow: none;
       transition: border-color var(--m-med) ease, background-color var(--m-med) ease;
     }
@@ -4968,28 +4968,28 @@
     #feedList .feed-post-name { font-size: 15px; font-weight: 600; }
     #feedList .feed-post-time { font-size: 12px; color: var(--text-dimmer); }
     #feedList .feed-post-text { font-size: 15px; line-height: 1.5; }
-    #feedList .feed-post-song { border-radius: 14px; border: none; background: var(--glass-fill-h); padding: 10px; }
+    #feedList .feed-post-song { border-radius: 8px; border: none; background: var(--glass-fill-h); padding: 10px; }
     #feedList .feed-post-song-art { width: 52px; height: 52px; border-radius: 8px; border: none; }
-    #feedList .feed-post-image { border-radius: 14px; }
+    #feedList .feed-post-image { border-radius: 8px; }
     #feedList .feed-post-footer { gap: 6px; margin-top: 10px; align-items: center; }
     #feedList .feed-post-add-reaction, #feedList .feed-post-reply-open {
-      height: 30px; min-width: 30px; padding: 0 8px; border-radius: 15px; border: none; background: none; cursor: pointer;
+      height: 30px; min-width: 30px; padding: 0 8px; border-radius: 8px; border: none; background: none; cursor: pointer;
       color: var(--text-dim); display: inline-flex; align-items: center; justify-content: center; gap: 5px; font: 600 13px var(--font-ui);
       transition: background-color var(--m-fast) ease, color var(--m-fast) ease;
     }
     #feedList .feed-post-add-reaction i, #feedList .feed-post-reply-open i { font-size: 18px; }
     #feedList .feed-post-add-reaction:hover, #feedList .feed-post-reply-open:hover { background: var(--glass-fill-h); color: var(--text); }
     #feedList .feed-post-reaction-pill {
-      height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid transparent; background: var(--glass-fill-h); font-size: 13px;
+      height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: var(--glass-fill-h); font-size: 13px;
     }
     #feedList .feed-post-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.45); box-shadow: 0 0 12px rgba(var(--accent-rgb),0.14); }
     /* Replies: shown when there are some, or once you hit Reply. */
     #feedList .feed-post-replies:not(.has-replies):not(.replying) { display: none; }
     #feedList .feed-post-replies { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--glass-border); gap: 8px; }
     #feedList .feed-post-replies.replying .feed-post-reply-composer { animation: fadeInUp var(--m-med) var(--m-ease) both; }
-    #feedList .feed-post-reply-input { border-radius: 18px; height: 36px; padding: 0 14px; background: var(--glass-fill-h); border: 1px solid transparent; }
+    #feedList .feed-post-reply-input { border-radius: 10px; height: 36px; padding: 0 14px; background: var(--glass-fill-h); border: 1px solid transparent; }
     #feedList .feed-post-reply-input:focus { border-color: var(--glass-border-h); }
-    #feedList .feed-post-reply-send { width: 36px; height: 36px; border-radius: 50%; border: none; background: none; color: var(--text-dim); }
+    #feedList .feed-post-reply-send { width: 36px; height: 36px; border-radius: 8px; border: none; background: none; color: var(--text-dim); }
     #feedList .feed-post-reply-send:hover { color: var(--text); background: var(--glass-fill-h); }
     #feedList .feed-post-delete { opacity: 0; transition: opacity var(--m-fast) ease; }
     #feedList .feed-post:hover .feed-post-delete, #feedList .feed-post-delete:focus-visible { opacity: 1; }
@@ -4999,16 +4999,16 @@
     #presenceRail .presence-card-name { font-size: 14px; font-weight: 600; }
 
     /* Chat: rows light up on hover, grouped lines sit close, pill composer. */
-    #chatShell .chat-msg { border-radius: 12px; padding: 6px 10px; margin: 0 -10px; transition: background-color var(--m-fast) ease; }
+    #chatShell .chat-msg { border-radius: 8px; padding: 6px 10px; margin: 0 -10px; transition: background-color var(--m-fast) ease; }
     #chatShell .chat-msg:hover { background: var(--glass-fill); }
     #chatShell .chat-msg.grouped { padding-top: 1px; padding-bottom: 1px; }
     #chatShell .chat-msg:not(.grouped) { margin-top: 10px; }
     #chatShell .chat-msg-avatar { border: none; }
     #chatShell .chat-msg-sender { font-weight: 600; }
     #chatShell .chat-msg-text { font-size: 15px; line-height: 1.45; }
-    #chatShell #chatComposerInput { border-radius: 22px; padding-left: 16px; background: var(--glass-fill); }
+    #chatShell #chatComposerInput { border-radius: 10px; padding-left: 16px; background: var(--glass-fill); }
     #chatShell #chatComposerInput:focus { border-color: var(--glass-border-h); }
-    #chatShell .chat-msg-reaction-pill { border-radius: 14px; background: var(--glass-fill-h); }
+    #chatShell .chat-msg-reaction-pill { border-radius: 8px; background: var(--glass-fill-h); }
     #chatShell .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.45); box-shadow: 0 0 12px rgba(var(--accent-rgb),0.14); }
     #presenceRail .chat-channel-item { border-radius: 10px; height: 38px; font-size: 14px; }
     #presenceRail .chat-channel-item.active { background: var(--glass-fill-h); color: var(--text); }
@@ -5016,20 +5016,21 @@
 
     /* Settings: grouped lists (one rounded block per section, hairlines
        between rows) rather than a stack of separately-boxed rows. */
-    #settingsBackdrop .settings-modal { border-radius: 20px; }
+    #settingsBackdrop .settings-modal { border-radius: 10px; }
     #settingsBackdrop .settings-section-label {
       font-size: var(--fs-11); font-weight: 600; letter-spacing: .12em; color: var(--text-dimmer); padding: 0 4px;
     }
+    /* Plain rows with a hairline between, not a card per group inside the
+       card that is the modal. */
     #settingsBackdrop .settings-row {
-      margin: 0; border-radius: 0; border: none; background: var(--glass-fill); border-top: 1px solid var(--glass-border);
+      margin: 0; border-radius: 0; border: none; background: none; border-top: 1px solid var(--glass-border); padding-left: 4px; padding-right: 4px;
     }
-    #settingsBackdrop .settings-section .settings-row:first-of-type { border-top: none; border-top-left-radius: 14px; border-top-right-radius: 14px; }
-    #settingsBackdrop .settings-section .settings-row:last-of-type { border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
+    #settingsBackdrop .settings-section .settings-row:first-of-type { border-top: none; }
     #settingsBackdrop .settings-row-label { font-size: 14px; letter-spacing: 0; }
     #settingsBackdrop .settings-row-sub { font-size: 12px; letter-spacing: 0; }
 
     /* Player: the fullscreen's secondary controls lose their boxes; play keeps its own look. */
-    #fsPlayer .fs-btn:not(.fs-play) { border: none; background: none; border-radius: 50%; }
+    #fsPlayer .fs-btn:not(.fs-play) { border: none; background: none; border-radius: 8px; }
     #fsPlayer .fs-btn:not(.fs-play):hover { background: rgba(255,255,255,0.1); opacity: 1 !important; }
     #fsPlayer .fs-artist, #fsPlayer .fs-album { text-transform: none; letter-spacing: 0; }
     #fsPlayer .fs-artist { font-size: 17px; font-weight: 600; }
@@ -5037,8 +5038,8 @@
     #fsPlayer .fs-title { font-size: 34px; letter-spacing: -0.015em; }
 
     /* Toasts and the header menu: rounder, same glass. */
-    .toast, .toast-item { border-radius: 14px; }
-    #headerMoreMenu { border-radius: 16px; }
+    .toast, .toast-item { border-radius: 8px; }
+    #headerMoreMenu { border-radius: 10px; }
     #headerMoreMenu .ctx-item { border-radius: 10px; }
 
     @media (max-width: 760px) {
@@ -5078,7 +5079,7 @@
        person it's about (picture, or their initial on their colour), or the
        notification's own icon. Two lines when there's a title. */
     .toast-item {
-      gap: 14px; padding: 12px 18px 12px 12px; border-radius: 16px;
+      gap: 14px; padding: 12px 18px 12px 12px; border-radius: 10px;
       width: min(340px, calc(100vw - 2rem)); min-width: 0; max-width: none;
       font-size: 14px; letter-spacing: 0; line-height: 1.35;
       max-height: 200px;
@@ -5122,7 +5123,7 @@
     /* Quick reply on chat notifications. */
     .toast-item.has-reply { flex-wrap: wrap; position: relative; }
     .toast-reply-btn {
-      position: absolute; top: 10px; right: 10px; height: 26px; padding: 0 10px; border-radius: 13px; cursor: pointer;
+      position: absolute; top: 10px; right: 10px; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer;
       border: 1px solid var(--glass-border-h); background: var(--glass-fill-h); color: var(--text);
       font: 600 var(--fs-12) var(--font-ui); opacity: 0; transition: opacity var(--m-fast) ease;
     }
@@ -5133,11 +5134,11 @@
     .toast-item.replying .toast-reply { display: flex; animation: fadeInUp var(--m-med) var(--m-ease) both; }
     .toast-item.replying { cursor: default; max-height: 260px; }
     .toast-reply input {
-      flex: 1; min-width: 0; height: 34px; border-radius: 17px; padding: 0 14px;
+      flex: 1; min-width: 0; height: 34px; border-radius: 10px; padding: 0 14px;
       background: var(--glass-fill-h); border: 1px solid var(--glass-border); color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none;
     }
     .toast-reply input:focus { border-color: var(--glass-border-h); }
-    .toast-reply button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; }
+    .toast-reply button { width: 34px; height: 34px; border-radius: 8px; border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; }
     /* The sidebar scrolls, so it clips anything past its edges; the search
        box sits flush against them and its focus glow was cut off square.
        Room inside for the glow, taken back outside so nothing moves. */
@@ -5199,7 +5200,7 @@
 
     /* Cheatsheet */
     .feed-md-help {
-      margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--glass-fill-h);
+      margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--glass-fill-h);
       display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 18px;
       font-size: 13px; color: var(--text); animation: fadeInUp var(--m-med) var(--m-ease) both;
     }
@@ -5280,7 +5281,7 @@
       font: 0.86em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       padding: 0.12em 0.4em; border-radius: 6px; background: rgba(127,127,127,0.16); color: var(--text);
     }
-    .md-img { display: block; max-width: 100%; max-height: 460px; border-radius: 14px; margin: 0.4em 0; cursor: zoom-in; }
+    .md-img { display: block; max-width: 100%; max-height: 460px; border-radius: 8px; margin: 0.4em 0; cursor: zoom-in; }
     .md p > .md-img:only-child { margin: 0.2em 0; }
 
     .md-spoiler {
@@ -5293,7 +5294,7 @@
     .md-spoiler.revealed * { visibility: visible; }
     .feed-md-help .md-spoiler { color: transparent; }
 
-    .md .md-callout, .md-callout { border-left-width: 3px; border-radius: 0 12px 12px 0; padding: 0.55em 0.9em; color: var(--text); border-left-color: rgb(var(--c)); background: rgba(var(--c),0.09); }
+    .md .md-callout, .md-callout { border-left-width: 3px; border-radius: 0 8px 8px 0; padding: 0.55em 0.9em; color: var(--text); border-left-color: rgb(var(--c)); background: rgba(var(--c),0.09); }
     .md-callout-title { display: flex; align-items: center; gap: 0.4em; font-weight: 700; font-size: 0.9em; color: rgb(var(--c)); margin-bottom: 0.25em; }
     .md-callout-title i { font-size: 1.15em; }
     .md-callout-note      { --c: 96,165,250; }
@@ -5307,7 +5308,7 @@
     [data-theme="light"] .md-callout-warning   { --c: 202,138,4; }
     [data-theme="light"] .md-callout-caution   { --c: 220,38,38; }
 
-    .md-table { overflow-x: auto; margin: 0 0 0.65em; border-radius: 12px; border: 1px solid var(--glass-border-h); }
+    .md-table { overflow-x: auto; margin: 0 0 0.65em; border-radius: 8px; border: 1px solid var(--glass-border-h); }
     .md-table table { border-collapse: collapse; width: 100%; font-size: 0.93em; }
     .md-table th, .md-table td { padding: 0.45em 0.8em; text-align: left; border-bottom: 1px solid var(--glass-border); }
     .md-table th { font-weight: 700; background: var(--glass-fill-h); }
@@ -5316,8 +5317,8 @@
 
     /* Code blocks are dark in both themes, like an editor. */
     .md pre.md-code {
-      position: relative; margin: 0 0 0.65em; padding: 14px 16px; border-radius: 14px;
-      background: #0d0d10; border: 1px solid rgba(255,255,255,0.08); color: #e6e1d8;
+      position: relative; margin: 0 0 0.65em; padding: 14px 16px; border-radius: 8px;
+      background: #0d0d10; border: none; color: #e6e1d8;
       overflow-x: auto; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       white-space: pre; tab-size: 2;
     }
@@ -5351,7 +5352,7 @@
       mask-image: linear-gradient(#000 72%, transparent); -webkit-mask-image: linear-gradient(#000 72%, transparent);
     }
     .feed-post-more {
-      display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 5px 12px; border-radius: 15px;
+      display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 5px 12px; border-radius: 8px;
       border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; font: 600 13px var(--font-ui);
       transition: background-color var(--m-fast) ease;
     }
@@ -5403,7 +5404,7 @@
     }
     .hm-tile {
       position: relative; overflow: hidden; isolation: isolate; min-height: 0; min-width: 0;
-      border-radius: 20px; background: var(--glass-fill); border: 1px solid var(--glass-border);
+      border-radius: 10px; background: var(--glass-fill); border: 1px solid var(--glass-border);
       padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column;
       transition: border-color var(--m-med) ease, background-color var(--m-med) ease;
     }
@@ -5437,7 +5438,7 @@
     .hm-big.long { font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; -webkit-line-clamp: 7; }
     .hm-cap { margin: 10px 0 12px; font: 700 21px/1.25 var(--font-ui); letter-spacing: -0.02em; max-width: 90%; }
     .hm-exif { display: flex; gap: 6px; flex-wrap: wrap; }
-    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 8px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(10px); color: rgba(255,255,255,.88); }
+    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 6px; background: rgba(0,0,0,.4); backdrop-filter: blur(10px); color: rgba(255,255,255,.88); }
     .hm-album { display: flex; align-items: flex-end; gap: 22px; margin-top: 14px; }
     .hm-cv { width: min(40%, 280px); aspect-ratio: 1; flex-shrink: 0; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 24px 50px rgba(0,0,0,.6); }
     .hm-album b { display: block; font: 800 clamp(22px, 2.2vw, 34px)/1.1 var(--font-ui); letter-spacing: -0.03em; }
@@ -5465,14 +5466,14 @@
     .hm-pi p { margin: 2px 0 0; font-size: 14.5px; line-height: 1.35; color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .hm-pi p i { color: var(--text-dim); }
     .hm-th { width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; background-size: cover; background-position: center; }
-    .hm-enter { animation: hmEnter .8s var(--m-ease) both, hmGlow 2.6s ease .2s; border-radius: 12px; }
+    .hm-enter { animation: hmEnter .8s var(--m-ease) both, hmGlow 2.6s ease .2s; border-radius: 8px; }
     @keyframes hmEnter { from { opacity: 0; transform: translateY(-12px); } }
     @keyframes hmGlow { 20% { background: var(--glass-fill-h); } }
 
     /* listening */
     .hm-listen { grid-column: 8 / span 5; grid-row: 2; }
-    .hm-lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; }
-    .hm-pcard { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 10px; border-radius: 8px; background: var(--tile-bg); border: 1px solid var(--tile-border); }
+    .hm-lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; align-content: start; }
+    .hm-pcard { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 4px; border-radius: 6px; }
     .hm-art { position: relative; width: 42px; height: 42px; flex-shrink: 0; border-radius: 5px; background: var(--tile-bg-h) center / cover; }
     .hm-art .hm-av { position: absolute; right: -6px; bottom: -6px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 0 0 2px var(--bg); }
     .hm-art .hm-av.on::after { display: none; }
