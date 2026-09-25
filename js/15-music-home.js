@@ -152,11 +152,11 @@
     // middle one opens it.
     let drag = null;
     stage.addEventListener('pointerdown', e => {
-      drag = { x: e.clientX, start: target, moved: false, id: e.pointerId };
+      drag = { x: e.clientX, start: target, moved: false, id: e.pointerId, z: zoomFactor() };
     });
     stage.addEventListener('pointermove', e => {
       if (!drag) return;
-      const dx = e.clientX - drag.x;
+      const dx = (e.clientX - drag.x) / drag.z; // pointer px are zoomed on big screens
       if (!drag.moved && Math.abs(dx) > 4) { drag.moved = true; stage.setPointerCapture(drag.id); el.classList.add('dragging'); }
       if (!drag.moved) return;
       target = clamp(drag.start - dx / (size() * 0.45));

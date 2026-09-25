@@ -5054,3 +5054,8 @@
     #chatShell .chat-msg-avatar { width: 36px; min-width: 36px; }
     #chatShell .chat-msg-avatar:not(.grouped) { height: 36px; }
     #chatShell .chat-msg:has(+ .chat-msg.grouped) { padding-bottom: 1px; }
+    /* A genre's album grid: the back button gets its own row. */
+    #musicShell .picker-list.picker-list-grid > .picker-back { grid-column: 1 / -1; justify-self: start; }
+    /* Sideways scrollers keep the sideways gesture to themselves, so reaching
+       the end of one doesn't also fire the browser's swipe-back. */
+    .mh-row, .mh-flow, .ph-shell, #musicShell .music-nav, .tab-nav { overscroll-behavior-x: contain; }

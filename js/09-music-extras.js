@@ -1,14 +1,88 @@
 // ══════════════════════════════════════════
 //  GENRES BROWSER
 // ══════════════════════════════════════════
-let _genresCache = null;
+// Built from the albums themselves, not Navidrome's genre list. That list
+// keeps genres from files that have since been retagged or removed, with
+// their old song counts (22 of its 33 were attached to nothing), and in
+// this library genres are tagged on albums, so asking for a genre's songs
+// (getSongsByGenre) came back empty even for ones that exist. Genres that
+// cover exactly the same albums are one entry ("Hip-Hop · Rap").
+let _genresCache = null, _genresAt = 0;
+const GENRE_TTL_MS = 10 * 60 * 1000;
+
+async function buildGenres() {
+  const albums = [];
+  for (let offset = 0; ; offset += 500) {
+    const r = await fetchTimeout(`${ND_URL}/rest/getAlbumList2?type=alphabeticalByName&size=500&offset=${offset}&${subsonicParams()}`, {}, 12000);
+    const page = (await r.json())['subsonic-response']?.albumList2?.album || [];
+    albums.push(...page);
+    if (page.length < 500) break;
+  }
+  const byGenre = new Map(); // genre -> albums
+  for (const a of albums) {
+    const names = (a.genres || []).map(g => g.name).filter(Boolean);
+    if (!names.length && a.genre) names.push(a.genre);
+    for (const n of new Set(names.map(x => x.trim()).filter(Boolean))) {
+      if (!byGenre.has(n)) byGenre.set(n, []);
+      byGenre.get(n).push(a);
+    }
+  }
+  const merged = new Map(); // album-id set -> entry
+  for (const [name, list] of byGenre) {
+    const key = list.map(a => a.id).sort().join(',');
+    if (merged.has(key)) merged.get(key).names.push(name);
+    else merged.set(key, { names: [name], albums: list });
+  }
+  return [...merged.values()].map(e => ({
+    value: e.names.sort((x, y) => x.localeCompare(y)).join(' · '),
+    albums: e.albums,
+    albumCount: e.albums.length,
+    songCount: e.albums.reduce((n, a) => n + (a.songCount || 0), 0),
+  }));
+}
+
+async function genreSongs(genre) {
+  const lists = await Promise.all(genre.albums.map(a =>
+    fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(a.id)}&${subsonicParams()}`, {}, 8000)
+      .then(r => r.json()).then(d => d['subsonic-response']?.album?.song || []).catch(() => [])));
+  return lists.flat();
+}
+
+function openGenreView(genre) {
+  window.klabNav?.push({ tab: 'music', kind: 'genre', value: genre.value });
+  hideSortBtn();
+  pickerList.innerHTML = '';
+  pickerList.classList.add('picker-list-grid');
+  const back = document.createElement('button');
+  back.className = 'picker-back';
+  back.innerHTML = '<i class="ti ti-arrow-left"></i> Genres';
+  back.addEventListener('click', () => {
+    if (window.klabNav?.back()) return; // same as the browser's Back
+    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="genres"]').classList.add('active');
+    pickerList.classList.remove('picker-list-grid');
+    setMusicViewTitle('genres');
+    loadGenres();
+  });
+  pickerList.appendChild(back);
+  setMusicViewTitle('genres', genre.value);
+  document.getElementById('musicViewSub').textContent = `${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${genre.songCount} songs`;
+  renderAlbumList(applySort(genre.albums, 'albums'), true);
+}
+
+// Reopen a genre by name (browser back/forward, see js/17-history.js).
+window.klabOpenGenre = async value => {
+  if (!_genresCache) { _genresCache = await buildGenres(); _genresAt = Date.now(); }
+  const g = _genresCache.find(x => x.value === value);
+  if (g) openGenreView(g); else loadGenres();
+};
+
 async function loadGenres() {
   pickerList.innerHTML = '<div class="picker-empty">loading genres...</div>';
   try {
-    if (!_genresCache) {
-      const res  = await fetchTimeout(`${ND_URL}/rest/getGenres?${subsonicParams()}`, {}, 8000);
-      const data = await res.json();
-      _genresCache = (data['subsonic-response']?.genres?.genre || []).filter(g => g.songCount > 0);
+    if (!_genresCache || Date.now() - _genresAt > GENRE_TTL_MS) {
+      _genresCache = await buildGenres();
+      _genresAt = Date.now();
     }
     const genres = applySort(_genresCache, 'genres');
 
@@ -31,46 +105,25 @@ async function loadGenres() {
         <div class="picker-item-art-ph" style="font-size:20px;"><i class="ti ti-music-search"></i></div>
         <div class="picker-item-info" style="min-width:0;flex:1;">
           <div class="picker-item-title">${esc(genre.value)}</div>
-          <div class="picker-item-artist">${genre.songCount} songs · ${genre.albumCount || 0} albums</div>
+          <div class="picker-item-artist">${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${genre.songCount} songs</div>
         </div>
         <div class="picker-item-actions" style="flex-shrink:0;">
           <button class="picker-action" title="Play genre"><i class="ti ti-player-play"></i></button>
         </div>`;
 
+      // The tile opens the genre's albums; its play button shuffles them all.
+      const open = () => openGenreView(genre);
       const play = async () => {
-        hideSortBtn();
-        pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
-        try {
-          const r = await fetchTimeout(`${ND_URL}/rest/getSongsByGenre?genre=${encodeURIComponent(genre.value)}&count=50&${subsonicParams()}`, {}, 8000);
-          const d = await r.json();
-          const songs = d['subsonic-response']?.songsByGenre?.song || [];
-          if (!songs.length) { pickerList.innerHTML = '<div class="picker-empty">no songs found</div>'; return; }
-
-          pickerList.innerHTML = '';
-          // Back button
-          const back = document.createElement('button');
-          back.className = 'picker-back';
-          back.innerHTML = '<i class="ti ti-arrow-left"></i> Genres';
-          back.addEventListener('click', () => {
-            document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-            document.querySelector('[data-tab="genres"]').classList.add('active');
-            loadGenres();
-          });
-          pickerList.appendChild(back);
-
-          const lbl = document.createElement('div');
-          lbl.className = 'picker-section-label';
-          lbl.textContent = `${genre.value} · ${songs.length} songs`;
-          pickerList.appendChild(lbl);
-
-          pickerSongs = songs;
-          renderSongItems(songs, pickerList);
-          showToast(`${genre.value} — ${songs.length} songs`);
-        } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
+        const songs = await genreSongs(genre);
+        if (!songs.length) { showToast('nothing to play in ' + genre.value, 'ti-alert-triangle'); return; }
+        for (let i = songs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [songs[i], songs[j]] = [songs[j], songs[i]]; }
+        playerState.playlist = songs; playerState.playlistIndex = 0;
+        playSong(songs[0]);
+        showToast(`${genre.value} — shuffling ${songs.length} songs`, 'ti-arrows-shuffle');
       };
 
       item.querySelector('[title="Play genre"]').addEventListener('click', e => { e.stopPropagation(); play(); SFX && SFX.play('click'); });
-      item.addEventListener('click', play);
+      item.addEventListener('click', open);
       pickerList.appendChild(item);
     });
   } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load genres</div>'; }
@@ -895,10 +948,7 @@ document.getElementById('pickerSortBtn').addEventListener('click', e => {
       showSortBtn(pickerTab);
     });
   });
-  const r = e.currentTarget.getBoundingClientRect();
-  menu.style.top = (r.bottom + 6) + 'px';
-  menu.style.right = (window.innerWidth - r.right) + 'px';
-  menu.style.left = 'auto';
+  anchorPanelUnder(menu, e.currentTarget, 6); // zoom-aware (see 00-util.js)
   menu.classList.add('visible');
 });
 document.addEventListener('click', e => {
@@ -968,7 +1018,8 @@ document.querySelectorAll('.picker-tab').forEach(t => t.addEventListener('click'
   const sync = () => {
     queued = false;
     const first = list.firstElementChild;
-    if (!first || !first.classList.contains('picker-section-label') || list.classList.contains('mh-home')) { sub.textContent = ''; return; }
+    // Views that set their own subtitle (a genre's album count) keep it.
+    if (!first || !first.classList.contains('picker-section-label') || list.classList.contains('mh-home')) return;
     const text = first.textContent.trim();
     const m = text.match(/^(.*?)\s*\((\d+)\)$/);
     const title = document.getElementById('musicViewTitle').textContent.trim().toLowerCase();

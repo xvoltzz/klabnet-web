@@ -40,10 +40,13 @@
       if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
       // Rects rather than offsetLeft/Top: items can sit inside wrappers
       // (the Music sidebar's groups) that aren't the offset parent's direct children.
+      // Rects come back in zoomed pixels on the big-screen `html { zoom }`
+      // tiers, while px set on the pill get zoomed again: divide them back.
+      const z = zoomFactor();
       const c = container.getBoundingClientRect(), r = el.getBoundingClientRect();
-      const x = r.left - c.left + container.scrollLeft, y = r.top - c.top + container.scrollTop;
-      pill.style.width = r.width + 'px';
-      pill.style.height = r.height + 'px';
+      const x = (r.left - c.left) / z + container.scrollLeft, y = (r.top - c.top) / z + container.scrollTop;
+      pill.style.width = r.width / z + 'px';
+      pill.style.height = r.height / z + 'px';
       pill.style.transform = `translate(${x}px, ${y}px)`;
       pill.style.opacity = '1';
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }

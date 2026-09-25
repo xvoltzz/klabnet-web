@@ -299,13 +299,14 @@
   // the photo should just follow the playhead.
   function crossfadeOut() {
     if (scrubbing || !mainImg.getAttribute('src') || !(window.klabMotionOk && window.klabMotionOk())) return;
+    const z = zoomFactor(); // rects are in zoomed px on the big-screen zoom tiers
     const fr = frame.getBoundingClientRect(), r = mainImg.getBoundingClientRect();
     if (!r.width) return;
     const g = mainImg.cloneNode();
     g.removeAttribute('id');
     g.classList.add('ph-ghost');
-    Object.assign(g.style, { position: 'absolute', left: (r.left - fr.left) + 'px', top: (r.top - fr.top) + 'px',
-      width: r.width + 'px', height: r.height + 'px', transform: 'none', margin: '0' });
+    Object.assign(g.style, { position: 'absolute', left: (r.left - fr.left) / z + 'px', top: (r.top - fr.top) / z + 'px',
+      width: r.width / z + 'px', height: r.height / z + 'px', transform: 'none', margin: '0' });
     frame.appendChild(g);
     g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => g.remove();
   }
@@ -501,13 +502,13 @@
   let drag = null;
   wrap.addEventListener('pointerdown', e => {
     if (!items.length) return;
-    drag = { x: e.clientX, start: target, moved: false };
+    drag = { x: e.clientX, start: target, moved: false, z: zoomFactor() };
     wrap.setPointerCapture(e.pointerId);
     wrap.classList.add('dragging');
   });
   wrap.addEventListener('pointermove', e => {
     if (!drag) return;
-    const dx = e.clientX - drag.x;
+    const dx = (e.clientX - drag.x) / drag.z; // pointer px are zoomed on big screens; the strip isn't
     if (Math.abs(dx) > 3) drag.moved = true;
     if (!drag.moved) return;
     pos = target = clampX(drag.start - dx); // direct manipulation: no easing lag under the finger
@@ -521,7 +522,7 @@
     if (!drag.moved) {
       // a tap on a thumb jumps to it
       const r = wrap.getBoundingClientRect();
-      goTo(nearest(pos + (e.clientX - r.left - r.width / 2)));
+      goTo(nearest(pos + (e.clientX - r.left - r.width / 2) / zoomFactor()));
     }
     drag = null;
   };
@@ -570,8 +571,9 @@
     const r = stage.getBoundingClientRect();
     const h = document.createElement('i');
     h.className = 'ph-heart ti ti-heart-filled';
-    h.style.left = (e.clientX - r.left) + 'px';
-    h.style.top = (e.clientY - r.top) + 'px';
+    const z = zoomFactor();
+    h.style.left = (e.clientX - r.left) / z + 'px';
+    h.style.top = (e.clientY - r.top) / z + 'px';
     stage.appendChild(h);
     setTimeout(() => h.remove(), 900);
   }
