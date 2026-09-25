@@ -20,7 +20,7 @@
 // asset request misses and goes to the network — even if their index.html
 // is itself still cached and still asking for the old URLs.
 // Bump this whenever a deploy MUST reach people who are already running.
-const CACHE = 'klabnet-static-v50';
+const CACHE = 'klabnet-static-v51';
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
@@ -72,5 +72,18 @@ self.addEventListener('fetch', event => {
       return res;
     }).catch(() => null);
     return hit || (await network) || Response.error();
+  })());
+});
+
+// Desktop notifications shown through the worker (Android only allows
+// those): focus klabnet and tell the page which one was clicked.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const tag = event.notification.data?.tag;
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = all[0];
+    if (client) { await client.focus(); if (tag) client.postMessage({ klabNotifClick: tag }); }
+    else await self.clients.openWindow('./');
   })());
 });

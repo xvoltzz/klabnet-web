@@ -114,6 +114,7 @@ function openSettings() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', !!_settings[key]);
   });
+  syncDesktopNotifRow();
 
   const volVal = document.getElementById('sfxVolumeVal');
   const pct    = _settings.sfxVolume ?? 0.7;
@@ -128,6 +129,30 @@ function closeSettings() {
   document.getElementById('settingsBackdrop').classList.remove('open');
   SFX && SFX.play('close');
 }
+
+// Desktop notifications: on only when the setting is on *and* the browser
+// agrees. Blocked in the browser means the switch can't fix it, so say where.
+function syncDesktopNotifRow() {
+  const row = document.getElementById('desktopNotifRow');
+  if (!row) return;
+  if (!('Notification' in window)) { row.hidden = true; return; }
+  const perm = Notification.permission;
+  document.getElementById('desktopNotifToggle').classList.toggle('on', !!_settings.desktopNotif && perm === 'granted');
+  document.getElementById('desktopNotifSub').textContent = perm === 'denied'
+    ? 'Blocked by your browser. Allow notifications for this site, then flip this on'
+    : "DMs, mentions and replies while klabnet's in the background";
+}
+document.getElementById('desktopNotifToggle')?.addEventListener('click', async e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  if (_settings.desktopNotif) { _settings.desktopNotif = false; saveSettings(); syncDesktopNotifRow(); return; }
+  let perm = Notification.permission;
+  if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (err) {} }
+  _settings.desktopNotif = perm === 'granted';
+  saveSettings();
+  syncDesktopNotifRow();
+  if (perm === 'granted') showToast("You'll get desktop notifications for DMs, mentions and replies", 'ti-bell');
+}, true);
 
 // Wire toggles
 document.querySelectorAll('.s-toggle').forEach(toggle => {

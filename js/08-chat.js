@@ -2421,6 +2421,26 @@ function mentionsMe(body) {
   const me = window.KLAB_USER?.username;
   return !!me && new RegExp('(^|[^\\w])@' + me.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w])', 'i').test(body || '');
 }
+// The ones worth a desktop notification: DMs, mentions, and replies to
+// something you said. Plain channel chatter stays in the page.
+function desktopNotifyMessage(event, room, isDm) {
+  if (!window.klabDesktopNotify) return;
+  const c = event.getContent() || {};
+  const body = c.msgtype === 'm.image' ? '📷 Photo' : (c.body || '');
+  const replyTo = c['m.relates_to']?.['m.in_reply_to']?.event_id;
+  const me = MatrixChat.client.getUserId();
+  const repliesToMe = !!replyTo && room.findEventById?.(replyTo)?.getSender() === me;
+  if (!isDm && !mentionsMe(body) && !repliesToMe) return;
+  const senderId = event.getSender();
+  const name = event.sender?.name || mxIdToUsername(senderId);
+  window.klabDesktopNotify({
+    title: isDm ? name : `${name} in #${room.name || 'channel'}`,
+    body: body.length > 160 ? body.slice(0, 160) + '…' : body,
+    icon: _msgAvatarCache.get(senderId),
+    tag: room.roomId,
+    onClick: () => openChatRoom(room.roomId),
+  });
+}
 function notifyNewMessage(event, room) {
   // The initial sync (up to 50 messages/room, per initialSyncLimit) replays
   // as live 'Room.timeline' events, same as anything genuinely new — without
@@ -2434,7 +2454,12 @@ function notifyNewMessage(event, room) {
   const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')
     && room.roomId === _chatActiveRoomId;
   // Open on this room but in a background browser tab: you're not reading it.
-  if (onThisRoomAlready && !document.hidden) { SFX && SFX.play('receive', mxIdToUsername(event.getSender())); return; }
+  if (onThisRoomAlready && !document.hidden) {
+    SFX && SFX.play('receive', mxIdToUsername(event.getSender()));
+    // Visible but behind another window: still worth a nudge.
+    if (!document.hasFocus()) desktopNotifyMessage(event, room, getDmRoomIds().has(room.roomId));
+    return;
+  }
   _chatUnreadRooms.add(room.roomId);
   updateSocialUnreadBadge();
   const senderName = event.sender?.name || event.getSender();
@@ -2453,6 +2478,7 @@ function notifyNewMessage(event, room) {
   // status toasts, and is more likely to arrive while you're looking
   // elsewhere on the page.
   const where = isDm ? '' : ` in ${room.name || 'a channel'}`;
+  desktopNotifyMessage(event, room, isDm);
   showToast({ title: `${senderName}${where}`, body: body.length > 90 ? body.slice(0, 90) + '…' : body },
     toastPerson(mxIdToUsername(senderId)), TOAST_DEFAULT_MS * 2, avatarUrl,
     () => openChatRoom(room.roomId),

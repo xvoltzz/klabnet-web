@@ -318,6 +318,7 @@ let _settings = {
   sfxVolume:     0.7,
   notifSound:    true,
   loginSong:     true,
+  desktopNotif:  false,   // per device; turning it on asks the browser
 };
 
 function loadSettings() {
@@ -330,6 +331,41 @@ function loadSettings() {
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(_settings));
 }
+
+// ── Desktop notifications ──
+// For when klabnet is open but you're not looking at it: another tab,
+// another window, minimized. If you're looking, the in-page toast is
+// enough. (With the site fully closed it would take Web Push and a push
+// server; this covers the tab left open, which is how klabnet gets used.)
+const _notifClicks = new Map();   // tag -> click handler, for the service-worker path
+function klabDesktopNotify({ title, body, icon, tag, onClick }) {
+  if (!_settings.desktopNotif || !('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!document.hidden && document.hasFocus()) return;
+  const opts = {
+    body: body || '',
+    // Blob avatars don't survive into the OS; klabnet's mark does.
+    icon: /^https?:/.test(icon || '') ? icon : new URL('klab.png', location.href).href,
+    tag, renotify: !!tag,
+    // klabnet plays its own sound for these, so the OS one would double it.
+    silent: !!(_settings.sfxEnabled && _settings.notifSound),
+  };
+  const click = () => { window.focus(); onClick?.(); };
+  try {
+    const n = new Notification(title, opts);
+    n.onclick = () => { n.close(); click(); };
+  } catch (e) {
+    // Android only allows notifications from the service worker.
+    navigator.serviceWorker?.ready.then(reg => {
+      if (tag) _notifClicks.set(tag, click);
+      reg.showNotification(title, { ...opts, data: { tag } });
+    }).catch(() => {});
+  }
+}
+window.klabDesktopNotify = klabDesktopNotify;
+navigator.serviceWorker?.addEventListener('message', e => {
+  const tag = e.data?.klabNotifClick;
+  if (tag && _notifClicks.has(tag)) { _notifClicks.get(tag)(); _notifClicks.delete(tag); }
+});
 
 function applySettings() {
   // SFX volume — patch the SFX compressor

@@ -167,6 +167,27 @@
       localStorage.setItem(MENTIONS_SEEN_KEY, JSON.stringify(seen));
     } catch (e) {}
   }
+  // A new post mentioning you gets a desktop notification, once. Only
+  // posts newer than what was loaded at startup: opening klabnet never
+  // replays old mentions.
+  let _mentionFloor = null;
+  const _mentionNotified = new Set();
+  function notifyNewMentions(mentioning) {
+    const newest = _feedPosts.reduce((max, p) => Math.max(max, p.id), 0);
+    if (_mentionFloor === null) { _mentionFloor = newest; return; }
+    mentioning.forEach(p => {
+      if (p.id <= _mentionFloor || _mentionNotified.has(p.id)) return;
+      _mentionNotified.add(p.id);
+      const text = String(p.text || '').replace(/[#>*_~`|=\[\]()!-]+/g, ' ').replace(/\s+/g, ' ').trim();
+      window.klabDesktopNotify?.({
+        title: `${p.username} mentioned you`,
+        body: text.length > 160 ? text.slice(0, 160) + '…' : text,
+        icon: window.klabResolveUserAvatar?.(p.username),
+        tag: 'feed-' + p.id,
+        onClick: () => window.klabFeedFocus?.(p.id),
+      });
+    });
+  }
   function updateMentionsDot() {
     const rawMe = window.KLAB_USER?.username;
     const me = mentionsSeenKeyFor(rawMe);
@@ -186,6 +207,7 @@
     const lastSeen = seen[me] || 0;
     const mentioning = _feedPosts.filter(p =>
       p.id > lastSeen && mentionsSeenKeyFor(p.username) !== me && textMentions(p.text, me));
+    notifyNewMentions(mentioning);
     mentionsDotEl.hidden = !mentioning.length;
     // Reading a mention in the normal feed used to record nothing —
     // markMentionsSeen() was only ever called by the @ button's own click
