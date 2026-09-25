@@ -2347,7 +2347,12 @@ function notifyNewMessage(event, room) {
   const where = isDm ? '' : ` in ${room.name || 'a channel'}`;
   showToast({ title: `${senderName}${where}`, body: body.length > 90 ? body.slice(0, 90) + '…' : body },
     toastPerson(mxIdToUsername(senderId)), TOAST_DEFAULT_MS * 2, avatarUrl,
-    () => openChatRoom(room.roomId));
+    () => openChatRoom(room.roomId),
+    // Quick reply straight from the notification, threaded to the message.
+    { onReply: text => MatrixChat.client.sendMessage(room.roomId, {
+        msgtype: 'm.text', body: text,
+        'm.relates_to': { 'm.in_reply_to': { event_id: event.getId() } },
+      }) });
 }
 
 // Jumps to the Chat tab with a specific room selected — the notification

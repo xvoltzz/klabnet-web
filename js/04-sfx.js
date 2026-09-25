@@ -256,7 +256,10 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 
 // Patch showToast to play notify sound
 const _origShowToast = showToast;
-showToast = function(msg, icon, durationMs, avatarUrl) { SFX.play('notify'); _origShowToast(msg, icon, durationMs, avatarUrl); };
+// Passes every argument through: it used to forward only the first four,
+// which silently dropped the click action (jump to the chat) and the
+// quick-reply option from every chat notification.
+showToast = function(...args) { SFX.play('notify'); return _origShowToast(...args); };
 
 // Patch addToQueue to play queue sound
 const _origAddToQueue = addToQueue;

@@ -5118,3 +5118,23 @@
     .tab-nav.has-pill .tab-nav-btn:hover:not(.active),
     #musicShell .music-nav.has-pill .picker-tab:hover:not(.active),
     #musicShell .music-nav.has-pill .music-playlist-row:hover:not(.active) { color: var(--text); }
+
+    /* Quick reply on chat notifications. */
+    .toast-item.has-reply { flex-wrap: wrap; position: relative; }
+    .toast-reply-btn {
+      position: absolute; top: 10px; right: 10px; height: 26px; padding: 0 10px; border-radius: 13px; cursor: pointer;
+      border: 1px solid var(--glass-border-h); background: var(--glass-fill-h); color: var(--text);
+      font: 600 var(--fs-12) var(--font-ui); opacity: 0; transition: opacity var(--m-fast) ease;
+    }
+    .toast-item.has-reply:hover .toast-reply-btn, .toast-reply-btn:focus-visible { opacity: 1; }
+    .toast-item.replying .toast-reply-btn, .toast-item.replied .toast-reply-btn { display: none; }
+    @media (hover: none) { .toast-reply-btn { opacity: 1; } }
+    .toast-reply { display: none; width: 100%; gap: 6px; margin-top: 2px; }
+    .toast-item.replying .toast-reply { display: flex; animation: fadeInUp var(--m-med) var(--m-ease) both; }
+    .toast-item.replying { cursor: default; max-height: 260px; }
+    .toast-reply input {
+      flex: 1; min-width: 0; height: 34px; border-radius: 17px; padding: 0 14px;
+      background: var(--glass-fill-h); border: 1px solid var(--glass-border); color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none;
+    }
+    .toast-reply input:focus { border-color: var(--glass-border-h); }
+    .toast-reply button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; }

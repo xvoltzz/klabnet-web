@@ -880,7 +880,9 @@ function toastIconHTML(icon, avatarUrl) {
   }
   return `<span class="toast-item-pic toast-item-glyph"><i class="ti ${typeof icon === 'string' && icon ? icon : 'ti-bell'}"></i></span>`;
 }
-function showToast(msg, icon, durationMs, avatarUrl, onClick) {
+// opts.onReply(text): a quick-reply field like macOS notifications, for
+// chat messages. Resolve to confirm; throw to keep the field open.
+function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
   const host = document.getElementById('toastFlyout');
   if (!host) return;
 
@@ -906,8 +908,48 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick) {
   // A message notification's onClick (jump to that chat) fires alongside
   // the normal dismiss, rather than replacing it — clicking any toast
   // should always at least get it out of the way.
-  item.addEventListener('click', () => { dismissToast(item); onClick?.(); });
-  item._hide = setTimeout(() => dismissToast(item), durationMs ?? TOAST_DEFAULT_MS);
+  item.addEventListener('click', e => {
+    if (e.target.closest('.toast-reply, .toast-reply-btn')) return; // replying isn't a click-through
+    dismissToast(item); onClick?.();
+  });
+  const armHide = ms => { clearTimeout(item._hide); item._hide = setTimeout(() => dismissToast(item), ms); };
+  armHide(durationMs ?? TOAST_DEFAULT_MS);
+
+  if (opts?.onReply) {
+    item.classList.add('has-reply');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'toast-reply-btn'; btn.textContent = 'Reply';
+    item.appendChild(btn);
+    const form = document.createElement('form');
+    form.className = 'toast-reply';
+    form.innerHTML = '<input type="text" maxlength="4000" placeholder="Reply…" autocomplete="off" /><button type="submit" title="Send"><i class="ti ti-send-2"></i></button>';
+    item.appendChild(form);
+    const input = form.querySelector('input');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      clearTimeout(item._hide);          // stays while you type
+      item.classList.add('replying');
+      input.focus();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.stopPropagation(); item.classList.remove('replying'); armHide(TOAST_DEFAULT_MS); }
+    });
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      input.disabled = true;
+      try {
+        await opts.onReply(text);
+        item.classList.remove('replying');
+        item.classList.add('replied');
+        msgEl.lastChild.textContent = 'Sent: ' + text;
+        armHide(1400);
+      } catch (err) {
+        input.disabled = false; input.focus();
+      }
+    });
+  }
 }
 function dismissToast(item) {
   if (item._dismissed) return;

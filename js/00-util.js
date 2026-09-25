@@ -138,7 +138,19 @@ function klabArtFallback(img, placeholderClass, iconClass) {
 // Dividing both the coordinates and the viewport bounds by the current
 // zoom factor converts everything back into the menu's own coordinate
 // space before positioning.
-function zoomFactor(){ return parseFloat(getComputedStyle(document.documentElement).zoom) || 1; }
+// Measured rather than read from the CSS: how getBoundingClientRect() and
+// pointer coordinates relate to layout px under `html { zoom }` differs
+// between engines (Chrome reports zoomed px; Firefox has differed), so the
+// ratio of an element's on-screen width to its layout width is the one
+// number that's right everywhere. Falls back to the CSS value.
+function zoomFactor() {
+  const b = document.body;
+  if (b && b.offsetWidth) {
+    const r = b.getBoundingClientRect().width / b.offsetWidth;
+    if (r > 0.25 && r < 4) return r;
+  }
+  return parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+}
 
 // Anchors a position:fixed panel under a right-aligned element, matching its
 // right edge. Exists because #headerMoreMenu and #toastFlyout had to move out

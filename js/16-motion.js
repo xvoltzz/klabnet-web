@@ -39,19 +39,21 @@
       queued = false;
       const el = (pressed && pressed.isConnected ? pressed : null) || container.querySelector(activeSel);
       if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
-      // Rects rather than offsetLeft/Top: items can sit inside wrappers
-      // (the Music sidebar's groups) that aren't the offset parent's direct children.
-      // Rects come back in zoomed pixels on the big-screen `html { zoom }`
-      // tiers, while px set on the pill get zoomed again: divide them back.
-      const z = zoomFactor();
-      const c = container.getBoundingClientRect(), r = el.getBoundingClientRect();
-      const x = (r.left - c.left) / z + container.scrollLeft, y = (r.top - c.top) / z + container.scrollTop;
+      // Layout offsets, summed up to the container: plain CSS px in every
+      // engine, whatever the page zoom, and whole numbers, so the pill
+      // lands on exact pixels inside the tray.
+      let x = 0, y = 0, n = el;
+      while (n && n !== container) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+      if (n !== container) { // container isn't in the offset chain: fall back to rects
+        const z = zoomFactor(), c = container.getBoundingClientRect(), rr = el.getBoundingClientRect();
+        x = (rr.left - c.left) / z + container.scrollLeft; y = (rr.top - c.top) / z + container.scrollTop;
+      }
       // Size by scale from a fixed base, never by width/height: those only
       // animate on the main thread, so the pill froze whenever a tab was
       // busy loading. transform runs on the GPU regardless. The base is the
       // first item's size, so the scale stays near 1 and the corners don't
       // visibly stretch.
-      const w = r.width / z, h = r.height / z;
+      const w = el.offsetWidth, h = el.offsetHeight;
       if (!baseW) { baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px'; }
       pill.style.transform = `translate(${x}px, ${y}px) scale(${(w / baseW).toFixed(4)}, ${(h / baseH).toFixed(4)})`;
       pill.style.opacity = '1';
