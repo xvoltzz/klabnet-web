@@ -9,8 +9,8 @@
 //  it; pick({ url, title, w, h }) gets the GIF to post.
 // ══════════════════════════════════════════
 window.klabGifPicker = (function() {
-  let panel, input, grid, status, foot, sentinel, io, addForm, linkEl, nameEl, fileEl, addBtn, addMsg;
-  let anchorEl = null, onPick = null, q = '', next = 0, loading = false, reqId = 0, typeTimer = 0, total = 0;
+  let panel, input, grid, status, sentinel, io, addForm, linkEl, nameEl, fileEl, addBtn, addMsg;
+  let anchorEl = null, onPick = null, q = '', next = 0, loading = false, reqId = 0, typeTimer = 0, colH = [0, 0];
   const looksLikeLink = s => /^https?:\/\/\S+$/i.test(s.trim());
 
   function build() {
@@ -34,13 +34,11 @@ window.klabGifPicker = (function() {
         '<div class="gif-add-msg"></div>' +
       '</form>' +
       '<div class="gif-grid"></div>' +
-      '<div class="gif-status"></div>' +
-      '<div class="gif-foot"></div>';
+      '<div class="gif-status"></div>';
     document.body.appendChild(panel);
     input = panel.querySelector('.gif-search input');
     grid = panel.querySelector('.gif-grid');
     status = panel.querySelector('.gif-status');
-    foot = panel.querySelector('.gif-foot');
     addForm = panel.querySelector('.gif-add');
     linkEl = panel.querySelector('.gif-add-link');
     nameEl = panel.querySelector('.gif-add-name');
@@ -82,7 +80,7 @@ window.klabGifPicker = (function() {
           : confirm('Remove this GIF from the stash?');
         if (!ok) return;
         const res = await fetch('/api/gifs/' + encodeURIComponent(b.dataset.id), { method: 'DELETE' }).catch(() => null);
-        if (res?.ok) { b.remove(); total = Math.max(0, total - 1); syncFoot(); }
+        if (res?.ok) b.remove();
         else showToast("Couldn't remove that GIF", 'ti-alert-triangle');
         return;
       }
@@ -115,10 +113,6 @@ window.klabGifPicker = (function() {
     panel.style.left = Math.max(12, Math.min(vw - w - 12, left)) + 'px';
   }
 
-  function syncFoot() {
-    foot.textContent = total ? 'klabnet GIF stash · ' + total + (total === 1 ? ' GIF' : ' GIFs') : 'klabnet GIF stash';
-  }
-
   function tile(g) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -140,7 +134,14 @@ window.klabGifPicker = (function() {
   }
 
   async function load(reset) {
-    if (reset) { next = 0; grid.innerHTML = ''; grid.scrollTop = 0; loading = false; }
+    if (reset) {
+      next = 0; loading = false;
+      // Two real columns, filled shortest-first: CSS columns in a box of
+      // fixed height overflow sideways, which hid everything past the fold.
+      grid.innerHTML = '<div class="gif-col"></div><div class="gif-col"></div>';
+      colH = [0, 0];
+      grid.scrollTop = 0;
+    }
     if (loading || next === null) return;
     loading = true;
     const my = ++reqId;
@@ -151,12 +152,13 @@ window.klabGifPicker = (function() {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (my !== reqId) return;
-      const frag = document.createDocumentFragment();
-      (data.items || []).forEach(g => frag.appendChild(tile(g)));
-      grid.appendChild(frag);
+      const cols = grid.querySelectorAll('.gif-col');
+      (data.items || []).forEach(g => {
+        const i = colH[0] <= colH[1] ? 0 : 1;
+        cols[i].appendChild(tile(g));
+        colH[i] += (g.h || 1) / (g.w || 1) + 0.04;   // + the gap, in widths
+      });
       next = data.next ?? null;
-      total = data.total ?? total;
-      syncFoot();
       status.textContent = grid.querySelector('.gif-item') ? '' : q
         ? 'nothing called “' + q + '” yet. Paste a link to add it'
         : 'The stash is empty. Paste a GIF link from giphy.com or tenor.com to add the first one';
@@ -196,7 +198,6 @@ window.klabGifPicker = (function() {
       linkEl.value = ''; nameEl.value = '';
       showAdd(false);
       pick(data);
-      if (!grid.querySelector('.gif-item')) total = Math.max(total, 1);
     } catch (e) {
       addMsg.textContent = "couldn't add that one";
     } finally {
