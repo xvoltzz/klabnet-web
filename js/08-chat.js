@@ -79,6 +79,10 @@ const MatrixChat = (function () {
   // <head> script for `?matrixSsoCallback=1` — it relays the resulting
   // loginToken back via localStorage + postMessage and closes itself.
   function ssoPopupLogin() {
+    // The Windows app (klabnet-desktop) has no Authentik cookie for a popup
+    // to ride — it signs in through the system browser — so it runs this
+    // same SSO redirect there and hands back the loginToken itself.
+    if (window.klabnetDesktop?.matrixSsoLogin) return window.klabnetDesktop.matrixSsoLogin(MATRIX_URL);
     return new Promise((resolve, reject) => {
       const redirectUrl = `${location.origin}${location.pathname}?matrixSsoCallback=1`;
       const popup = window.open(
@@ -2818,6 +2822,13 @@ function ensureChatLoaded() {
   // interaction. Only wired once; if it fails (popup genuinely blocked,
   // SSO error) the manual Connect button bound above is still there as a
   // fallback, same as before this existed.
+  // The desktop app opens SSO in the system browser rather than a popup,
+  // so there's no popup blocker to wait out: connect straight away.
+  if (window.klabnetDesktop) {
+    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] auto-connect failed', e));
+    window.KLAB_BOOT?.mark('matrix');
+    return;
+  }
   const autoConnectOnFirstGesture = () => {
     document.removeEventListener('pointerdown', autoConnectOnFirstGesture, true);
     document.removeEventListener('keydown', autoConnectOnFirstGesture, true);

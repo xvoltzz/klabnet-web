@@ -349,7 +349,8 @@ function klabDesktopNotify({ title, body, icon, tag, onClick }) {
     // klabnet plays its own sound for these, so the OS one would double it.
     silent: !!(_settings.sfxEnabled && _settings.notifSound),
   };
-  const click = () => { window.focus(); onClick?.(); };
+  // window.focus() can't raise the desktop app's window from the tray.
+  const click = () => { window.klabnetDesktop?.focus(); window.focus(); onClick?.(); };
   try {
     const n = new Notification(title, opts);
     n.onclick = () => { n.close(); click(); };
