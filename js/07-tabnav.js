@@ -39,15 +39,9 @@ function setActiveTab(key) {
   // size while hidden). Nothing is fetched here: the tab loads in the background.
   if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
-  // Swaps the header's terminal-prompt branding to klab.chat while on
-  // this tab (see CHAT_PROMPT_TEXT's own comment) — guarded on the intro
-  // typing animation already having finished; if it hasn't (a page load
-  // landing directly on the #chat hash), typeNext()'s own completion
-  // branch applies the right text once it's done instead, rather than
-  // this fighting that in-flight animation.
-  if (typeof promptEl !== 'undefined' && promptEl && typeof typed !== 'undefined' && typed >= FULL_TEXT.length) {
-    promptEl.textContent = key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT;
-  }
+  // The header prompt backspaces into klab.chat on this tab and back out
+  // of it on the others (see retypePrompt()).
+  if (typeof retypePrompt === 'function') retypePrompt(key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT);
   // Landing on Chat with a room already selected but nothing else
   // happening to trigger a re-render (e.g. clicking the nav tab itself)
   // still counts as reading whatever's currently open.

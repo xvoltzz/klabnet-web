@@ -287,11 +287,12 @@
     const attrs = ' data-username="' + esc(username || '') + '"' +
       (playable ? ' data-song-id="' + esc(songId || '') + '" data-song-title="' + esc(song || '') + '" data-song-artist="' + esc(artist || '') + '"' : '');
     const note = _notesCache.get(username);
-    let bubble = '';
-    if (isMe && partyHost) bubble = '<span class="chat-face-note presence-card-party-leave" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>';
-    else if (isMe) bubble = '<span class="chat-face-note presence-card-note-edit' + (note ? '' : ' empty') + '" title="' + (note ? 'Edit your note' : 'Add a note') + '">' + (note ? esc(note) : '+ note') + '</span>';
-    else if (note) bubble = '<span class="chat-face-note" title="' + esc(note) + '">' + esc(note) + '</span>';
-    const tip = isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username));
+    // No note bubbles over the faces: squeezed that small nobody could read
+    // them. Notes live in the tooltip here, in a DM's header, and on Home's
+    // presence cards (where yours is set). Leaving a listening party is a
+    // control, not a note, so that one stays.
+    const bubble = isMe && partyHost ? '<span class="chat-face-note presence-card-party-leave" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>' : '';
+    const tip = (isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username))) + (note ? ' · “' + esc(note) + '”' : '');
     return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
       ' style="--name-color:' + profileColor(username) + '" title="' + tip + '">' + bubble +
       '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +

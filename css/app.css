@@ -5616,7 +5616,9 @@
     .chat-lbl-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
 
     /* online now: faces, notes above them */
-    #presenceList.chat-online { display: flex; gap: 8px; overflow-x: auto; padding: 24px 6px 2px; grid-template-columns: none; }
+    #presenceList.chat-online { display: flex; gap: 8px; overflow-x: auto; padding: 8px 6px 2px; grid-template-columns: none; }
+    /* Room above the faces only for the listening-party bubble (notes don't show here) */
+    #presenceList.chat-online:has(.chat-face-note) { padding-top: 24px; }
     #presenceList .presence-card.chat-face {
       position: relative; flex-shrink: 0; width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px;
       padding: 0; margin: 0; border: none; background: none; box-shadow: none; border-radius: 0; cursor: pointer; min-width: 0;
