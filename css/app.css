@@ -5138,3 +5138,8 @@
     }
     .toast-reply input:focus { border-color: var(--glass-border-h); }
     .toast-reply button { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; }
+    /* The sidebar scrolls, so it clips anything past its edges; the search
+       box sits flush against them and its focus glow was cut off square.
+       Room inside for the glow, taken back outside so nothing moves. */
+    body.tab-music-active #musicShell .music-sidebar { padding: 16px; margin: -16px; width: calc(250px + 32px); }
+    @media (max-width: 760px) { body.tab-music-active #musicShell .music-sidebar { width: calc(100% + 32px); } }

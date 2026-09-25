@@ -20,7 +20,7 @@
 // asset request misses and goes to the network — even if their index.html
 // is itself still cached and still asking for the old URLs.
 // Bump this whenever a deploy MUST reach people who are already running.
-const CACHE = 'klabnet-static-v29';
+const CACHE = 'klabnet-static-v30';
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
