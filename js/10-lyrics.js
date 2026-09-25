@@ -237,8 +237,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         // Click to seek
         el.addEventListener('click', () => {
           const t = _syncedLines[i].time;
+          // Jumping to a line scratches there, like the seek bar.
+          if (typeof scratchSeek === 'function') scratchSeek(t);
           playerState.audio.currentTime = t;
-          SFX && SFX.play('click');
         });
       }
       scroll.appendChild(el);
