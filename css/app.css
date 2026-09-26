@@ -5719,6 +5719,10 @@
     #chatSide .chat-conv[hidden] { display: none; }
     #chatSide .chat-conv:hover { background: var(--glass-fill); }
     #chatSide .chat-conv.active { background: var(--glass-fill-h); border-color: var(--glass-border); box-shadow: 0 0 22px rgba(255,248,236,0.05); }
+    /* The sliding highlight (js/16-motion.js) carries the active look. */
+    #chatSide .chat-side-scroll { position: relative; }
+    .motion-pill-chat { background: var(--glass-fill-h); border: 1px solid var(--glass-border); border-radius: 10px; box-shadow: 0 0 22px rgba(255,248,236,0.05); }
+    #chatSide .chat-side-scroll.has-pill .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     .chat-conv-face { position: relative; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
       background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); font: 700 13px var(--font-ui); }
     .chat-conv-face img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
@@ -6356,7 +6360,12 @@
     /* Let the window's material through, tinted with klabnet's own
        background so the page still reads as klabnet. */
     html.klabnet-app.app-material,
-    html.klabnet-app.app-material body { background: color-mix(in srgb, var(--bg) 45%, transparent); }
+    html.klabnet-app.app-material body { background: color-mix(in srgb, var(--bg) 18%, transparent); }
+    /* klabnet's own album-art backdrops would cover the material entirely;
+       dimmed, the window's blur shows through them. */
+    html.app-material .hm-bd-layer.on,
+    html.app-material .ph-bd-layer.on,
+    html.app-material .mh-flow-bg.on { opacity: 0.4 !important; }
 
     /* ── The header is the title bar ── */
     html.app-titlebar .header {
@@ -6458,8 +6467,8 @@
        own title-bar buttons go flat, like the window buttons next to them.
        --win-accent is Windows' accent colour (the app passes it in); until
        it does, klabnet's own accent stands in. */
-    html.app-titlebar { --tb-hover: rgba(255,255,255,0.07); --tb-press: rgba(255,255,255,0.04); }
-    html.app-titlebar[data-theme="light"] { --tb-hover: rgba(0,0,0,0.05); --tb-press: rgba(0,0,0,0.03); }
+    html.app-titlebar[data-platform="win32"] { --tb-hover: rgba(255,255,255,0.07); --tb-press: rgba(255,255,255,0.04); }
+    html.app-titlebar[data-platform="win32"][data-theme="light"] { --tb-hover: rgba(0,0,0,0.05); --tb-press: rgba(0,0,0,0.03); }
 
     /* Centred on the window, not on what's left of it: the room for the
        window buttons comes off the right-hand buttons, so the header's two
@@ -6469,12 +6478,12 @@
     @media (max-width: 760px) { html.app-titlebar .header { grid-template-columns: minmax(0, 1fr) auto; } }
 
     @media (min-width: 761px) {
-      html.app-titlebar .header .tab-nav {
+      html.app-titlebar[data-platform="win32"] .header .tab-nav {
         background: none !important; border: 0 !important; box-shadow: none !important;
         -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
         padding: 0; gap: 2px; border-radius: 0; overflow: visible;
       }
-      html.app-titlebar .header .tab-nav .tab-nav-btn {
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn {
         width: auto; max-width: 220px; height: 34px; padding: 0 12px; gap: 8px;
         border: 0; border-radius: 4px; background: transparent; color: var(--text-dim);
         font: 400 13px/1 "Segoe UI Variable Text", "Segoe UI", var(--font-ui);
@@ -6482,47 +6491,156 @@
         transition: max-width .4s cubic-bezier(.2,.8,.2,1), padding .4s cubic-bezier(.2,.8,.2,1),
                     opacity .22s ease, background-color .12s ease, color .12s ease;
       }
-      html.app-titlebar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
-      html.app-titlebar .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
-      html.app-titlebar .header .tab-nav .tab-nav-btn:hover { background: var(--tb-hover); color: var(--text); }
-      html.app-titlebar .header .tab-nav .tab-nav-btn:active { background: var(--tb-press); }
-      html.app-titlebar .header .tab-nav .tab-nav-btn.active { color: var(--text); background: transparent; border-color: transparent; }
-      html.app-titlebar .header .tab-nav .tab-nav-btn.active:hover { background: var(--tb-hover); }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn:hover { background: var(--tb-hover); color: var(--text); }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn:active { background: var(--tb-press); }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn.active { color: var(--text); background: transparent; border-color: transparent; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn.active:hover { background: var(--tb-hover); }
       /* The sliding pill, reduced to the selection bar. */
-      html.app-titlebar .header .tab-nav .motion-pill-tabs { background: none; border: 0; box-shadow: none; }
-      html.app-titlebar .header .tab-nav .motion-pill-tabs::after {
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .motion-pill-tabs { background: none; border: 0; box-shadow: none; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .motion-pill-tabs::after {
         content: ''; position: absolute; left: 50%; bottom: 1px; width: 16px; height: 3px; margin-left: -8px;
         border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
       }
-      html.app-titlebar #socialUnreadBadge:not(:empty) { top: 1px; right: 2px; }
+      html.app-titlebar[data-platform="win32"] #socialUnreadBadge:not(:empty) { top: 1px; right: 2px; }
 
       /* Collapsed (idle): just the current tab, with its bar. */
-      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
-      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active {
+      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
+      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active {
         background: transparent; border-color: transparent; padding: 0 12px; gap: 8px;
       }
-      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active::after {
+      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active::after {
         content: ''; position: absolute; left: 50%; bottom: 1px; width: 16px; height: 3px; margin-left: -8px;
         border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
       }
     }
     /* Not enough room for names beside everything else: icons, as before. */
     @media (min-width: 761px) and (max-width: 1099px) {
-      html.app-titlebar .header .tab-nav .tab-nav-btn { padding: 0 11px; }
-      html.app-titlebar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
-      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn { padding: 0 11px; }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
     }
 
     /* klabnet's own buttons, flat like the window buttons beside them. */
-    html.app-titlebar .header-right {
+    html.app-titlebar[data-platform="win32"] .header-right {
       background: none !important; border: 0 !important; box-shadow: none !important;
       -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
       padding: 0; gap: 2px; border-radius: 0;
     }
-    html.app-titlebar .header-right .hdr-btn {
+    html.app-titlebar[data-platform="win32"] .header-right .hdr-btn {
       width: 40px; height: 34px; min-width: 40px; min-height: 34px; border-radius: 4px;
       background: transparent; border: 0; box-shadow: none; color: var(--text-dim); font-size: 16px;
     }
-    html.app-titlebar .header-right .hdr-btn:hover { background: var(--tb-hover); color: var(--text); }
-    html.app-titlebar .header-right .hdr-btn:active { background: var(--tb-press); }
-    html.app-titlebar .header-right .hdr-btn.active { color: var(--text); background: var(--tb-hover); }
+    html.app-titlebar[data-platform="win32"] .header-right .hdr-btn:hover { background: var(--tb-hover); color: var(--text); }
+    html.app-titlebar[data-platform="win32"] .header-right .hdr-btn:active { background: var(--tb-press); }
+    html.app-titlebar[data-platform="win32"] .header-right .hdr-btn.active { color: var(--text); background: var(--tb-hover); }
+
+    /* ══ klabnet for Linux: look like the desktop it's on ══
+       data-desktop comes from the app (klabnet-desktop's linux.js). */
+
+    /* ── GNOME: a libadwaita header bar ──
+       klabnet's header is the header bar (a frameless window), with
+       Adwaita's round window buttons where GNOME's button-layout puts them
+       (js/07-tabnav.js builds them), the tabs as a view switcher, and the
+       header's own buttons flat like every other header bar button. */
+    html.app-headerbar { --adw-font: "Adwaita Sans", "Cantarell", "Inter", system-ui, sans-serif;
+      --adw-hover: rgba(255,255,255,0.07); --adw-active: rgba(255,255,255,0.16); --adw-checked: rgba(255,255,255,0.1);
+      --adw-wc: rgba(255,255,255,0.1); --adw-wc-hover: rgba(255,255,255,0.15); --adw-wc-active: rgba(255,255,255,0.3); }
+    html.app-headerbar[data-theme="light"] {
+      --adw-hover: rgba(0,0,0,0.05); --adw-active: rgba(0,0,0,0.12); --adw-checked: rgba(0,0,0,0.08);
+      --adw-wc: rgba(0,0,0,0.1); --adw-wc-hover: rgba(0,0,0,0.15); --adw-wc-active: rgba(0,0,0,0.3); }
+    html.app-headerbar .header { padding-left: 8px; }
+
+    .app-wc { display: inline-flex; align-items: center; gap: 6px; flex: none; -webkit-app-region: no-drag; }
+    html.app-headerbar .header-left .app-wc { margin-right: 6px; }
+    html.app-headerbar .header-right .app-wc { margin-left: 10px; }
+    .app-wc-btn {
+      width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; cursor: default;
+      display: grid; place-items: center; color: var(--text); background: var(--adw-wc);
+      transition: background-color .1s ease;
+    }
+    .app-wc-btn:hover { background: var(--adw-wc-hover); }
+    .app-wc-btn:active { background: var(--adw-wc-active); }
+    .app-wc-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+    html.app-headerbar .header-right {
+      background: none !important; border: 0 !important; box-shadow: none !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important; padding: 0; gap: 4px; border-radius: 0;
+    }
+    html.app-headerbar .header-right .hdr-btn {
+      width: 34px; height: 34px; min-width: 34px; min-height: 34px; border-radius: 6px; border: 0; box-shadow: none;
+      background: transparent; color: var(--text); font-size: 16px;
+    }
+    html.app-headerbar .header-right .hdr-btn:hover { background: var(--adw-hover); }
+    html.app-headerbar .header-right .hdr-btn:active,
+    html.app-headerbar .header-right .hdr-btn.active { background: var(--adw-active); }
+
+    @media (min-width: 761px) {
+      html.app-headerbar .header .tab-nav {
+        background: none !important; border: 0 !important; box-shadow: none !important;
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+        padding: 0; gap: 4px; border-radius: 0; overflow: visible;
+      }
+      html.app-headerbar .header .tab-nav .motion-pill { display: none; }
+      html.app-headerbar .header .tab-nav .tab-nav-btn {
+        width: auto; max-width: 220px; height: 34px; padding: 0 12px; gap: 8px;
+        border: 0; border-radius: 6px; background: transparent; color: var(--text);
+        font: 700 14px/1 var(--adw-font); letter-spacing: 0; text-transform: none;
+        transition: max-width .4s cubic-bezier(.2,.8,.2,1), padding .4s cubic-bezier(.2,.8,.2,1), opacity .22s ease, background-color .1s ease;
+      }
+      html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
+      html.app-headerbar .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
+      html.app-headerbar .header .tab-nav .tab-nav-btn:hover { background: var(--adw-hover); }
+      html.app-headerbar .header .tab-nav .tab-nav-btn.active { background: var(--adw-checked); border-color: transparent; }
+      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
+      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 12px; gap: 8px; background: var(--adw-checked); }
+    }
+    @media (min-width: 761px) and (max-width: 1099px) {
+      html.app-headerbar .header .tab-nav .tab-nav-btn { padding: 0 11px; }
+      html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
+    }
+
+    /* ── KDE Plasma: Breeze tool buttons ──
+       The desktop draws the window frame; inside, the tabs and header
+       buttons take Breeze's look: flat, an accent outline on hover, an
+       accent-tinted fill and frame when checked, in KDE's accent colour. */
+    html.klabnet-app[data-desktop="kde"] { --breeze-font: "Noto Sans", "Inter", system-ui, sans-serif; }
+    @media (min-width: 761px) {
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav,
+      html.klabnet-app[data-desktop="kde"] .header-right {
+        background: none !important; border: 0 !important; box-shadow: none !important;
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+        padding: 0; gap: 2px; border-radius: 0; overflow: visible;
+      }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .motion-pill { display: none; }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn,
+      html.klabnet-app[data-desktop="kde"] .header-right .hdr-btn {
+        border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--text);
+        box-shadow: none; transition: background-color .1s ease, border-color .1s ease;
+      }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn {
+        width: auto; max-width: 220px; height: 32px; padding: 0 10px; gap: 6px;
+        font: 400 13px/1 var(--breeze-font); letter-spacing: 0; text-transform: none;
+      }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
+      html.klabnet-app[data-desktop="kde"] .header-right .hdr-btn { width: 32px; height: 32px; min-width: 32px; min-height: 32px; font-size: 16px; }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn:hover,
+      html.klabnet-app[data-desktop="kde"] .header-right .hdr-btn:hover {
+        border-color: color-mix(in srgb, var(--de-accent, #3daee9) 70%, transparent);
+        background: color-mix(in srgb, var(--de-accent, #3daee9) 12%, transparent);
+      }
+      html.klabnet-app[data-desktop="kde"] .header .tab-nav .tab-nav-btn.active,
+      html.klabnet-app[data-desktop="kde"] .header-right .hdr-btn.active {
+        border-color: var(--de-accent, #3daee9);
+        background: color-mix(in srgb, var(--de-accent, #3daee9) 24%, transparent);
+      }
+      /* Spelled out: the Breeze rule above ties with the generic collapse
+         rule and, coming later, would keep the hidden tabs' width. */
+      html.klabnet-app[data-desktop="kde"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) {
+        max-width: 0; opacity: 0; pointer-events: none; padding: 0; border-width: 0;
+      }
+      html.klabnet-app[data-desktop="kde"] body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 10px; gap: 6px; }
+    }

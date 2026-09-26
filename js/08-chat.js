@@ -862,6 +862,12 @@ function renderTimeline() {
   if (!el) return;
   const roomChanged = _chatActiveRoomId !== _typingRenderedRoomId;
   if (roomChanged) {
+    // Switching conversations: the new one fades up, the way a Music view
+    // does (the sidebar's highlight slides over to it, js/16-motion.js).
+    // Not on the first render, and the composer stays put.
+    if (_typingRenderedRoomId !== null) {
+      for (const id of ['chatHead', 'chatTimeline']) window.klabFadeUp?.(document.getElementById(id), { dy: 6, duration: 240 });
+    }
     _typingRenderedRoomId = _chatActiveRoomId;
     _typingUsers.clear();
     renderTypingLine();

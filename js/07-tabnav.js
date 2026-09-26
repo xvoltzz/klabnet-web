@@ -480,7 +480,9 @@ trapFocusWithin(
     if (!root.classList.contains('app-titlebar')) return;
     const z = zoomFactor() || 1;
     const tb = app.chrome().titlebar || 48;
-    let controls = 144; // 3 x 46px buttons + a little, if the browser can't say
+    // Windows draws its buttons over the page; on Linux the header bar's
+    // own buttons are part of the page, so there's nothing to leave room for.
+    let controls = app.platform === 'win32' ? 144 : 0; // 3 x 46px + a little, if Windows can't say
     const wco = navigator.windowControlsOverlay;
     if (wco && wco.visible !== false) {
       const r = wco.getTitlebarAreaRect();
@@ -493,6 +495,50 @@ trapFocusWithin(
   window.addEventListener('resize', syncTitlebar);
   navigator.windowControlsOverlay?.addEventListener?.('geometrychange', syncTitlebar);
   document.addEventListener('DOMContentLoaded', syncTitlebar);
+
+  // ── GNOME header bar: Adwaita's window buttons, drawn here ──
+  // Placed the way GNOME's button-layout setting says (the app reads it):
+  // stock GNOME is just close, on the right.
+  const chrome = app.chrome();
+  const wcApi = app.windowControls;
+  if (chrome.headerbar && wcApi) {
+    const ICONS = {
+      minimize: '<svg viewBox="0 0 16 16"><rect x="4" y="10.5" width="8" height="1.5" rx=".75"/></svg>',
+      maximize: '<svg viewBox="0 0 16 16"><rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+      restore: '<svg viewBox="0 0 16 16"><rect x="3.75" y="6.25" width="6" height="6" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.25 4.25h4.5a1.5 1.5 0 0 1 1.5 1.5v4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      close: '<svg viewBox="0 0 16 16"><path d="M5 5l6 6m0-6l-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    };
+    const LABELS = { minimize: 'Minimize', maximize: 'Maximize', close: 'Close' };
+    const ACT = { minimize: wcApi.minimize, maximize: wcApi.toggleMaximize, close: wcApi.close };
+    const group = names => {
+      const g = document.createElement('div');
+      g.className = 'app-wc';
+      for (const n of names) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'app-wc-btn';
+        b.dataset.wc = n;
+        b.title = LABELS[n];
+        b.setAttribute('aria-label', LABELS[n]);
+        b.innerHTML = ICONS[n];
+        b.addEventListener('click', () => ACT[n]());
+        g.appendChild(b);
+      }
+      return g;
+    };
+    if (chrome.buttons.left.length) document.querySelector('.header-left')?.prepend(group(chrome.buttons.left));
+    if (chrome.buttons.right.length) document.querySelector('.header-right')?.append(group(chrome.buttons.right));
+    const setMax = m => {
+      root.classList.toggle('app-maximized', !!m);
+      document.querySelectorAll('.app-wc-btn[data-wc="maximize"]').forEach(b => {
+        b.innerHTML = m ? ICONS.restore : ICONS.maximize;
+        b.title = m ? 'Restore' : 'Maximize';
+        b.setAttribute('aria-label', b.title);
+      });
+    };
+    wcApi.onState(st => setMax(st?.maximized));
+    wcApi.state().then(st => setMax(st?.maximized)).catch(() => {});
+  }
 
   // Scrolled down, the title bar gets a solid backing so the page doesn't
   // show through under it; at the top it's one surface with the page.
@@ -526,6 +572,11 @@ trapFocusWithin(
   function render() {
     if (!settings) return;
     $('appLoginToggle')?.classList.toggle('on', !!settings.openAtLogin);
+    const loginLabel = $('appLoginLabel');
+    if (loginLabel) loginLabel.textContent = settings.platform === 'win32' || !settings.platform ? 'Start with Windows' : 'Start when you log in';
+    const frameRow = $('appFrameRow');
+    if (frameRow) frameRow.hidden = settings.platform !== 'linux';
+    document.querySelectorAll('#appFrame button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (settings.linuxFrame || 'auto'))));
     $('appTrayToggle')?.classList.toggle('on', !!settings.closeToTray);
     const row = $('appMaterialRow');
     if (row) row.hidden = !settings.canMaterial;
@@ -557,6 +608,16 @@ trapFocusWithin(
     SFX && SFX.play('click');
     settings = await app.setSetting('material', b.dataset.v);
     render();
+  });
+
+  // Linux window style: changing it restarts the app (a window's frame is
+  // fixed when it's made).
+  $('appFrame')?.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-v]');
+    if (!b || b.getAttribute('aria-pressed') === 'true') return;
+    SFX && SFX.play('click');
+    $('appFrameSub').textContent = 'Restarting klabnet…';
+    await app.setSetting('linuxFrame', b.dataset.v);
   });
 
   $('appUpdateBtn')?.addEventListener('click', async () => {

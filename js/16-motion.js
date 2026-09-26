@@ -123,6 +123,9 @@
   }
   slidingPill(document.getElementById('tabNav'), '.tab-nav-btn.active', 'motion-pill-tabs', '.tab-nav-btn');
   slidingPill(document.querySelector('#musicShell .music-nav'), '.picker-tab.active, .music-playlist-row.active', 'motion-pill-music', '.picker-tab, .music-playlist-row');
+  // Chat's sidebar, like Music's: one highlight that glides to the
+  // conversation you pick.
+  slidingPill(document.querySelector('#chatSide .chat-side-scroll'), '.chat-conv.active', 'motion-pill-chat', '.chat-conv');
 
   // ── Music views ──
   // Fade the whole list in when its content is replaced (a new view), not
