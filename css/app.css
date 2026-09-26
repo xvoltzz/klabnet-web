@@ -6289,3 +6289,43 @@
     html[data-fx="low"] .ph-side, html[data-fx="low"] .ph-glass, html[data-fx="low"] .ph-btn,
     html[data-fx="low"] .header-right { background: var(--modal-bg) !important; }
     html[data-fx="low"] #tabNav .motion-pill { background: color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%) !important; }
+
+    /* ══ Desktop tab bar: icons only, and it tucks away ══
+       No labels (each tab keeps its name as a tooltip), which makes the
+       bar small enough to sit centred in the header's top row at every
+       desktop width. After a few seconds without the mouse near it or the
+       Tab key, it collapses to just the current tab's icon (body.nav-mini,
+       js/07-tabnav.js); bringing the mouse close, Tab, or 1-9 opens it. */
+    @media (min-width: 761px) {
+      .header { grid-template-columns: 1fr auto 1fr; grid-template-rows: auto; row-gap: 0; }
+      .header-left  { grid-column: 1; grid-row: 1; }
+      .header-right { grid-column: 3; grid-row: 1; }
+      .header .tab-nav { grid-column: 2; grid-row: 1; justify-self: center; align-self: center; margin-bottom: 0; }
+
+      .tab-nav { transition: gap .4s cubic-bezier(.2,.8,.2,1); }
+      .header .tab-nav .tab-nav-btn {
+        flex: none; min-width: 0; width: calc(var(--control-h) + 14px); max-width: 80px;
+        padding: 0; position: relative; overflow: visible;
+        transition: max-width .4s cubic-bezier(.2,.8,.2,1), opacity .22s ease,
+                    background .15s, color .15s, border-color .15s;
+      }
+      .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      .tab-nav-btn i { font-size: 17px; }
+      #socialUnreadBadge:not(:empty) {
+        position: absolute; top: -4px; right: -4px; z-index: 2;
+        min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px;
+        background: #ff453a; color: #fff; font: 700 9.5px/16px var(--font-ui); letter-spacing: 0; text-align: center;
+        animation: none;
+      }
+
+      body.nav-mini .tab-nav { gap: 0; }
+      body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) {
+        max-width: 0; opacity: 0; pointer-events: none; border-width: 0;
+      }
+      /* The sliding highlight can't follow a button that's moving mid-
+         collapse, so the active button carries its own until it opens. */
+      body.nav-mini .tab-nav .motion-pill { opacity: 0 !important; }
+      body.nav-mini .tab-nav .tab-nav-btn.active {
+        background: rgba(var(--accent-rgb),0.16); border-color: rgba(var(--accent-rgb),0.4); color: var(--text);
+      }
+    }

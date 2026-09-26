@@ -386,3 +386,51 @@ trapFocusWithin(
   phone.addEventListener('change', () => { setMini(false); if (!phone.matches) clearTimeout(idleTimer); });
   window.addEventListener('resize', sizeDock);
 })();
+
+// Desktop: the tab bar in the header opens when the page loads, then after
+// a few seconds without the mouse near it (or the Tab key) it shrinks to
+// just the current tab's icon (CSS: body.nav-mini). Moving the mouse close
+// to it, Tab, 1-9 or keyboard focus on it opens it again. Mouse movement
+// elsewhere on the page doesn't count: it's about the bar being unused,
+// not the page.
+(function() {
+  const desk = matchMedia('(min-width: 761px)');
+  const nav = document.getElementById('tabNav');
+  if (!nav) return;
+  const IDLE_MS = 4000;
+  let timer = 0, lastCheck = 0;
+  function arm() {
+    clearTimeout(timer);
+    if (!desk.matches) return;
+    timer = setTimeout(() => {
+      if (nav.matches(':hover, :focus-within')) arm();
+      else document.body.classList.add('nav-mini');
+    }, IDLE_MS);
+  }
+  function open() {
+    if (document.body.classList.contains('nav-mini')) {
+      document.body.classList.remove('nav-mini');
+      // Let the sliding highlight find the active tab again once the bar
+      // has finished opening (it re-measures on resize).
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 420);
+    }
+    arm();
+  }
+  // "Close to it": a margin around the bar, wider sideways because it
+  // grows sideways when it opens.
+  document.addEventListener('pointermove', e => {
+    if (!desk.matches || e.pointerType !== 'mouse') return;
+    const now = performance.now();
+    if (now - lastCheck < 60) return;
+    lastCheck = now;
+    const r = nav.getBoundingClientRect();
+    if (e.clientX > r.left - 180 && e.clientX < r.right + 180 && e.clientY > r.top - 70 && e.clientY < r.bottom + 70) open();
+  }, { passive: true });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Tab' || /^[1-9]$/.test(e.key)) open();
+  }, true);
+  nav.addEventListener('focusin', open);
+  window.addEventListener('hashchange', open);
+  desk.addEventListener('change', () => { document.body.classList.remove('nav-mini'); arm(); });
+  arm();
+})();
