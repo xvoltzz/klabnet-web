@@ -333,9 +333,25 @@ trapFocusWithin(
     nav.style.setProperty('--dock-w', (n * 58 + (n - 1) * 2 + 12 + 2) + 'px');
   };
   sizeDock();
-  function setMini(on) {
+  let sticking = false;
+  // fromScroll: you scrolled to cause this, so don't drag the chat back down.
+  function setMini(on, fromScroll) {
+    if (on === document.body.classList.contains('dock-mini')) { if (!on) armIdle(); return; }
     if (on) nav.style.setProperty('--ai', String(Math.max(0, buttons().findIndex(b => b.classList.contains('active')))));
+    // The page's bottom space follows the dock, so Chat's timeline grows
+    // and shrinks with it. Reading the newest messages, stay on them.
+    const tl = document.getElementById('chatTimeline');
+    const pinned = !fromScroll && tl && tl.offsetParent && tl.scrollHeight - tl.scrollTop - tl.clientHeight < 80;
     document.body.classList.toggle('dock-mini', on);
+    if (pinned) {
+      const until = performance.now() + 500;
+      sticking = true;
+      (function stick() {
+        tl.scrollTop = tl.scrollHeight;
+        if (performance.now() < until) requestAnimationFrame(stick);
+        else sticking = false;
+      })();
+    }
     if (!on) armIdle();
   }
 
@@ -364,15 +380,15 @@ trapFocusWithin(
 
   const last = new WeakMap();
   document.addEventListener('scroll', e => {
-    if (!phone.matches || document.body.classList.contains('kb-open')) return;
+    if (!phone.matches || sticking || document.body.classList.contains('kb-open')) return;
     const el = e.target === document ? document.scrollingElement : e.target;
     if (!el || el.nodeType !== 1 || el.closest('#tabNav, .fs-player, .hdr-more-menu')) return;
     const top = el.scrollTop, prev = last.has(el) ? last.get(el) : top;
     last.set(el, top);
     if (performance.now() - userAt > 600) return;
     const d = top - prev;
-    if (d > 6 && top > 60) setMini(true);
-    else if (d < -6) setMini(false);
+    if (d > 6 && top > 60) setMini(true, true);
+    else if (d < -6) setMini(false, true);
   }, { capture: true, passive: true });
 
   // Tapping the collapsed dock opens it rather than switching tabs.
