@@ -230,10 +230,25 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   // opens — the button moves with viewport width and the zoom tiers.
   function positionHeaderMenu() { anchorPanelUnder(menu, btn, 10); }
 
+  // Phone layout: Settings, the player switch and the theme switch live
+  // in this menu instead of the header (.hdr-compact-only, CSS decides).
+  // They just press the real buttons, so all their wiring stays in one place.
+  const press = id => () => document.getElementById(id)?.click();
+  document.getElementById('menuSettings')?.addEventListener('click', press('settingsBtn'));
+  document.getElementById('menuPlayer')?.addEventListener('click', press('playerToggle'));
+  document.getElementById('menuTheme')?.addEventListener('click', press('themeToggle'));
+  function syncCompactItems() {
+    const pl = document.querySelector('#menuPlayer span');
+    if (pl) pl.textContent = document.body.classList.contains('player-hidden') ? 'Show player' : 'Hide player';
+    const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const th = document.getElementById('menuTheme');
+    if (th) { th.querySelector('i').className = 'ti ' + (dark ? 'ti-sun' : 'ti-moon'); th.querySelector('span').textContent = dark ? 'Light theme' : 'Dark theme'; }
+  }
+
   btn.addEventListener('click', e => {
     e.stopPropagation();
     const opening = !menu.classList.contains('visible');
-    if (opening) positionHeaderMenu();   // before .visible, so it never paints at a stale spot
+    if (opening) { syncCompactItems(); positionHeaderMenu(); }   // before .visible, so it never paints at a stale spot
     menu.classList.toggle('visible');
     SFX && SFX.play('click');
   });
@@ -263,3 +278,19 @@ trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),
   () => document.getElementById('settingsBackdrop').classList.contains('open')
 );
+
+// Phone layout on a touch screen: the bottom tab bar and the mini player
+// step aside while the on-screen keyboard is up, so what you're typing
+// into isn't boxed in under them. (A narrow desktop window keeps them.)
+(function() {
+  const touchPhone = matchMedia('(max-width: 760px) and (pointer: coarse)');
+  const isField = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' ||
+    (el.tagName === 'INPUT' && /^(text|search|url|email|password|tel|number)?$/i.test(el.type)));
+  document.addEventListener('focusin', e => {
+    if (touchPhone.matches && isField(e.target)) document.body.classList.add('kb-open');
+  });
+  // Focus hopping field to field passes through <body>; wait a beat.
+  document.addEventListener('focusout', () => setTimeout(() => {
+    if (!isField(document.activeElement)) document.body.classList.remove('kb-open');
+  }, 60));
+})();

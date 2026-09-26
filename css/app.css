@@ -4911,7 +4911,9 @@
       --m-med: 220ms;
       --m-slow: 320ms;
     }
-    .tab-panel.active { animation: fadeInUp var(--m-med) var(--m-ease) both; }
+    /* Fade only. A slide made the whole page (and everything in it) move on
+       every tab switch; the chrome around it should feel bolted down. */
+    .tab-panel.active { animation: fadeInSoft var(--m-med) var(--m-ease) both; }
 
     /* Sliding pill (slidingPill() in js/16-motion.js): one highlight that
        glides to the active item. The item's own active fill steps aside. */
@@ -6035,3 +6037,122 @@
     html[data-fx="low"] .chat-head-eq i,
     html[data-fx="low"] .hm-lcd-colon,
     html[data-fx="low"] #feedList .feed-post.is-song.playing .feed-rec-disc { animation: none !important; }
+
+    /* ══ Same bounds on every tab ══
+       Each tab used to pick its own page width (Feed and Photos the full
+       width, Home/Chat/Music 96vw), so on a phone or a narrow window the
+       header, the tab bar and the content edges all jumped sideways on
+       every switch. Below 1000px every tab gets the same box. (Later in the
+       sheet and as specific as the per-tab rules, so it wins over them.) */
+    @media (max-width: 1000px) {
+      .dash, body[class*="tab-"] .dash { max-width: 100%; }
+    }
+    /* Some tabs scroll the page and some lock it; with a classic (Windows)
+       scrollbar the page got ~15px narrower or wider each switch. Keep the
+       scrollbar's space either way. */
+    html { scrollbar-gutter: stable; }
+
+    /* ══════════════════════════════════════════
+       PHONE LAYOUT (<= 760px): a phone, the installed iPhone app, or the
+       desktop app / a browser window squeezed down to phone width.
+         · The tabs become an iOS-style bar pinned to the bottom: icons with
+           small labels, clear of the home indicator.
+         · The header keeps just the logo, the prompt and the menu button;
+           Settings, the player switch and the theme switch move into that
+           menu (.hdr-compact-only items).
+         · The player dock becomes a mini player sitting on top of the bar,
+           with a hairline progress bar; tap it (or its art) for the full
+           player.
+         · --bottom-ui is how much the bar + mini player cover, and every
+           tab pads its bottom by it, so nothing ends up underneath.
+       Touch-only extras key off (pointer: coarse) and body.kb-open (set by
+       js/07-tabnav.js while the on-screen keyboard is up), so a narrow
+       desktop window doesn't get them.
+       ══════════════════════════════════════════ */
+    .hdr-compact-only { display: none; }
+    @media (max-width: 760px) {
+      :root {
+        --nav-h: 54px;
+        --safe-b: env(safe-area-inset-bottom, 0px);
+        --mini-h: 58px;
+        --bottom-ui: calc(var(--nav-h) + var(--safe-b) + var(--mini-h) + 8px);
+      }
+      body.player-hidden, body.tab-photos-active { --bottom-ui: calc(var(--nav-h) + var(--safe-b)); }
+      body.kb-open { --bottom-ui: 0px; }
+
+      /* ── Bottom tab bar ── */
+      #tabNav {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 55;
+        display: flex; align-items: stretch; gap: 0; margin: 0; overflow: visible;
+        height: calc(var(--nav-h) + var(--safe-b)); box-sizing: border-box;
+        padding: 0 max(4px, env(safe-area-inset-right)) var(--safe-b) max(4px, env(safe-area-inset-left));
+        border: 0; border-top: 1px solid var(--glass-border); border-radius: 0;
+        background: color-mix(in srgb, var(--modal-bg) 84%, transparent);
+        -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+        box-shadow: 0 -8px 28px var(--shadow-20);
+      }
+      html[data-fx="low"] #tabNav { background: var(--modal-bg); }
+      #tabNav .motion-pill { display: none; }
+      #tabNav .tab-nav-btn {
+        flex: 1 1 0; min-width: 0; position: relative;
+        flex-direction: column; justify-content: flex-start; align-items: center; gap: 3px;
+        height: auto; padding: 8px 0 0; border: 0; border-radius: 0;
+        background: none; color: var(--text-dimmer);
+        font: 600 10px/1 var(--font-ui); letter-spacing: .01em; text-transform: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #tabNav .tab-nav-btn i { font-size: 24px; line-height: 1; }
+      #tabNav .tab-nav-btn span:not(#socialUnreadBadge) { display: block; }
+      #tabNav .tab-nav-btn.active { color: var(--text); }
+      #tabNav .tab-nav-btn:hover:not(.active) { background: none; border-color: transparent; color: var(--text-dim); }
+      #tabNav #socialUnreadBadge:not(:empty) {
+        position: absolute; top: 4px; left: calc(50% + 7px);
+        min-width: 17px; height: 17px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+        background: #ff453a; color: #fff; font: 700 10px/17px var(--font-ui); letter-spacing: 0; text-align: center;
+        animation: none;
+      }
+
+      /* ── Header: logo, prompt, menu ── */
+      .header { grid-template-columns: 1fr auto; grid-template-rows: auto; row-gap: 0; align-items: center; margin-bottom: 0.9rem; }
+      #settingsBtn, #playerToggle, #themeToggle { display: none; }
+      .hdr-more-menu .ctx-item.hdr-compact-only { display: flex; }
+      .hdr-more-menu .ctx-divider.hdr-compact-only { display: block; }
+      .hdr-more-menu .ctx-item { padding: 12px 14px; font-size: 12px; }
+
+      /* ── Every tab clears the bar and the mini player ── */
+      .dash, .dash.dash-clearance,
+      body[class*="tab-"] .dash, body[class*="tab-"].player-hidden .dash {
+        padding-bottom: calc(var(--bottom-ui) + 12px) !important;
+      }
+      /* The composer sits on the bar now, not the screen edge. */
+      .chat-composer { padding-bottom: 0.6rem; }
+
+      /* ── Mini player ── */
+      #playerDock {
+        left: 8px; right: 8px; width: auto; transform: none;
+        bottom: calc(var(--nav-h) + var(--safe-b) + 6px);
+        height: var(--mini-h); box-sizing: border-box;
+        padding: 7px 10px 7px 7px; gap: 10px; border-radius: 12px; overflow: hidden;
+      }
+      #playerDock.hidden, body.tab-photos-active #playerDock {
+        transform: translateY(calc(100% + var(--nav-h) + var(--safe-b) + 24px)) !important;
+      }
+      #playerDock .player-art, #playerDock .player-art-placeholder { width: 44px; height: 44px; border-radius: 7px; }
+      #playerDock .player-info { flex: 1 1 auto; min-width: 0; cursor: pointer; }
+      #playerDock #btnPrev, #playerDock .dock-extra, #playerDock .player-time-wrap,
+      #playerDock #btnFS, #playerDock .player-vol { display: none !important; }
+      #playerDock .ctrl-btn, #playerDock .ctrl-btn.play-btn { width: 40px; height: 40px; font-size: 22px; -webkit-tap-highlight-color: transparent; }
+      #playerDock .player-progress {
+        position: absolute !important; left: 10px; right: 10px; bottom: 0; top: auto;
+        width: auto; min-width: 0; height: 2px; flex: none !important; margin: 0; pointer-events: none;
+      }
+      #playerDock .player-progress .slider-dot { display: none; }
+
+      /* Keyboard up on a phone: both bars get out of the way. */
+      body.kb-open #tabNav, body.kb-open #playerDock { display: none; }
+    }
+    /* Bigger, calmer targets for fingers; a mouse keeps the desktop sizes. */
+    @media (max-width: 760px) and (pointer: coarse) {
+      .hdr-btn { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+      button, .ctx-item, a { -webkit-tap-highlight-color: transparent; }
+    }

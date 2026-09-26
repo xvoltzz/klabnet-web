@@ -1039,6 +1039,11 @@ function closeFS() { document.getElementById('fsPlayer').classList.remove('open'
 document.getElementById('fsClose').addEventListener('click', closeFS);
 document.getElementById('btnFS').addEventListener('click', openFS);
 document.getElementById('playerArtWrap').addEventListener('click', openFS);
+// Phone layout: the dock is a mini player, and tapping its title opens the
+// full player too, the way a music app's mini player does.
+document.querySelector('#playerDock .player-info')?.addEventListener('click', () => {
+  if (matchMedia('(max-width: 760px)').matches) openFS();
+});
 document.getElementById('fsPlayer').addEventListener('click', e => { if (e.target === document.getElementById('fsPlayer')) closeFS(); });
 
 let _fsBgActive = 'A'; // crossfade layer tracker
