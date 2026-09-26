@@ -407,50 +407,111 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
 
 // ══════════════════════════════════════════
 //  MEDIA SESSION API — OS integration
-//  Shows track info on lock screen, headphone controls,
-//  notification tray, Mac Touch Bar, etc.
+//  Lock screen and Control Center on iOS, the media notification on
+//  Android, the Windows media flyout (and klabnet-desktop's taskbar
+//  buttons, which read it), macOS Now Playing, headphone buttons, media
+//  keys.
+//
+//  Two things decide how good that looks:
+//  · Artwork is offered at several sizes up to 1024px, so the lock
+//    screen's full-bleed cover isn't a blown-up 512px one.
+//  · No seekbackward/seekforward handlers. When a page offers those, iOS
+//    shows ±15s buttons *instead of* previous/next track. Scrubbing still
+//    works everywhere through seekto.
 // ══════════════════════════════════════════
+const MEDIA_ART_SIZES = [96, 256, 512, 1024];
 function updateMediaSession(song) {
   if (!('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
   if (!song) {
-    navigator.mediaSession.metadata = null;
-    navigator.mediaSession.playbackState = 'none';
+    ms.metadata = null;
+    ms.playbackState = 'none';
     return;
   }
-
-  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=512&${subsonicParams()}`;
-
-  navigator.mediaSession.metadata = new MediaMetadata({
+  ms.metadata = new MediaMetadata({
     title:  song.title  || 'Unknown',
     artist: song.artist || 'Unknown Artist',
     album:  song.album  || '',
-    artwork: [
-      { src: artUrl, sizes: '512x512', type: 'image/jpeg' }
-    ]
+    artwork: song.coverArt ? MEDIA_ART_SIZES.map(px => ({
+      src: `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${px}&${subsonicParams()}`,
+      sizes: `${px}x${px}`, type: 'image/jpeg',
+    })) : [],
   });
-
-  // Wire hardware/OS media keys
-  navigator.mediaSession.setActionHandler('play',  () => { playerState.audio.play(); playerState.playing = true; setPlayIcon(true); navigator.mediaSession.playbackState = 'playing'; });
-  navigator.mediaSession.setActionHandler('pause', () => { playerState.audio.pause(); playerState.playing = false; setPlayIcon(false); navigator.mediaSession.playbackState = 'paused'; });
-  navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
-  navigator.mediaSession.setActionHandler('nexttrack',     () => nextSong());
-  navigator.mediaSession.setActionHandler('seekto',       e => { if (playerState.audio.duration) playerState.audio.currentTime = e.seekTime; });
-  navigator.mediaSession.setActionHandler('seekbackward', e => { playerState.audio.currentTime = Math.max(0, playerState.audio.currentTime - (e.seekOffset || 10)); });
-  navigator.mediaSession.setActionHandler('seekforward',  e => { playerState.audio.currentTime = Math.min(playerState.audio.duration || 0, playerState.audio.currentTime + (e.seekOffset || 10)); });
-
-  navigator.mediaSession.playbackState = 'playing';
+  ms.playbackState = 'playing';
+  syncMediaPosition();
+  if (song.coverArt) embedMediaArt(song);
 }
 
-// Keep position state in sync (for scrubbers in OS media overlays)
-playerState.audio.addEventListener('timeupdate', () => {
+// iOS won't show artwork from another origin on the lock screen or in the
+// Dynamic Island (it fell back to klabnet's icon), so the cover is fetched
+// here (Navidrome allows it) and handed over as a data: URL, which every
+// platform accepts. The URLs above cover the moment until it arrives.
+let _mediaArtToken = 0;
+async function embedMediaArt(song) {
+  const token = ++_mediaArtToken;
+  try {
+    const res = await fetch(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=1024&${subsonicParams()}`);
+    const blob = await res.blob();
+    if (!res.ok || !/^image\//.test(blob.type)) return;
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+    // A newer song (or none) since: leave its metadata alone.
+    if (token !== _mediaArtToken || playerState.currentSong !== song) return;
+    const m = navigator.mediaSession.metadata;
+    if (!m) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: m.title, artist: m.artist, album: m.album,
+      artwork: [{ src: dataUrl, sizes: '1024x1024', type: blob.type }],
+    });
+  } catch (e) { /* keep the URL artwork */ }
+}
+
+// Handlers are set once. Play/pause go through the player's own toggle
+// so the dock, the full player and the OS all agree.
+(function wireMediaSession() {
   if (!('mediaSession' in navigator)) return;
-  if (!playerState.audio.duration) return;
+  const ms = navigator.mediaSession;
+  const set = (action, fn) => { try { ms.setActionHandler(action, fn); } catch (e) { /* not supported here */ } };
+  set('play',  () => { if (!playerState.playing) togglePlay(); });
+  set('pause', () => { if (playerState.playing) togglePlay(); });
+  set('stop',  () => { if (playerState.playing) togglePlay(); });
+  set('previoustrack', () => prevSong());
+  set('nexttrack',     () => nextSong());
+  set('seekto', e => {
+    const a = playerState.audio;
+    if (!a.duration) return;
+    if (e.fastSeek && 'fastSeek' in a) a.fastSeek(e.seekTime); else a.currentTime = e.seekTime;
+    syncMediaPosition();
+  });
+  set('seekbackward', null);
+  set('seekforward',  null);
+})();
+
+// The OS draws its own progress bar from this; it needs refreshing when
+// the position jumps (seek, new track), not just as it plays.
+function syncMediaPosition() {
+  if (!('mediaSession' in navigator)) return;
+  const a = playerState.audio;
+  if (!a.duration || !isFinite(a.duration)) return;
   try {
     navigator.mediaSession.setPositionState({
-      duration:     playerState.audio.duration,
-      playbackRate: playerState.audio.playbackRate,
-      position:     playerState.audio.currentTime
+      duration: a.duration, playbackRate: a.playbackRate || 1,
+      position: Math.min(a.currentTime, a.duration),
     });
-  } catch(e) {}
+  } catch (e) {}
+}
+['loadedmetadata', 'seeked', 'ratechange'].forEach(ev => playerState.audio.addEventListener(ev, syncMediaPosition));
+let _lastPosSync = 0;
+playerState.audio.addEventListener('timeupdate', () => {
+  const now = performance.now();
+  if (now - _lastPosSync > 1000) { _lastPosSync = now; syncMediaPosition(); }
 });
+// Whatever paused or resumed the audio (the dock, a headphone button,
+// iOS interrupting for a call), the OS hears about it.
+playerState.audio.addEventListener('play',  () => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; });
+playerState.audio.addEventListener('pause', () => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
 

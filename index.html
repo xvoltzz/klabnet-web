@@ -4,8 +4,13 @@
   <meta charset="UTF-8" />
   <!-- viewport-fit=cover lets the layout run under a notch/home indicator;
        everything that would otherwise sit there pads itself back out with
-       env(safe-area-inset-*) in the mobile block at the end of the CSS. -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+       env(safe-area-inset-*) in the mobile block at the end of the CSS.
+       No zooming: klabnet is laid out for the phone's width, and iOS kept
+       zooming in (a tap on a small field, a double tap, a stray pinch) and
+       leaving the page stuck half-zoomed. maximum-scale stops the field
+       zoom; iOS ignores user-scalable for pinches, so js/07-tabnav.js
+       cancels those itself. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <script>
     // Matrix SSO popup callback — this load IS the popup that MatrixChat.login()
     // opened, being bounced back here by Synapse/MAS's SSO redirect with a
@@ -84,20 +89,23 @@
   <link rel="shortcut icon" href="klab.png" />
   <!-- ── PWA ──
        theme-color is split per scheme so the Android status bar and the
-       desktop title bar match whichever theme is active. The iOS
-       status-bar style has no light equivalent worth setting:
-       black-translucent lets the page background show through, which is
-       what we want in both themes. -->
+       desktop title bar match whichever theme is active. The iOS status
+       bar is a plain black one (see below for why not translucent). -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- "black", not "black-translucent": on iOS 26, a translucent status
+       bar leaves an installed app's layout one status-bar height short,
+       which showed up as a dead black band under the dock on Chat, Music
+       and Photos. With an opaque bar the app gets the whole screen below
+       it. iOS reads this once, when the app is added to the Home Screen. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.25.49" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.09.25.50" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -109,7 +117,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.49" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.25.50" />
 </head>
 <body>
 
@@ -186,7 +194,9 @@ window.KLAB_BOOT = (function() {
 <div class="fs-player" id="fsPlayer">
   <div class="fs-bg" id="fsBgA" style="opacity:0.9;transition:opacity 0.8s ease;"></div>
   <div class="fs-bg" id="fsBgB" style="opacity:0;transition:opacity 0.8s ease;"></div>
-  <button class="fs-close" id="fsClose"><i class="ti ti-x"></i></button>
+  <button class="fs-close" id="fsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
+  <!-- Phone: the grab bar at the top (tap it, or swipe the player down) closes, like Apple Music. -->
+  <button type="button" class="fs-grabber" id="fsGrabber" aria-label="Close player"></button>
 
   <!-- Left: player controls -->
   <div class="fs-content">
@@ -912,30 +922,30 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.25.49';</script>
-<script defer src="js/00-util.js?v=v2026.09.25.49"></script>
-<script defer src="js/01-shell.js?v=v2026.09.25.49"></script>
-<script defer src="js/02-player.js?v=v2026.09.25.49"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.25.49"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.25.49"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.25.49"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.25.49"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.25.49"></script>
-<script defer src="js/08-chat.js?v=v2026.09.25.49"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.25.49"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.25.49"></script>
-<script defer src="js/11-presence.js?v=v2026.09.25.49"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.25.49"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.25.49"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.25.49"></script>
-<script defer src="js/11c-gifs.js?v=v2026.09.25.49"></script>
-<script defer src="js/12-feed.js?v=v2026.09.25.49"></script>
-<script defer src="js/13-tail.js?v=v2026.09.25.49"></script>
-<script defer src="js/14-photos.js?v=v2026.09.25.49"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.25.49"></script>
-<script defer src="js/16-motion.js?v=v2026.09.25.49"></script>
-<script defer src="js/17-history.js?v=v2026.09.25.49"></script>
-<script defer src="js/18-home.js?v=v2026.09.25.49"></script>
+<script>const KLABNET_VERSION = 'v2026.09.25.50';</script>
+<script defer src="js/00-util.js?v=v2026.09.25.50"></script>
+<script defer src="js/01-shell.js?v=v2026.09.25.50"></script>
+<script defer src="js/02-player.js?v=v2026.09.25.50"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.25.50"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.25.50"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.25.50"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.25.50"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.25.50"></script>
+<script defer src="js/08-chat.js?v=v2026.09.25.50"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.25.50"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.25.50"></script>
+<script defer src="js/11-presence.js?v=v2026.09.25.50"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.25.50"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.25.50"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.25.50"></script>
+<script defer src="js/11c-gifs.js?v=v2026.09.25.50"></script>
+<script defer src="js/12-feed.js?v=v2026.09.25.50"></script>
+<script defer src="js/13-tail.js?v=v2026.09.25.50"></script>
+<script defer src="js/14-photos.js?v=v2026.09.25.50"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.25.50"></script>
+<script defer src="js/16-motion.js?v=v2026.09.25.50"></script>
+<script defer src="js/17-history.js?v=v2026.09.25.50"></script>
+<script defer src="js/18-home.js?v=v2026.09.25.50"></script>
 
 </body>
 </html>

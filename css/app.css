@@ -6089,8 +6089,9 @@
          active tab gets a glass bubble of its own: the same sliding pill
          the desktop tab bar uses (js/16-motion.js), restyled. */
       #tabNav {
-        position: fixed; left: 0; right: 0; bottom: var(--dock-b); z-index: 55;
-        width: max-content; margin: 0 auto; overflow: visible;
+        position: fixed; left: 50%; bottom: var(--dock-b); z-index: 55;
+        transform: translateX(-50%);
+        width: var(--dock-w, max-content); margin: 0; overflow: hidden;
         display: flex; align-items: center; gap: 2px;
         height: var(--nav-h); box-sizing: border-box; padding: 6px;
         border-radius: 999px;
@@ -6098,8 +6099,8 @@
         background:
           linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.06) 100%),
           color-mix(in srgb, var(--modal-bg) 52%, transparent);
-        -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.06);
-        backdrop-filter: blur(22px) saturate(1.9) brightness(1.06);
+        -webkit-backdrop-filter: blur(34px) saturate(2.1) brightness(1.06);
+        backdrop-filter: blur(34px) saturate(2.1) brightness(1.06);
         box-shadow:
           inset 0 1px 0 rgba(255,255,255,0.32),
           inset 0 -1px 0 rgba(255,255,255,0.08),
@@ -6171,8 +6172,8 @@
         background:
           linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.05) 100%),
           color-mix(in srgb, var(--modal-bg) 55%, transparent);
-        -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.06);
-        backdrop-filter: blur(22px) saturate(1.9) brightness(1.06);
+        -webkit-backdrop-filter: blur(34px) saturate(2.1) brightness(1.06);
+        backdrop-filter: blur(34px) saturate(2.1) brightness(1.06);
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 10px 30px rgba(0,0,0,0.34);
       }
       [data-theme="light"] #playerDock {
@@ -6217,3 +6218,74 @@
       .hdr-btn { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
       button, .ctx-item, a { -webkit-tap-highlight-color: transparent; }
     }
+
+    /* ══ Phone layout, round two ══ */
+    @media (max-width: 760px) {
+      /* ── Collapsing dock (js/07-tabnav.js), after Apple Music ──
+         Scrolling down shrinks the dock to a glass circle holding just the
+         current tab's icon, and the mini player slides over beside it on
+         the same line. Scrolling back up, or tapping the circle, brings it
+         all back. --ai is the active tab's index: the row of icons slides
+         so that one lands in the circle while the others fade out. */
+      #tabNav, #playerDock {
+        transition:
+          left .42s cubic-bezier(.2,.8,.2,1), transform .42s cubic-bezier(.2,.8,.2,1),
+          width .42s cubic-bezier(.2,.8,.2,1), bottom .42s cubic-bezier(.2,.8,.2,1),
+          height .42s cubic-bezier(.2,.8,.2,1);
+      }
+      #tabNav .tab-nav-btn { transition: opacity .2s ease, transform .42s cubic-bezier(.2,.8,.2,1), color .2s ease; }
+      body.dock-mini #tabNav { left: 12px; transform: none; width: var(--nav-h); }
+      body.dock-mini #tabNav .tab-nav-btn { transform: translateX(calc(var(--ai, 0) * -60px - 6px)); }
+      body.dock-mini #tabNav .tab-nav-btn:not(.active) { opacity: 0; pointer-events: none; }
+      body.dock-mini #tabNav .motion-pill { opacity: 0 !important; }
+      body.dock-mini #playerDock:not(.hidden) {
+        left: calc(12px + var(--nav-h) + 8px);
+        bottom: var(--dock-b); height: var(--nav-h);
+      }
+
+      /* ── Full player: a close button you can reach, and a grab bar ── */
+      .fs-close {
+        top: max(14px, calc(env(safe-area-inset-top) + 10px)); right: 14px;
+        width: 44px; height: 44px; min-width: 44px; border-radius: 50%;
+        background: rgba(255,255,255,0.12); color: #fff; font-size: 20px;
+      }
+      .fs-player .fs-grabber {
+        display: block; position: absolute; z-index: 3; left: 50%; transform: translateX(-50%);
+        top: max(4px, calc(env(safe-area-inset-top) - 2px)); width: 96px; height: 28px;
+        padding: 0; border: 0; background: none; cursor: pointer;
+      }
+      .fs-player .fs-grabber::before {
+        content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.5);
+      }
+      .fs-player { touch-action: none; }
+      .fs-player .fs-lyrics-col { touch-action: pan-y; }
+    }
+    .fs-grabber { display: none; }
+
+    /* ── Keyboard on a phone ──
+       iOS reveals a focused field by sliding the whole page up, header and
+       all. On the pages that don't scroll (Chat, Music, Photos) the page is
+       instead pinned to the part of the screen above the keyboard
+       (--vvt / --vvh, from visualViewport in js/07-tabnav.js), so only the
+       composer rides up and the conversation shrinks to fit. */
+    @media (max-width: 760px) and (pointer: coarse) {
+      body.kb-open.tab-chat-active, body.kb-open.tab-music-active, body.kb-open.tab-photos-active {
+        position: fixed; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%);
+      }
+      /* No double-tap zoom (pinches are cancelled in js/07-tabnav.js). */
+      html { touch-action: manipulation; }
+    }
+
+    /* ── Performance mode: solid, not see-through ──
+       With the blur gone, anything floating over content (the dock, the
+       mini player, menus, dialogs, toasts) would show what's behind it, so
+       those get the solid panel colour. Glass sitting on the page itself
+       stays as it is: there's only the plain background behind it now. */
+    html[data-fx="low"] { --modal-glass: var(--modal-bg); }
+    html[data-fx="low"] #tabNav, html[data-fx="low"] #playerDock,
+    html[data-fx="low"] .hdr-more-menu, html[data-fx="low"] .ctx-menu, html[data-fx="low"] .toast-item,
+    html[data-fx="low"] .settings-modal, html[data-fx="low"] .add-app-modal,
+    html[data-fx="low"] .ph-side, html[data-fx="low"] .ph-glass, html[data-fx="low"] .ph-btn,
+    html[data-fx="low"] .header-right { background: var(--modal-bg) !important; }
+    html[data-fx="low"] #tabNav .motion-pill { background: color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%) !important; }

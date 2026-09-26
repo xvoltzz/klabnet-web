@@ -1037,6 +1037,52 @@ function openFS() {
 function closeFS() { document.getElementById('fsPlayer').classList.remove('open'); }
 
 document.getElementById('fsClose').addEventListener('click', closeFS);
+document.getElementById('fsGrabber')?.addEventListener('click', () => closeFS());
+
+// Swipe the full player down to close it, like Apple Music's now-playing
+// sheet. Touch and pen only: a mouse drag is for the sliders. Drags that
+// start on a slider or in the lyrics (which scroll) are left alone.
+(function() {
+  const fs = document.getElementById('fsPlayer');
+  if (!fs) return;
+  let drag = null;
+  const reset = () => { fs.style.transform = ''; fs.style.borderRadius = ''; };
+  fs.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || e.target.closest('.slider-wrap, .fs-lyrics-col, input, textarea')) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), dy: 0, on: false };
+  });
+  fs.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on) {
+      if (dy > 10 && dy > Math.abs(dx) * 1.2) {
+        drag.on = true;
+        fs.setPointerCapture(e.pointerId);
+        fs.style.transition = 'none';
+      } else if (Math.abs(dx) > 10 || dy < -10) { drag = null; }
+      return;
+    }
+    drag.dy = Math.max(0, dy);
+    fs.style.transform = `translateY(${drag.dy}px)`;
+    fs.style.borderRadius = Math.min(28, drag.dy / 4) + 'px';
+  });
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (!d.on) return;
+    const speed = d.dy / Math.max(1, performance.now() - d.t); // px per ms
+    fs.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), border-radius .28s ease';
+    if (d.dy > window.innerHeight * 0.2 || speed > 0.6) {
+      fs.style.transform = `translateY(${window.innerHeight}px)`;
+      setTimeout(() => { closeFS(); fs.style.transition = ''; reset(); }, 270);
+    } else {
+      reset();
+      setTimeout(() => { fs.style.transition = ''; }, 300);
+    }
+  };
+  fs.addEventListener('pointerup', end);
+  fs.addEventListener('pointercancel', end);
+})();
 document.getElementById('btnFS').addEventListener('click', openFS);
 document.getElementById('playerArtWrap').addEventListener('click', openFS);
 // Phone layout: the dock is a mini player, and tapping its title opens the

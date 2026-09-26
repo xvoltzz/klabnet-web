@@ -293,4 +293,76 @@ trapFocusWithin(
   document.addEventListener('focusout', () => setTimeout(() => {
     if (!isField(document.activeElement)) document.body.classList.remove('kb-open');
   }, 60));
+
+  // The part of the screen the keyboard leaves visible. The pages that
+  // don't scroll pin themselves to it while the keyboard is up (CSS), so
+  // iOS doesn't slide the whole page, header and all, up out of view.
+  const vv = window.visualViewport;
+  if (vv) {
+    const root = document.documentElement;
+    const sync = () => {
+      root.style.setProperty('--vvh', vv.height + 'px');
+      root.style.setProperty('--vvt', vv.offsetTop + 'px');
+    };
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    sync();
+  }
+
+  // No pinch zoom. iOS ignores user-scalable=no, but it does let a page
+  // cancel its own pinch gestures. (klabnet's image viewer does its own
+  // zooming with pointer events, which this doesn't touch.)
+  ['gesturestart', 'gesturechange'].forEach(type =>
+    document.addEventListener(type, e => e.preventDefault(), { passive: false }));
+})();
+
+// Phone layout: the dock collapses while you scroll down, the way Apple
+// Music's tab bar does. It shrinks to a circle with the current tab's icon
+// and the mini player slides over beside it (CSS: body.dock-mini).
+// Scrolling back up, or tapping the circle, opens it again. Only scrolling
+// you do counts: a chat jumping to a new message doesn't collapse it.
+(function() {
+  const phone = matchMedia('(max-width: 760px)');
+  const nav = document.getElementById('tabNav');
+  if (!nav) return;
+  const buttons = () => [...nav.querySelectorAll('.tab-nav-btn:not([hidden])')];
+  // Width is set explicitly (58px per icon, 2px gaps, 6px padding, 1px
+  // border) so collapsing it can animate; max-content can't.
+  const sizeDock = () => {
+    const n = buttons().length;
+    nav.style.setProperty('--dock-w', (n * 58 + (n - 1) * 2 + 12 + 2) + 'px');
+  };
+  sizeDock();
+  function setMini(on) {
+    if (on) nav.style.setProperty('--ai', String(Math.max(0, buttons().findIndex(b => b.classList.contains('active')))));
+    document.body.classList.toggle('dock-mini', on);
+  }
+
+  let userAt = 0;
+  const touched = () => { userAt = performance.now(); };
+  ['touchmove', 'wheel', 'keydown'].forEach(t => window.addEventListener(t, touched, { passive: true, capture: true }));
+
+  const last = new WeakMap();
+  document.addEventListener('scroll', e => {
+    if (!phone.matches || document.body.classList.contains('kb-open')) return;
+    const el = e.target === document ? document.scrollingElement : e.target;
+    if (!el || el.nodeType !== 1 || el.closest('#tabNav, .fs-player, .hdr-more-menu')) return;
+    const top = el.scrollTop, prev = last.has(el) ? last.get(el) : top;
+    last.set(el, top);
+    if (performance.now() - userAt > 600) return;
+    const d = top - prev;
+    if (d > 6 && top > 60) setMini(true);
+    else if (d < -6) setMini(false);
+  }, { capture: true, passive: true });
+
+  // Tapping the collapsed dock opens it rather than switching tabs.
+  nav.addEventListener('click', e => {
+    if (!document.body.classList.contains('dock-mini')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    setMini(false);
+  }, true);
+  window.addEventListener('hashchange', () => setMini(false));
+  phone.addEventListener('change', () => setMini(false));
+  window.addEventListener('resize', sizeDock);
 })();
