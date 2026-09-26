@@ -4304,10 +4304,19 @@
       border-radius: 10px; padding: 14px 16px; overflow-y: auto; overscroll-behavior: contain;
       display: flex; flex-direction: column;
       transform: translateX(calc(100% + 40px)); opacity: 0;
-      transition: transform .28s ease, opacity .28s ease;
+      /* Closed, it's hidden for clicks too: on a phone it parks below the
+         stage, right over the photo strip, and swallowed every tap there. */
+      visibility: hidden; pointer-events: none;
+      transition: transform .28s ease, opacity .28s ease, visibility 0s .28s;
       user-select: text; -webkit-user-select: text;
     }
-    .ph-shell.side-open .ph-side { transform: none; opacity: 1; }
+    .ph-shell.side-open .ph-side { transform: none; opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0s; }
+    /* Photo info hidden (the (i) button): just the pictures. */
+    .ph-shell.bare .ph-rail { display: none; }
+    @media (max-width: 900px) {
+      .ph-shell.bare .ph-frame { justify-content: center; }
+      .ph-shell.bare .ph-frame > img { margin-bottom: 0; }
+    }
     .ph-side-head {
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
       font-size: var(--fs-10); font-weight: 600; letter-spacing: .14em; color: var(--text-dimmer); text-transform: uppercase;
@@ -4601,6 +4610,56 @@
       font-size: 14px; display: inline-grid; place-items: center;
     }
     .mh-reshuffle:hover { color: var(--text); background: var(--glass-fill-h); }
+
+    /* ── Shuffle wheel (js/15-music-home.js) ── */
+    .mh-wheel {
+      --mh-wheel: 300px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 22px 32px;
+      padding: 26px 18px 22px; margin: 2px 0 10px; border-radius: 10px;
+      border: 1px solid var(--glass-border); background: var(--glass-fill);
+      user-select: none; -webkit-user-select: none;
+    }
+    .mh-wheel-stage { position: relative; flex: none; width: var(--mh-wheel); aspect-ratio: 1; }
+    .mh-wheel-canvas {
+      display: block; width: 100%; height: 100%; border-radius: 50%; cursor: grab; touch-action: pan-y;
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    .mh-wheel.dragging .mh-wheel-canvas { cursor: grabbing; }
+    .mh-wheel-pointer {
+      position: absolute; left: 50%; top: -14px; width: 24px; height: 30px; margin-left: -12px; z-index: 2;
+      transform-origin: 50% 6px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); pointer-events: none;
+    }
+    .mh-wheel-pointer::before {
+      content: ''; position: absolute; inset: 0; background: var(--text);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+    .mh-wheel-spin {
+      position: absolute; left: 50%; top: 50%; z-index: 2; width: 26%; aspect-ratio: 1; padding: 0;
+      transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer;
+      border: 3px solid var(--text); color: var(--text);
+      background: radial-gradient(circle at 50% 28%, rgba(255,255,255,.22), rgba(255,255,255,0) 62%), var(--bg);
+      font: 800 var(--fs-13) var(--font-ui); letter-spacing: .14em; text-indent: .14em;
+      box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.2);
+      transition: transform var(--m-fast) var(--m-ease), opacity var(--m-fast) ease;
+    }
+    .mh-wheel-spin:hover { transform: translate(-50%, -50%) scale(1.06); }
+    .mh-wheel-spin:active { transform: translate(-50%, -50%) scale(.95); }
+    .mh-wheel-spin:disabled { cursor: default; opacity: .7; transform: translate(-50%, -50%); }
+    .mh-wheel-spin:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .9); outline-offset: 3px; }
+    .mh-wheel-result { flex: 1 1 220px; max-width: 340px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+    .mh-wheel-result .k { font-size: var(--fs-11); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dimmer); }
+    .mh-wheel-pick { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mh-wheel-art { width: 64px; height: 64px; flex: none; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+    .mh-wheel-art[hidden] { display: none; }
+    .mh-wheel-tx { min-width: 0; }
+    .mh-wheel-tx .t { font-size: var(--fs-16); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-wheel-tx .a { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mh-wheel-result .mh-flow-actions { margin-top: 0; }
+    .mh-wheel-result .mh-flow-actions[hidden] { display: none; }
+    @media (max-width: 760px) {
+      .mh-wheel { --mh-wheel: min(72vw, 270px); }
+      .mh-wheel-result { align-items: center; text-align: center; }
+    }
 
     @media (max-width: 760px) {
       .mh-card { width: 124px; }
@@ -5942,3 +6001,37 @@
     .gif-status { padding: 0 12px; font-size: 13px; color: var(--text-dimmer); text-align: center; }
     .gif-status:not(:empty) { padding: 18px 12px; }
     .gif-grid { padding-bottom: 10px; }
+
+    /* ══ Performance mode ══
+       html[data-fx="low"], set by KLAB_FX in index.html (Settings ->
+       Appearance, or automatically without a GPU). Everything here is what
+       costs a slow machine the most: full-screen album-art backdrops, glass
+       that re-blurs whatever's behind it, and animations that never stop.
+       Transitions stay (some code waits on transitionend), and so does the
+       loading spinner, which is how you know something's happening. */
+    html[data-fx="low"] .hm-backdrop,
+    html[data-fx="low"] .fs-bg,
+    html[data-fx="low"] .ph-bd-layer,
+    html[data-fx="low"] .hm-blur,
+    html[data-fx="low"] .mh-flow-bg,
+    html[data-fx="low"] .feed-post-backart,
+    html[data-fx="low"] #musicShell .ap-bg { display: none !important; }
+
+    html[data-fx="low"] *,
+    html[data-fx="low"] *::before,
+    html[data-fx="low"] *::after {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    html[data-fx="low"] .boot-glow,
+    html[data-fx="low"] .boot-logo,
+    html[data-fx="low"] .motd,
+    html[data-fx="low"] .presence-card.is-playing .presence-card-online,
+    html[data-fx="low"] #socialUnreadBadge:not(:empty),
+    html[data-fx="low"] .ph-song.playing .ph-eq b,
+    html[data-fx="low"] .hm-live-dot,
+    html[data-fx="low"] .hm-eq i,
+    html[data-fx="low"] .chat-face-eq i,
+    html[data-fx="low"] .chat-head-eq i,
+    html[data-fx="low"] .hm-lcd-colon,
+    html[data-fx="low"] #feedList .feed-post.is-song.playing .feed-rec-disc { animation: none !important; }

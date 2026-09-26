@@ -6,7 +6,8 @@
 //    Most played      the library's most-played albums (every visitor plays
 //                     through the one shared Navidrome account, so this is
 //                     site-wide)
-//    Shuffle picks    the random songs Home used to be, with a reshuffle
+//    Shuffle picks    the random songs Home used to be, as a wheel you spin,
+//                     with a reshuffle
 //  loadPickerTab('random') hands its songs to klabRenderMusicHome().
 // ══════════════════════════════════════════
 (function() {
@@ -256,6 +257,284 @@
     return out;
   }
 
+  // ══ Shuffle wheel ══
+  // Shuffle picks as a prize wheel: a slice of album art per song, a
+  // pointer at the top that flaps and ticks as slices go by. Spin it (the
+  // hub, a tap, or a flick) and whatever it lands on plays, with the rest
+  // of the picks queued after it.
+  const WHEEL_MAX = 12;
+  const TAU = Math.PI * 2;
+  const mod = (x, m) => ((x % m) + m) % m;
+
+  function shuffleWheel(allSongs) {
+    // Distinct covers first, so neighbouring slices don't look identical.
+    const seen = new Set(), songs = [];
+    for (const s of allSongs) if (songs.length < WHEEL_MAX && !seen.has(s.coverArt)) { seen.add(s.coverArt); songs.push(s); }
+    for (const s of allSongs) if (songs.length < WHEEL_MAX && !songs.includes(s)) songs.push(s);
+    const n = songs.length, slice = TAU / n;
+
+    const el = document.createElement('section');
+    el.className = 'mh-wheel';
+    el.innerHTML =
+      '<div class="mh-wheel-stage">' +
+        '<canvas class="mh-wheel-canvas" role="img"></canvas>' +
+        '<div class="mh-wheel-pointer" aria-hidden="true"></div>' +
+        '<button type="button" class="mh-wheel-spin">SPIN</button>' +
+      '</div>' +
+      '<div class="mh-wheel-result" aria-live="polite">' +
+        '<div class="k">Spin the wheel</div>' +
+        '<div class="mh-wheel-pick"><img class="mh-wheel-art" alt="" hidden />' +
+          '<div class="mh-wheel-tx"><div class="t"></div><div class="a"></div></div></div>' +
+        '<div class="mh-flow-actions" hidden><button type="button" class="mh-flow-play"><i class="ti ti-player-play-filled"></i> Play</button>' +
+          '<button type="button" class="mh-wheel-open">Open album</button></div>' +
+      '</div>';
+    const stage = el.querySelector('.mh-wheel-stage');
+    const canvas = el.querySelector('canvas');
+    const pointer = el.querySelector('.mh-wheel-pointer');
+    const spinBtn = el.querySelector('.mh-wheel-spin');
+    const kEl = el.querySelector('.k'), tEl = el.querySelector('.t'), aEl = el.querySelector('.a');
+    const artEl = el.querySelector('.mh-wheel-art'), actions = el.querySelector('.mh-flow-actions');
+    const g = canvas.getContext('2d');
+    canvas.setAttribute('aria-label', `Shuffle wheel with ${n} songs`);
+    tEl.textContent = `${n} shuffle picks`;
+    aEl.textContent = 'Hit spin, or give it a flick';
+
+    let angle = Math.random() * TAU; // canvas radians; slice i starts at angle + i*slice
+    let winner = -1, spinning = false, raf = 0, lastSeg = null, flap = null;
+    let colors = null, px = 0;
+
+    const imgs = songs.map(s => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => { if (!spinning) draw(); };
+      img.src = art(s.coverArt, 300);
+      return img;
+    });
+
+    // The slice sitting under the pointer (straight up).
+    const under = a => Math.floor(mod(-Math.PI / 2 - a, TAU) / slice) % n;
+
+    function readColors() {
+      const cs = getComputedStyle(el);
+      const rgb = cs.getPropertyValue('--accent-rgb').trim() || '200,195,188';
+      colors = { rgb, text: cs.getPropertyValue('--text').trim() || '#e8e6e1', bg: cs.getPropertyValue('--bg').trim() || '#000' };
+    }
+
+    function size() {
+      const css = stage.clientWidth;
+      if (!css) return false;
+      const want = Math.round(css * (window.devicePixelRatio || 1));
+      if (want !== px) { px = want; canvas.width = canvas.height = px; }
+      return true;
+    }
+
+    function draw() {
+      if (!size()) return;
+      if (!colors) readColors();
+      const c = px / 2, rim = px * 0.035, r = c - rim;
+      g.clearRect(0, 0, px, px);
+
+      for (let i = 0; i < n; i++) {
+        const a0 = angle + i * slice, a1 = a0 + slice;
+        g.save();
+        g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, a0, a1); g.closePath(); g.clip();
+        g.fillStyle = `rgba(${colors.rgb},${i % 2 ? 0.16 : 0.07})`;
+        g.fillRect(0, 0, px, px);
+        const img = imgs[i];
+        if (img.complete && img.naturalWidth) {
+          // A square of art covering the wedge, its top pointing outward.
+          const L = Math.max(r, 2 * r * Math.sin(Math.min(slice, Math.PI) / 2)) * 1.04;
+          g.translate(c, c); g.rotate(a0 + slice / 2 + Math.PI / 2);
+          g.drawImage(img, -L / 2, -r / 2 - L / 2, L, L);
+        }
+        g.restore();
+        if (winner >= 0 && i !== winner) {
+          g.save();
+          g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, a0, a1); g.closePath();
+          g.fillStyle = 'rgba(0,0,0,.55)'; g.fill();
+          g.restore();
+        }
+      }
+
+      // Spokes between slices.
+      g.save();
+      g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = Math.max(1, px * 0.004);
+      for (let i = 0; i < n; i++) {
+        const a = angle + i * slice;
+        g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r); g.stroke();
+      }
+      g.restore();
+
+      // Soft shine across the top, like the rest of klabnet's glass.
+      const shine = g.createLinearGradient(0, 0, 0, px);
+      shine.addColorStop(0, 'rgba(255,255,255,.16)'); shine.addColorStop(0.5, 'rgba(255,255,255,0)');
+      g.beginPath(); g.arc(c, c, r, 0, TAU); g.fillStyle = shine; g.fill();
+
+      // Rim, with a peg at every slice boundary.
+      g.beginPath(); g.arc(c, c, r + rim / 2, 0, TAU);
+      g.lineWidth = rim; g.strokeStyle = colors.text; g.stroke();
+      g.beginPath(); g.arc(c, c, r, 0, TAU);
+      g.lineWidth = Math.max(1, px * 0.004); g.strokeStyle = 'rgba(0,0,0,.35)'; g.stroke();
+      g.fillStyle = colors.bg;
+      for (let i = 0; i < n; i++) {
+        const a = angle + i * slice;
+        g.beginPath(); g.arc(c + Math.cos(a) * (r + rim / 2), c + Math.sin(a) * (r + rim / 2), rim * 0.28, 0, TAU); g.fill();
+      }
+
+      if (winner >= 0) {
+        const a0 = angle + winner * slice;
+        g.save();
+        g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, a0, a0 + slice); g.closePath();
+        g.lineWidth = Math.max(2, px * 0.012); g.strokeStyle = `rgba(${colors.rgb},.95)`;
+        g.shadowColor = `rgba(${colors.rgb},.8)`; g.shadowBlur = px * 0.03;
+        g.stroke();
+        g.restore();
+      }
+    }
+
+    function showSong(s, label) {
+      kEl.textContent = label;
+      tEl.textContent = s.title || 'Unknown';
+      aEl.textContent = [s.artist, s.album].filter(Boolean).join(' · ');
+    }
+
+    // Tick + flap each time a peg passes the pointer.
+    function tickCheck() {
+      const seg = under(angle);
+      if (seg === lastSeg) return;
+      lastSeg = seg;
+      if (!spinning) return;
+      SFX && SFX.play('tick');
+      showSong(songs[seg], 'Spinning…');
+      flap?.cancel();
+      flap = pointer.animate?.([{ transform: 'rotate(-24deg)' }, { transform: 'rotate(0deg)' }], { duration: 140, easing: 'ease-out' });
+    }
+
+    // Ease-out quint: starts at 5×delta/duration rad/ms and settles slowly.
+    function spinBy(delta, duration) {
+      cancelAnimationFrame(raf);
+      spinning = true; winner = -1; spinBtn.disabled = true;
+      actions.hidden = true; artEl.hidden = true;
+      const from = angle, t0 = performance.now();
+      const step = now => {
+        if (!el.isConnected) { spinning = false; return; }
+        const t = Math.min(1, (now - t0) / duration);
+        angle = from + delta * (1 - Math.pow(1 - t, 5));
+        tickCheck();
+        draw();
+        if (t < 1) raf = requestAnimationFrame(step);
+        else land();
+      };
+      raf = requestAnimationFrame(step);
+    }
+
+    function land() {
+      spinning = false; spinBtn.disabled = false;
+      angle = mod(angle, TAU);
+      winner = under(angle);
+      draw();
+      const s = songs[winner];
+      showSong(s, 'Now playing');
+      artEl.src = art(s.coverArt, 160); artEl.hidden = false;
+      actions.hidden = false;
+      SFX && SFX.play('success');
+      play(s);
+    }
+
+    function play(s) {
+      playerState.playlist = allSongs;
+      playerState.playlistIndex = allSongs.indexOf(s);
+      playSong(s);
+    }
+
+    // A proper spin from the hub (or a tap): pick the slice first, then
+    // wind the wheel so it stops somewhere inside it, not dead centre.
+    function spin() {
+      if (spinning) return;
+      const k = Math.floor(Math.random() * n);
+      const f = 0.15 + Math.random() * 0.7;
+      const target = -Math.PI / 2 - (k + f) * slice;
+      // Only an OS reduced-motion preference cuts the spin short. Performance
+      // mode leaves it: it's brief, you asked for it, and it's plain 2D canvas.
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const turns = still ? 0 : 5 + Math.floor(Math.random() * 2);
+      const delta = mod(target - angle, TAU) + turns * TAU;
+      spinBy(delta, still ? 450 : 4200 + Math.random() * 900);
+    }
+    spinBtn.addEventListener('click', e => { e.stopPropagation(); spin(); });
+
+    actions.querySelector('.mh-flow-play').addEventListener('click', () => { if (winner >= 0) { SFX && SFX.play('click'); play(songs[winner]); } });
+    actions.querySelector('.mh-wheel-open').addEventListener('click', () => {
+      const s = songs[winner];
+      if (s?.albumId && window.openAlbumPage) { SFX && SFX.play('nav'); window.openAlbumPage(s.albumId, s.album); }
+    });
+
+    // ── Drag and flick ──
+    const center = () => { const b = canvas.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+    const pointerAngle = e => { const [cx, cy] = center(); return Math.atan2(e.clientY - cy, e.clientX - cx); };
+    let drag = null;
+
+    canvas.addEventListener('pointerdown', e => {
+      if (spinning || e.button !== 0) return;
+      const a = pointerAngle(e);
+      drag = { id: e.pointerId, start: angle, a0: a, last: a, moved: 0, samples: [[performance.now(), angle]] };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) {
+        // Hover: name the slice under the cursor.
+        if (!spinning) {
+          const [cx, cy] = center();
+          const i = Math.floor(mod(Math.atan2(e.clientY - cy, e.clientX - cx) - angle, TAU) / slice) % n;
+          canvas.title = [songs[i].title, songs[i].artist].filter(Boolean).join(' · ');
+        }
+        return;
+      }
+      const a = pointerAngle(e);
+      let d = a - drag.last;
+      if (d > Math.PI) d -= TAU; else if (d < -Math.PI) d += TAU;
+      drag.last = a; drag.moved += Math.abs(d);
+      angle += d;
+      if (drag.moved > 0.05) el.classList.add('dragging');
+      const now = performance.now();
+      drag.samples.push([now, angle]);
+      while (drag.samples.length > 2 && now - drag.samples[0][0] > 90) drag.samples.shift();
+      lastSeg = under(angle);
+      draw();
+    });
+    const endDrag = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag; drag = null;
+      el.classList.remove('dragging');
+      if (d.moved < 0.05) { spin(); return; } // a tap spins it
+      const [t0, a0] = d.samples[0], [t1, a1] = d.samples[d.samples.length - 1];
+      const v = t1 > t0 ? (a1 - a0) / (t1 - t0) : 0; // rad/ms
+      if (Math.abs(v) < 0.004) return; // let go without a flick: it just stays there
+      const speed = Math.min(Math.abs(v), 0.06);
+      const duration = 1600 + 3400 * (speed / 0.06);
+      spinBy(Math.sign(v) * speed * duration / 5, duration); // matches the ease's starting speed
+    };
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.id) { drag = null; el.classList.remove('dragging'); } });
+
+    canvas.addEventListener('contextmenu', e => {
+      if (typeof showSongCtx !== 'function') return;
+      e.preventDefault();
+      const [cx, cy] = center();
+      const i = Math.floor(mod(Math.atan2(e.clientY - cy, e.clientX - cx) - angle, TAU) / slice) % n;
+      showSongCtx(e.clientX, e.clientY, songs[i], allSongs);
+    });
+
+    // Redraw on resize and theme change; both stop once Home re-renders.
+    const ro = new ResizeObserver(() => { if (!el.isConnected) { ro.disconnect(); return; } if (!spinning) draw(); });
+    ro.observe(stage);
+    const mo = new MutationObserver(() => { if (!el.isConnected) { mo.disconnect(); return; } readColors(); if (!spinning) draw(); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    lastSeg = under(angle);
+    return el;
+  }
+
   let frequent = [], frequentAt = 0;
 
   // Renders Home into `list`. Called with the shuffle picks already fetched.
@@ -285,7 +564,8 @@
     shuffleLabel.innerHTML = 'Shuffle picks <button type="button" class="mh-reshuffle" title="Reshuffle"><i class="ti ti-refresh"></i></button>';
     shuffleLabel.querySelector('button').addEventListener('click', () => { SFX && SFX.play('click'); reshuffle(); });
     list.appendChild(shuffleLabel);
-    if (songs.length) renderSongItems(songs, list);
+    if (songs.length >= 3) list.appendChild(shuffleWheel(songs));
+    else if (songs.length) renderSongItems(songs, list);
     else list.insertAdjacentHTML('beforeend', '<div class="picker-empty">no tracks found</div>');
   };
 })();

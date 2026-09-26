@@ -12,7 +12,8 @@
 (function() {
   const EASE = 'cubic-bezier(.2,.8,.2,1)';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const moving = () => !reduce.matches;
+  // Performance mode (see KLAB_FX in index.html) counts as reduced motion.
+  const moving = () => !reduce.matches && !window.KLAB_FX?.on();
   window.klabMotionOk = moving;
 
   function fadeUp(el, { dy = 8, duration = 240, delay = 0 } = {}) {

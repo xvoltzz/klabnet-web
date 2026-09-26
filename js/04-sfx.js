@@ -247,6 +247,8 @@ const SFX = (() => {
     click:    () => { note(N.A5, 0.62, 0.16, 0, { bright: 0.7 }); },
     glass:    () => SOUNDS.click(),
     browse:   () => { note(N.D6, 0.14, 0.06, 0, { dry: 1, tine: 0.6 }); },
+    // The shuffle wheel's pointer clacking over a peg: short, dry, woody.
+    tick:     () => { note(N.A6, 0.18, 0.03, 0, { dry: 1, bright: 0.5, tine: 0.2 }); },
     hover:    () => { note(N.D6, 0.3, 0.05, 0, { dry: 1, bright: 0.4, tine: 0.5 }); },
     nav:      () => { note(N.D5, 0.26, 0.16); note(N.A5, 0.2, 0.2, 0.05); },
     nav_back: () => { note(N.A5, 0.24, 0.16); note(N.D5, 0.2, 0.2, 0.05); },

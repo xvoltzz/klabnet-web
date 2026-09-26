@@ -16,6 +16,9 @@ function _currentAccentRgb() {
 }
 function tweenAccentRgb(target, duration, onDone) {
   duration = duration || 600;
+  // Every frame of this rewrites --accent-rgb, restyling the whole page;
+  // performance mode takes the new colour in one step instead.
+  if (window.KLAB_FX?.on()) duration = 1;
   cancelAnimationFrame(_accentTweenId);
   const start = _currentAccentRgb();
   const t0 = performance.now();

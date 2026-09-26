@@ -109,6 +109,7 @@ function openSettings() {
     if (el) el.classList.toggle('on', !!_settings[key]);
   });
   syncDesktopNotifRow();
+  syncLowFxRow();
 
   const volVal = document.getElementById('sfxVolumeVal');
   const pct    = _settings.sfxVolume ?? 0.7;
@@ -146,6 +147,26 @@ document.getElementById('desktopNotifToggle')?.addEventListener('click', async e
   saveSettings();
   syncDesktopNotifRow();
   if (perm === 'granted') showToast("You'll get desktop notifications for DMs, mentions and replies", 'ti-bell');
+}, true);
+
+// Performance mode: the <head> script already applied it at load. Left
+// on auto it follows that script's GPU probe; flipping it makes it explicit.
+function syncLowFxRow() {
+  const fx = window.KLAB_FX;
+  const toggle = document.getElementById('lowFxToggle');
+  if (!fx || !toggle) return;
+  toggle.classList.toggle('on', fx.on());
+  document.getElementById('lowFxSub').textContent = _settings.lowFx == null && fx.auto.low
+    ? `On automatically: ${fx.auto.why}`
+    : 'No blurred backgrounds, frosted glass or looping animations';
+}
+document.getElementById('lowFxToggle')?.addEventListener('click', e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  _settings.lowFx = !window.KLAB_FX.on();
+  saveSettings();
+  window.KLAB_FX.apply(_settings.lowFx);
+  syncLowFxRow();
 }, true);
 
 // Wire toggles

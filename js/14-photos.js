@@ -327,7 +327,11 @@
     const fw = frame.clientWidth, fh = frame.clientHeight;
     if (fw && fh) frameBox = { w: fw, h: fh };
     let w;
-    if (narrowMq.matches) {
+    if (shell.classList.contains('bare')) {
+      // Info hidden: the photo gets the whole frame.
+      railsH = 0;
+      w = Math.min(fw, fh * r);
+    } else if (narrowMq.matches) {
       railsH = railL.offsetHeight + railR.offsetHeight + 34;
       w = Math.min(fw, Math.max(fh * 0.45, fh - railsH) * r);
     } else {
@@ -597,6 +601,11 @@
   // A trackpad sends a stream of small deltas, which keep scrubbing freely.
   shell.addEventListener('wheel', e => {
     if (!items.length || e.target.closest('.ph-side')) return;
+    // Narrow window: the camera details, song and reactions stack under
+    // the photo in a scrolling column. A vertical wheel over that column
+    // scrolls it, or there'd be no way down to them with a mouse.
+    if (narrowMq.matches && frame.contains(e.target) && Math.abs(e.deltaY) > Math.abs(e.deltaX) &&
+        frame.scrollHeight > frame.clientHeight + 1) return;
     e.preventDefault();
     const notch = e.deltaMode === 1 || (Math.abs(e.deltaX) < 1 && Math.abs(e.deltaY) >= 50);
     if (notch) {
@@ -877,6 +886,27 @@
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopClip(); else scheduleClip(); });
 
+  // Photo info (the rails: who, caption, camera, song, reactions) can be
+  // hidden for just the pictures. Remembered per device.
+  const INFO_KEY = 'klabnet_ph_info';
+  let infoOn = true;
+  try { infoOn = localStorage.getItem(INFO_KEY) !== 'off'; } catch (e) {}
+  function setInfo(on) {
+    infoOn = on;
+    try { localStorage.setItem(INFO_KEY, on ? 'on' : 'off'); } catch (e) {}
+    renderInfoBtn();
+    fitImg();
+  }
+  function renderInfoBtn() {
+    shell.classList.toggle('bare', !infoOn);
+    const b = $('phInfoBtn');
+    b.innerHTML = `<i class="ti ${infoOn ? 'ti-info-circle' : 'ti-photo'}"></i>`;
+    b.title = infoOn ? 'Hide photo info (i)' : 'Show photo info (i)';
+    b.setAttribute('aria-pressed', infoOn);
+  }
+  renderInfoBtn();
+  $('phInfoBtn').addEventListener('click', () => { SFX && SFX.play('click'); setInfo(!infoOn); });
+
   function renderSoundBtn() {
     const b = $('phSoundBtn');
     b.innerHTML = `<i class="ti ${soundOn ? 'ti-volume' : 'ti-volume-off'}"></i>`;
@@ -930,7 +960,8 @@
     else if (k === 'ArrowLeft' || k === 'h') goTo(sel - 1);
     else if (k === 'ArrowUp' || k === 'k') goPost(1);
     else if (k === 'ArrowDown' || k === 'j') goPost(-1);
-    else if (k === 'c' || k === 'i') setSide(!shell.classList.contains('side-open'));
+    else if (k === 'c') setSide(!shell.classList.contains('side-open'));
+    else if (k === 'i') { SFX && SFX.play('click'); setInfo(!infoOn); }
     else if (k === 'End' || k === 'G') goTo(newestPostStart());
     else if (k === 'Home') goTo(0);
     else if (k === 'Escape' && shell.classList.contains('side-open')) setSide(false);
