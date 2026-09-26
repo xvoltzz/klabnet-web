@@ -562,10 +562,34 @@
     const shuffleLabel = document.createElement('div');
     shuffleLabel.className = 'picker-section-label mh-shuffle-label';
     shuffleLabel.innerHTML = 'Shuffle picks <button type="button" class="mh-reshuffle" title="Reshuffle"><i class="ti ti-refresh"></i></button>';
-    shuffleLabel.querySelector('button').addEventListener('click', () => { SFX && SFX.play('click'); reshuffle(); });
     list.appendChild(shuffleLabel);
-    if (songs.length >= 3) list.appendChild(shuffleWheel(songs));
+    let wheel = null;
+    if (songs.length >= 3) list.appendChild(wheel = shuffleWheel(songs));
     else if (songs.length) renderSongItems(songs, list);
     else list.insertAdjacentHTML('beforeend', '<div class="picker-empty">no tracks found</div>');
+    // Reshuffle swaps just the wheel for a fresh one; the rest of Home
+    // (Cover Flow, the album rows) stays exactly where it was.
+    const btn = shuffleLabel.querySelector('button');
+    btn.addEventListener('click', async () => {
+      SFX && SFX.play('click');
+      if (!wheel || !wheel.isConnected) { reshuffle(); return; }
+      if (btn.classList.contains('busy')) return;
+      btn.classList.add('busy');
+      try {
+        const r = await fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=20&${subsonicParams()}`, {}, 8000);
+        const fresh = (await r.json())['subsonic-response']?.randomSongs?.song || [];
+        if (fresh.length >= 3 && wheel.isConnected) {
+          const next = shuffleWheel(fresh);
+          wheel.replaceWith(next);
+          wheel = next;
+          pickerSongs = fresh;
+          next.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+        }
+      } catch (e) {
+        showToast('couldn’t reshuffle', 'ti-alert-triangle');
+      } finally {
+        btn.classList.remove('busy');
+      }
+    });
   };
 })();

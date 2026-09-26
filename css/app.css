@@ -4610,6 +4610,7 @@
       font-size: 14px; display: inline-grid; place-items: center;
     }
     .mh-reshuffle:hover { color: var(--text); background: var(--glass-fill-h); }
+    .mh-reshuffle.busy i { animation: spin .8s linear infinite; }
 
     /* ── Shuffle wheel (js/15-music-home.js) ── */
     .mh-wheel {
