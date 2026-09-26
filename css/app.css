@@ -6340,3 +6340,91 @@
         display: inline; animation: fadeInSoft .3s ease .12s both;
       }
     }
+
+    /* ══════════════════════════════════════════
+       KLABNET FOR WINDOWS (klabnet-desktop)
+       The <head> script marks <html>:
+         .klabnet-app     running inside the app
+         .app-titlebar    no system title bar: the header is the title bar,
+                          and Windows draws minimize/maximize/close (Snap
+                          Layouts included) over its right end
+         .app-material    Windows 11 Mica/Acrylic behind the window
+       --tb-h and --wco-right (js/07-tabnav.js) are the bar's height and
+       the window buttons' width, in page pixels.
+       ══════════════════════════════════════════ */
+
+    /* Let the window's material through, tinted with klabnet's own
+       background so the page still reads as klabnet. */
+    html.klabnet-app.app-material,
+    html.klabnet-app.app-material body { background: color-mix(in srgb, var(--bg) 45%, transparent); }
+
+    /* ── The header is the title bar ── */
+    html.app-titlebar .header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 58;
+      height: var(--tb-h, 48px); box-sizing: border-box; margin: 0;
+      padding: 0 calc(var(--wco-right, 144px) + 6px) 0 12px;
+      align-items: center; row-gap: 0;
+      animation: none; /* a transform would trap the phone dock inside it */
+      -webkit-app-region: drag;
+      transition: background-color .2s ease, box-shadow .2s ease;
+    }
+    /* Scrolled, it gets a backing so the page doesn't show through it. */
+    html.app-titlebar.app-scrolled .header {
+      background: color-mix(in srgb, var(--modal-bg) 90%, transparent);
+      box-shadow: 0 1px 0 var(--glass-border);
+    }
+    html.app-titlebar:not(.app-material).app-scrolled .header { background: var(--bg); }
+    /* Drag by the empty bar; everything you click stays clickable. */
+    html.app-titlebar .header :is(button, a, input, .tab-nav, .header-right) { -webkit-app-region: no-drag; }
+
+    /* Title-bar-sized identity: small mark and prompt, no splash text. */
+    html.app-titlebar .header-left { gap: 0.6rem; align-self: center; }
+    html.app-titlebar .logo { width: 24px; height: 24px; }
+    html.app-titlebar .header-text { gap: 0; }
+    html.app-titlebar .prompt-prefix,
+    html.app-titlebar .header-meta,
+    html.app-titlebar .motd { display: none; }
+    html.app-titlebar .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
+    html.app-titlebar .prompt-cursor { height: 0.9rem; }
+
+    /* The page starts under the bar. */
+    html.app-titlebar .dash { padding-top: calc(var(--tb-h, 48px) + 1.1rem); }
+
+    /* Full player and image viewer cover the whole window: keep a strip to
+       drag it by, and keep their own buttons clear of the window buttons. */
+    html.app-titlebar .fs-player::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--tb-h, 48px);
+      -webkit-app-region: drag; z-index: 1;
+    }
+    html.app-titlebar .fs-close { top: calc(var(--tb-h, 48px) + 10px); right: 16px; }
+    html.app-titlebar .fs-player .fs-grabber { top: var(--tb-h, 48px); }
+    html.app-titlebar .img-view-bar {
+      padding-top: calc(var(--tb-h, 48px) + 6px);
+      padding-right: calc(var(--wco-right, 144px) + 14px);
+    }
+
+    /* ── Desktop manners ──
+       Chrome isn't text you select, and buttons get the arrow, like the
+       rest of Windows, rather than a web page's pointing hand. */
+    html.klabnet-app :is(.header, .tab-nav, #playerDock, .hdr-more-menu, .ctx-menu, .settings-row-label,
+      .settings-section-label, .music-nav, .picker-tab, .fs-player) { -webkit-user-select: none; user-select: none; }
+    html.klabnet-app :is(button, .ctx-item, .tab-nav-btn, .hdr-btn, .ctrl-btn, .fs-btn, .picker-tab, .s-toggle) { cursor: default; }
+
+    /* ── Settings → App ── */
+    .app-btn {
+      flex-shrink: 0; height: 30px; padding: 0 12px; border-radius: var(--radius-md);
+      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
+      font: 600 var(--fs-12) var(--font-ui); cursor: pointer;
+    }
+    .app-btn:hover:not(:disabled) { border-color: var(--glass-border-h); }
+    .app-btn:disabled { opacity: 0.6; cursor: default; }
+    .app-seg {
+      flex-shrink: 0; display: inline-flex; gap: 2px; padding: 3px;
+      border-radius: calc(var(--radius-md) + 3px); border: 1px solid var(--glass-border); background: var(--glass-fill);
+    }
+    .app-seg button {
+      border: 0; background: none; color: var(--text-dim); cursor: pointer;
+      font: 500 var(--fs-12) var(--font-ui); padding: 5px 10px; border-radius: var(--radius-md);
+    }
+    .app-seg button:hover { color: var(--text); }
+    .app-seg button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); box-shadow: inset 0 0 0 1px var(--glass-border-h); }

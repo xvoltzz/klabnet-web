@@ -110,6 +110,7 @@ function openSettings() {
   });
   syncDesktopNotifRow();
   syncLowFxRow();
+  window.syncAppSettings?.(); // inside klabnet for Windows only
 
   const volVal = document.getElementById('sfxVolumeVal');
   const pct    = _settings.sfxVolume ?? 0.7;
@@ -449,4 +450,115 @@ trapFocusWithin(
   window.addEventListener('hashchange', open);
   desk.addEventListener('change', () => { document.body.classList.remove('nav-mini'); arm(); });
   arm();
+})();
+
+// ══════════════════════════════════════════
+//  KLABNET FOR WINDOWS — what only the desktop app needs
+//  (window.klabnetDesktop comes from klabnet-desktop's preload; in a
+//  browser none of this does anything except offer the download.)
+// ══════════════════════════════════════════
+(function() {
+  const app = window.klabnetDesktop;
+  const root = document.documentElement;
+
+  // A Windows browser gets "Get the Windows app" in the ☰ menu.
+  const getApp = document.getElementById('getAppBtn');
+  if (getApp && !app && /Windows/i.test(navigator.userAgent)) getApp.hidden = false;
+  if (!app) return;
+
+  // ── The header is the title bar ──
+  // Its height has to match the window buttons Windows draws (48 device
+  // px), and its right end has to stop short of them. Both are in screen
+  // pixels, while the page may be zoomed (html { zoom } tiers), so they're
+  // converted here rather than written in CSS.
+  function syncTitlebar() {
+    if (!root.classList.contains('app-titlebar')) return;
+    const z = zoomFactor() || 1;
+    const tb = app.chrome().titlebar || 48;
+    let controls = 144; // 3 x 46px buttons + a little, if the browser can't say
+    const wco = navigator.windowControlsOverlay;
+    if (wco && wco.visible !== false) {
+      const r = wco.getTitlebarAreaRect();
+      if (r && r.width) controls = Math.max(0, window.innerWidth - (r.x + r.width));
+    }
+    root.style.setProperty('--tb-h', (tb / z).toFixed(2) + 'px');
+    root.style.setProperty('--wco-right', (controls / z).toFixed(2) + 'px');
+  }
+  syncTitlebar();
+  window.addEventListener('resize', syncTitlebar);
+  navigator.windowControlsOverlay?.addEventListener?.('geometrychange', syncTitlebar);
+  document.addEventListener('DOMContentLoaded', syncTitlebar);
+
+  // Scrolled down, the title bar gets a solid backing so the page doesn't
+  // show through under it; at the top it's one surface with the page.
+  const onScroll = () => root.classList.toggle('app-scrolled', window.scrollY > 2);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ── Settings → App ──
+  const section = document.getElementById('appSettings');
+  if (section) section.hidden = false;
+  const $ = id => document.getElementById(id);
+  let settings = null;
+
+  function renderUpdate(u) {
+    const sub = $('appVersionSub'), btn = $('appUpdateBtn');
+    if (!sub || !btn || !settings) return;
+    const v = `Version ${settings.version}`;
+    const lines = {
+      checking: [`${v} · checking for updates…`, 'Checking…', true],
+      downloading: [`${v} · downloading ${u.version || 'an update'}${u.percent ? ` (${u.percent}%)` : ''}…`, 'Downloading…', true],
+      ready: [`${v} · ${u.version} is ready to install`, 'Restart to update', false],
+      current: [`${v} · up to date`, 'Check for updates', false],
+      error: [`${v} · ${u.message || 'couldn’t check for updates'}`, 'Try again', false],
+    }[u?.state] || [v, 'Check for updates', false];
+    sub.textContent = lines[0];
+    btn.textContent = lines[1];
+    btn.disabled = lines[2];
+    btn.dataset.ready = u?.state === 'ready' ? '1' : '';
+  }
+
+  function render() {
+    if (!settings) return;
+    $('appLoginToggle')?.classList.toggle('on', !!settings.openAtLogin);
+    $('appTrayToggle')?.classList.toggle('on', !!settings.closeToTray);
+    const row = $('appMaterialRow');
+    if (row) row.hidden = !settings.canMaterial;
+    document.querySelectorAll('#appMaterial button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === settings.material)));
+    renderUpdate(settings.update);
+  }
+
+  window.syncAppSettings = async function() {
+    try { settings = await app.getSettings(); } catch (e) { settings = null; }
+    render();
+  };
+
+  app.onUpdateStatus(u => { if (settings) { settings.update = u; renderUpdate(u); } });
+
+  // These toggles save through the app, not klabnet's own settings, so
+  // they get their own handlers ahead of the generic .s-toggle one.
+  const toggle = (id, key) => $(id)?.addEventListener('click', async e => {
+    e.stopImmediatePropagation();
+    SFX && SFX.play('click');
+    settings = await app.setSetting(key, !settings?.[key]);
+    render();
+  }, true);
+  toggle('appLoginToggle', 'openAtLogin');
+  toggle('appTrayToggle', 'closeToTray');
+
+  $('appMaterial')?.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    SFX && SFX.play('click');
+    settings = await app.setSetting('material', b.dataset.v);
+    render();
+  });
+
+  $('appUpdateBtn')?.addEventListener('click', async () => {
+    SFX && SFX.play('click');
+    if ($('appUpdateBtn').dataset.ready) { app.installUpdate(); return; }
+    renderUpdate({ state: 'checking' });
+    const u = await app.checkForUpdates();
+    if (settings && u && u.state !== 'idle') { settings.update = u; renderUpdate(u); }
+  });
 })();
