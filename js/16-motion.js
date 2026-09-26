@@ -85,7 +85,12 @@
       // busy loading. transform runs on the GPU regardless. The base is the
       // first item's size, so the scale stays near 1 and the corners don't
       // visibly stretch.
-      if (!baseW) { baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px'; }
+      // Re-based when the items change size a lot (the tab bar turning into
+      // the phone dock and back): scaling a 122x34 desktop tab down to a
+      // round 54x44 bubble would squash its corners and border.
+      if (!baseW || Math.abs(w / baseW - 1) > 0.4 || Math.abs(h / baseH - 1) > 0.4) {
+        baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px';
+      }
       // apply() skips a value that hasn't changed, so a re-place doesn't
       // restart a slide mid-way.
       apply(x, y, w, h);
