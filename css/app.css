@@ -6449,3 +6449,80 @@
     }
     .app-update-banner .aub-get { background: var(--text); color: var(--bg); border-color: transparent; }
     @media (max-width: 560px) { .app-update-banner { flex-wrap: wrap; } .app-update-banner .aub-btns { width: 100%; justify-content: flex-end; } }
+
+    /* ══ klabnet for Windows: a Windows-native title bar ══
+       The tabs are a WinUI-style selector bar (Photos, Settings): icon and
+       name in Segoe UI, no tray, a quiet rounded hover, and a short accent
+       bar under the selected one that slides between them (the same
+       sliding pill as the browser's tabs, reduced to that bar). klabnet's
+       own title-bar buttons go flat, like the window buttons next to them.
+       --win-accent is Windows' accent colour (the app passes it in); until
+       it does, klabnet's own accent stands in. */
+    html.app-titlebar { --tb-hover: rgba(255,255,255,0.07); --tb-press: rgba(255,255,255,0.04); }
+    html.app-titlebar[data-theme="light"] { --tb-hover: rgba(0,0,0,0.05); --tb-press: rgba(0,0,0,0.03); }
+
+    /* Centred on the window, not on what's left of it: the room for the
+       window buttons comes off the right-hand buttons, so the header's two
+       sides stay equal and the middle column is the window's middle. */
+    html.app-titlebar .header { padding-right: 8px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    html.app-titlebar .header-right { margin-right: var(--wco-right, 144px); }
+    @media (max-width: 760px) { html.app-titlebar .header { grid-template-columns: minmax(0, 1fr) auto; } }
+
+    @media (min-width: 761px) {
+      html.app-titlebar .header .tab-nav {
+        background: none !important; border: 0 !important; box-shadow: none !important;
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+        padding: 0; gap: 2px; border-radius: 0; overflow: visible;
+      }
+      html.app-titlebar .header .tab-nav .tab-nav-btn {
+        width: auto; max-width: 220px; height: 34px; padding: 0 12px; gap: 8px;
+        border: 0; border-radius: 4px; background: transparent; color: var(--text-dim);
+        font: 400 13px/1 "Segoe UI Variable Text", "Segoe UI", var(--font-ui);
+        letter-spacing: 0; text-transform: none;
+        transition: max-width .4s cubic-bezier(.2,.8,.2,1), padding .4s cubic-bezier(.2,.8,.2,1),
+                    opacity .22s ease, background-color .12s ease, color .12s ease;
+      }
+      html.app-titlebar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
+      html.app-titlebar .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
+      html.app-titlebar .header .tab-nav .tab-nav-btn:hover { background: var(--tb-hover); color: var(--text); }
+      html.app-titlebar .header .tab-nav .tab-nav-btn:active { background: var(--tb-press); }
+      html.app-titlebar .header .tab-nav .tab-nav-btn.active { color: var(--text); background: transparent; border-color: transparent; }
+      html.app-titlebar .header .tab-nav .tab-nav-btn.active:hover { background: var(--tb-hover); }
+      /* The sliding pill, reduced to the selection bar. */
+      html.app-titlebar .header .tab-nav .motion-pill-tabs { background: none; border: 0; box-shadow: none; }
+      html.app-titlebar .header .tab-nav .motion-pill-tabs::after {
+        content: ''; position: absolute; left: 50%; bottom: 1px; width: 16px; height: 3px; margin-left: -8px;
+        border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
+      }
+      html.app-titlebar #socialUnreadBadge:not(:empty) { top: 1px; right: 2px; }
+
+      /* Collapsed (idle): just the current tab, with its bar. */
+      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
+      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active {
+        background: transparent; border-color: transparent; padding: 0 12px; gap: 8px;
+      }
+      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active::after {
+        content: ''; position: absolute; left: 50%; bottom: 1px; width: 16px; height: 3px; margin-left: -8px;
+        border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
+      }
+    }
+    /* Not enough room for names beside everything else: icons, as before. */
+    @media (min-width: 761px) and (max-width: 1099px) {
+      html.app-titlebar .header .tab-nav .tab-nav-btn { padding: 0 11px; }
+      html.app-titlebar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      html.app-titlebar body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
+    }
+
+    /* klabnet's own buttons, flat like the window buttons beside them. */
+    html.app-titlebar .header-right {
+      background: none !important; border: 0 !important; box-shadow: none !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      padding: 0; gap: 2px; border-radius: 0;
+    }
+    html.app-titlebar .header-right .hdr-btn {
+      width: 40px; height: 34px; min-width: 40px; min-height: 34px; border-radius: 4px;
+      background: transparent; border: 0; box-shadow: none; color: var(--text-dim); font-size: 16px;
+    }
+    html.app-titlebar .header-right .hdr-btn:hover { background: var(--tb-hover); color: var(--text); }
+    html.app-titlebar .header-right .hdr-btn:active { background: var(--tb-press); }
+    html.app-titlebar .header-right .hdr-btn.active { color: var(--text); background: var(--tb-hover); }
