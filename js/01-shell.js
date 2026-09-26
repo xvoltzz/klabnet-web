@@ -349,8 +349,21 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     // A button left focused by a click would take the next Tab itself.
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
+  // A field only keeps Tab while there's something typed in it. An empty
+  // one hands Tab back to page flipping: fields get focused on their own
+  // (the chat composer after a reply or a picture, any field after you
+  // send from it), and Tab silently hopping between buttons instead of
+  // pages was the "Tab sometimes selects something else" bug.
+  function fieldInUse() {
+    const el = document.activeElement;
+    if (!el || !isEditableTarget()) return false;
+    if (el.isContentEditable) return el.textContent.trim() !== '';
+    if (el.tagName === 'INPUT' && !/^(text|search|url|email|password|tel|number)?$/i.test(el.type)) return false;
+    return el.value.trim() !== '';
+  }
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || e.metaKey || e.ctrlKey || e.altKey || isEditableTarget() || dialogOpen()) return;
+    // defaultPrevented: someone already used this Tab (list indenting in the markdown editor).
+    if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || fieldInUse() || dialogOpen()) return;
     e.preventDefault();
     flipPage(e.shiftKey ? -1 : 1);
   });
