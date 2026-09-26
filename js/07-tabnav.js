@@ -336,7 +336,27 @@ trapFocusWithin(
   function setMini(on) {
     if (on) nav.style.setProperty('--ai', String(Math.max(0, buttons().findIndex(b => b.classList.contains('active')))));
     document.body.classList.toggle('dock-mini', on);
+    if (!on) armIdle();
   }
+
+  // It also tucks itself away when you've left it alone for a few seconds,
+  // so a page you're just reading or listening on gets the screen. Not
+  // while you're typing, a menu or the full player is open, or the mouse
+  // is resting on the dock.
+  const IDLE_MS = 4000;
+  let idleTimer = 0;
+  function armIdle() {
+    clearTimeout(idleTimer);
+    if (!phone.matches) return;
+    idleTimer = setTimeout(() => {
+      const busy = document.body.classList.contains('kb-open') ||
+        document.querySelector('.hdr-more-menu.visible, .fs-player.open') || nav.matches(':hover');
+      if (busy) armIdle(); else setMini(true);
+    }, IDLE_MS);
+  }
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(t =>
+    window.addEventListener(t, armIdle, { passive: true, capture: true }));
+  armIdle();
 
   let userAt = 0;
   const touched = () => { userAt = performance.now(); };
@@ -363,6 +383,6 @@ trapFocusWithin(
     setMini(false);
   }, true);
   window.addEventListener('hashchange', () => setMini(false));
-  phone.addEventListener('change', () => setMini(false));
+  phone.addEventListener('change', () => { setMini(false); if (!phone.matches) clearTimeout(idleTimer); });
   window.addEventListener('resize', sizeDock);
 })();
