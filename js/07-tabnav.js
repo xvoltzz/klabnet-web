@@ -466,6 +466,11 @@ trapFocusWithin(
   if (getApp && !app && /Windows/i.test(navigator.userAgent)) getApp.hidden = false;
   if (!app) return;
 
+  // 1.0.x can't update itself (and has none of the bridge below), but it
+  // does load this page: tell it there's a new version and hand over the
+  // installer. Everything after this needs 1.1+.
+  if (typeof app.getSettings !== 'function') { offerAppUpdate(app.version || '0'); return; }
+
   // ── The header is the title bar ──
   // Its height has to match the window buttons Windows draws (48 device
   // px), and its right end has to stop short of them. Both are in screen
@@ -562,3 +567,44 @@ trapFocusWithin(
     if (settings && u && u.state !== 'idle') { settings.update = u; renderUpdate(u); }
   });
 })();
+
+// The newest klabnet for Windows, for apps too old to update themselves:
+// a banner with the installer, read from the same feed 1.1+ updates from.
+// "Later" puts it off for a day.
+async function offerAppUpdate(current) {
+  const SNOOZE_KEY = 'klabnet_app_update_snooze';
+  try { if (Date.now() < Number(localStorage.getItem(SNOOZE_KEY) || 0)) return; } catch (e) {}
+  const newer = (a, b) => {
+    const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    return false;
+  };
+  let latest = null;
+  try {
+    const r = await fetch('desktop/latest.yml', { cache: 'no-store' });
+    if (r.ok) latest = (/^version:\s*(\S+)/m.exec(await r.text()) || [])[1] || null;
+  } catch (e) {}
+  if (!latest || !newer(latest, current)) return;
+
+  const el = document.createElement('div');
+  el.className = 'app-update-banner';
+  el.setAttribute('role', 'status');
+  el.innerHTML =
+    '<i class="ti ti-download"></i>' +
+    '<div class="aub-tx"><b></b><span>A proper Windows 11 app: the title bar, Mica, a jump list, and it updates itself from now on.</span></div>' +
+    '<div class="aub-btns"><button type="button" class="aub-later">Later</button><button type="button" class="aub-get">Get it</button></div>';
+  el.querySelector('b').textContent = `klabnet for Windows ${latest} is out`;
+  el.querySelector('.aub-later').addEventListener('click', () => {
+    try { localStorage.setItem(SNOOZE_KEY, String(Date.now() + 24 * 3600 * 1000)); } catch (e) {}
+    el.remove();
+  });
+  el.querySelector('.aub-get').addEventListener('click', () => {
+    // 1.0 opens anything in a new window in the real browser, where the
+    // download lands like any other.
+    window.open(new URL('desktop/klabnet-setup.exe', location.href).href, '_blank');
+    el.querySelector('span').textContent = 'It’s downloading in your browser. Run klabnet-setup.exe when it’s done: it replaces this version and opens the new one.';
+    el.querySelector('.aub-get').remove();
+    el.querySelector('.aub-later').textContent = 'Done';
+  });
+  document.body.appendChild(el);
+}
