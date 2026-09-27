@@ -6644,3 +6644,40 @@
       }
       html.klabnet-app[data-desktop="kde"] body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 10px; gap: 6px; }
     }
+
+    /* ══ Use the space ══
+       Wide windows were framed in dead space: 3.5rem of side padding on
+       every page, Music/Chat/Home capped at 96% of the window on top of
+       that, a floating player dock with gaps all round it, and 7rem kept
+       clear under every page for it. Now the pages run nearly edge to edge
+       (capped only on very large monitors), every tab uses the same width
+       (Feed's reading column stays its comfortable width inside it), and
+       in the app the player is a bar across the bottom of the window, like
+       a desktop music app's, with pages clearing exactly its height. */
+    @media (min-width: 761px) {
+      .dash { padding-left: 1.75rem; padding-right: 1.75rem; padding-top: 2.25rem; }
+      .dash, body[class*="tab-"] .dash { max-width: min(100%, 2800px); }
+      body.tab-home-active .dash { max-width: min(100%, 2200px); }
+    }
+    /* Feed stays a reading column, just a roomier one on big screens. */
+    @media (min-width: 1400px) { .tab-panel[data-tab-panel="feed"] { max-width: 1040px; } }
+
+    @media (min-width: 761px) {
+      html.klabnet-app { --dock-h: 72px; }
+      html.klabnet-app .player-dock {
+        left: 0; right: 0; bottom: 0; width: auto; transform: none;
+        min-height: var(--dock-h); box-sizing: border-box;
+        padding: 0.6rem 1.5rem; border-radius: 0; border-width: 1px 0 0; box-shadow: none;
+      }
+      html.klabnet-app.app-material .player-dock {
+        background: color-mix(in srgb, var(--modal-bg) 82%, transparent);
+        -webkit-backdrop-filter: blur(30px) saturate(1.6); backdrop-filter: blur(30px) saturate(1.6);
+      }
+      html.klabnet-app .player-dock.hidden,
+      html.klabnet-app body.tab-photos-active .player-dock { transform: translateY(100%) !important; }
+      html.klabnet-app .dash,
+      html.klabnet-app .dash.dash-clearance,
+      html.klabnet-app body[class*="tab-"] .dash { padding-bottom: calc(var(--dock-h) + 18px) !important; }
+      html.klabnet-app body.player-hidden .dash,
+      html.klabnet-app body.tab-photos-active .dash { padding-bottom: 18px !important; }
+    }
