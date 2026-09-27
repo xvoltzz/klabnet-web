@@ -7620,6 +7620,15 @@
         left: var(--nav-w); transition: left .28s var(--m-ease);
         box-shadow: -1px 0 0 var(--mac-line);
       }
+      /* A collapsed sidebar (the rail, or a window too narrow for the full
+         one) is narrower than the traffic lights: the toolbar runs across
+         the top unbroken, lights and all, and the rail starts under it,
+         as in a Mac app with its sidebar hidden. */
+      html.klabnet-app.app-material.app-titlebar[data-platform="darwin"].nav-side-on body::before {
+        left: 0; box-shadow: none;
+        clip-path: polygon(0 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) var(--tb-h, 52px), 0 var(--tb-h, 52px));
+      }
+      html.klabnet-app.app-titlebar[data-platform="darwin"].nav-side-on:not(.nav-flyout) .side-nav { box-shadow: 1px 0 0 var(--mac-line); }
     }
 
     @media (min-width: 761px), (pointer: fine) {
@@ -7673,6 +7682,11 @@
         content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--tb-h, 52px); -webkit-app-region: drag;
       }
       html.app-titlebar.app-fullscreen[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: 10px; }
+      /* The full sidebar owns the top of the window instead. */
+      html.klabnet-app.app-material.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) body::before {
+        left: var(--nav-w); clip-path: none; box-shadow: -1px 0 0 var(--mac-line);
+      }
+      html.klabnet-app.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { box-shadow: none; }
     }
 
     /* ── Toolbar buttons: Liquid Glass, grouped in one capsule ── */
