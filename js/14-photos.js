@@ -75,6 +75,13 @@
       const post = posts[pi];
       post.photos.forEach((ph, k) => items.push({ post, k, ph }));
     }
+    renderViewHead();
+  }
+  // The big title over the photo, the way Music titles its views.
+  function renderViewHead() {
+    $('phViewTitle').textContent = order === 'posted' ? "What's new" : 'Timeline';
+    const n = items.length;
+    $('phViewSub').textContent = n ? `${n}${hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
   }
   // The first photo of the newest post: where the tab opens, and what G/End
   // go back to. (The newest post's later photos sit to its right.)
@@ -200,6 +207,7 @@
     if (next === order) return;
     order = next;
     document.querySelectorAll('#phOrder button').forEach(b => b.setAttribute('aria-pressed', b.dataset.order === order));
+    renderViewHead();
     posts = []; items = []; sel = -1; hasOlder = true; loadedOnce = false;
     cursor = null; gen++; loadingOlder = false;
     strip.textContent = ''; thumbEls = []; centers = [];
@@ -350,7 +358,26 @@
   const railL = frame.querySelector('.ph-rail-l');
   const railR = frame.querySelector('.ph-rail-r');
   const narrowMq = matchMedia('(max-width: 900px)');
-  const RAIL_GAP = 28;
+  // Where the chrome lives: in Music's sidebar on a wide window; beside
+  // and under the photo when it's narrow. Moved, not copied, so every
+  // listener and id stays as it is.
+  const actions = shell.querySelector('.ph-actions');
+  function placeChrome() {
+    const b = id => $(id);
+    if (narrowMq.matches) {
+      if (railL.parentElement === frame) return;
+      actions.append(b('phOrder'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      frame.insertBefore(railL, mainImg);
+      frame.insertBefore(railR, mainImg.nextSibling);
+    } else {
+      if (railL.parentElement === $('phSideInfo')) return;
+      $('phSideViews').append(b('phOrder'), b('phPostBtn'));
+      $('phSideToggles').append(b('phInfoBtn'), b('phSoundBtn'));
+      $('phSideInfo').append(railL, railR);
+    }
+  }
+  placeChrome();
+  narrowMq.addEventListener('change', () => { placeChrome(); fitImg(); });
   // Which copy is sharp enough for how big the photo is drawn on this
   // screen: the 1440px one (a phone, a small window, a 1x monitor) or the
   // 2560px one. Measured against the whole frame, so it errs toward sharp.
@@ -394,17 +421,13 @@
     if (!fw || !fh) return;
     frameBox = { w: fw, h: fh };
     let w;
-    if (shell.classList.contains('bare')) {
-      // Info hidden: the photo gets the whole frame.
+    if (shell.classList.contains('bare') || !narrowMq.matches) {
+      // Info hidden, or it's in the sidebar: the photo gets the whole frame.
       railsH = 0;
       w = Math.min(fw, fh * r);
-    } else if (narrowMq.matches) {
+    } else {
       railsH = railL.offsetHeight + railR.offsetHeight + 34;
       w = Math.min(fw, Math.max(fh * 0.45, fh - railsH) * r);
-    } else {
-      const railW = Math.round(Math.min(300, Math.max(236, fw * 0.17))); // 236: one row of reactions
-      frame.style.setProperty('--ph-rail-w', railW + 'px');
-      w = Math.min(fw - 2 * (railW + RAIL_GAP), fh * r);
     }
     w = Math.max(0, w);
     mainImg.style.width = Math.round(w) + 'px';
@@ -1034,7 +1057,7 @@
   function renderInfoBtn() {
     shell.classList.toggle('bare', !infoOn);
     const b = $('phInfoBtn');
-    b.innerHTML = `<i class="ti ${infoOn ? 'ti-info-circle' : 'ti-photo'}"></i>`;
+    b.innerHTML = `<i class="ti ${infoOn ? 'ti-info-circle' : 'ti-photo'}"></i><span>Photo info</span><em>${infoOn ? 'On' : 'Off'}</em>`;
     b.title = infoOn ? 'Hide photo info (i)' : 'Show photo info (i)';
     b.setAttribute('aria-pressed', infoOn);
   }
@@ -1043,7 +1066,7 @@
 
   function renderSoundBtn() {
     const b = $('phSoundBtn');
-    b.innerHTML = `<i class="ti ${soundOn ? 'ti-volume' : 'ti-volume-off'}"></i>`;
+    b.innerHTML = `<i class="ti ${soundOn ? 'ti-volume' : 'ti-volume-off'}"></i><span>Song clips</span><em>${soundOn ? 'On' : 'Off'}</em>`;
     b.title = soundOn ? 'Song clips on' : 'Song clips off';
     b.setAttribute('aria-pressed', soundOn);
   }

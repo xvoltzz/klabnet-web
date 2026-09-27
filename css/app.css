@@ -7416,3 +7416,120 @@
     /* The artist and album are the dock's .player-link spans: the full
        player's own sizes, not the dock's. */
     #fsPlayer .fs-link { font-size: inherit; font-weight: inherit; color: inherit; letter-spacing: inherit; }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PHOTOS, in Music's language
+       Wide windows get Music's shape: a sidebar (the views, Post, the
+       photo's details, what to show) and a main column with a big title
+       over one panel holding the photo and its filmstrip. The glass
+       placards and the floating pill buttons are gone; it's the same
+       rows, labels and hairlines as everywhere else. Narrow windows (a
+       phone) keep their own layout: js/14-photos.js moves the pieces
+       back beside the photo there.
+       ══════════════════════════════════════════════════════════════════ */
+    .ph-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+    .ph-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+    .ph-sidebar, .ph-view-head { display: none; }
+
+    @media (min-width: 901px) {
+      .ph-shell { flex-direction: row; gap: 1.4rem; }
+      .ph-actions { display: none; }
+
+      /* ── The sidebar: Music's rows ── */
+      .ph-sidebar {
+        display: flex; flex-direction: column; gap: 18px; width: 250px; flex: none;
+        min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: 6px;
+      }
+      .ph-side-label {
+        font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase;
+        color: var(--text-dimmer); padding: 0 12px 6px;
+      }
+      .ph-side-views { display: flex; flex-direction: column; gap: 2px; }
+      .ph-sidebar .ph-order {
+        display: flex; flex-direction: column; gap: 2px; height: auto; padding: 0; border: 0; border-radius: 0;
+        background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+      }
+      .ph-sidebar .ph-order button, .ph-sidebar .ph-btn:not(.ph-btn-post) {
+        display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 12px; box-sizing: border-box;
+        border-radius: 10px; border: 1px solid transparent; background: none; box-shadow: none;
+        -webkit-backdrop-filter: none; backdrop-filter: none;
+        font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim); text-align: left; cursor: pointer;
+        transition: background-color .15s, color .15s, border-color .15s;
+      }
+      .ph-sidebar .ph-order button i, .ph-sidebar .ph-btn i { font-size: 18px; width: 20px; opacity: .85; flex: none; }
+      .ph-sidebar .ph-order button span, .ph-sidebar .ph-btn span { display: inline; flex: 1; min-width: 0; }
+      .ph-sidebar .ph-order button:hover:not([aria-pressed="true"]), .ph-sidebar .ph-btn:not(.ph-btn-post):hover { background: var(--glass-fill); color: var(--text); }
+      .ph-sidebar .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
+      .ph-sidebar .ph-order button[aria-pressed="true"] i { opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+      .ph-sidebar .ph-btn em { font: 500 var(--fs-12) var(--font-ui); font-style: normal; color: var(--text-dimmer); }
+      .ph-sidebar .ph-btn[aria-pressed="true"] { color: var(--text); }
+      .ph-sidebar .ph-btn[aria-pressed="true"] em { color: rgba(var(--accent-rgb),.95); }
+      /* Post: Music's "New playlist". */
+      .ph-sidebar .ph-btn-post {
+        display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: 34px; margin-top: 4px;
+        padding: 0 12px; border-radius: 10px; border: 1px dashed var(--glass-border); background: none; box-shadow: none;
+        -webkit-backdrop-filter: none; backdrop-filter: none;
+        font: 500 var(--fs-13) var(--font-ui); color: var(--text-dimmer);
+      }
+      .ph-sidebar .ph-btn-post i { font-size: 16px; width: 20px; }
+      .ph-sidebar .ph-btn-post span { text-align: left; }
+      .ph-sidebar .ph-btn-post span::after { content: ' photos'; }
+      .ph-sidebar .ph-btn-post:hover { color: var(--text); border-color: var(--glass-border-h); background: var(--glass-fill); }
+      .ph-side-toggles { display: flex; flex-direction: column; gap: 2px; }
+      .ph-shell.bare .ph-side-this { display: none; }
+      .ph-shell.is-empty .ph-side-this { display: none; }
+
+      /* ── This photo: plain type, no placards ── */
+      .ph-side-info { display: flex; flex-direction: column; gap: 14px; padding: 0 12px; user-select: text; -webkit-user-select: text; }
+      .ph-sidebar .ph-rail {
+        position: static; width: auto; bottom: auto; display: flex; flex-direction: column;
+        align-items: stretch; text-align: left; gap: 12px;
+      }
+      .ph-sidebar .ph-box {
+        padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+        -webkit-backdrop-filter: none; backdrop-filter: none; gap: 8px;
+      }
+      .ph-sidebar .ph-rail-r .ph-box { padding-top: 14px; border-top: 1px solid var(--glass-border); }
+      .ph-sidebar .ph-rail-r .ph-box:has(.ph-gear:empty):has(.ph-spec-row:empty) { display: none; }
+      .ph-sidebar .ph-own { top: -4px; right: -6px; }
+      .ph-sidebar .ph-caption { font-size: var(--fs-14); line-height: 1.5; }
+      .ph-sidebar .ph-shot { font-size: var(--fs-13); }
+      .ph-sidebar .ph-spec .v { font-size: var(--fs-14); }
+      /* The song: a Music row. */
+      .ph-sidebar .ph-song {
+        width: 100%; box-sizing: border-box; margin: 0; padding: 5px 8px 5px 5px; border-radius: 10px;
+        background: var(--glass-fill); border: 1px solid var(--glass-border);
+      }
+      .ph-sidebar .ph-song-art { width: 34px; height: 34px; }
+      .ph-sidebar .ph-song-meta { flex: 1; }
+      .ph-sidebar .ph-eq { margin-left: auto; }
+      .ph-sidebar .ph-reacts { padding: 0; }
+      .ph-sidebar .ph-likers { padding: 0; }
+
+      /* ── The main column: Music's title, then one panel ── */
+      .ph-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 0; flex: none; }
+      .ph-view-head h2 { margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text); white-space: nowrap; }
+      .ph-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
+      .ph-panel {
+        gap: 0; border-radius: 10px; overflow: hidden;
+        border: 1px solid var(--glass-border); background: var(--glass-fill);
+      }
+      .ph-panel .ph-stage { margin: 18px 18px 0; }
+      .ph-frame > img { border-radius: 6px; }
+      .ph-panel .ph-strip-wrap { border-top: 1px solid var(--glass-border); margin-top: 14px; background: rgba(0,0,0,.12); }
+      [data-theme="light"] .ph-panel .ph-strip-wrap { background: rgba(0,0,0,.03); }
+      .ph-shell.is-empty .ph-view-head span { display: none; }
+
+      /* Comments: a panel inside the panel, not a floating card. */
+      .ph-side {
+        top: 0; border-radius: 10px; box-shadow: 0 16px 40px var(--shadow-30);
+        background: var(--modal-glass);
+      }
+    }
+    /* Reduced effects makes every glass surface opaque; the sidebar has none. */
+    @media (min-width: 901px) {
+      html[data-fx="low"] .ph-sidebar :is(.ph-glass, .ph-btn:not([aria-pressed="true"])) { background: none !important; }
+      html[data-fx="low"] .ph-sidebar .ph-btn[aria-pressed="true"] { background: none !important; }
+    }
+    /* Narrow: the Show toggles are icon buttons again. */
+    .ph-actions .ph-btn:not(.ph-btn-post) span, .ph-actions .ph-btn em { display: none; }

@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.89" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.92" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.89" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.92" />
 </head>
 <body>
 
@@ -636,6 +636,23 @@ window.KLAB_BOOT = (function() {
        tucks away and the music pauses. Built and driven by js/14-photos.js. -->
   <div class="tab-panel" data-tab-panel="photos">
   <div class="ph-shell" id="phShell">
+    <!-- Wide windows: Music's sidebar. js/14-photos.js moves the views and
+         Post, the photo's details and the Show toggles in here, and back
+         beside the photo when the window is narrow (a phone). -->
+    <nav class="ph-sidebar" id="phSidebar" aria-label="Photos">
+      <div class="ph-side-views" id="phSideViews"></div>
+      <div class="ph-side-group ph-side-this">
+        <div class="ph-side-label">This photo</div>
+        <div class="ph-side-info" id="phSideInfo"></div>
+      </div>
+      <div class="ph-side-group">
+        <div class="ph-side-label">Show</div>
+        <div class="ph-side-toggles" id="phSideToggles"></div>
+      </div>
+    </nav>
+    <div class="ph-main">
+    <div class="ph-view-head"><h2 id="phViewTitle">Timeline</h2><span id="phViewSub"></span></div>
+    <div class="ph-panel">
     <div class="ph-stage" id="phStage">
       <!-- The photo with its placard on the left (who, when, caption, tags)
            and its camera details, song and reactions on the right. On a
@@ -699,6 +716,8 @@ window.KLAB_BOOT = (function() {
     </div>
     <div class="ph-strip-wrap" id="phStripWrap">
       <div class="ph-strip" id="phStrip"></div>
+    </div>
+    </div>
     </div>
   </div>
   </div>
@@ -1002,30 +1021,30 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.27.89';</script>
-<script defer src="js/00-util.js?v=v2026.09.27.89"></script>
-<script defer src="js/01-shell.js?v=v2026.09.27.89"></script>
-<script defer src="js/02-player.js?v=v2026.09.27.89"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.27.89"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.27.89"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.27.89"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.27.89"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.27.89"></script>
-<script defer src="js/08-chat.js?v=v2026.09.27.89"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.27.89"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.27.89"></script>
-<script defer src="js/11-presence.js?v=v2026.09.27.89"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.27.89"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.27.89"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.27.89"></script>
-<script defer src="js/11c-gifs.js?v=v2026.09.27.89"></script>
-<script defer src="js/12-feed.js?v=v2026.09.27.89"></script>
-<script defer src="js/13-tail.js?v=v2026.09.27.89"></script>
-<script defer src="js/14-photos.js?v=v2026.09.27.89"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.27.89"></script>
-<script defer src="js/16-motion.js?v=v2026.09.27.89"></script>
-<script defer src="js/17-history.js?v=v2026.09.27.89"></script>
-<script defer src="js/18-home.js?v=v2026.09.27.89"></script>
+<script>const KLABNET_VERSION = 'v2026.09.27.92';</script>
+<script defer src="js/00-util.js?v=v2026.09.27.92"></script>
+<script defer src="js/01-shell.js?v=v2026.09.27.92"></script>
+<script defer src="js/02-player.js?v=v2026.09.27.92"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.27.92"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.27.92"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.27.92"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.27.92"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.27.92"></script>
+<script defer src="js/08-chat.js?v=v2026.09.27.92"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.27.92"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.27.92"></script>
+<script defer src="js/11-presence.js?v=v2026.09.27.92"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.27.92"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.27.92"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.27.92"></script>
+<script defer src="js/11c-gifs.js?v=v2026.09.27.92"></script>
+<script defer src="js/12-feed.js?v=v2026.09.27.92"></script>
+<script defer src="js/13-tail.js?v=v2026.09.27.92"></script>
+<script defer src="js/14-photos.js?v=v2026.09.27.92"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.27.92"></script>
+<script defer src="js/16-motion.js?v=v2026.09.27.92"></script>
+<script defer src="js/17-history.js?v=v2026.09.27.92"></script>
+<script defer src="js/18-home.js?v=v2026.09.27.92"></script>
 
 </body>
 </html>
