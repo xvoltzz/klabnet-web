@@ -335,12 +335,16 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   });
 
   // Tab / Shift+Tab flips straight through the pages, and 1–5 jumps to
-  // one. Tab keeps its usual job wherever it's needed: in a field, and in
-  // any open dialog or panel (those trap focus with it).
+  // one. Tab keeps its usual job only in an open dialog (those trap focus
+  // with it) and where something uses it itself (the markdown editor's
+  // list indenting, which claims it first).
   const pages = () => TABS.filter(isTabEnabled);
   function currentPage() { return document.querySelector('.tab-panel.active')?.dataset.tabPanel; }
+  // Real dialogs only. This used to match any "*backdrop*" and the album /
+  // artist page, which is a view, not a dialog: with one open, Tab went
+  // back to hopping between buttons.
   function dialogOpen() {
-    return !!document.querySelector('[class*="backdrop"].open, [class*="backdrop"].visible, .img-view-backdrop, .ap-panel.open, #apPanel.open')
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop')
       || document.body.classList.contains('feed-composer-open');
   }
   function flipPage(dir) {
@@ -349,21 +353,13 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     // A button left focused by a click would take the next Tab itself.
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
-  // A field only keeps Tab while there's something typed in it. An empty
-  // one hands Tab back to page flipping: fields get focused on their own
-  // (the chat composer after a reply or a picture, any field after you
-  // send from it), and Tab silently hopping between buttons instead of
-  // pages was the "Tab sometimes selects something else" bug.
-  function fieldInUse() {
-    const el = document.activeElement;
-    if (!el || !isEditableTarget()) return false;
-    if (el.isContentEditable) return el.textContent.trim() !== '';
-    if (el.tagName === 'INPUT' && !/^(text|search|url|email|password|tel|number)?$/i.test(el.type)) return false;
-    return el.value.trim() !== '';
-  }
+  // Not even a field with text in it keeps Tab: the search box keeps what
+  // you searched for, drafts stay in the composers, and either one having
+  // focus turned Tab into hopping between buttons ("Tab sometimes selects
+  // something else"). What you typed stays where it is.
   document.addEventListener('keydown', e => {
     // defaultPrevented: someone already used this Tab (list indenting in the markdown editor).
-    if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || fieldInUse() || dialogOpen()) return;
+    if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || dialogOpen()) return;
     e.preventDefault();
     flipPage(e.shiftKey ? -1 : 1);
   });
