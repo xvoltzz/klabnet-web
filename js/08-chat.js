@@ -828,7 +828,7 @@ function chatMessageMenu(e) {
   const imgReady = img?.src?.startsWith('blob:');
   let song = null;
   try { const c = row.querySelector('.chat-msg-song[data-song]'); if (c) song = JSON.parse(decodeURIComponent(c.dataset.song)); } catch {}
-  const inDmWithThem = getDmRoomIds().includes(room.roomId);
+  const inDmWithThem = getDmRoomIds().has(room.roomId);
   klabMenu(e, [
     { header: ev.sender?.name || user },
     { reacts: [...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
@@ -854,7 +854,7 @@ function chatConvMenu(e) {
   const room = row && MatrixChat.client?.getRoom(row.dataset.roomId);
   if (!room) return;
   const invited = room.getMyMembership?.() === 'invite';
-  const isDm = getDmRoomIds().includes(room.roomId);
+  const isDm = getDmRoomIds().has(room.roomId);
   const other = isDm && !invited ? dmOtherUsername(room) : null;
   const isHome = room.getCanonicalAlias?.() === KLABNET_ROOM_ALIAS;
   klabMenu(e, [
@@ -1591,7 +1591,9 @@ function openChatModal(title, bodyHTML, onDismiss) {
   const prev = _chatModalOnDismiss;
   _chatModalOnDismiss = onDismiss || null;
   if (prev) prev(); // a dialog replaced by another still gets its answer
-  document.getElementById('chatModalTitle').textContent = title;
+  // Titles arrive in the old "// lower case" style from all over; shown as titles.
+  const t = String(title || '').replace(/^\/\/\s*/, '');
+  document.getElementById('chatModalTitle').textContent = t.charAt(0).toUpperCase() + t.slice(1);
   document.getElementById('chatModalBody').innerHTML = bodyHTML;
   document.getElementById('chatModalBackdrop').classList.add('open');
 }
@@ -1657,7 +1659,7 @@ function showConfirmDialog(title, message, confirmLabel) {
       <div class="chat-modal-row-sub" style="margin-bottom:14px;">${esc(message || '')}</div>
       <div style="display:flex;gap:8px;">
         <button class="ap-btn-queue" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
-        <button class="chat-connect-btn" id="confirmDialogOk" style="flex:1;justify-content:center;margin-top:0;color:var(--danger-color);border-color:var(--danger-color);">${esc(confirmLabel || 'Confirm')}</button>
+        <button class="chat-connect-btn is-danger" id="confirmDialogOk" style="flex:1;justify-content:center;margin-top:0;">${esc(confirmLabel || 'Confirm')}</button>
       </div>
     `, () => resolve(false));
     const cleanup = result => { resolve(result); closeChatModal(); };

@@ -487,8 +487,8 @@
     const yest = new Date(Date.now() - 864e5).toLocaleDateString('en-US', { timeZone: FEED_TZ });
     const d = feedDate(created);
     const name = dk === today ? 'Today' : dk === yest ? 'Yesterday' : d.toLocaleDateString('en-US', { timeZone: FEED_TZ, weekday: 'long' });
-    const html = '<h3>' + name + '</h3><span>' + d.toLocaleDateString('en-US', { timeZone: FEED_TZ, month: 'long', day: 'numeric' }) +
-      ' · ' + n + (n === 1 ? ' post' : ' posts') + '</span>';
+    const html = '<div class="feed-day-in"><h3>' + name + '</h3><span>' + d.toLocaleDateString('en-US', { timeZone: FEED_TZ, month: 'long', day: 'numeric' }) +
+      ' · ' + n + (n === 1 ? ' post' : ' posts') + '</span></div>';
     if (el.innerHTML !== html) el.innerHTML = html;
     return el;
   }

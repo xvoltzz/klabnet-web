@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.63" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.67" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.63" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.67" />
 </head>
 <body>
 
@@ -754,7 +754,7 @@ window.KLAB_BOOT = (function() {
 <div class="add-app-backdrop" id="chatModalBackdrop">
   <div class="add-app-modal">
     <div class="add-app-title">
-      <span id="chatModalTitle">// chat</span>
+      <span id="chatModalTitle">Chat</span>
       <button class="add-app-close" id="chatModalClose"><i class="ti ti-x"></i></button>
     </div>
     <div id="chatModalBody"></div>
@@ -767,7 +767,7 @@ window.KLAB_BOOT = (function() {
 <div class="add-app-backdrop" id="phComposeBackdrop">
   <div class="add-app-modal ph-compose">
     <div class="add-app-title">
-      <span>// new photo post</span>
+      <span>New photo post</span>
       <button class="add-app-close" id="phComposeClose"><i class="ti ti-x"></i></button>
     </div>
     <div class="ph-compose-body">
@@ -809,7 +809,7 @@ window.KLAB_BOOT = (function() {
 <div class="add-app-backdrop" id="phEditBackdrop">
   <div class="add-app-modal ph-compose ph-edit">
     <div class="add-app-title">
-      <span>// edit post</span>
+      <span>Edit post</span>
       <button class="add-app-close" id="phEditClose"><i class="ti ti-x"></i></button>
     </div>
     <div class="ph-compose-body">
@@ -830,7 +830,7 @@ window.KLAB_BOOT = (function() {
 <div class="add-app-backdrop" id="keyHintsBackdrop">
   <div class="add-app-modal" style="width:min(560px, calc(100vw - 2rem));">
     <div class="add-app-title">
-      <span>// keyboard shortcuts</span>
+      <span>Keyboard shortcuts</span>
       <button class="add-app-close" id="keyHintsClose"><i class="ti ti-x"></i></button>
     </div>
     <div class="key-hints-body">
@@ -870,7 +870,7 @@ window.KLAB_BOOT = (function() {
 <div class="settings-backdrop" id="settingsBackdrop">
   <div class="settings-modal">
     <div class="settings-header">
-      <span class="settings-title">// settings</span>
+      <span class="settings-title">Settings</span>
       <button class="settings-close" id="settingsClose"><i class="ti ti-x"></i></button>
     </div>
     <div class="settings-body">
@@ -879,17 +879,17 @@ window.KLAB_BOOT = (function() {
       <div class="settings-section">
         <span class="settings-section-label">Appearance</span>
         <div class="settings-row">
-          <div><div class="settings-row-label">Background Color</div><div class="settings-row-sub">Pick a shade for light &amp; dark mode</div></div>
+          <div><div class="settings-row-label">Background color</div><div class="settings-row-sub">Pick a shade for light &amp; dark mode</div></div>
           <button class="bg-color-btn" id="bgColorBtn" title="Change background color"><i class="ti ti-palette"></i></button>
         </div>
         <div class="settings-row" id="navStyleRow">
-          <div><div class="settings-row-label">Navigation</div><div class="settings-row-sub">A sidebar like a desktop app's, or tabs across the top</div></div>
+          <div><div class="settings-row-label">Navigation</div><div class="settings-row-sub">A sidebar, or tabs along the top</div></div>
           <div class="app-seg" id="navStyle" role="group" aria-label="Navigation">
             <button type="button" data-v="side">Sidebar</button><button type="button" data-v="rail">Icons</button><button type="button" data-v="menu">Menu</button><button type="button" data-v="top">Tabs</button>
           </div>
         </div>
         <div class="settings-row">
-          <div><div class="settings-row-label">Performance Mode</div><div class="settings-row-sub" id="lowFxSub">No blurred backgrounds, frosted glass or looping animations</div></div>
+          <div><div class="settings-row-label">Performance mode</div><div class="settings-row-sub" id="lowFxSub">No blurred backgrounds, frosted glass or looping animations</div></div>
           <div class="s-toggle" id="lowFxToggle"></div>
         </div>
       </div>
@@ -898,11 +898,11 @@ window.KLAB_BOOT = (function() {
       <div class="settings-section">
         <span class="settings-section-label">Audio</span>
         <div class="settings-row">
-          <div><div class="settings-row-label">Sound Effects</div><div class="settings-row-sub">UI click & hover sounds</div></div>
+          <div><div class="settings-row-label">Sound effects</div><div class="settings-row-sub">Clicks, sends and other little sounds</div></div>
           <div class="s-toggle on" id="sfxToggle"></div>
         </div>
         <div class="settings-row">
-          <div><div class="settings-row-label">SFX Volume</div></div>
+          <div><div class="settings-row-label">Sound effects volume</div></div>
           <div class="s-slider-wrap">
             <div class="slider-wrap" id="sfxVolumeSlider" style="width:76px;">
               <div class="slider-track"></div>
@@ -913,11 +913,11 @@ window.KLAB_BOOT = (function() {
           </div>
         </div>
         <div class="settings-row">
-          <div><div class="settings-row-label">Notification Sounds</div><div class="settings-row-sub">Toast and alert sounds</div></div>
+          <div><div class="settings-row-label">Notification sounds</div><div class="settings-row-sub">Toast and alert sounds</div></div>
           <div class="s-toggle on" id="notifSoundToggle"></div>
         </div>
         <div class="settings-row" id="desktopNotifRow">
-          <div><div class="settings-row-label">Desktop Notifications</div><div class="settings-row-sub" id="desktopNotifSub">DMs, mentions and replies while klabnet's in the background</div></div>
+          <div><div class="settings-row-label">Desktop notifications</div><div class="settings-row-sub" id="desktopNotifSub">DMs, mentions and replies while klabnet's in the background</div></div>
           <div class="s-toggle" id="desktopNotifToggle"></div>
         </div>
       </div>
@@ -926,7 +926,7 @@ window.KLAB_BOOT = (function() {
       <div class="settings-section">
         <span class="settings-section-label">Player</span>
         <div class="settings-row">
-          <div><div class="settings-row-label">Login Song</div><div class="settings-row-sub">Play a song on page load</div></div>
+          <div><div class="settings-row-label">Login song</div><div class="settings-row-sub">Play a song on page load</div></div>
           <div class="s-toggle on" id="loginSongToggle"></div>
         </div>
       </div>
@@ -967,7 +967,7 @@ window.KLAB_BOOT = (function() {
           <div><div class="settings-row-label">Logged in as</div><div class="settings-row-sub" id="settingsUser">—</div></div>
         </div>
         <div class="settings-row" style="cursor:pointer;" id="clearPrefsRow">
-          <div><div class="settings-row-label" style="color:var(--danger-color);">Reset All Preferences</div><div class="settings-row-sub">Clears local storage and server prefs</div></div>
+          <div><div class="settings-row-label" style="color:var(--danger-color);">Reset all preferences</div><div class="settings-row-sub">Clears local storage and server prefs</div></div>
           <i class="ti ti-trash" style="color:var(--danger-color);font-size:14px;"></i>
         </div>
       </div>
@@ -996,30 +996,30 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.27.63';</script>
-<script defer src="js/00-util.js?v=v2026.09.27.63"></script>
-<script defer src="js/01-shell.js?v=v2026.09.27.63"></script>
-<script defer src="js/02-player.js?v=v2026.09.27.63"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.27.63"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.27.63"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.27.63"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.27.63"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.27.63"></script>
-<script defer src="js/08-chat.js?v=v2026.09.27.63"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.27.63"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.27.63"></script>
-<script defer src="js/11-presence.js?v=v2026.09.27.63"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.27.63"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.27.63"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.27.63"></script>
-<script defer src="js/11c-gifs.js?v=v2026.09.27.63"></script>
-<script defer src="js/12-feed.js?v=v2026.09.27.63"></script>
-<script defer src="js/13-tail.js?v=v2026.09.27.63"></script>
-<script defer src="js/14-photos.js?v=v2026.09.27.63"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.27.63"></script>
-<script defer src="js/16-motion.js?v=v2026.09.27.63"></script>
-<script defer src="js/17-history.js?v=v2026.09.27.63"></script>
-<script defer src="js/18-home.js?v=v2026.09.27.63"></script>
+<script>const KLABNET_VERSION = 'v2026.09.27.67';</script>
+<script defer src="js/00-util.js?v=v2026.09.27.67"></script>
+<script defer src="js/01-shell.js?v=v2026.09.27.67"></script>
+<script defer src="js/02-player.js?v=v2026.09.27.67"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.27.67"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.27.67"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.27.67"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.27.67"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.27.67"></script>
+<script defer src="js/08-chat.js?v=v2026.09.27.67"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.27.67"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.27.67"></script>
+<script defer src="js/11-presence.js?v=v2026.09.27.67"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.27.67"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.27.67"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.27.67"></script>
+<script defer src="js/11c-gifs.js?v=v2026.09.27.67"></script>
+<script defer src="js/12-feed.js?v=v2026.09.27.67"></script>
+<script defer src="js/13-tail.js?v=v2026.09.27.67"></script>
+<script defer src="js/14-photos.js?v=v2026.09.27.67"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.27.67"></script>
+<script defer src="js/16-motion.js?v=v2026.09.27.67"></script>
+<script defer src="js/17-history.js?v=v2026.09.27.67"></script>
+<script defer src="js/18-home.js?v=v2026.09.27.67"></script>
 
 </body>
 </html>

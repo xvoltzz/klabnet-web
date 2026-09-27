@@ -197,7 +197,53 @@
   }
 
   // ── Render helpers ───────────────────────
-  function cardHTML(username, song, artist, isMe, playing, songId, partyHost) {
+  // What someone's on, for the icon beside their name: the desktop app
+  // shows its OS, a browser its browser. Sent with every presence beat as
+  // "app:windows", "pwa:ios", "web:macos:firefox"...
+  const PLATFORM = (() => {
+    const ua = navigator.userAgent;
+    const os = /Windows/.test(ua) ? 'windows'
+      : /iPhone|iPod/.test(ua) ? 'ios'
+      : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'ipados'
+      : /Mac OS X|Macintosh/.test(ua) ? 'macos'
+      : /Android/.test(ua) ? 'android'
+      : /CrOS/.test(ua) ? 'chromeos'
+      : /Linux/.test(ua) ? 'linux' : '';
+    const d = window.klabnetDesktop;
+    if (d) return 'app:' + ({ win32: 'windows', darwin: 'macos', linux: 'linux' }[d.platform] || os);
+    if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) return 'pwa:' + os;
+    const br = /Edg(e|A|iOS)?\//.test(ua) ? 'edge'
+      : /OPR\/|Opera/.test(ua) ? 'opera'
+      : /Vivaldi/.test(ua) ? 'vivaldi'
+      : /SamsungBrowser/.test(ua) ? 'samsung'
+      : /Firefox\/|FxiOS/.test(ua) ? 'firefox'
+      : /CriOS|Chrome\//.test(ua) ? (navigator.brave ? 'brave' : 'chrome')
+      : /Safari\//.test(ua) ? 'safari' : '';
+    return 'web:' + os + (br ? ':' + br : '');
+  })();
+  const OS_INFO = {
+    windows: ['ti-brand-windows', 'Windows'], macos: ['ti-brand-apple', 'macOS'], linux: ['ti-terminal-2', 'Linux'],
+    ios: ['ti-brand-apple', 'iPhone'], ipados: ['ti-brand-apple', 'iPad'], android: ['ti-brand-android', 'Android'],
+    chromeos: ['ti-brand-chrome', 'ChromeOS'],
+  };
+  const BROWSER_INFO = {
+    chrome: ['ti-brand-chrome', 'Chrome'], firefox: ['ti-brand-firefox', 'Firefox'], safari: ['ti-brand-safari', 'Safari'],
+    edge: ['ti-brand-edge', 'Edge'], opera: ['ti-brand-opera', 'Opera'], vivaldi: ['ti-brand-vivaldi', 'Vivaldi'],
+    brave: ['ti-world', 'Brave'], samsung: ['ti-world', 'Samsung Internet'],
+  };
+  function platformIcon(code) {
+    const [kind, os, br] = String(code || '').split(':');
+    if (!kind) return '';
+    const o = OS_INFO[os];
+    let icon, label;
+    if (kind === 'app') { icon = o ? o[0] : 'ti-device-desktop'; label = 'klabnet for ' + (o ? o[1] : 'desktop'); }
+    else if (kind === 'pwa') { icon = o ? o[0] : 'ti-device-mobile'; label = 'klabnet app' + (o ? ' on ' + o[1] : ''); }
+    else { const b = BROWSER_INFO[br]; icon = b ? b[0] : 'ti-world'; label = (b ? b[1] : 'A browser') + (o ? ' on ' + o[1] : ''); }
+    return '<i class="ti ' + icon + ' presence-plat" title="' + esc(label) + '" aria-label="' + esc(label) + '"></i>';
+  }
+  window.klabPlatformIcon = platformIcon;
+
+  function cardHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (username||'?')[0].toUpperCase();
@@ -265,7 +311,7 @@
         '<span class="presence-card-online" title="Online" aria-label="Online"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
-        '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span style="font-size:8px;opacity:0.4;font-weight:400;">(you)</span>' : '') + '</div>' +
+        '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span class="presence-card-you">(you)</span>' : '') + platformIcon(isMe ? PLATFORM : platform) + '</div>' +
         '<div class="presence-card-track">' + (showTrack ? esc(song) : 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
@@ -279,7 +325,7 @@
   // Keeps the presence-card class and data-* attributes so the click
   // (DM, or your own: profile), right-click (listen along / profile) and
   // unread-dot handling below all work unchanged.
-  function faceHTML(username, song, artist, isMe, playing, songId, partyHost) {
+  function faceHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
     const inner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username || '?')[0].toUpperCase());
@@ -297,7 +343,7 @@
       ' style="--name-color:' + profileColor(username) + '" title="' + tip + '">' + bubble +
       '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +
         (playing && song ? '<span class="chat-face-eq"><i></i><i></i><i></i></span>' : '') + '</span>' +
-      '<span class="chat-face-name">' + (isMe ? 'you' : esc(username)) + '</span></div>';
+      '<span class="chat-face-name">' + (isMe ? 'you' : esc(username)) + platformIcon(isMe ? PLATFORM : platform) + '</span></div>';
   }
 
   let _lastRenderedHTML = null;
@@ -413,7 +459,7 @@
       .sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0));
     let html = '';
     if (me && me !== 'anonymous') html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
-    others.forEach(l => { html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost); });
+    others.forEach(l => { html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform); });
     return { html, others: others.length };
   };
   // Everyone the site knows, online first, for chat's search.
@@ -445,7 +491,7 @@
     }
     // Listening first, then everyone else online.
     [...others].sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0)).forEach(l => {
-      html += faceHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost);
+      html += faceHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
@@ -833,6 +879,7 @@
           songId:   song?.id     ?? '', // nullish, not ||  — a falsy-but-real id like 0 must survive
           playing:  !!song && playerState.playing,
           partyHost: _partyHostLabel || '',
+          platform:  PLATFORM,
         })
       }, 6000);
     } catch(e) {}
