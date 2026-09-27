@@ -13,6 +13,9 @@
 (function() {
   const REFRESH_MS = 10 * 60 * 1000;
   const art = (id, size) => `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(id)}&size=${size}&${subsonicParams()}`;
+  // Cover Flow draws covers up to 600px across: ask for enough pixels for
+  // this screen (in steps of 300, so Navidrome's resize cache stays small).
+  const flowArt = id => art(id, Math.min(1200, Math.ceil(600 * (window.devicePixelRatio || 1) / 300) * 300));
 
   async function albumList(type, size) {
     const r = await fetchTimeout(`${ND_URL}/rest/getAlbumList2?type=${type}&size=${size}&${subsonicParams()}`, {}, 8000);
@@ -355,7 +358,7 @@
     let loadedAt = 0, albums = [];
     const f = makeCoverFlow({
       label: 'Recently added albums',
-      cover: a => art(a.coverArt || a.id, 500),
+      cover: a => flowArt(a.coverArt || a.id),
       caption: a => ({ t: a.name || a.title || '', a: [a.artist, a.year, fmtAdded(a.created)].filter(Boolean).join(' · ') }),
       actions: a => [
         { label: 'Play', icon: 'ti-player-play-filled', primary: true, run: () => playAlbum(a.id) },
@@ -827,7 +830,7 @@
       const w = el.clientWidth || 800, h = el.clientHeight || 600;
       return Math.round(Math.max(170, Math.min(h - 250, w * 0.42, 600)));
     },
-    cover: it => it.song.coverArt ? art(it.song.coverArt, 500) : '',
+    cover: it => it.song.coverArt ? flowArt(it.song.coverArt) : '',
     scrollbar: true,
     caption: it => ({
       k: it.kind === 'now' ? (playerState.playing ? 'Now playing' : 'Paused')
