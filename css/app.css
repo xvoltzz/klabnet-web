@@ -7560,21 +7560,26 @@
 
 
     /* ══════════════════════════════════════════════════════════════════
-       KLABNET FOR MAC: look and feel like a Mac app
+       KLABNET FOR MAC: look and feel like a Mac app (macOS 27)
        data-platform="darwin" (klabnet-desktop on macOS). The window has
        no title bar: klabnet's header is the toolbar (52px), with the
        traffic lights inset at its left (--wco-left, js/07-tabnav.js; 0 in
-       full screen). Like Finder and Music:
-         · the sidebar runs the full height of the window, the traffic
-           lights sit in its top, and it shows the window's vibrancy;
-           the content beside it is opaque
-         · sidebar rows are a source list: 28px, SF 13px, icons in the
-           system accent colour, the selection a plain rounded fill that
-           doesn't slide
-         · toolbar buttons are borderless and only show a fill on hover;
-           in the tabs-in-header layout the tabs are a segmented control
-         · menus are Mac menus: SF 13px, 22px rows, the highlighted row
-           filled with the accent colour, a vibrant rounded panel
+       full screen). Like Finder and Music on macOS 27:
+         · the sidebar runs the full height of the window, edge to edge
+           (27 dropped Tahoe's floating inset sidebar), the traffic lights
+           sit in its top, and it shows the window's vibrancy; the content
+           beside it is opaque
+         · sidebar rows are a source list: 32px, SF 13px, icons in the
+           system accent colour (27 brought the colour back), the
+           selection a plain rounded fill that doesn't slide, its label
+           semibold
+         · toolbar buttons are Liquid Glass: the header's buttons share one
+           glass capsule, the sidebar button is a glass circle; in the
+           tabs-in-header layout the tabs are a glass segmented control
+         · the player floats over the content in a glass capsule, like
+           Music's, instead of the bar across the window
+         · menus are Mac menus: SF 13px, 24px rows, the highlighted row
+           filled with the accent colour, a rounded vibrant panel
          · switches and focus rings take the system accent colour
        --de-accent is the Mac's accent colour (the app passes it in).
        ══════════════════════════════════════════════════════════════════ */
@@ -7584,11 +7589,19 @@
       --mac-hover: rgba(255,255,255,0.08); --mac-press: rgba(255,255,255,0.14);
       --mac-sel: rgba(255,255,255,0.1); --mac-line: rgba(0,0,0,0.45);
       --sb-sel: var(--mac-sel);
+      /* Liquid Glass, as far as CSS goes: a frosted fill a shade off the
+         page, a hairline rim, a bright top edge (the specular) and a soft
+         shadow under it. */
+      --mac-glass: rgba(58,58,60,0.52); --mac-glass-rim: rgba(255,255,255,0.13);
+      --mac-glass-hi: rgba(255,255,255,0.14); --mac-glass-shadow: 0 6px 20px rgba(0,0,0,0.28);
+      --mac-glass-blur: blur(24px) saturate(1.8);
     }
     html.klabnet-app[data-platform="darwin"][data-theme="light"] {
       --mac-accent: var(--de-accent, #007aff);
       --mac-hover: rgba(0,0,0,0.05); --mac-press: rgba(0,0,0,0.1);
       --mac-sel: rgba(0,0,0,0.08); --mac-line: rgba(0,0,0,0.1);
+      --mac-glass: rgba(255,255,255,0.62); --mac-glass-rim: rgba(0,0,0,0.07);
+      --mac-glass-hi: rgba(255,255,255,0.9); --mac-glass-shadow: 0 6px 20px rgba(0,0,0,0.1);
     }
     /* The toolbar: room for the traffic lights, no room kept on the right. */
     html.app-titlebar[data-platform="darwin"] .header { padding-left: calc(var(--wco-left, 80px) + 8px); padding-right: 12px; }
@@ -7622,16 +7635,17 @@
       }
       html.klabnet-app[data-platform="darwin"] #sideNav #tabNav.tab-nav, html.klabnet-app[data-platform="darwin"] .side-nav-foot { gap: 1px; }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) {
-        height: 28px; border: 0; border-radius: 6px; gap: 8px; padding-left: 8px;
+        height: 32px; border: 0; border-radius: 8px; gap: 8px; padding-left: 10px;
         font: 400 13px/1 var(--mac-font); letter-spacing: 0; color: var(--text);
       }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) i {
-        font-size: 16px; width: 18px; filter: none; color: var(--mac-accent);
+        font-size: 17px; width: 20px; filter: none; color: var(--mac-accent);
       }
+      html.klabnet-app[data-platform="darwin"] #sideNav .tab-nav-btn.active { font-weight: 600; }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: transparent; color: var(--text); }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):active { background: var(--mac-hover); }
       html.klabnet-app[data-platform="darwin"] #sideNav .motion-pill-tabs {
-        background: var(--mac-sel); border: 0; box-shadow: none; border-radius: 6px; transition: none !important;
+        background: var(--mac-sel); border: 0; box-shadow: none; border-radius: 8px; transition: none !important;
       }
       html.klabnet-app[data-platform="darwin"] #sideNav .tab-nav-btn.active i { filter: none; }
       html.klabnet-app[data-platform="darwin"] #sideNav #socialUnreadBadge:not(:empty) {
@@ -7639,10 +7653,13 @@
       }
       html.klabnet-app[data-platform="darwin"].nav-flyout .side-nav { border-radius: 0 10px 10px 0; }
       html.app-titlebar[data-platform="darwin"] .header .nav-burger {
-        width: 34px; height: 28px; min-width: 34px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-dim);
+        width: 36px; height: 36px; min-width: 36px; margin-right: 10px; border: .5px solid var(--mac-glass-rim); border-radius: 50%;
+        background: var(--mac-glass); color: var(--text);
+        box-shadow: inset 0 1px 0 var(--mac-glass-hi), var(--mac-glass-shadow);
+        -webkit-backdrop-filter: var(--mac-glass-blur); backdrop-filter: var(--mac-glass-blur);
       }
-      html.app-titlebar[data-platform="darwin"] .header .nav-burger:hover { background: var(--mac-hover); color: var(--text); }
-      html.app-titlebar[data-platform="darwin"] .header .nav-burger i { font-size: 16px; }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger:hover { background: color-mix(in srgb, var(--mac-glass) 70%, var(--text) 8%); color: var(--text); }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger i { font-size: 17px; }
     }
     /* A full sidebar (wide window, Navigation: Sidebar) runs the window's
        whole height, like Finder's: the traffic lights sit in its top and
@@ -7657,37 +7674,39 @@
       html.app-titlebar.app-fullscreen[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: 10px; }
     }
 
-    /* ── Toolbar buttons: borderless, a fill on hover ── */
+    /* ── Toolbar buttons: Liquid Glass, grouped in one capsule ── */
     html.app-titlebar[data-platform="darwin"] .header-right {
-      background: none !important; border: 0 !important; box-shadow: none !important;
-      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
-      padding: 0; gap: 2px; border-radius: 0;
+      background: var(--mac-glass) !important; border: .5px solid var(--mac-glass-rim) !important;
+      box-shadow: inset 0 1px 0 var(--mac-glass-hi), var(--mac-glass-shadow) !important;
+      -webkit-backdrop-filter: var(--mac-glass-blur) !important; backdrop-filter: var(--mac-glass-blur) !important;
+      padding: 2px; gap: 0; border-radius: 999px; height: 36px; box-sizing: border-box;
     }
     html.app-titlebar[data-platform="darwin"] .header-right .hdr-btn {
-      width: 34px; height: 28px; min-width: 34px; min-height: 28px; border-radius: 6px;
-      background: transparent; border: 0; box-shadow: none; color: var(--text-dim); font-size: 16px;
+      width: 40px; height: 30px; min-width: 40px; min-height: 30px; border-radius: 999px;
+      background: transparent; border: 0; box-shadow: none; color: var(--text); font-size: 16px;
     }
     html.app-titlebar[data-platform="darwin"] .header-right .hdr-btn:hover { background: var(--mac-hover); color: var(--text); }
     html.app-titlebar[data-platform="darwin"] .header-right .hdr-btn:active,
     html.app-titlebar[data-platform="darwin"] .header-right .hdr-btn.active { background: var(--mac-press); color: var(--text); }
 
-    /* ── Tabs in the toolbar (Navigation: Tabs): a segmented control ── */
+    /* ── Tabs in the toolbar (Navigation: Tabs): a glass segmented control ── */
     @media (min-width: 761px), (pointer: fine) {
       html.app-titlebar[data-platform="darwin"] .header .tab-nav {
-        background: var(--mac-hover) !important; border: 0 !important; box-shadow: none !important;
-        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
-        padding: 2px; gap: 0; border-radius: 7px; height: 28px; box-sizing: border-box; overflow: visible;
+        background: var(--mac-glass) !important; border: .5px solid var(--mac-glass-rim) !important;
+        box-shadow: inset 0 1px 0 var(--mac-glass-hi), var(--mac-glass-shadow) !important;
+        -webkit-backdrop-filter: var(--mac-glass-blur) !important; backdrop-filter: var(--mac-glass-blur) !important;
+        padding: 3px; gap: 0; border-radius: 999px; height: 36px; box-sizing: border-box; overflow: visible;
       }
       html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn {
-        width: auto; max-width: 200px; height: 24px; padding: 0 12px; gap: 6px;
-        border: 0; border-radius: 5px; background: transparent; color: var(--text);
+        width: auto; max-width: 200px; height: 29px; padding: 0 14px; gap: 6px;
+        border: 0; border-radius: 999px; background: transparent; color: var(--text);
         font: 400 13px/1 var(--mac-font); letter-spacing: 0; text-transform: none;
       }
       html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
       html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn i { font-size: 14px; filter: none; }
       html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn.active { background: transparent; border-color: transparent; }
       html.app-titlebar[data-platform="darwin"] .header .tab-nav .motion-pill-tabs {
-        background: rgba(255,255,255,0.22); border: 0; border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        background: rgba(255,255,255,0.16); border: 0; border-radius: 999px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
       }
       html.app-titlebar[data-platform="darwin"][data-theme="light"] .header .tab-nav .motion-pill-tabs { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 0 0 .5px rgba(0,0,0,0.06); }
     }
@@ -7709,7 +7728,7 @@
 
     /* ── Menus: Mac menus ── */
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) {
-      padding: 5px; border-radius: 10px; min-width: 200px;
+      padding: 6px; border-radius: 13px; min-width: 200px;
       background: color-mix(in srgb, var(--modal-bg) 78%, transparent);
       -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
       border: .5px solid rgba(255,255,255,0.16);
@@ -7719,8 +7738,8 @@
       border-color: rgba(0,0,0,0.08); box-shadow: 0 0 0 .5px rgba(0,0,0,0.12), 0 12px 36px rgba(0,0,0,0.18);
     }
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) .ctx-item {
-      height: 22px; padding: 0 10px; gap: 8px; border-radius: 5px; border: 0;
-      font: 400 13px/22px var(--mac-font); color: var(--text); letter-spacing: 0; transition: none;
+      height: 24px; padding: 0 10px; gap: 8px; border-radius: 7px; border: 0;
+      font: 400 13px/24px var(--mac-font); color: var(--text); letter-spacing: 0; transition: none;
     }
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) .ctx-item i { font-size: 14px; width: 16px; color: inherit; opacity: .85; }
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) .ctx-item:is(:hover, :focus) {
@@ -7741,3 +7760,32 @@
     /* Settings and dialogs read in the system font, like System Settings. */
     html.klabnet-app[data-platform="darwin"] :is(.settings-row-label, .settings-row-sub, .app-seg button, .app-btn) { font-family: var(--mac-font); }
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) a.ctx-item { text-decoration: none; }
+
+    /* ── The player: a floating glass capsule over the content, like
+       Music's on macOS 27, instead of the bar across the window. Pages
+       keep clearing --dock-h plus the gap under it. ── */
+    @media (min-width: 761px), (pointer: fine) {
+      html.klabnet-app[data-platform="darwin"] { --dock-h: 64px; --mac-dock-gap: 12px; }
+      html.klabnet-app[data-platform="darwin"] .player-dock {
+        left: calc(var(--nav-w, 0px) + 20px); right: 20px; bottom: var(--mac-dock-gap);
+        border-radius: 999px; padding: 0.5rem 1.4rem 0.5rem 0.6rem;
+        border: .5px solid var(--mac-glass-rim) !important;
+        background: color-mix(in srgb, var(--modal-bg) 55%, transparent);
+        -webkit-backdrop-filter: var(--mac-glass-blur); backdrop-filter: var(--mac-glass-blur);
+        box-shadow: inset 0 1px 0 var(--mac-glass-hi), 0 10px 32px rgba(0,0,0,0.35);
+        transition: left .28s var(--m-ease), transform .3s var(--m-ease), opacity .2s ease;
+      }
+      html.klabnet-app[data-platform="darwin"][data-theme="light"] .player-dock {
+        background: color-mix(in srgb, #fff 62%, transparent); box-shadow: inset 0 1px 0 var(--mac-glass-hi), 0 10px 32px rgba(0,0,0,0.12);
+      }
+      html.klabnet-app[data-platform="darwin"]:not(.nav-side-on) .player-dock { left: 20px; }
+      html.klabnet-app[data-platform="darwin"] .player-dock :is(.player-art, .player-art-placeholder) { border-radius: 50%; }
+      html.klabnet-app[data-platform="darwin"] .player-dock .ctrl-btn.play-btn { border-radius: 50%; }
+      html.klabnet-app[data-platform="darwin"] .player-dock.hidden,
+      html.klabnet-app[data-platform="darwin"] body.tab-photos-active .player-dock { transform: translateY(calc(100% + var(--mac-dock-gap) + 8px)) !important; }
+      html.klabnet-app[data-platform="darwin"] .dash,
+      html.klabnet-app[data-platform="darwin"] .dash.dash-clearance,
+      html.klabnet-app[data-platform="darwin"] body[class*="tab-"] .dash { padding-bottom: calc(var(--dock-h) + var(--mac-dock-gap) + 18px) !important; }
+      html.klabnet-app[data-platform="darwin"] body.player-hidden .dash,
+      html.klabnet-app[data-platform="darwin"] body.tab-photos-active .dash { padding-bottom: 18px !important; }
+    }
