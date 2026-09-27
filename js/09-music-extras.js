@@ -481,7 +481,9 @@ function klabAlbumMenu(e, album) {
 // Navidrome's own art, files and "last added" are left exactly as they are.
 // Remembered per album on this device, misses too for a week; an API
 // that doesn't have the endpoint yet just means Navidrome's art.
-const HIRES_KEY = 'klabnet_hires_art';
+// v2: the art is kept on our own server now; v1 held the catalogues' links.
+const HIRES_KEY = 'klabnet_hires_art2';
+try { localStorage.removeItem('klabnet_hires_art'); } catch (e) {}
 let _hiresStore = null, _hiresOff = false, _hiresSaveT = 0;
 const _hiresPending = new Map();
 function hiresStore() {
@@ -516,7 +518,9 @@ function klabHiResArt(o) {
     })
     .then(d => {
       if (!d) return null;
-      if (d.large || d.source === 'none') { st[key] = { l: d.large || '', f: d.full || '', t: Date.now() }; hiresSave(); }
+      // Only our own copies are remembered: a catalogue's link (handed out
+      // while the media share is offline) is asked about again next time.
+      if ((d.large && d.large.startsWith('/')) || d.source === 'none') { st[key] = { l: d.large || '', f: d.full || '', t: Date.now() }; hiresSave(); }
       return d.large ? { large: d.large, full: d.full } : null;
     })
     .catch(() => null)
