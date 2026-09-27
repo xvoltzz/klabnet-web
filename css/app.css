@@ -7168,3 +7168,16 @@
       #musicShell .music-sidebar { width: 200px; }
       body.tab-music-active #musicShell .music-sidebar { width: calc(200px + 32px); }
     }
+
+    /* Covers you can open nearly full screen (the full player's art, an
+       album's and an artist's picture). */
+    img[data-cover], img[data-view-full] { cursor: zoom-in; }
+
+    /* No scrollbars anywhere: everything still scrolls (wheel, trackpad,
+       touch, keys), it just doesn't draw the bars. */
+    * { scrollbar-width: none; }
+    *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+    /* A cover in the viewer sits on the page like a record sleeve. */
+    .img-view-backdrop.framed { background: rgba(0,0,0,0.86); -webkit-backdrop-filter: blur(28px) saturate(1.3); backdrop-filter: blur(28px) saturate(1.3); }
+    .img-view-backdrop.framed .img-view-img { border-radius: 6px; box-shadow: 0 30px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06); }
+    html[data-fx="low"] .img-view-backdrop.framed { background: rgba(0,0,0,0.94); }

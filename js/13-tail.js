@@ -432,7 +432,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${heroUrl
-            ? `<img class="ap-hero-img" src="${esc(heroUrl)}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
+            ? `<img class="ap-hero-img" src="${esc(heroUrl)}" data-view-full="${esc(heroUrl)}" alt="${esc(artistName || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
             : `<div class="ap-hero-img-ph"><i class="ti ti-user-circle"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Artist</span>
@@ -554,7 +554,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${artSm
-            ? `<img class="ap-hero-img square" src="${artSm}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
+            ? `<img class="ap-hero-img square" src="${artSm}" data-cover="${esc(album.coverArt)}" alt="${esc(album.name || album.title || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
             : `<div class="ap-hero-img-ph square"><i class="ti ti-vinyl"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Album</span>

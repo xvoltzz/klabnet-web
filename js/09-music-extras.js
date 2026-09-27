@@ -469,10 +469,27 @@ function klabAlbumMenu(e, album) {
     '-',
     { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
     { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !album.artistId, action: () => loadArtistView({ id: album.artistId, name: album.artist }) },
+    { label: 'View cover', icon: 'ti-photo', hidden: !(album.coverArt || album.id), action: () => viewCover(album.coverArt || album.id, name) },
     '-',
     { label: 'Download (ZIP)', icon: 'ti-download', action: () => downloadAlbumZip(album.id, name) },
   ]);
 }
+
+// A cover, nearly full screen: the viewer opens on the copy already on
+// screen and sharpens to the original when it arrives.
+function viewCover(coverId, alt, shownSrc) {
+  if (!coverId) return;
+  const url = size => `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverId)}${size ? '&size=' + size : ''}&${subsonicParams()}`;
+  SFX && SFX.play('open');
+  openImageViewer({ thumbSrc: shownSrc || url(600), fullSrc: url(0), alt: alt || '', framed: true });
+}
+document.addEventListener('click', e => {
+  const img = e.target.closest?.('img[data-cover], img[data-view-full]');
+  if (!img || img.naturalWidth === 0) return;
+  e.stopPropagation();
+  if (img.dataset.cover) viewCover(img.dataset.cover, img.alt, img.currentSrc || img.src);
+  else { SFX && SFX.play('open'); openImageViewer({ thumbSrc: img.currentSrc || img.src, alt: img.alt || '', framed: true }); }
+}, true);
 
 function klabArtistMenu(e, artist) {
   klabMenu(e, [

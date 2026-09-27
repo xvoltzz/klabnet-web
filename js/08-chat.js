@@ -2101,12 +2101,14 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
 // midpoint rather than a fixed centre, and the image is allowed to be
 // smaller than the stage (it centres instead of clamping to an edge).
 let _imgViewerOpen = false;
-function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
+// thumbSrc shows at once; the full image replaces it when it arrives, from
+// Matrix (mxc) or a plain URL (fullSrc: album covers, at their original size).
+function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false } = {}) {
   if (_imgViewerOpen || !thumbSrc) return;
   _imgViewerOpen = true;
 
   const backdrop = document.createElement('div');
-  backdrop.className = 'img-view-backdrop';
+  backdrop.className = 'img-view-backdrop' + (framed ? ' framed' : '');
   backdrop.innerHTML =
     '<div class="img-view-stage">' +
       '<img class="img-view-img" alt="' + esc(alt) + '" draggable="false" />' +
@@ -2131,7 +2133,7 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
   // belongs to _feedImageCache/_chatImageCache and is still in use by the
   // timeline behind us.
   let ownedUrl = null;
-  const willFetchFull = !!(mxc && window.MatrixChat?.client);
+  const willFetchFull = !!(mxc && window.MatrixChat?.client) || !!fullSrc;
   let haveFull = false;
 
   const maxScale = () => Math.max(fitScale * 8, 1);
@@ -2171,7 +2173,8 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
     vw = r.width; vh = r.height;
     natW = imgEl.naturalWidth || vw;
     natH = imgEl.naturalHeight || vh;
-    fitScale = Math.min(vw / natW, vh / natH);
+    // Framed (album covers): nearly full screen, with room around it.
+    fitScale = Math.min(vw / natW, vh / natH) * (framed ? 0.86 : 1);
     // Never blow a small image up past 1:1 — but only once we're showing
     // the real thing. While the 400/800px thumbnail stands in for it, it
     // has to be laid out at full fit size (upscaled and soft) so the
@@ -2190,7 +2193,11 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
   // still being open so a slow fetch can't resurrect a closed overlay or
   // leak the blob it just made.
   let closed = false;
-  if (willFetchFull) {
+  if (fullSrc) {
+    const full = new Image();
+    full.onload = () => { if (closed) return; haveFull = true; imgEl.src = fullSrc; };
+    full.src = fullSrc;
+  } else if (willFetchFull) {
     MatrixChat.mxcToBlobUrl(mxc, { full: true }).then(url => {
       if (!url) return;
       if (closed) { URL.revokeObjectURL(url); return; }
@@ -2277,24 +2284,25 @@ function openImageViewer({ thumbSrc, mxc, alt = '' } = {}) {
     closed = true;
     _imgViewerOpen = false;
     backdrop.remove();
-    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     if (ownedUrl) URL.revokeObjectURL(ownedUrl);
   }
   function onKey(e) {
-    if (e.key === 'Escape') { close(); return; }
+    // Only the viewer: Escape used to close the full player under it too.
+    if (e.key === 'Escape') { e.stopImmediatePropagation(); close(); return; }
     if (e.key === '+' || e.key === '=') zoomAt(scale * 1.3, vw / 2, vh / 2);
     if (e.key === '-' || e.key === '_') zoomAt(scale / 1.3, vw / 2, vh / 2);
     if (e.key === '0') relayout(false);
   }
-  document.addEventListener('keydown', onKey);
+  document.addEventListener('keydown', onKey, true);
 
   backdrop.addEventListener('click', e => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'close') { close(); return; }
     if (act === 'zoomin')  { zoomAt(scale * 1.3, vw / 2, vh / 2); return; }
     if (act === 'zoomout') { zoomAt(scale / 1.3, vw / 2, vh / 2); return; }
-    if (act === 'open') { window.open(ownedUrl || thumbSrc, '_blank', 'noopener'); return; }
+    if (act === 'open') { window.open(ownedUrl || fullSrc || thumbSrc, '_blank', 'noopener'); return; }
     // A click that lands on the backdrop itself (not the image) closes —
     // but only if it wasn't the tail end of a drag.
     if (e.target === backdrop) close();
