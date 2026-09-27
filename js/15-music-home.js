@@ -49,8 +49,11 @@
   //   actions(item, i)     [{ label, icon, primary, run }] under the caption
   //   open(item, i)        a click (or Enter) on the middle cover
   //   decorate(coverEl, item)  e.g. for its right-click menu
+  //   scrollbar            an iTunes-style scrollbar under it
+  // caption may also return eq: true (a playing glyph before the label) and
+  // node: an element of its own to show under the detail line.
   // It keeps one element, so it keeps its place and covers between visits.
-  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize }) {
+  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize, scrollbar }) {
     const el = document.createElement('section');
     el.className = 'mh-flow';
     el.tabIndex = 0;
@@ -60,11 +63,14 @@
       '<div class="mh-flow-stage"></div>' +
       '<button type="button" class="mh-flow-nav prev" title="Previous"><i class="ti ti-chevron-left"></i></button>' +
       '<button type="button" class="mh-flow-nav next" title="Next"><i class="ti ti-chevron-right"></i></button>' +
-      '<div class="mh-flow-caption"><div class="k"></div><div class="t"></div><div class="a"></div><div class="mh-flow-actions"></div></div>';
+      '<div class="mh-flow-caption"><div class="k"></div><div class="t"></div><div class="a"></div><div class="x"></div><div class="mh-flow-actions"></div></div>' +
+      (scrollbar ? '<div class="mh-flow-scroll" aria-hidden="true"><div class="mh-flow-thumb"></div></div>' : '');
     const stage = el.querySelector('.mh-flow-stage');
     const bgs = el.querySelectorAll('.mh-flow-bg');
     const capK = el.querySelector('.mh-flow-caption .k'), capT = el.querySelector('.mh-flow-caption .t');
     const capA = el.querySelector('.mh-flow-caption .a'), capActs = el.querySelector('.mh-flow-actions');
+    const capX = el.querySelector('.mh-flow-caption .x');
+    const track = el.querySelector('.mh-flow-scroll'), thumb = el.querySelector('.mh-flow-thumb');
     let items = [], covers = [], keys = '';
     let pos = 0, target = 0, raf = 0, idle = 0, center = -1, bgOn = 0;
 
@@ -82,7 +88,7 @@
       el.style.setProperty('--mh-h', S + 'px');
       el.style.setProperty('--mh-size', S + 'px');
     }
-    new ResizeObserver(() => { if (!el.isConnected) return; const was = S; measure(); if (S !== was) render(); }).observe(el);
+    new ResizeObserver(() => { if (!el.isConnected) return; const was = S; measure(); sizeThumb(); if (S !== was) render(); else placeThumb(); }).observe(el);
     const clamp = x => Math.max(0, Math.min(items.length - 1, x));
 
     function build() {
@@ -98,6 +104,15 @@
         const src = cover(it);
         if (src) img.src = src;
         c.appendChild(img);
+        // Its reflection: a flipped, faded copy inside the cover's own
+        // layer, drawn once and carried along. (-webkit-box-reflect redrew
+        // a mirror image on every frame of every glide.)
+        const refl = new Image();
+        refl.className = 'mh-refl';
+        refl.alt = ''; refl.draggable = false; refl.decoding = 'async';
+        refl.onload = () => refl.classList.add('loaded');
+        if (src) refl.src = src;
+        c.appendChild(refl);
         stage.appendChild(c);
         return c;
       });
@@ -109,7 +124,8 @@
       const it = items[center];
       if (!it) return;
       const cap = caption(it, center);
-      capK.textContent = cap.k || ''; capK.hidden = !cap.k;
+      capK.replaceChildren(...(cap.eq ? [eqGlyph()] : []), cap.k || ''); capK.hidden = !cap.k;
+      capX.replaceChildren(...(cap.node ? [cap.node] : [])); capX.hidden = !cap.node;
       capT.textContent = cap.t || '';
       capA.textContent = cap.a || '';
       capActs.replaceChildren(...(actions?.(it, center) || []).map(a => {
@@ -143,17 +159,56 @@
         if (c._z !== zi) { c.style.zIndex = String(zi); c._z = zi; }   // restacking repaints; only when it changes
         const op = ad > 4.5 ? String(Math.max(0, 5.5 - ad)) : '';
         if (c._op !== op) { c.style.opacity = op; c._op = op; }
-        // Reflections cost a second copy of every cover: only the ones
-        // near the middle get one.
-        const near = ad < 1.6;
-        if (c._near !== near) { c.classList.toggle('near', near); c._near = near; }
       }
+      placeThumb();
       const ci = Math.round(pos);
       if (ci !== center && items[ci]) {
         center = ci;
         covers.forEach((c, i) => c.classList.toggle('center', i === ci));
         showCaption();
       }
+    }
+
+    // ── The scrollbar ──
+    // The thumb is as wide as the part of the list in view and slides with
+    // the flow (a transform, so it costs nothing per frame). Drag it to
+    // fly through; click the track to glide to that spot.
+    let trackW = 0, thumbW = 0;
+    function sizeThumb() {
+      if (!track) return;
+      trackW = track.clientWidth;
+      thumbW = Math.max(44, Math.min(trackW * 0.5, trackW * 11 / Math.max(items.length, 1)));
+      thumb.style.width = thumbW + 'px';
+      track.hidden = items.length < 2;
+    }
+    function placeThumb() {
+      if (!track || !trackW) return;
+      const f = items.length > 1 ? pos / (items.length - 1) : 0;
+      thumb.style.transform = `translateX(${(f * (trackW - thumbW)).toFixed(1)}px)`;
+    }
+    if (track) {
+      const at = e => {
+        const r = track.getBoundingClientRect(), z = zoomFactor();
+        return Math.max(0, Math.min(1, ((e.clientX - r.left) / z - thumbW / 2) / Math.max(1, trackW - thumbW)));
+      };
+      let dragging = false;
+      thumb.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault(); e.stopPropagation();
+        dragging = true; thumb.setPointerCapture(e.pointerId); track.classList.add('dragging');
+      });
+      thumb.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        target = at(e) * (items.length - 1);
+        kick();
+      });
+      const release = () => { if (!dragging) return; dragging = false; track.classList.remove('dragging'); go(target); };
+      thumb.addEventListener('pointerup', release);
+      thumb.addEventListener('pointercancel', release);
+      track.addEventListener('pointerdown', e => {
+        if (e.target === thumb || e.button !== 0) return;
+        go(at(e) * (items.length - 1));
+      });
     }
 
     // The blurred cover behind the flow, crossfaded once it comes to rest
@@ -175,9 +230,6 @@
       pos = Math.abs(d) < 0.002 ? target : pos + d * 0.2;
       render();
       raf = pos !== target ? requestAnimationFrame(tick) : 0;
-      // While it moves, no reflections at all (they're redrawn every frame);
-      // they come back when it settles.
-      el.classList.toggle('moving', !!raf);
       if (!raf) setBg();
     }
     const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
@@ -240,7 +292,7 @@
       e.preventDefault(); e.stopPropagation();
     });
 
-    window.addEventListener('resize', () => { if (el.isConnected) { measure(); render(); } });
+    window.addEventListener('resize', () => { if (el.isConnected) { measure(); sizeThumb(); render(); } });
 
     // New items. The covers are only rebuilt when the list really changed
     // (keyOf), and it lands on `at`: gliding from `from` when given (Now
@@ -255,6 +307,7 @@
       if (fresh) {
         cancelAnimationFrame(raf); raf = 0;
         pos = clamp(from ?? at); target = clamp(at);
+        sizeThumb();
         build();
         if (pos !== target) kick(); else setBg();
       } else {
@@ -266,6 +319,15 @@
     return { el, set, go, render, refreshCaption: showCaption };
   }
   window.klabCoverFlow = makeCoverFlow;
+
+  // Little equalizer bars: "this one, playing now".
+  function eqGlyph() {
+    const s = document.createElement('span');
+    s.className = 'mh-eq';
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = '<i></i><i></i><i></i><i></i>';
+    return s;
+  }
 
   // Home's: recently added albums.
   const flow = (() => {
@@ -719,24 +781,48 @@
     }
     SFX && SFX.play('click');
   }
+  // Where the song's at: elapsed, a thin bar, its length. Kept up by the
+  // player's timeupdate while the current song is the one in the middle.
+  const npProg = (() => {
+    const el = document.createElement('div');
+    el.className = 'mh-flow-prog';
+    el.innerHTML = '<span class="c">0:00</span><span class="bar"><span class="fill"></span></span><span class="d">0:00</span>';
+    const c = el.querySelector('.c'), d = el.querySelector('.d'), fill = el.querySelector('.fill');
+    const fmt = t => (isFinite(t) && t > 0) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
+    function update() {
+      if (!el.isConnected) return;
+      const a = playerState.audio, dur = a.duration || playerState.currentSong?.duration || 0;
+      c.textContent = fmt(a.currentTime);
+      d.textContent = fmt(dur);
+      fill.style.transform = `scaleX(${dur ? Math.min(1, a.currentTime / dur) : 0})`;
+    }
+    return { el, update };
+  })();
   const npFlow = makeCoverFlow({
     label: 'Cover Flow',
     coverSize: el => {
       const w = el.clientWidth || 800, h = el.clientHeight || 600;
-      return Math.round(Math.max(170, Math.min(h - 200, w * 0.42, 600)));
+      return Math.round(Math.max(170, Math.min(h - 250, w * 0.42, 600)));
     },
     cover: it => it.song.coverArt ? art(it.song.coverArt, 500) : '',
+    scrollbar: true,
     caption: it => ({
       k: it.kind === 'now' ? (playerState.playing ? 'Now playing' : 'Paused')
         : it.kind === 'played' ? 'Played' : it.kind === 'queue' ? 'In your queue' : 'Up next',
+      eq: it.kind === 'now',
       t: it.song.title || '',
       a: [it.song.artist, it.song.album].filter(Boolean).join(' · '),
+      node: it.kind === 'now' ? npProg.el : null,
     }),
     actions: it => it.kind === 'now'
       ? [{ label: playerState.playing ? 'Pause' : 'Play', icon: playerState.playing ? 'ti-player-pause-filled' : 'ti-player-play-filled', primary: true, run: () => togglePlay() }, ...npAlbum(it.song)]
       : [{ label: 'Play', icon: 'ti-player-play-filled', primary: true, run: () => npJump(it) }, ...npAlbum(it.song)],
     open: it => (it.kind === 'now' ? openFS() : npJump(it)),
-    decorate: (c, it) => { c._npSong = it.song; },
+    decorate: (c, it) => {
+      c._npSong = it.song;
+      // The one playing wears the glyph on its cover too.
+      if (it.kind === 'now') { c.classList.add('is-now'); c.appendChild(eqGlyph()); }
+    },
   });
   npFlow.el.classList.add('np-flow');
   // Right-click a cover: the song's own menu.
@@ -780,13 +866,18 @@
     list.appendChild(npFlow.el);
     npLastSongId = null;
     npRender();
+    npProg.update();
     requestAnimationFrame(() => npFlow.render());
   };
 
   // ── Kept live ──
   const a = playerState.audio;
   a.addEventListener('loadstart', npRender);
-  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { if (npFlow.el.isConnected) npFlow.refreshCaption(); });
+  const npPlaying = () => npFlow.el.classList.toggle('is-playing', !!playerState.currentSong && playerState.playing);
+  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { npPlaying(); if (npFlow.el.isConnected) { npFlow.refreshCaption(); npProg.update(); } });
+  a.addEventListener('timeupdate', npProg.update);
+  a.addEventListener('loadedmetadata', npProg.update);
+  npPlaying();
   // The queue and shuffle change what's next.
   const _npQueueBadge = updateQueueBadge;
   updateQueueBadge = function() { _npQueueBadge(); npRender(); };
