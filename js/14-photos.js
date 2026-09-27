@@ -58,6 +58,9 @@
   // is "What's New" (by upload). Not remembered: the tab always opens on
   // the timeline.
   let order = 'shot';
+  // How many photos there are in all, from the API's first page (null
+  // from an API that doesn't say: then it's what's loaded, and a "+").
+  let total = null;
 
   const isActive = () => panel.classList.contains('active');
   const me = () => (window.KLAB_USER?.username || '').toLowerCase();
@@ -80,8 +83,8 @@
   // The big title over the photo, the way Music titles its views.
   function renderViewHead() {
     $('phViewTitle').textContent = order === 'posted' ? "What's new" : 'Timeline';
-    const n = items.length;
-    $('phViewSub').textContent = n ? `${n}${hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
+    const n = total ?? items.length;
+    $('phViewSub').textContent = n ? `${n.toLocaleString()}${total == null && hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
   }
   // The first photo of the newest post: where the tab opens, and what G/End
   // go back to. (The newest post's later photos sit to its right.)
@@ -97,7 +100,9 @@
     try {
       const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
-      const fresh = (await r.json()).posts || [];
+      const data = await r.json();
+      const fresh = data.posts || [];
+      if (typeof data.total === 'number' && g === gen) total = data.total;
       // Switched between Timeline and What's New while this was in flight.
       if (g !== gen) return;
       // Merge: the newest page replaces whatever overlaps it; older pages
@@ -108,6 +113,7 @@
       if (last && (!cursor || before(last, cursor))) cursor = { sort_at: last.sort_at, id: last.id };
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
+      renderViewHead();
       // One try: a photo that isn't in the newest page shouldn't grab the
       // selection minutes later when older pages happen to load.
       if (pendingFocus) { focusPhoto(pendingFocus.postId, pendingFocus.photoId); pendingFocus = null; }
