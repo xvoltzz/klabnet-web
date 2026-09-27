@@ -6413,11 +6413,9 @@
     }
 
     /* ── Desktop manners ──
-       Chrome isn't text you select, and buttons get the arrow, like the
-       rest of Windows, rather than a web page's pointing hand. */
+       Chrome isn't text you select. */
     html.klabnet-app :is(.header, .tab-nav, #playerDock, .hdr-more-menu, .ctx-menu, .settings-row-label,
       .settings-section-label, .music-nav, .picker-tab, .fs-player) { -webkit-user-select: none; user-select: none; }
-    html.klabnet-app :is(button, .ctx-item, .tab-nav-btn, .hdr-btn, .ctrl-btn, .fs-btn, .picker-tab, .s-toggle) { cursor: default; }
 
     /* ── Settings → App ── */
     .app-btn {
@@ -6556,7 +6554,7 @@
     html.app-headerbar .header-left .app-wc { margin-right: 6px; }
     html.app-headerbar .header-right .app-wc { margin-left: 10px; }
     .app-wc-btn {
-      width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; cursor: default;
+      width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
       display: grid; place-items: center; color: var(--text); background: var(--adw-wc);
       transition: background-color .1s ease;
     }
@@ -6681,3 +6679,20 @@
       html.klabnet-app body.player-hidden .dash,
       html.klabnet-app body.tab-photos-active .dash { padding-bottom: 18px !important; }
     }
+
+    /* ══ What you can click looks clickable ══
+       Everything you press gets the pointing hand (browsers leave buttons
+       on the arrow). :where() keeps this at zero specificity, so anything
+       that deliberately says otherwise (disabled, grab, text) still wins. */
+    :where(button:not(:disabled), [role="button"], .ctx-item, .s-toggle, summary, label[for]) { cursor: pointer; }
+
+    /* Text that takes you somewhere (an artist, an album, someone's
+       profile) reads as a link: the hand, and an underline on hover. */
+    :is(.picker-link, .player-link, .fs-link, .ap-hero-artist-link,
+        .feed-post-name, .feed-post-reply-name, .feed-post-mention,
+        .chat-msg-sender, .chat-msg-reply-quote-name) {
+      cursor: pointer; text-underline-offset: 3px; text-decoration-thickness: 1px;
+    }
+    :is(.picker-link, .player-link, .fs-link, .ap-hero-artist-link,
+        .feed-post-name, .feed-post-reply-name, .feed-post-mention,
+        .chat-msg-sender, .chat-msg-reply-quote-name):hover { text-decoration-line: underline; }
