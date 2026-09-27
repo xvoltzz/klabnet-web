@@ -1050,6 +1050,14 @@
   const INFO_KEY = 'klabnet_ph_info';
   let infoOn = true;
   try { infoOn = localStorage.getItem(INFO_KEY) !== 'off'; } catch (e) {}
+  // Icon, label and Settings' switch (shown in the sidebar; beside the
+  // photo on a phone it's the icon alone). Built once and then updated,
+  // so the switch slides rather than being redrawn.
+  function setToggleBtn(b, icon, label, on) {
+    if (!b.querySelector('.s-toggle')) b.innerHTML = `<i class="ti"></i><span>${label}</span><b class="s-toggle" aria-hidden="true"></b>`;
+    b.querySelector('i').className = 'ti ' + icon;
+    b.querySelector('.s-toggle').classList.toggle('on', on);
+  }
   function setInfo(on) {
     infoOn = on;
     try { localStorage.setItem(INFO_KEY, on ? 'on' : 'off'); } catch (e) {}
@@ -1059,7 +1067,7 @@
   function renderInfoBtn() {
     shell.classList.toggle('bare', !infoOn);
     const b = $('phInfoBtn');
-    b.innerHTML = `<i class="ti ${infoOn ? 'ti-info-circle' : 'ti-photo'}"></i><span>Photo info</span><em>${infoOn ? 'On' : 'Off'}</em>`;
+    setToggleBtn(b, infoOn ? 'ti-info-circle' : 'ti-photo', 'Photo info', infoOn);
     b.title = infoOn ? 'Hide photo info (i)' : 'Show photo info (i)';
     b.setAttribute('aria-pressed', infoOn);
   }
@@ -1068,7 +1076,7 @@
 
   function renderSoundBtn() {
     const b = $('phSoundBtn');
-    b.innerHTML = `<i class="ti ${soundOn ? 'ti-volume' : 'ti-volume-off'}"></i><span>Song clips</span><em>${soundOn ? 'On' : 'Off'}</em>`;
+    setToggleBtn(b, soundOn ? 'ti-volume' : 'ti-volume-off', 'Song clips', soundOn);
     b.title = soundOn ? 'Song clips on' : 'Song clips off';
     b.setAttribute('aria-pressed', soundOn);
   }

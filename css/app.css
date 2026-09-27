@@ -7466,9 +7466,8 @@
       .ph-sidebar .ph-order button:hover:not([aria-pressed="true"]), .ph-sidebar .ph-btn:not(.ph-btn-post):hover { background: var(--glass-fill); color: var(--text); }
       .ph-sidebar .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
       .ph-sidebar .ph-order button[aria-pressed="true"] i { opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
-      .ph-sidebar .ph-btn em { font: 500 var(--fs-12) var(--font-ui); font-style: normal; color: var(--text-dimmer); }
+      .ph-sidebar .ph-btn .s-toggle { margin-left: auto; }
       .ph-sidebar .ph-btn[aria-pressed="true"] { color: var(--text); }
-      .ph-sidebar .ph-btn[aria-pressed="true"] em { color: rgba(var(--accent-rgb),.95); }
       /* Post: Music's "New playlist". */
       .ph-sidebar .ph-btn-post {
         display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: 34px; margin-top: 4px;
@@ -7537,4 +7536,4 @@
       html[data-fx="low"] .ph-sidebar .ph-btn[aria-pressed="true"] { background: none !important; }
     }
     /* Narrow: the Show toggles are icon buttons again. */
-    .ph-actions .ph-btn:not(.ph-btn-post) span, .ph-actions .ph-btn em { display: none; }
+    .ph-actions .ph-btn:not(.ph-btn-post) span, .ph-actions .ph-btn .s-toggle { display: none; }
