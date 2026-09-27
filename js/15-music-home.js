@@ -68,7 +68,21 @@
     let items = [], covers = [], keys = '';
     let pos = 0, target = 0, raf = 0, idle = 0, center = -1, bgOn = 0;
 
-    const size = () => coverSize ? coverSize(el) : (matchMedia(KLAB_PHONE_MQ).matches ? 150 : 230);
+    // Worked out when the size of things changes, not every frame: reading
+    // the element's size mid-animation forced a layout of the whole page on
+    // each frame, and rewriting the size variables restyled every cover.
+    let S = 0;
+    const measure = () => { S = coverSize ? coverSize(el) : (matchMedia(KLAB_PHONE_MQ).matches ? 150 : 230); };
+    const size = () => S || (measure(), S);
+    let appliedS = 0;
+    function applySize() {
+      if (appliedS === S) return;
+      appliedS = S;
+      stage.style.setProperty('--mh-size', S + 'px');
+      el.style.setProperty('--mh-h', S + 'px');
+      el.style.setProperty('--mh-size', S + 'px');
+    }
+    new ResizeObserver(() => { if (!el.isConnected) return; const was = S; measure(); if (S !== was) render(); }).observe(el);
     const clamp = x => Math.max(0, Math.min(items.length - 1, x));
 
     function build() {
@@ -112,21 +126,27 @@
     // Each cover's place is a function of its distance from the centre, d:
     // the middle one faces you, the rest fold back at an angle and stack.
     function render() {
-      const S = size();
-      stage.style.setProperty('--mh-size', S + 'px');
-      el.style.setProperty('--mh-h', S + 'px');
-      el.style.setProperty('--mh-size', S + 'px');
+      size();
+      applySize();
       for (let i = 0; i < covers.length; i++) {
         const c = covers[i];
         const d = i - pos, ad = Math.abs(d), sg = Math.sign(d);
-        if (ad > 7) { if (c._on !== false) { c.style.display = 'none'; c._on = false; } continue; }
+        // Five either side: the ones further out are slivers anyway, and
+        // every one is a big layer for the GPU to move each frame.
+        if (ad > 5.5) { if (c._on !== false) { c.style.display = 'none'; c._on = false; } continue; }
         if (c._on !== true) { c.style.display = ''; c._on = true; }
         let x, rot, z;
         if (ad < 1) { x = d * S * 0.66; rot = -d * 62; z = -ad * S * 0.55; }
         else { x = sg * (S * 0.66 + (ad - 1) * S * 0.24); rot = -sg * 62; z = -S * 0.55; }
         c.style.transform = `translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${rot.toFixed(1)}deg)`;
-        c.style.zIndex = String(100 - Math.round(ad * 10));
-        c.style.opacity = ad > 6 ? String(Math.max(0, 7 - ad)) : '';
+        const zi = 100 - Math.round(ad * 10);
+        if (c._z !== zi) { c.style.zIndex = String(zi); c._z = zi; }   // restacking repaints; only when it changes
+        const op = ad > 4.5 ? String(Math.max(0, 5.5 - ad)) : '';
+        if (c._op !== op) { c.style.opacity = op; c._op = op; }
+        // Reflections cost a second copy of every cover: only the ones
+        // near the middle get one.
+        const near = ad < 1.6;
+        if (c._near !== near) { c.classList.toggle('near', near); c._near = near; }
       }
       const ci = Math.round(pos);
       if (ci !== center && items[ci]) {
@@ -155,6 +175,9 @@
       pos = Math.abs(d) < 0.002 ? target : pos + d * 0.2;
       render();
       raf = pos !== target ? requestAnimationFrame(tick) : 0;
+      // While it moves, no reflections at all (they're redrawn every frame);
+      // they come back when it settles.
+      el.classList.toggle('moving', !!raf);
       if (!raf) setBg();
     }
     const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
@@ -217,7 +240,7 @@
       e.preventDefault(); e.stopPropagation();
     });
 
-    window.addEventListener('resize', () => { if (el.isConnected) render(); });
+    window.addEventListener('resize', () => { if (el.isConnected) { measure(); render(); } });
 
     // New items. The covers are only rebuilt when the list really changed
     // (keyOf), and it lands on `at`: gliding from `from` when given (Now

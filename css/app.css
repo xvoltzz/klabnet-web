@@ -4532,7 +4532,6 @@
       position: absolute; left: 50%; top: 0;
       width: var(--mh-size, 230px); height: var(--mh-size, 230px); margin-left: calc(var(--mh-size, 230px) / -2);
       will-change: transform; cursor: pointer;
-      -webkit-box-reflect: below 3px linear-gradient(transparent 62%, rgba(255,255,255,0.22));
     }
     .mh-cover img {
       width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 4px;
@@ -7103,7 +7102,7 @@
     body.tab-photos-active .ph-backdrop { visibility: visible; transition-delay: 0s; }
 
     /* Cover Flow's reflections double the raster work: off in performance mode. */
-    html[data-fx="low"] .mh-cover { -webkit-box-reflect: none; }
+    html[data-fx="low"] .mh-cover { -webkit-box-reflect: initial; }
 
     /* The desktop player dock slides when hidden instead of snapping. */
     .player-dock { transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease, transform .3s var(--m-ease), opacity .2s ease; }
@@ -7207,3 +7206,41 @@
     .np-flow .mh-flow-actions { margin-top: 12px; }
     .np-flow .mh-flow-actions button { height: 34px; padding: 0 16px; font-size: var(--fs-13); }
     .np-flow .mh-cover img { border-radius: 6px; box-shadow: 0 30px 70px rgba(0,0,0,.55); }
+
+    /* ══ Cover Flow, cheap to draw ══
+       Every cover is its own moving layer, so what's drawn *inside* one is
+       what costs: a reflection is a second copy of it, a big soft shadow a
+       large blur, a filter a re-render whenever it changes. So: reflections
+       only near the middle and never mid-glide; the heavy shadow only on
+       the middle cover; the side covers dimmed by a see-through layer on
+       top (which the GPU fades for free) instead of a brightness filter. */
+    /* ("none" isn't a value this property takes: Chrome drops the whole
+       declaration, which is how every cover kept a reflection redrawn on
+       every frame of every glide. "initial" is how to say no reflection.) */
+    .mh-cover.near { -webkit-box-reflect: below 3px linear-gradient(transparent 62%, rgba(255,255,255,0.22)); }
+    .mh-flow.moving .mh-cover { -webkit-box-reflect: initial; }
+    html[data-fx="low"] .mh-cover.near { -webkit-box-reflect: initial; }
+    .mh-cover img, .np-flow .mh-cover img { box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+    .mh-cover.center img { box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
+    .np-flow .mh-cover.center img { box-shadow: 0 26px 60px rgba(0,0,0,.55); }
+    .mh-cover:not(.center) img { filter: none; }
+    .mh-cover::after {
+      content: ''; position: absolute; inset: 0; border-radius: 4px; pointer-events: none;
+      background: #000; opacity: .28; transition: opacity .25s ease;
+    }
+    .mh-cover.center::after { opacity: 0; }
+    .np-flow .mh-cover::after { border-radius: 6px; }
+
+    /* ══ An app, not a document ══
+       Dragging across the page doesn't paint it blue, and double-clicking
+       a word doesn't select it: only the places you type are selectable.
+       (Copying a message or post is on its right-click menu; code blocks
+       have their own copy button.) */
+    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    input, textarea, select, [contenteditable="true"], [contenteditable=""] { -webkit-user-select: text; user-select: text; }
+    img { -webkit-user-drag: none; }
+    /* On a phone a long press is how you copy a message (there's no
+       right-click menu there), so what people wrote stays selectable. */
+    @media (pointer: coarse) {
+      .chat-msg-text, .feed-post-text, .feed-post-reply-text, .ph-reply-text { -webkit-user-select: text; user-select: text; }
+    }
