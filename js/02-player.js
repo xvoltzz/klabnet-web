@@ -1158,7 +1158,7 @@ document.getElementById('playerArtWrap').addEventListener('click', () => openFS(
 // Phone layout: the dock is a mini player, and tapping its title opens the
 // full player too, the way a music app's mini player does.
 document.querySelector('#playerDock .player-info')?.addEventListener('click', () => {
-  if (matchMedia('(max-width: 760px)').matches) openFS();
+  if (matchMedia(KLAB_PHONE_MQ).matches) openFS();
 });
 document.getElementById('fsPlayer').addEventListener('click', e => { if (e.target === document.getElementById('fsPlayer')) closeFS(); });
 

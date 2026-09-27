@@ -61,7 +61,7 @@
     let albums = [], covers = [], loadedAt = 0;
     let pos = 0, target = 0, raf = 0, idle = 0, center = -1, bgOn = 0;
 
-    const size = () => (matchMedia('(max-width: 760px)').matches ? 150 : 230);
+    const size = () => (matchMedia(KLAB_PHONE_MQ).matches ? 150 : 230);
     const clamp = x => Math.max(0, Math.min(albums.length - 1, x));
 
     function build() {

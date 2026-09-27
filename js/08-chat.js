@@ -2655,7 +2655,7 @@ function seedUnreadFromServer() {
 function chatPaneShowing() {
   if (document.hidden) return false;
   if (!document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) return false;
-  return !(document.body.classList.contains('chat-rooms-view') && matchMedia('(max-width: 760px)').matches);
+  return !(document.body.classList.contains('chat-rooms-view') && matchMedia(KLAB_PHONE_MQ).matches);
 }
 function chatRoomOnScreen() { return chatPaneShowing() && document.hasFocus(); }
 function readActiveChatRoom(room, events) {

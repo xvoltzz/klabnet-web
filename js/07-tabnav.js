@@ -287,7 +287,7 @@ trapFocusWithin(
 // step aside while the on-screen keyboard is up, so what you're typing
 // into isn't boxed in under them. (A narrow desktop window keeps them.)
 (function() {
-  const touchPhone = matchMedia('(max-width: 760px) and (pointer: coarse)');
+  const touchPhone = matchMedia(KLAB_PHONE_MQ);
   const isField = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' ||
     (el.tagName === 'INPUT' && /^(text|search|url|email|password|tel|number)?$/i.test(el.type)));
   document.addEventListener('focusin', e => {
@@ -326,7 +326,7 @@ trapFocusWithin(
 // Scrolling back up, or tapping the circle, opens it again. Only scrolling
 // you do counts: a chat jumping to a new message doesn't collapse it.
 (function() {
-  const phone = matchMedia('(max-width: 760px)');
+  const phone = matchMedia(KLAB_PHONE_MQ);
   const nav = document.getElementById('tabNav');
   if (!nav) return;
   const buttons = () => [...nav.querySelectorAll('.tab-nav-btn:not([hidden])')];
@@ -414,7 +414,7 @@ trapFocusWithin(
 // elsewhere on the page doesn't count: it's about the bar being unused,
 // not the page.
 (function() {
-  const desk = matchMedia('(min-width: 761px)');
+  const desk = matchMedia(KLAB_DESK_MQ);
   const nav = document.getElementById('tabNav');
   if (!nav) return;
   const IDLE_MS = 4000;
@@ -469,7 +469,7 @@ trapFocusWithin(
 // ══════════════════════════════════════════
 window.klabSideNav = (function() {
   const root = document.documentElement;
-  const desk = matchMedia('(min-width: 761px)');
+  const desk = matchMedia(KLAB_DESK_MQ);
   const roomy = matchMedia('(min-width: 1100px)');
   const nav = document.getElementById('tabNav');
   const header = document.querySelector('.header');

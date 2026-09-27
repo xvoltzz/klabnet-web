@@ -2227,7 +2227,7 @@
     @media (max-width: 860px) {
       .player-dock .dock-extra { display: none; }
     }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       .player-dock .player-vol {
         display: none;
       }
@@ -3739,7 +3739,7 @@
     }
 
     /* ── Phones / small tablets ── */
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       /* 3.5rem of side padding at a 19px root is ~66px a side — a third of
          a phone screen gone before any content is drawn. */
       .dash { padding: 1.5rem 1rem 1.5rem; }
@@ -3916,7 +3916,7 @@
        under the system UI, so anything pinned to an edge pads itself back
        out. Written with max(), so a device without insets is unaffected. */
     @supports (padding: max(0px)) {
-      @media (max-width: 760px) {
+      @media (max-width: 760px) and (pointer: coarse) {
         .dash {
           padding-left: max(1rem, env(safe-area-inset-left));
           padding-right: max(1rem, env(safe-area-inset-right));
@@ -4073,7 +4073,7 @@
     }
     /* The dock is the one place that runs out of horizontal room first,
        and title/artist/album all matter more than the codec. */
-    @media (max-width: 760px) { .player-quality { display: none; } }
+    @media (max-width: 760px) and (pointer: coarse) { .player-quality { display: none; } }
 
     .fs-quality {
       font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -4486,7 +4486,7 @@
       .ph-spec-row { display: flex; flex-wrap: wrap; gap: 2px 14px; }
       .ph-spec { display: inline-flex; align-items: baseline; gap: 5px; }
     }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       body.tab-photos-active .dash { padding-bottom: .75rem; max-width: 100%; }
       .ph-shell { --ph-thumb: 38px; --ph-strip-h: 80px; gap: 8px; }
       .ph-frame > img { border-radius: 4px; }
@@ -4657,12 +4657,12 @@
     .mh-wheel-tx .a { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mh-wheel-result .mh-flow-actions { margin-top: 0; }
     .mh-wheel-result .mh-flow-actions[hidden] { display: none; }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       .mh-wheel { --mh-wheel: min(72vw, 270px); }
       .mh-wheel-result { align-items: center; text-align: center; }
     }
 
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       .mh-card { width: 124px; }
       .mh-row-nav { top: calc(4px + 62px - 18px); }
       .mh-flow-caption { padding: 0 16px; }
@@ -4882,7 +4882,7 @@
     }
     #musicShell .ap-sim-chip:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
 
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       /* One sideways strip: groups flatten into it, labels drop out. */
       #musicShell .music-sidebar { width: 100%; }
       #musicShell .music-nav {
@@ -5105,7 +5105,7 @@
     #headerMoreMenu { border-radius: 10px; }
     #headerMoreMenu .ctx-item { border-radius: 10px; }
 
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       #feedList .feed-post { padding: 14px; gap: 12px; flex-direction: row; }
       #feedList .feed-post-body { min-width: 0; }
       #feedList .feed-post-avatar { width: 36px; height: 36px; }
@@ -5135,7 +5135,7 @@
     .ph-order button i { font-size: 16px; }
     .ph-order button:hover { color: var(--text); }
     .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); }
-    @media (max-width: 760px) { .ph-order button span { display: none; } }
+    @media (max-width: 760px) and (pointer: coarse) { .ph-order button span { display: none; } }
 
     /* ══ NOTIFICATIONS — bigger, boxier, always a picture ══
        A card with a large square tile on the left: an album cover, the
@@ -5161,7 +5161,7 @@
     .toast-item-msg { display: flex; flex-direction: column; gap: 2px; }
     .toast-item-title { font-weight: 600; color: var(--text); }
     .toast-item-body { color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       .toast-item { min-width: 0; }
       .toast-item-pic { width: 42px; height: 42px; }
     }
@@ -5206,7 +5206,7 @@
        box sits flush against them and its focus glow was cut off square.
        Room inside for the glow, taken back outside so nothing moves. */
     body.tab-music-active #musicShell .music-sidebar { padding: 16px; margin: -16px; width: calc(250px + 32px); }
-    @media (max-width: 760px) { body.tab-music-active #musicShell .music-sidebar { width: calc(100% + 32px); } }
+    @media (max-width: 760px) and (pointer: coarse) { body.tab-music-active #musicShell .music-sidebar { width: calc(100% + 32px); } }
 
     /* ══ FEED MARKDOWN — rendered posts, the composer's toolbar, live
        preview, big editor, and the syntax-tinted overlay while typing. ══ */
@@ -5300,7 +5300,7 @@
     #feedComposer.expanded .feed-composer-live { margin: 0; padding: 0 0 0 24px; border-top: none; border-left: 1px dashed var(--glass-border-h); overflow-y: auto; min-height: 0; }
     #feedComposer.expanded .feed-md-help { max-height: 30vh; overflow-y: auto; }
     body.feed-composer-open { overflow: hidden; }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       #feedComposer.expanded { inset: 10px; }
       #feedComposer.expanded .feed-composer-panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
       #feedComposer.expanded .feed-composer-live { padding: 12px 0 0; border-left: none; border-top: 1px dashed var(--glass-border-h); }
@@ -5842,7 +5842,7 @@
     .chat-send:active { transform: scale(.92); }
 
     /* phones: the list and the conversation are two screens */
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
       body.tab-chat-active.chat-rooms-view .dash-main { display: flex; }
       body.tab-chat-active.chat-rooms-view #chatApp .chat-main { display: none; }
@@ -5936,7 +5936,7 @@
     .feed-floaty { position: fixed; z-index: 9999; pointer-events: none; font-size: 20px; animation: feedFloaty .95s var(--m-ease) forwards; }
     @keyframes feedFloaty { to { transform: translateY(-64px) scale(1.35) rotate(var(--r)); opacity: 0; } }
 
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       #feedList .feed-post.is-shout .feed-post-text { font-size: 21px; }
       /* phones: 14px padding + 36px avatar + 12px gap */
       #feedList .feed-post.is-photo .feed-post-image { width: calc(100% + 62px + 14px); margin: 12px -14px 0 -62px; }
@@ -6075,7 +6075,7 @@
        desktop window doesn't get them.
        ══════════════════════════════════════════ */
     .hdr-compact-only { display: none; }
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       :root {
         --nav-h: 58px;                          /* the dock's height */
         --safe-b: env(safe-area-inset-bottom, 0px);
@@ -6229,7 +6229,7 @@
     }
 
     /* ══ Phone layout, round two ══ */
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       /* ── Collapsing dock (js/07-tabnav.js), after Apple Music ──
          Scrolling down shrinks the dock to a glass circle holding just the
          current tab's icon, and the mini player slides over beside it on
@@ -6306,7 +6306,7 @@
        Tab key, it collapses to just the current tab, icon and name
        (body.nav-mini, js/07-tabnav.js); bringing the mouse close, Tab, or
        1-9 opens it. */
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       .header { grid-template-columns: 1fr auto 1fr; grid-template-rows: auto; row-gap: 0; }
       .header-left  { grid-column: 1; grid-row: 1; }
       .header-right { grid-column: 3; grid-row: 1; }
@@ -6473,9 +6473,9 @@
        sides stay equal and the middle column is the window's middle. */
     html.app-titlebar .header { padding-right: 8px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
     html.app-titlebar .header-right { margin-right: var(--wco-right, 144px); }
-    @media (max-width: 760px) { html.app-titlebar .header { grid-template-columns: minmax(0, 1fr) auto; } }
+    @media (max-width: 760px) and (pointer: coarse) { html.app-titlebar .header { grid-template-columns: minmax(0, 1fr) auto; } }
 
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.app-titlebar[data-platform="win32"] .header .tab-nav {
         background: none !important; border: 0 !important; box-shadow: none !important;
         -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
@@ -6514,7 +6514,7 @@
       }
     }
     /* Not enough room for names beside everything else: icons, as before. */
-    @media (min-width: 761px) and (max-width: 1099px) {
+    @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn { padding: 0 11px; }
       html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
       html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
@@ -6574,7 +6574,7 @@
     html.app-headerbar .header-right .hdr-btn:active,
     html.app-headerbar .header-right .hdr-btn.active { background: var(--adw-active); }
 
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.app-headerbar .header .tab-nav {
         background: none !important; border: 0 !important; box-shadow: none !important;
         -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
@@ -6594,7 +6594,7 @@
       html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
       html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 12px; gap: 8px; background: var(--adw-checked); }
     }
-    @media (min-width: 761px) and (max-width: 1099px) {
+    @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html.app-headerbar .header .tab-nav .tab-nav-btn { padding: 0 11px; }
       html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
       html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
@@ -6605,7 +6605,7 @@
        buttons take Breeze's look: flat, an accent outline on hover, an
        accent-tinted fill and frame when checked, in KDE's accent colour. */
     html.klabnet-app[data-desktop="kde"] { --breeze-font: "Noto Sans", "Inter", system-ui, sans-serif; }
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app[data-desktop="kde"] .header .tab-nav,
       html.klabnet-app[data-desktop="kde"] .header-right {
         background: none !important; border: 0 !important; box-shadow: none !important;
@@ -6652,7 +6652,7 @@
        (Feed's reading column stays its comfortable width inside it), and
        in the app the player is a bar across the bottom of the window, like
        a desktop music app's, with pages clearing exactly its height. */
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       .dash { padding-left: 1.75rem; padding-right: 1.75rem; padding-top: 2.25rem; }
       .dash, body[class*="tab-"] .dash { max-width: min(100%, 2800px); }
       body.tab-home-active .dash { max-width: min(100%, 2200px); }
@@ -6660,7 +6660,7 @@
     /* Feed stays a reading column, just a roomier one on big screens. */
     @media (min-width: 1400px) { .tab-panel[data-tab-panel="feed"] { max-width: 1040px; } }
 
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app { --dock-h: 72px; }
       html.klabnet-app .player-dock {
         left: 0; right: 0; bottom: 0; width: auto; transform: none;
@@ -6733,9 +6733,9 @@
        the page moves over by its width. Phones keep the bottom dock. */
     .side-nav { display: none; }
     .nav-burger { display: none; }
-    @media (max-width: 760px) { #navStyleRow { display: none; } }
+    @media (max-width: 760px) and (pointer: coarse) { #navStyleRow { display: none; } }
 
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html[data-nav="side"] { --nav-w: 232px; }
       html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
@@ -6826,7 +6826,7 @@
       html[data-fx="low"] #sideNav #tabNav .motion-pill { background: var(--sb-sel, color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%)) !important; }
     }
     /* Narrow window: icons, with the whole sidebar a ☰ away. */
-    @media (min-width: 761px) and (max-width: 1099px) {
+    @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html[data-nav="side"] { --nav-w: 56px; }
       html[data-nav="side"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 0; }
       html[data-nav="side"]:not(.nav-flyout) #sideNav #socialUnreadBadge:not(:empty) {
@@ -6839,7 +6839,7 @@
        above it with its own faint fill, a hairline edge and a rounded
        top-left corner. Rows are 36px Segoe UI, a quiet fill marks the
        selected one and an accent pill slides beside it. */
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app[data-platform="win32"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
         background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 4px 4px 6px;
       }
@@ -6883,7 +6883,7 @@
     /* ── GNOME: a libadwaita sidebar ──
        Its own slightly different shade, rounded rows, and the selected row
        simply filled; no accent bar. */
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app[data-desktop="gnome"] { --adw-sidebar: color-mix(in srgb, var(--bg) 88%, #fff 5%); --adw-row-sel: rgba(255,255,255,0.1); --adw-row-hover: rgba(255,255,255,0.07); --sb-sel: var(--adw-row-sel); }
       html.klabnet-app[data-desktop="gnome"][data-theme="light"] { --adw-sidebar: color-mix(in srgb, var(--bg) 90%, #000 4%); --adw-row-sel: rgba(0,0,0,0.08); --adw-row-hover: rgba(0,0,0,0.05); }
       html.klabnet-app[data-desktop="gnome"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
@@ -6906,7 +6906,7 @@
     /* ── KDE Plasma: a Breeze sidebar, like System Settings' ──
        Flat rows; the selected one gets an accent-tinted fill and frame,
        and hovering outlines a row in the accent. */
-    @media (min-width: 761px) {
+    @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app[data-desktop="kde"] { --sb-sel: color-mix(in srgb, var(--de-accent, #3daee9) 22%, transparent); }
       html.klabnet-app[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
         background: color-mix(in srgb, var(--bg) 92%, #fff 3%); box-shadow: 1px 0 0 var(--glass-border); -webkit-backdrop-filter: none; backdrop-filter: none;
@@ -7043,7 +7043,7 @@
     /* ══ Rendering and correctness fixes (audit) ══ */
 
     /* Lyrics on a phone: stacked, not a 360px player beside a 0px column. */
-    @media (max-width: 760px) {
+    @media (max-width: 760px) and (pointer: coarse) {
       .fs-player.lyrics-open { flex-direction: column; }
       .fs-player.lyrics-open .fs-content {
         width: 100%; max-width: none; flex-shrink: 0;
@@ -7120,7 +7120,7 @@
 
     /* iPhone in landscape gets the desktop layout: keep it off the notch. */
     @supports (padding: max(0px)) {
-      @media (min-width: 761px) {
+      @media (min-width: 761px), (pointer: fine) {
         .dash { padding-left: max(1.75rem, env(safe-area-inset-left)); padding-right: max(1.75rem, env(safe-area-inset-right)); }
       }
     }
@@ -7135,4 +7135,36 @@
       #tabNav, #playerDock, .side-nav, #feedList .feed-day-in {
         background: var(--modal-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
       }
+    }
+
+    /* ══ One search box ══
+       Chat's and Music's sidebars share one: same size, same fill, and
+       the same accent glow when it has the cursor. Their sidebars are the
+       same width too. */
+    #musicShell .picker-search, .chat-search {
+      height: 40px; border-radius: 8px; padding: 0 8px 0 12px; gap: 10px;
+      background: var(--glass-fill); border: 1px solid var(--glass-border);
+      color: var(--text-dimmer); cursor: text;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    #musicShell .picker-search:focus-within, .chat-search:focus-within {
+      border-color: rgba(var(--accent-rgb), .5);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15), 0 0 14px rgba(var(--accent-rgb), .25);
+    }
+    #musicShell .picker-search i, .chat-search i { font-size: 15px; color: var(--text-dimmer); flex-shrink: 0; }
+    #musicShell .picker-search input, .chat-search input {
+      flex: 1; min-width: 0; border: none; background: none; outline: none;
+      color: var(--text); caret-color: var(--text); font: 400 var(--fs-14) var(--font-ui);
+    }
+    #musicShell .picker-search input::placeholder, .chat-search input::placeholder { color: var(--text-dimmer); }
+    #musicShell .picker-search input:focus-visible, .chat-search input:focus-visible { outline: none; }
+    @media (min-width: 761px), (pointer: fine) { #chatApp .chat-body { grid-template-columns: 250px minmax(0, 1fr); } }
+
+    /* A narrow window on a computer keeps the desktop layout (the phone one
+       is for touch screens); the Chat and Music sidebars just give up some
+       width to the conversation and the music. */
+    @media (pointer: fine) and (max-width: 900px) {
+      #chatApp .chat-body { grid-template-columns: 200px minmax(0, 1fr); gap: 20px; }
+      #musicShell .music-sidebar { width: 200px; }
+      body.tab-music-active #musicShell .music-sidebar { width: calc(200px + 32px); }
     }

@@ -12,6 +12,11 @@
 // but off-site a slow/dropped connection can leave a boot-critical or
 // polling fetch pending forever with no visible failure — abort it instead
 // so identity/prefs/presence checks fail fast and the app keeps moving.
+// The phone layout is for phones: a narrow window on a computer (a mouse
+// or trackpad) keeps the desktop one. css/app.css uses the same queries.
+const KLAB_PHONE_MQ = '(max-width: 760px) and (pointer: coarse)';
+const KLAB_DESK_MQ  = '(min-width: 761px), (pointer: fine)';
+
 function fetchTimeout(url, opts, ms) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms || 10000);
