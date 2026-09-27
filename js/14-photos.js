@@ -357,7 +357,9 @@
   // narrow one the rails stack underneath and the photo takes what's left.
   const railL = frame.querySelector('.ph-rail-l');
   const railR = frame.querySelector('.ph-rail-r');
-  const narrowMq = matchMedia('(max-width: 900px)');
+  // Narrow means a phone or a small tablet: a desktop window of any width
+  // keeps the sidebar layout (no phone UI on a desktop).
+  const narrowMq = matchMedia('(max-width: 900px) and (pointer: coarse)');
   // Where the chrome lives: in Music's sidebar on a wide window; beside
   // and under the photo when it's narrow. Moved, not copied, so every
   // listener and id stays as it is.
