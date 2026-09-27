@@ -45,8 +45,10 @@ function md5(str) {
   return binl2hex(rawMD5(str));
 }
 
+// The salt is fixed, so the token is too: hashed once, not per URL.
+let _ndToken = null;
 function subsonicParams(extraParams='') {
-  const token = md5('KLABNET' + ND_SALT);
+  const token = _ndToken || (_ndToken = md5('KLABNET' + ND_SALT));
   return `u=${ND_USER}&t=${token}&s=${ND_SALT}&v=1.16.1&c=klabnet&f=json${extraParams}`;
 }
 
@@ -215,7 +217,7 @@ function updatePlayerUI(song) {
   // Album art — DOM construction avoids innerHTML escaping bugs
   // size=100 (~2x the 46px dock art box, 36px on mobile) — was 300,
   // fetching/decoding ~6x more pixels than this ever displays.
-  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=100&${subsonicParams()}`;
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`;
   const ph = document.createElement('div');
   ph.className = 'picker-item-art-ph';
   ph.innerHTML = '<i class="ti ti-music"></i>';
@@ -253,11 +255,20 @@ async function loadRandomSongs() {
 // Set while the login song starts, so it starts at 0 and fades in rather
 // than blasting for a moment (playSong's wrappers don't pass options on).
 let _playSilently = false;
+// What you actually heard, newest last, so Previous goes back to it
+// (under shuffle, or after queued songs, the playlist order isn't that).
+const _heard = [];
+let _goingBack = false;
 async function playSong(song) {
   if (!song) return;
+  const prev = playerState.currentSong;
+  if (!_goingBack && prev && prev.id !== song.id) {
+    _heard.push(prev);
+    if (_heard.length > 100) _heard.shift();
+  }
   playerState.currentSong = song;
   updatePlayerUI(song);
-  const streamUrl = `${ND_URL}/rest/stream?id=${song.id}&${subsonicParams()}`;
+  const streamUrl = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.id)}&${subsonicParams()}`;
   playerState.audio.src = streamUrl;
   playerState.audio.volume = _playSilently ? 0 : playerState.volume;
   try {
@@ -265,8 +276,43 @@ async function playSong(song) {
     playerState.playing = true;
     setPlayIcon(true);
     updateMediaSession(song);
-  } catch(e) { console.warn('Playback failed', e); }
+  } catch(e) {
+    // A newer playSong() replacing this one isn't a failure.
+    if (e && e.name === 'AbortError') return;
+    console.warn('Playback failed', e);
+    playerState.playing = false;
+    setPlayIcon(false);
+    // Blocked autoplay (no tap yet) waits for Play; anything else is this
+    // track, and the 'error' handler below moves on.
+  }
 }
+
+// A track that won't play (gone from the server, the network dropped, a
+// format the browser can't decode) used to leave the player saying
+// "playing" forever with nothing coming out and nothing advancing. Now it
+// stops saying so and moves to the next one, giving up after a few in a
+// row so a dropped connection doesn't spin through the whole library.
+let _failedInARow = 0;
+playerState.audio.addEventListener('error', () => {
+  if (!playerState.audio.getAttribute('src')) return;
+  playerState.playing = false;
+  setPlayIcon(false);
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  const title = playerState.currentSong?.title;
+  if (++_failedInARow > 3) {
+    showToast("Couldn't play music right now. Check your connection.", 'ti-wifi-off');
+    return;
+  }
+  showToast(title ? `Couldn't play "${title}", skipping` : "Couldn't play that track, skipping", 'ti-player-skip-forward');
+  setTimeout(() => nextSong(), 600);
+});
+playerState.audio.addEventListener('playing', () => { _failedInARow = 0; });
+// Whatever started it (Play after a blocked autoplay, the lock screen, a
+// resume), the system's now-playing shows this track.
+playerState.audio.addEventListener('play', () => {
+  const song = playerState.currentSong;
+  if (song && 'mediaSession' in navigator && navigator.mediaSession.metadata?.title !== (song.title || '')) updateMediaSession(song);
+});
 
 async function togglePlay() {
   if (playerState.playing) {
@@ -314,15 +360,25 @@ async function nextSong() {
 }
 
 async function prevSong() {
-  if (!playerState.playlist.length) return;
-  // If we're past 3 seconds, restart the current song
+  // Past 3 seconds in, Previous restarts the song, like every player.
   if (playerState.audio.currentTime > 3) {
     playerState.audio.currentTime = 0;
     return;
   }
-  // Otherwise, go to the previous song
+  // Otherwise back to what you heard before this, keeping the playlist's
+  // place in step when it came from there.
+  const back = _heard.pop();
+  if (back) {
+    const i = playerState.playlist.findIndex(x => x.id === back.id);
+    if (i >= 0) playerState.playlistIndex = i;
+    _goingBack = true;
+    try { await playSong(back); } finally { _goingBack = false; }
+    return;
+  }
+  if (!playerState.playlist.length) { playerState.audio.currentTime = 0; return; }
   playerState.playlistIndex = (playerState.playlistIndex-1+playerState.playlist.length) % playerState.playlist.length;
-  await playSong(playerState.playlist[playerState.playlistIndex]);
+  _goingBack = true;
+  try { await playSong(playerState.playlist[playerState.playlistIndex]); } finally { _goingBack = false; }
 }
 
 // Progress tracking — dock only. The fullscreen player's own timeupdate
@@ -341,62 +397,78 @@ playerState.audio.addEventListener('timeupdate', () => {
 playerState.audio.addEventListener('ended', () => nextSong());
 
 // ── SLIDER UTILITY ──
+// Pointer events, so a finger drags it on a phone the same as a mouse
+// does (mouse events alone only ever gave touch a tap). onChange gets
+// (pct, dragging): true while the drag is still going, false when it's
+// let go, clicked or wheeled.
 function makeSlider(trackEl, fillEl, dotEl, onChange) {
   let dragging = false;
-  // Measured once at drag-start instead of on every mousemove — the track
-  // doesn't move or resize mid-drag, so re-measuring on every single
-  // pointer event (native mousemove frequency, can easily be 60+/sec) was
-  // forcing a synchronous layout read that often for no reason.
+  // Measured once at drag-start instead of on every move: the track
+  // doesn't move or resize mid-drag.
   let dragRect = null;
   function getPct(e) {
     const r = (dragging && dragRect) ? dragRect : trackEl.getBoundingClientRect();
     return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   }
-  function update(e) {
-    const pct = getPct(e);
+  function show(pct) {
     fillEl.style.width = (pct*100) + '%';
     dotEl.style.left = (pct*100) + '%';
-    onChange(pct);
+  }
+  function update(e, live) {
+    const pct = getPct(e);
+    show(pct);
+    onChange(pct, live);
   }
   function start(e) {
+    if (e.button !== 0) return;
     dragging = true;
     dragRect = trackEl.getBoundingClientRect();
     trackEl.classList.add('dragging');
-    update(e);
+    try { trackEl.setPointerCapture(e.pointerId); } catch (err) {}
+    update(e, true);
     e.preventDefault();
-    // Only listen on the window while an actual drag is happening — this
-    // used to be a permanent listener per slider (5 sliders = 5 handlers
-    // firing on every mousemove anywhere on the page, for the whole
-    // session) instead of scoped to the drag itself.
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup',   end);
   }
-  function move(e) { if (dragging) { update(e); e.preventDefault(); } }
-  function end() {
+  function move(e) { if (dragging) { update(e, true); e.preventDefault(); } }
+  function end(e) {
+    if (!dragging) return;
     dragging = false;
+    if (e && e.type === 'pointerup') update(e, false);
     dragRect = null;
     trackEl.classList.remove('dragging');
-    window.removeEventListener('mousemove', move);
-    window.removeEventListener('mouseup',   end);
   }
-  trackEl.addEventListener('mousedown', start);
+  trackEl.addEventListener('pointerdown', start);
+  trackEl.addEventListener('pointermove', move);
+  trackEl.addEventListener('pointerup', end);
+  trackEl.addEventListener('pointercancel', end);
   trackEl.addEventListener('wheel', e => {
     e.preventDefault();
-    // No getBoundingClientRect here: the value was never read, but the call
-    // still forced a synchronous layout on every wheel tick inside a
-    // non-passive handler — i.e. on the scroll-blocking path, over four
-    // sliders. Same forced-reflow fix the drag path already got above.
+    // No getBoundingClientRect here: the wheel path is scroll-blocking.
     const cur = parseFloat(fillEl.style.width || '0') / 100;
     const delta = e.deltaY < 0 ? 0.05 : -0.05;
     const pct = Math.max(0, Math.min(1, cur + delta));
-    fillEl.style.width = (pct*100) + '%';
-    dotEl.style.left = (pct*100) + '%';
-    onChange(pct);
+    show(pct);
+    onChange(pct, false);
   }, { passive: false });
-  return { setPct(pct) {
-    fillEl.style.width = (pct*100) + '%';
-    dotEl.style.left = (pct*100) + '%';
-  }};
+  return {
+    // The playing position doesn't pull the bar out from under a drag.
+    setPct(pct) { if (!dragging) show(pct); },
+    get dragging() { return dragging; },
+  };
+}
+
+// Seeking while dragging: at most four real seeks a second (each one can
+// be a new range request on a lossless stream), and always one where the
+// drag ends. The scratch sound follows the hand the whole way.
+let _lastDragSeek = 0;
+function seekTo(pct, live) {
+  const a = playerState.audio;
+  if (!a.duration) return;
+  const t = pct * a.duration;
+  scratchSeek(t);
+  const now = performance.now();
+  if (live && now - _lastDragSeek < 250) return;
+  _lastDragSeek = now;
+  a.currentTime = t;
 }
 
 // Seeking scratches the record: the direction and how hard follow your
@@ -417,7 +489,7 @@ const progSlider = makeSlider(
   document.getElementById('playerProgress'),
   document.getElementById('playerProgressFill'),
   document.getElementById('playerProgressDot'),
-  pct => { if (playerState.audio.duration) { const t = pct * playerState.audio.duration; scratchSeek(t); playerState.audio.currentTime = t; } }
+  seekTo
 );
 
 // Volume slider
@@ -441,14 +513,12 @@ const volSlider = makeSlider(
 );
 volSlider.setPct(playerState.volume);
 
-// FS progress
-// Not bound to a name: _syncFSProgress writes the fill/dot directly now,
-// but this call still installs #fsProg's own mousedown/wheel handlers.
-makeSlider(
+// FS progress (_syncFSProgress writes its fill/dot; this is the dragging).
+const fsProgSlider = makeSlider(
   document.getElementById('fsProg'),
   document.getElementById('fsProgFill'),
   document.getElementById('fsProgDot'),
-  pct => { if (playerState.audio.duration) { const t = pct * playerState.audio.duration; scratchSeek(t); playerState.audio.currentTime = t; } }
+  seekTo
 );
 
 // FS volume
@@ -608,7 +678,7 @@ async function loadPickerTab(tab) {
           const data = await res.json();
           const albums = data['subsonic-response']?.albumList2?.album || [];
           for (const album of albums.slice(0, 6)) {
-            const r2 = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`, {}, 8000);
+            const r2 = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(album.id)}&${subsonicParams()}`, {}, 8000);
             const d2 = await r2.json();
             const tracks = d2['subsonic-response']?.album?.song || [];
             songs.push(...tracks.slice(0, 4));
@@ -681,7 +751,7 @@ function renderSongItem(song, container) {
   const isFav = isFavorite(song.id);
   // size=80 (~2x the 36px list-mode row art) — was 150, oversized for the
   // song picker's always-list-mode rows (songs never render in grid mode).
-  const artUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}`;
+  const artUrl  = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}`;
   const item = document.createElement('div');
   item.className = 'picker-item' + (isLogin ? ' is-login-song' : '');
   item.innerHTML = `
@@ -1036,7 +1106,7 @@ function openFS() {
 }
 function closeFS() { document.getElementById('fsPlayer').classList.remove('open'); }
 
-document.getElementById('fsClose').addEventListener('click', closeFS);
+document.getElementById('fsClose').addEventListener('click', () => closeFS());
 document.getElementById('fsGrabber')?.addEventListener('click', () => closeFS());
 
 // Swipe the full player down to close it, like Apple Music's now-playing
@@ -1083,8 +1153,8 @@ document.getElementById('fsGrabber')?.addEventListener('click', () => closeFS())
   fs.addEventListener('pointerup', end);
   fs.addEventListener('pointercancel', end);
 })();
-document.getElementById('btnFS').addEventListener('click', openFS);
-document.getElementById('playerArtWrap').addEventListener('click', openFS);
+document.getElementById('btnFS').addEventListener('click', () => openFS());
+document.getElementById('playerArtWrap').addEventListener('click', () => openFS());
 // Phone layout: the dock is a mini player, and tapping its title opens the
 // full player too, the way a music app's mini player does.
 document.querySelector('#playerDock .player-info')?.addEventListener('click', () => {
@@ -1147,14 +1217,14 @@ function updateFSUI(song) {
   }
   _fsArtPending = null;
 
-  const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=800&${subsonicParams()}`;
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=800&${subsonicParams()}`;
   // Background is stretched across the whole viewport, so it needs a source
   // sized to the actual screen — a fixed size (this used to be a flat 1600)
   // is fine on a 1080p laptop but visibly blocky once stretched across a
   // 4K/5K/8K display. Scale the request with the real viewport and DPR,
   // capped so a stray 8K + browser zoom combo doesn't request something wild.
   const bgSize = Math.min(3200, Math.round(Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1)));
-  const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=${bgSize}&${subsonicParams()}`;
+  const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${bgSize}&${subsonicParams()}`;
 
   // Crossfade FS background — preload before swap.
   // Skipping tracks faster than the art can download (real risk off-LAN)
@@ -1211,6 +1281,8 @@ if (playerState.audio) {
   window._syncFSProgress = function() {
     if (!playerState.audio.duration) return;
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
+    // Not under a drag: the bar follows the finger until it lets go.
+    if (!fsProgSlider.dragging) {
     _fsProgFillEl.style.width = pct + '%';
     // fsProgSlider (makeSlider()'s wrapper around this same fill+dot pair)
     // used to be what kept the dot in sync, called from the OTHER
@@ -1220,6 +1292,7 @@ if (playerState.audio) {
     // already skips all its work while FS is closed) replaces that
     // without reintroducing the always-on duplicate.
     _fsProgDotEl.style.left = pct + '%';
+    }
     _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
     _fsDurEl.textContent = formatTime(playerState.audio.duration);
     _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';

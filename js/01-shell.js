@@ -169,7 +169,7 @@ function applyTheme(t) {
   currentTheme = t;
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('themeIcon').className = t === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
-  localStorage.setItem(THEME_KEY, t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) {} // storage blocked: same as the read above
   applyCustomBg(); // re-check the OTHER theme's stored color now that data-theme changed
 }
 
@@ -393,6 +393,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     switch (e.key) {
       case 'g':
         awaitingG = true;
+        window.klabAwaitingG = () => awaitingG; // Photos' own keys stand aside for the second key
         awaitingGTimer = setTimeout(() => { awaitingG = false; }, 700);
         break;
       case 'j': e.preventDefault(); scrollPane(90); break;

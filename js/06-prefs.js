@@ -19,7 +19,12 @@ async function fetchMe() {
   try {
     const res  = await fetchTimeout('/api/me', {}, 8000);
     if (!res.ok) return;
-    const data = await res.json();
+    adoptIdentity(await res.json());
+  } catch(e) {
+
+  }
+}
+function adoptIdentity(data) {
     window.KLAB_USER = data;
     const badge = document.getElementById('userBadge');
     if (badge && data.username && data.username !== 'anonymous') {
@@ -27,9 +32,6 @@ async function fetchMe() {
       badge.style.opacity = '1';
       if (data.is_admin) badge.title = data.username + ' (admin)';
     }
-  } catch(e) {
-
-  }
 }
 
 // ── Session watch ──────────────────────────────────────────
@@ -47,15 +49,25 @@ async function fetchMe() {
 // possible once the backend does reflect the change, and catches the
 // "signed in as someone else in another tab" case immediately either way.
 const SESSION_CHECK_MS = 90000;
-let _sessionCheckBusy = false;
+let _sessionCheckBusy = false, _sessionCheckedAt = 0;
 async function checkSession() {
   if (_sessionCheckBusy || document.hidden) return;
+  // Focus and visibility both fire on return; once is plenty.
+  if (Date.now() - _sessionCheckedAt < 5000) return;
+  _sessionCheckedAt = Date.now();
   _sessionCheckBusy = true;
   try {
     const res = await fetchTimeout('/api/me', {}, 8000);
     if (res.status === 401 || res.status === 403) { location.reload(); return; }
     if (!res.ok) return; // transient failure — don't punish a bad connection
     const data = await res.json();
+    // Started while /api/me was unreachable: this is who we are, not a
+    // different person. Picked up in place (a reload would stop the music).
+    if (window.KLAB_USER?.username === 'anonymous' && data.username && data.username !== 'anonymous') {
+      adoptIdentity(data);
+      loadServerPrefs();
+      return;
+    }
     if (window.KLAB_USER && data.username !== window.KLAB_USER.username) {
       location.reload();
     }
@@ -77,95 +89,115 @@ window.addEventListener('focus', checkSession);
 // signed-in user's Authentik groups, and window.KLAB_USER.is_admin always
 // bypasses the check.
 
+// ── Sync, field by field ──
+// The server keeps one blob, but each field syncs on its own: this device
+// remembers (in localStorage, so it survives a reload or a closed tab) the
+// value of every field as of its last sync. A field that differs from that
+// was changed here and hasn't reached the server yet, so a pull never
+// overwrites it; an upload merges onto the server's current copy, so fields
+// changed on another device in the meantime are left as they are there.
+// (Uploading everything used to let an old tab put back yesterday's
+// favorites, and every song played made it think it had changes.)
+const PREF_BASE_KEY = 'klabnet_prefs_base';
+const PREF_STRINGS  = new Set(['theme', 'bg_dark', 'bg_light']);
+const PREF_DEFAULTS = { login_song: null, favorites: [], play_history: [], theme: 'dark', playlists: [], bg_dark: '', bg_light: '' };
+const PREF_NAMES    = Object.keys(PREF_KEYS);
+
+function localPref(name) {
+  const raw = localStorage.getItem(PREF_KEYS[name]);
+  if (PREF_STRINGS.has(name)) return raw || PREF_DEFAULTS[name];
+  try { const v = JSON.parse(raw); return v == null ? PREF_DEFAULTS[name] : v; } catch (e) { return PREF_DEFAULTS[name]; }
+}
+function writeLocalPref(name, val) {
+  if (val == null) { localStorage.removeItem(PREF_KEYS[name]); return; }
+  localStorage.setItem(PREF_KEYS[name], PREF_STRINGS.has(name) ? String(val) : JSON.stringify(val));
+}
+function readPrefBase() { try { return JSON.parse(localStorage.getItem(PREF_BASE_KEY)) || {}; } catch (e) { return {}; } }
+function savePrefBase(base) { try { localStorage.setItem(PREF_BASE_KEY, JSON.stringify(base)); } catch (e) {} }
+const encPref = v => JSON.stringify(v ?? null);
+// Changed here since the last sync. Never synced: only if it's been set.
+function prefChangedHere(name, base) {
+  const now = encPref(localPref(name));
+  return base[name] === undefined ? now !== encPref(PREF_DEFAULTS[name]) : now !== base[name];
+}
+function afterPrefsWritten() {
+  // These writes went straight to localStorage, behind the memoized
+  // getFavorites()/getLoginSong() readers' backs.
+  if (typeof invalidateFavCache === 'function') invalidateFavCache();
+  if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
+  if (typeof updateFavBadge === 'function') updateFavBadge();
+  if (typeof applyCustomBg === 'function') applyCustomBg();
+}
+
+async function fetchServerPrefs() {
+  const res = await fetchTimeout('/api/prefs', { cache: 'no-store' }, 8000);
+  if (!res.ok) throw new Error('prefs ' + res.status);
+  const prefs = await res.json();
+  return prefs && typeof prefs === 'object' ? prefs : {};
+}
+
 async function loadServerPrefs() {
-  try {
-    const res = await fetchTimeout('/api/prefs', {}, 8000);
-    if (!res.ok) return;
-    const prefs = await res.json();
-    if (!prefs || !Object.keys(prefs).length) return; // no prefs saved yet
-
-    // Write server values into localStorage
-    // (all existing code reads from localStorage — no changes needed elsewhere)
-    //
-    // Deliberately writes an empty array/object too, not just non-empty
-    // ones — this used to skip '[]'/'{}', which meant deleting your only
-    // playlist (or clearing favorites, etc.) on one device never synced to
-    // any other device: the empty array was treated as "nothing to sync"
-    // instead of "synced to nothing", so every other device kept its stale
-    // copy forever, and the next time THAT device auto-saved anything, it
-    // pushed the stale (un-deleted) list straight back to the server,
-    // silently reviving what you'd deleted. The outer `prefs` guard above
-    // already covers the real "nothing saved yet" case — once we know a
-    // real prefs blob exists, an individual field being empty is a
-    // meaningful value (you cleared it), not a missing one.
-    const setIfPresent = (lsKey, val) => {
-      if (val === undefined || val === null) return;
-      // A present-but-empty string ('' — e.g. bg_dark/bg_light reset back to
-      // "theme default") is a meaningful, real value once we know a real
-      // prefs blob exists (same reasoning as the empty-array/object case
-      // below) — only genuinely absent (undefined/null, checked above)
-      // means "nothing to sync".
-      if (typeof val === 'string') {
-        localStorage.setItem(lsKey, val);
-      } else {
-        localStorage.setItem(lsKey, JSON.stringify(val));
-      }
-    };
-
-    setIfPresent(PREF_KEYS.login_song,    prefs.login_song);
-    setIfPresent(PREF_KEYS.favorites,     prefs.favorites);
-    setIfPresent(PREF_KEYS.play_history,  prefs.play_history);
-    setIfPresent(PREF_KEYS.theme,         prefs.theme);
-    setIfPresent(PREF_KEYS.playlists,     prefs.playlists);
-    setIfPresent(PREF_KEYS.bg_dark,       prefs.bg_dark);
-    setIfPresent(PREF_KEYS.bg_light,      prefs.bg_light);
-    // These writes go straight to localStorage, behind the memoized
-    // getFavorites()/getLoginSong() readers' backs.
-    if (typeof invalidateFavCache === 'function') invalidateFavCache();
-    if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
-    if (typeof applyCustomBg === 'function') applyCustomBg(); // server prefs may have just changed the active theme's color
-    _prefsSnapshot = currentPrefs();
-
-  } catch(e) {
-
+  let prefs;
+  try { prefs = await fetchServerPrefs(); } catch (e) { return; }
+  const base = readPrefBase();
+  let pending = false, wrote = false;
+  for (const name of PREF_NAMES) {
+    if (prefChangedHere(name, base)) {
+      // Keep it: an edit made here that hasn't been uploaded yet.
+      if (base[name] !== undefined || !(name in prefs)) { pending = true; continue; }
+    }
+    if (!(name in prefs)) continue; // the server has never had this one
+    // Present-but-empty ([] / '' / null) is a real value, "you cleared it",
+    // not "nothing to sync": skipping those used to resurrect deletions.
+    if (encPref(localPref(name)) !== encPref(prefs[name] ?? PREF_DEFAULTS[name])) { writeLocalPref(name, prefs[name]); wrote = true; }
+    base[name] = encPref(localPref(name));
   }
+  savePrefBase(base);
+  if (wrote) afterPrefsWritten();
+  if (pending) scheduleSave();
 }
 
-// What this tab last loaded from or saved to the server. A tab only uploads
-// when its prefs differ from that, so one left open for days on another
-// device can't overwrite favorites or playlists changed somewhere else
-// (every hide used to upload everything it had).
-let _prefsSnapshot = null;
-function currentPrefs() {
-  const parse = (k, fallback) => {
-    try { return JSON.parse(localStorage.getItem(k)) || fallback; } catch(e) { return fallback; }
-  };
-  const prefs = {
-    login_song:    parse(PREF_KEYS.login_song,    null),
-    favorites:     parse(PREF_KEYS.favorites,     []),
-    play_history:  parse(PREF_KEYS.play_history,  []),
-    theme:         localStorage.getItem(PREF_KEYS.theme) || 'dark',
-    playlists:     parse(PREF_KEYS.playlists,     []),
-    bg_dark:       localStorage.getItem(PREF_KEYS.bg_dark)  || '',
-    bg_light:      localStorage.getItem(PREF_KEYS.bg_light) || '',
-  };
-  return JSON.stringify(prefs);
-}
-
+let _prefsSaving = null;
 async function saveServerPrefs() {
-  if (window.KLAB_USER.username === 'anonymous') return; // don't save for anon
-  const body = currentPrefs();
-  if (body === _prefsSnapshot) return; // nothing changed here
-  try {
-    const res = await fetchTimeout('/api/prefs', {
-      method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    }, 8000);
-    if (res.ok) _prefsSnapshot = body;
-  } catch(e) {
-    // Server not reachable — localStorage already saved, no data loss
-  }
+  if (window.KLAB_USER.username === 'anonymous') return; // kept; uploaded once we know who you are
+  if (_prefsSaving) return _prefsSaving;
+  _prefsSaving = (async () => {
+    const base = readPrefBase();
+    const mine = PREF_NAMES.filter(n => prefChangedHere(n, base));
+    if (!mine.length) return;
+    try {
+      // Onto the server's copy as it is now, not as this tab last saw it.
+      const server = await fetchServerPrefs();
+      const merged = { ...server };
+      const sent = {};
+      for (const n of PREF_NAMES) {
+        merged[n] = mine.includes(n) ? localPref(n) : (n in server ? server[n] : localPref(n));
+        sent[n] = encPref(merged[n]);
+      }
+      const body = JSON.stringify(merged);
+      // keepalive lets a save started as the tab closes finish, but browsers
+      // refuse (throw) one over 64KB, so a big library saves without it.
+      const res = await fetchTimeout('/api/prefs', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, keepalive: body.length < 60000,
+      }, 8000);
+      if (!res.ok) return; // still marked changed; tried again next time
+      // Other devices' changes that came along with the merge, unless this
+      // field was edited again while the save was in flight.
+      let wrote = false;
+      for (const n of PREF_NAMES) {
+        if (!mine.includes(n) && encPref(localPref(n)) === (base[n] ?? encPref(localPref(n))) && encPref(localPref(n)) !== sent[n]) {
+          writeLocalPref(n, merged[n]); wrote = true;
+        }
+        base[n] = sent[n];
+      }
+      savePrefBase(base);
+      if (wrote) afterPrefsWritten();
+    } catch (e) {
+      // Offline or the server's down: the changes stay marked and go up
+      // with the next save, or at the next start.
+    }
+  })().finally(() => { _prefsSaving = null; });
+  return _prefsSaving;
 }
 
 // Debounced save — fires 1.5s after last change
@@ -182,6 +214,11 @@ const _origSetLoginSong2 = typeof setLoginSong !== 'undefined' ? setLoginSong : 
 if (_origSetLoginSong2) {
   setLoginSong = function(s) { _origSetLoginSong2(s); scheduleSave(); };
 }
+// Clearing it is a change too (it never used to reach other devices).
+const _origClearLoginSong = typeof clearLoginSong !== 'undefined' ? clearLoginSong : null;
+if (_origClearLoginSong) {
+  clearLoginSong = function() { _origClearLoginSong(); scheduleSave(); };
+}
 
 const _origAddFav = typeof addFavorite !== 'undefined' ? addFavorite : null;
 if (_origAddFav) {
@@ -193,17 +230,31 @@ if (_origRemFav) {
   removeFavorite = function(id) { _origRemFav(id); scheduleSave(); };
 }
 
-// Save on page hide (tab close, navigate away)
+// Upload on hide (tab switched, app minimized, phone locked); pull what
+// changed elsewhere on return, if we were away long enough for it to matter.
+let _prefsHiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') { saveServerPrefs(); return; }
-  // Back on a tab with nothing unsaved: pick up changes made elsewhere.
-  if (_prefsSnapshot !== null && currentPrefs() === _prefsSnapshot) loadServerPrefs();
+  if (document.visibilityState === 'hidden') { _prefsHiddenAt = Date.now(); saveServerPrefs(); return; }
+  if (Date.now() - _prefsHiddenAt > 30000) loadServerPrefs();
+});
+// Another klabnet tab on this device changed one: this tab's memoized
+// copies are stale, and writing them back would undo that change.
+window.addEventListener('storage', e => {
+  if (!e.key || !Object.values(PREF_KEYS).includes(e.key)) return;
+  afterPrefsWritten();
 });
 
 // ── Boot sequence ──
 // Order matters: fetch identity → load server prefs → re-apply layout
 (async function boot() {
   await fetchMe();           // who am I? (also applies admin state)
+  // Not answered: try again shortly rather than spend minutes anonymous
+  // (no saving, invisible to everyone).
+  for (const wait of [3000, 10000]) {
+    if (window.KLAB_USER.username !== 'anonymous') break;
+    await new Promise(r => setTimeout(r, wait));
+    await fetchMe();
+  }
   await loadServerPrefs();   // pull their prefs from server into localStorage
 
   // Re-apply theme with server values
@@ -294,7 +345,13 @@ function showUpdateBanner(newVersion) {
   });
 }
 setInterval(checkForUpdate, UPDATE_CHECK_MS);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+// On return too, but not for every alt-tab: at most once a minute.
+let _updateCheckedAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || Date.now() - _updateCheckedAt < 60000) return;
+  _updateCheckedAt = Date.now();
+  checkForUpdate();
+});
 
 // ── PWA service worker ───────────────────
 // Registered only for the installable/static-asset benefit — sw.js never

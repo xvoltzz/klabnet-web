@@ -210,6 +210,12 @@
     return { el, load };
   })();
 
+  // Home is rebuilt on every visit and a reshuffle swaps the wheel. What the
+  // old pieces were observing is let go here; an observer on the document
+  // otherwise kept each old wheel, canvas and covers alive for good.
+  const cleanups = new Set();
+  const onCleanup = fn => { const f = () => { cleanups.delete(f); fn(); }; cleanups.add(f); return f; };
+
   // ══ Album rows ══
   function albumRow(title, albums, note) {
     const sec = document.createElement('section');
@@ -226,7 +232,9 @@
       wrap.classList.toggle('more-r', row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
     };
     row.addEventListener('scroll', edges, { passive: true });
-    new ResizeObserver(edges).observe(row);
+    const ro = new ResizeObserver(edges);
+    ro.observe(row);
+    onCleanup(() => ro.disconnect());
     const page = dir => row.scrollBy({ left: dir * row.clientWidth * 0.85, behavior: 'smooth' });
     sec.querySelector('.mh-row-nav.prev').addEventListener('click', () => page(-1));
     sec.querySelector('.mh-row-nav.next').addEventListener('click', () => page(1));
@@ -325,7 +333,10 @@
     function size() {
       const css = stage.clientWidth;
       if (!css) return false;
-      const want = Math.round(css * (window.devicePixelRatio || 1));
+      // On the big-screen zoom tiers the page is CSS-zoomed, which
+      // devicePixelRatio doesn't include: sized without it, the backing
+      // store was stretched up and blurry.
+      const want = Math.round(css * zoomFactor() * (window.devicePixelRatio || 1));
       if (want !== px) { px = want; canvas.width = canvas.height = px; }
       return true;
     }
@@ -527,11 +538,12 @@
       showSongCtx(e.clientX, e.clientY, songs[i], allSongs);
     });
 
-    // Redraw on resize and theme change; both stop once Home re-renders.
+    // Redraw on resize and theme change, until Home re-renders or reshuffles.
     const ro = new ResizeObserver(() => { if (!el.isConnected) { ro.disconnect(); return; } if (!spinning) draw(); });
     ro.observe(stage);
     const mo = new MutationObserver(() => { if (!el.isConnected) { mo.disconnect(); return; } readColors(); if (!spinning) draw(); });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    el._cleanup = onCleanup(() => { ro.disconnect(); mo.disconnect(); cancelAnimationFrame(raf); });
 
     lastSeg = under(angle);
     return el;
@@ -541,6 +553,7 @@
 
   // Renders Home into `list`. Called with the shuffle picks already fetched.
   window.klabRenderMusicHome = function(list, songs, reshuffle) {
+    [...cleanups].forEach(f => f());
     list.innerHTML = '';
     list.classList.remove('picker-list-grid');
     list.classList.add('mh-home');
@@ -582,6 +595,7 @@
         const fresh = (await r.json())['subsonic-response']?.randomSongs?.song || [];
         if (fresh.length >= 3 && wheel.isConnected) {
           const next = shuffleWheel(fresh);
+          wheel._cleanup();
           wheel.replaceWith(next);
           wheel = next;
           pickerSongs = fresh;

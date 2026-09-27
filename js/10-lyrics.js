@@ -79,7 +79,7 @@ playSong = async function(song) {
     // averaging pixel color for an accent tint doesn't benefit from a
     // higher-res source, so the previous 300 was pure waste on every song
     // change.
-    const url = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=64&${subsonicParams()}`;
+    const url = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=64&${subsonicParams()}`;
     extractAlbumColor(url);
   } else {
     _resetAccent();
@@ -90,7 +90,9 @@ playSong = async function(song) {
 document.addEventListener('keydown', e => {
   // Don't fire when typing in an input
   const tag = document.activeElement?.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
+  // Alt+← is the browser's Back, Cmd+M minimizes: not ours.
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
 
   if (e.code === 'Space') {
     e.preventDefault();
@@ -273,8 +275,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   // ── Animation loop for synced lyrics ────
+  // Only while the lyrics are actually on screen: with the full player
+  // closed this used to run every frame for the rest of the session.
+  const lyricsVisible = () => _lyricsOpen && !!fsPlayer2?.classList.contains('open') && !document.hidden;
   function syncLoop() {
-    if (!_lyricsOpen || !_isSynced || !_syncedLines.length) return;
+    if (!lyricsVisible() || !_isSynced || !_syncedLines.length) { _rafId = null; return; }
     _rafId = requestAnimationFrame(syncLoop);
 
     const cur = playerState.audio.currentTime;
@@ -309,7 +314,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       _syncedLines = parseLRC(data.syncedLyrics);
       _isSynced    = true;
       renderLines(_syncedLines, true);
-      if (_lyricsOpen) startSync();
+      if (lyricsVisible()) startSync();
     } else if (data && data.plainLyrics) {
       _plainLines = data.plainLyrics.split('\n').filter(l => l.trim());
       _isSynced   = false;
@@ -329,6 +334,15 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   const fsPlayer2 = document.getElementById('fsPlayer');
+  // Opening the full player catches the lyrics up (a track may have
+  // changed while it was closed) and restarts the sync; closing stops it.
+  if (fsPlayer2) new MutationObserver(() => {
+    if (!lyricsVisible()) { stopSync(); return; }
+    const song = playerState.currentSong;
+    if (song && song.id !== _currentSongId) loadLyrics(song);
+    else if (_isSynced && !playerState.audio.paused) startSync();
+  }).observe(fsPlayer2, { attributes: true, attributeFilter: ['class'] });
+  document.addEventListener('visibilitychange', () => { if (lyricsVisible() && _isSynced && !playerState.audio.paused) startSync(); });
 
   // ── Toggle lyrics panel ──────────────────
   function toggleLyrics() {
@@ -354,14 +368,15 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   playSong = async function(song) {
     await _origPlaySongLyrics(song);
     _currentSongId = null; // invalidate cache for new song
-    if (_lyricsOpen) {
+    // Fetched when they'll be seen; opening the full player loads them.
+    if (lyricsVisible()) {
       await loadLyrics(song);
       if (_isSynced) startSync();
     }
   };
 
   // Stop/start sync loop with playback state
-  playerState.audio.addEventListener('play',  () => { if (_lyricsOpen && _isSynced) startSync(); });
+  playerState.audio.addEventListener('play',  () => { if (lyricsVisible() && _isSynced) startSync(); });
   playerState.audio.addEventListener('pause', () => stopSync());
 
   // Expose for external use — getActiveLine() lets the "share to feed"

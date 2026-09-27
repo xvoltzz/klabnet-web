@@ -54,14 +54,25 @@
   let _feedHasMore   = false;
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
   let _feedLoadedOnce = false; // fetchFeed() has completed at least once, success or not
+  // Separate from the above: until one fetch has actually worked, there's
+  // no feed to draw, no has-more to know, and no mention watermark to seed.
+  let _feedLoadedOk  = false;
   let _pendingFile   = null;
   let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
+  const _repliesStale       = new Set(); // postIds whose cached replies are out of date; still shown until the refetch lands
   const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
   const _openReplyBoxes = new Set();      // postIds whose reply box was opened with the Reply button
   const _expandedPosts = new Set();       // long posts someone hit "Show more" on
+  // Half-typed replies, so rebuilding a post (a new reaction, a poll)
+  // doesn't wipe a box you'd clicked away from mid-sentence.
+  const _replyDrafts = new Map();         // postId -> text
+  // A poll that was already in flight when you reacted, replied or deleted
+  // carries the state from before, and merging it would undo what you did.
+  const _locallyDeleted = new Set();      // postIds you deleted this session
+  const _localEditAt = new Map();         // postId -> performance.now() of your last change to it
 
   // Its own list, separate from the header's MOTD_PHRASES — same crude/
   // unhinged energy on purpose, just original lines rather than reusing
@@ -98,6 +109,10 @@
     let phraseIdx = Math.floor(Math.random() * FEED_PLACEHOLDER_PHRASES.length);
     let charIdx = 0;
     function tick() {
+      // Only while someone can see it: not on another tab, not hidden, not
+      // under text. Otherwise it's a dozen wakeups a second for nothing, all
+      // day, in every open klabnet. Checks back once a second instead.
+      if (document.hidden || !textEl.offsetParent || textEl.value) { setTimeout(tick, 1000); return; }
       const phrase = FEED_PLACEHOLDER_PHRASES[phraseIdx];
       if (charIdx <= phrase.length) {
         textEl.placeholder = phrase.slice(0, charIdx) + (charIdx < phrase.length ? '_' : '');
@@ -146,9 +161,20 @@
     return window.klabMarkdown ? klabMarkdown(text, me, { inline: true }) : richText(text, me);
   }
 
+  // Compiled once per name rather than once per post per render.
+  let _mentionRe = null, _mentionReFor = null;
+  // Code and links aren't rendered as mentions (see finish() in
+  // 11b-markdown.js), so an @name inside one shouldn't count as one here.
+  const MENTION_SKIP_RE = /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`|\bhttps?:\/\/\S+|\bwww\.\S+/g;
   function textMentions(text, username) {
     if (!text || !username) return false;
-    return new RegExp('(^|[^\\w@])@' + username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.-])', 'i').test(text);
+    const lc = username.toLowerCase();
+    if (!text.toLowerCase().includes('@' + lc)) return false; // the usual case, no regex at all
+    if (_mentionReFor !== lc) {
+      _mentionReFor = lc;
+      _mentionRe = new RegExp('(^|[^\\w@])@' + lc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.-])', 'i');
+    }
+    return _mentionRe.test(text.replace(MENTION_SKIP_RE, ' '));
   }
 
   function loadMentionsSeen() {
@@ -192,6 +218,10 @@
     const rawMe = window.KLAB_USER?.username;
     const me = mentionsSeenKeyFor(rawMe);
     if (!me || me === 'anonymous' || !mentionsDotEl) return;
+    // Before the first fetch lands _feedPosts is empty, which would seed
+    // the watermark (and the notification floor) at 0 and then light up
+    // every old mention as new.
+    if (!_feedLoadedOk) return;
     const seen = loadMentionsSeen();
     // No watermark at all means a brand-new browser, a private window, a
     // cleared/evicted localStorage, or the installed PWA (separate storage
@@ -236,6 +266,13 @@
   const _feedAvatarPending = new Set();
   const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
   const _feedImagePending  = new Set();
+  // A lookup that failed (as opposed to "has no avatar") is cached as null
+  // too, but only for a while: a blip in Matrix shouldn't leave a blank
+  // face or photo for the rest of the session.
+  const FEED_MEDIA_RETRY_MS = 60000;
+  const _feedAvatarFailedAt = new Map(); // username -> Date.now() of the failure
+  const _feedImageFailedAt  = new Map(); // mxc:// -> Date.now() of the failure
+  const retryDue = (failedAt, key) => failedAt.has(key) && Date.now() - failedAt.get(key) > FEED_MEDIA_RETRY_MS;
   const FEED_IMAGE_CACHE_MAX = 60; // see capBlobCache()'s own comment — smaller than chat's cap since these are 800x800 (4x the pixel area of chat's 400x400 crop)
 
   // capBlobCache() is blind FIFO, which is fine for chat but was actively
@@ -252,11 +289,13 @@
       if (live.has(mxc)) continue;
       if (url) URL.revokeObjectURL(url);
       _feedImageCache.delete(mxc);
+      _feedImageFailedAt.delete(mxc);
     }
   }
 
   function ensureFeedAvatar(username) {
-    if (!username || _feedAvatarCache.has(username) || _feedAvatarPending.has(username)) return;
+    if (!username || _feedAvatarPending.has(username)) return;
+    if (_feedAvatarCache.has(username) && !retryDue(_feedAvatarFailedAt, username)) return;
     const client = MatrixChat.client;
     if (!client) return;
     _feedAvatarPending.add(username);
@@ -265,8 +304,12 @@
         const serverName = client.getUserId().split(':')[1];
         const info = await client.getProfileInfo(`@${username}:${serverName}`);
         _feedAvatarCache.set(username, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
+        _feedAvatarFailedAt.delete(username);
       } catch (e) {
-        if (!_feedAvatarCache.has(username)) _feedAvatarCache.set(username, null);
+        if (!_feedAvatarCache.get(username)) {
+          _feedAvatarCache.set(username, null);
+          _feedAvatarFailedAt.set(username, Date.now());
+        }
       } finally {
         _feedAvatarPending.delete(username);
         scheduleFeedRender();
@@ -275,7 +318,8 @@
   }
 
   function ensureFeedImage(mxc) {
-    if (!mxc || _feedImageCache.has(mxc) || _feedImagePending.has(mxc)) return;
+    if (!mxc || _feedImagePending.has(mxc)) return;
+    if (_feedImageCache.has(mxc) && !retryDue(_feedImageFailedAt, mxc)) return;
     // Same guard ensureFeedAvatar()/presence's ensureAvatarResolved() use:
     // bail WITHOUT touching the cache when there's no client yet, so a
     // page load that renders before Matrix finishes reconnecting retries
@@ -289,8 +333,10 @@
         // mxcToBlobUrl() callers use — a feed photo needs to actually be
         // visible, not cropped to a square.
         _feedImageCache.set(mxc, await MatrixChat.mxcToBlobUrl(mxc, { width: 800, height: 800, method: 'scale' }));
+        _feedImageFailedAt.delete(mxc);
       } catch (e) {
         _feedImageCache.set(mxc, null);
+        _feedImageFailedAt.set(mxc, Date.now());
       } finally {
         _feedImagePending.delete(mxc);
         capFeedImageCache();
@@ -326,7 +372,7 @@
       '<div class="feed-post-reply-body">' +
         '<div class="feed-post-reply-head">' +
           '<span class="feed-post-reply-name" data-username="' + esc(reply.username) + '" style="color:' + profileColor(reply.username) + '">' + esc(reply.username) + '</span>' +
-          '<span class="feed-post-reply-time">' + fmtFeedTime(reply.created) + '</span>' +
+          '<span class="feed-post-reply-time" data-created="' + esc(reply.created) + '">' + fmtFeedTime(reply.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply" aria-label="Delete reply"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         '<div class="feed-post-reply-text">' + replyTextHTML(reply.text, me) + '</div>' +
@@ -338,12 +384,13 @@
   // below fetches into _repliesCache as each post with replies renders.
   function feedRepliesSectionHTML(post) {
     const replies = _repliesCache.get(post.id) || [];
+    const draft = _replyDrafts.get(post.id) || '';
     // The reply box only shows once a post has replies or you hit Reply,
     // instead of an empty input under every post.
-    return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + (_openReplyBoxes.has(post.id) ? ' replying' : '') + '" data-post-id="' + post.id + '">' +
+    return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + (_openReplyBoxes.has(post.id) || draft ? ' replying' : '') + '" data-post-id="' + post.id + '">' +
       replies.map(r => feedReplyHTML(post, r)).join('') +
       '<div class="feed-post-reply-composer">' +
-        '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500" />' +
+        '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500"' + (draft ? ' value="' + esc(draft) + '"' : '') + ' />' +
         '<button type="button" class="feed-post-reply-gif" data-post-id="' + post.id + '" title="GIF"><span class="gif-glyph">GIF</span></button>' +
         '<button type="button" class="feed-post-reply-send" data-post-id="' + post.id + '" title="Send reply"><i class="ti ti-send-2"></i></button>' +
       '</div>' +
@@ -422,7 +469,7 @@
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
           '<span class="feed-post-name" data-username="' + esc(post.username) + '">' + esc(post.username) + '</span>' +
-          '<span class="feed-post-time">' + fmtFeedTime(post.created) + '</span>' +
+          '<span class="feed-post-time" data-created="' + esc(post.created) + '">' + fmtFeedTime(post.created) + '</span>' +
           (canDelete ? '<button type="button" class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         (post.text ? postTextHTML(post, me) : '') +
@@ -452,14 +499,13 @@
   function postRenderKey(p, me) {
     {
         const replies = _repliesCache.get(p.id);
+        // No timestamps in here: they're relative ("5m", "2h") and used to
+        // rebuild a post every time one ticked over, which stopped a playing
+        // video and re-hid spoilers. refreshFeedTimes() updates them in place.
         return p.id +
-          // fmtFeedTime is relative ("just now" / "5m" / "2h"), so the
-          // rendered string is part of the state — without it the key
-          // would go stable and every timestamp on screen would freeze at
-          // whatever it said when the feed last changed. Keying on the
-          // formatted value (not the clock) means a rebuild happens only
-          // when a timestamp actually ticks over, not on a timer.
-          ':' + fmtFeedTime(p.created) +
+          // Who's looking decides the delete buttons and which mentions
+          // are "you"; /api/me can land after the first render.
+          ':' + (me || '') + (window.KLAB_USER?.is_admin ? 'A' : '') +
           ':' + (p.reply_count || 0) +
           ':' + JSON.stringify(p.reactions || {}) +
           ':' + profileColor(p.username) +
@@ -467,27 +513,49 @@
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
           ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
           ':' + (replies
-            ? replies.map(r => r.id + '@' + fmtFeedTime(r.created) + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
+            ? replies.map(r => r.id + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-');
     }
   }
-  function feedRenderKey(posts, me) {
-    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' +
-      posts.map(p => postRenderKey(p, me)).join(',');
+  // Takes the per-post keys already worked out, so each render builds them once.
+  function feedRenderKey(keys, me) {
+    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' + keys.join(',');
+  }
+
+  // Relative times are text in place, not part of any key: updated here on
+  // a timer and whenever the feed comes back into view.
+  function refreshFeedTimes() {
+    if (document.hidden || !listEl.offsetParent) return;
+    listEl.querySelectorAll('.feed-post-time[data-created], .feed-post-reply-time[data-created]').forEach(el => {
+      const t = fmtFeedTime(el.dataset.created);
+      if (el.textContent !== t) el.textContent = t;
+    });
   }
 
   const FEED_TZ = 'America/New_York';
+  // toLocaleDateString with a timeZone builds a new formatter every call,
+  // and this runs twice per post per render.
+  const _dayFmt     = new Intl.DateTimeFormat('en-US', { timeZone: FEED_TZ });
+  const _weekdayFmt = new Intl.DateTimeFormat('en-US', { timeZone: FEED_TZ, weekday: 'long' });
+  const _monthDayFmt = new Intl.DateTimeFormat('en-US', { timeZone: FEED_TZ, month: 'long', day: 'numeric' });
   const feedDate = created => new Date(String(created).replace(' ', 'T') + 'Z');
-  const feedDayKey = created => feedDate(created).toLocaleDateString('en-US', { timeZone: FEED_TZ });
+  const _dayKeys = new WeakMap(); // post -> [created, day key]
+  function feedDayKey(p) {
+    const hit = _dayKeys.get(p);
+    if (hit && hit[0] === p.created) return hit[1];
+    const dk = _dayFmt.format(feedDate(p.created));
+    _dayKeys.set(p, [p.created, dk]);
+    return dk;
+  }
   const _dayHeaders = new Map();
   function dayHeaderEl(dk, created, n) {
     let el = _dayHeaders.get(dk);
     if (!el) { el = document.createElement('div'); el.className = 'feed-day'; _dayHeaders.set(dk, el); }
-    const today = new Date().toLocaleDateString('en-US', { timeZone: FEED_TZ });
-    const yest = new Date(Date.now() - 864e5).toLocaleDateString('en-US', { timeZone: FEED_TZ });
+    const today = _dayFmt.format(new Date());
+    const yest = _dayFmt.format(new Date(Date.now() - 864e5));
     const d = feedDate(created);
-    const name = dk === today ? 'Today' : dk === yest ? 'Yesterday' : d.toLocaleDateString('en-US', { timeZone: FEED_TZ, weekday: 'long' });
-    const html = '<div class="feed-day-in"><h3>' + name + '</h3><span>' + d.toLocaleDateString('en-US', { timeZone: FEED_TZ, month: 'long', day: 'numeric' }) +
+    const name = dk === today ? 'Today' : dk === yest ? 'Yesterday' : _weekdayFmt.format(d);
+    const html = '<div class="feed-day-in"><h3>' + name + '</h3><span>' + _monthDayFmt.format(d) +
       ' · ' + n + (n === 1 ? ' post' : ' posts') + '</span></div>';
     if (el.innerHTML !== html) el.innerHTML = html;
     return el;
@@ -564,6 +632,12 @@
     _visIO?.observe(el);
     return el;
   }
+  function dropPostEl(el) {
+    _entryIO?.unobserve(el);
+    _visIO?.unobserve(el);
+    _onScreen.delete(el);
+    el.remove();
+  }
 
   // Reconciles post by post instead of replacing the whole list. A single
   // reaction, one avatar resolving, or a timestamp ticking over used to
@@ -571,9 +645,14 @@
   // spam-clicking a reaction made it continuous. Now only the posts whose
   // own key changed get rebuilt; everything else is left alone entirely.
   function renderFeed() {
+    // Nothing to draw until a fetch has worked. This is also called from
+    // outside (presence's profile refresh), and drawing the empty list
+    // replaced the loading or Retry message with "No posts yet".
+    if (!_feedLoadedOk) return;
     const me = window.KLAB_USER?.username;
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
-    const key = feedRenderKey(posts, me);
+    const keys = posts.map(p => postRenderKey(p, me));
+    const key = feedRenderKey(keys, me);
     if (key === _lastFeedRenderKey) return;
     // NOT cached yet — see the deferred check at the end. Caching here
     // while the typing guard below has deliberately left a post stale is
@@ -583,10 +662,11 @@
     let deferred = false;
 
     if (!posts.length) {
+      listEl.querySelectorAll(':scope > .feed-post').forEach(dropPostEl);
       listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
     } else {
       // Typing in a reply box must survive a re-render happening around it
-      // (a 30s poll, someone else's reaction, a minute ticking over). The
+      // (a 30s poll, someone else's reaction, an avatar resolving). The
       // post being typed in is skipped below, but a prepended new post
       // still shifts everything, and moving a node blurs whatever's inside
       // it — so the caret is saved and put back.
@@ -611,17 +691,16 @@
       // first post of each day. Headers are reused by day so they don't
       // count as changes; they're in `keep` below like the posts.
       const counts = new Map();
-      posts.forEach(p => { const k = feedDayKey(p.created); counts.set(k, (counts.get(k) || 0) + 1); });
+      posts.forEach(p => { const k = feedDayKey(p); counts.set(k, (counts.get(k) || 0) + 1); });
       let lastDay = null;
       const desired = [];
-      posts.forEach(p => {
-        const dk = feedDayKey(p.created);
+      posts.forEach((p, i) => {
+        const dk = feedDayKey(p);
         if (dk !== lastDay) { lastDay = dk; desired.push(dayHeaderEl(dk, p.created, counts.get(dk))); }
-        desired.push(postEl(p));
+        desired.push(postEl(p, keys[i]));
       });
-      function postEl(p) {
+      function postEl(p, k) {
         const id = String(p.id);
-        const k  = postRenderKey(p, me);
         const el = existing.get(id);
         existing.delete(id);
         if (el && el.dataset.postKey === k) return el;          // unchanged
@@ -638,9 +717,9 @@
       // insert per post, i.e. the whole-list rebuild this is meant to
       // avoid. `existing` still holds posts that vanished; the rest is
       // stale nodes (a replaced post, the empty-state div).
-      existing.forEach(el => el.remove());
+      existing.forEach(dropPostEl);
       const keep = new Set(desired);
-      [...listEl.children].forEach(el => { if (!keep.has(el)) el.remove(); });
+      [...listEl.children].forEach(el => { if (!keep.has(el)) dropPostEl(el); });
 
       desired.forEach((el, i) => {
         if (listEl.children[i] !== el) listEl.insertBefore(el, listEl.children[i] || null);
@@ -674,7 +753,7 @@
       if (btn && btn.classList.contains('feed-post-more')) btn.remove();
     });
   }
-  window.klabFeedShown = unfoldShortPosts;
+  window.klabFeedShown = () => { unfoldShortPosts(); refreshFeedTimes(); };
 
   // Avatar/image/reply resolutions land one at a time; a cold load of 50
   // posts fired ~35 separate full rebuilds, each re-creating every <img> on
@@ -745,11 +824,13 @@
       listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
       _lastFeedRenderKey = null; // we just clobbered the DOM out from under the key
     }
+    const startedAt = performance.now();
     try {
       const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
       if (!r.ok) throw new Error('bad status');
       const data = await r.json();
-      const fresh = data.posts || [];
+      const page = data.posts || [];
+      const fresh = page.filter(p => !_locallyDeleted.has(p.id));
       // Merge the newest page into whatever's already loaded instead of
       // replacing wholesale — this runs on a 30s poll and after every post
       // submit, and a plain replace was silently discarding any older pages
@@ -760,19 +841,37 @@
       // covers that the server no longer returns is gone (all of it, when
       // the page is the whole feed).
       const freshIds = new Set(fresh.map(p => p.id));
-      const oldestFresh = fresh.length === FEED_PAGE_SIZE ? fresh[fresh.length - 1].id : -Infinity;
+      const pageFull = page.length === FEED_PAGE_SIZE;
+      const oldestFresh = pageFull ? page[page.length - 1].id : -Infinity;
+      // A full page that doesn't reach back to anything already loaded
+      // (more than a page of posts while this tab was hidden) would leave
+      // a hole between it and the old posts. Start over from this page
+      // and let "Load older" walk back down instead.
+      const newestResident = _feedPosts.length ? _feedPosts[0].id : null;
+      const gap = _feedLoadedOk && pageFull && newestResident !== null && oldestFresh > newestResident;
+      if (gap) {
+        byId.forEach((p, id) => { _repliesCache.delete(id); _repliesStale.delete(id); });
+        byId.clear();
+      }
       byId.forEach((p, id) => { if (id >= oldestFresh && !freshIds.has(id)) byId.delete(id); });
       fresh.forEach(p => {
+        // Changed here after this poll went out: what we have is newer.
+        if (byId.has(p.id) && (_localEditAt.get(p.id) || 0) > startedAt) return;
         // New replies from other people: the count moved, so refetch them.
+        // The old ones stay up meanwhile rather than blinking out.
         const cached = _repliesCache.get(p.id);
-        if (cached && cached.length !== (p.reply_count || 0)) _repliesCache.delete(p.id);
+        if (cached && cached.length !== (p.reply_count || 0)) {
+          if (p.reply_count) _repliesStale.add(p.id);
+          else { _repliesCache.set(p.id, []); _repliesStale.delete(p.id); }
+        }
         byId.set(p.id, p);
       });
       _feedPosts = [...byId.values()].sort((a, b) => b.id - a.id);
       // _feedHasMore is otherwise owned by loadOlderPosts() once pagination
-      // has started — only the very first load should derive it from this
-      // top-page fetch.
-      if (isFirstLoad) _feedHasMore = fresh.length === FEED_PAGE_SIZE;
+      // has started — only the first good load (or a restart after a gap)
+      // should derive it from this top-page fetch.
+      if (!_feedLoadedOk || gap) _feedHasMore = pageFull;
+      _feedLoadedOk = true;
       const signature = _feedPosts.map(p => `${p.id}:${p.reply_count || 0}:${JSON.stringify(p.reactions || {})}`).join('|');
       // Most 30s polls come back with nothing actually new — skip the full
       // list rebuild when this fetch changed nothing. Every other trigger
@@ -785,11 +884,11 @@
         renderFeed();
       }
     } catch (e) {
-      // Only the first load needs a visible error — a background 30s poll
+      // Only a feed that never loaded needs a visible error — a background 30s poll
       // failing after posts are already showing just leaves the last-known
       // feed on screen (same pattern presence's own poll failure uses),
       // rather than yanking already-read content out from under someone.
-      if (isFirstLoad) {
+      if (!_feedLoadedOk) {
         listEl.innerHTML = '<div class="feed-empty">Couldn\'t load the feed.<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
         document.getElementById('feedRetryBtn')?.addEventListener('click', fetchFeed);
         _lastFeedRenderKey = null;
@@ -813,7 +912,7 @@
       if (!r.ok) return;
       const data = await r.json();
       const older = data.posts || [];
-      _feedPosts = _feedPosts.concat(older);
+      _feedPosts = _feedPosts.concat(older.filter(p => !_locallyDeleted.has(p.id)));
       // Was unbounded — "Load older" had no cap, so a long session that
       // scrolled back far enough kept every post (and its cached replies/
       // avatar/image blobs, see _repliesCache/_feedImageCache) resident
@@ -827,10 +926,15 @@
         // Also drop the trimmed posts' cached replies — otherwise
         // _repliesCache keeps growing by post id forever even though
         // _feedPosts itself is now capped.
-        _feedPosts.slice(FEED_MAX_LOADED).forEach(p => { _repliesCache.delete(p.id); _repliesPending.delete(p.id); });
+        _feedPosts.slice(FEED_MAX_LOADED).forEach(p => { _repliesCache.delete(p.id); _repliesPending.delete(p.id); _repliesStale.delete(p.id); _replyDrafts.delete(p.id); });
         _feedPosts.length = FEED_MAX_LOADED;
+        // The trim just cut the page that was loaded, so another press
+        // would fetch the same page and cut it again, forever. The cap is
+        // the end of the line for this sitting.
+        _feedHasMore = false;
+      } else {
+        _feedHasMore = older.length === FEED_PAGE_SIZE;
       }
-      _feedHasMore = older.length === FEED_PAGE_SIZE;
       renderFeed();
     } catch (e) {
     } finally {
@@ -1036,6 +1140,7 @@
     try {
       const r = await fetchTimeout('/api/posts/' + id, { method: 'DELETE' }, 8000);
       if (r.ok) {
+        _locallyDeleted.add(id);
         _feedPosts = _feedPosts.filter(p => p.id !== id);
         renderFeed();
         SFX && SFX.play('click');
@@ -1143,20 +1248,30 @@
       const data = await r.json();
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reactions = data.reactions || {};
+      _localEditAt.set(postId, performance.now());
       renderFeed();
     } catch (e) {}
   }
 
   async function fetchFeedReplies(postId) {
+    let ok = false;
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/replies`, {}, 8000);
       if (!r.ok) return;
       const data = await r.json();
       _repliesCache.set(postId, data.replies || []);
+      _repliesStale.delete(postId);
+      ok = true;
       scheduleFeedRender();
     } catch (e) {
     } finally {
       _repliesPending.delete(postId);
+      // Only a rebuild of the post asks again, and nothing rebuilds it if
+      // the fetch failed, so its replies would stay missing all session.
+      if (!ok) setTimeout(() => {
+        const post = _feedPosts.find(p => p.id === postId);
+        if (post) ensureFeedRepliesResolved(post);
+      }, 15000);
     }
   }
 
@@ -1165,26 +1280,40 @@
   // every render. Skips posts with no replies at all (the common case)
   // rather than firing a fetch for every single post in the feed.
   function ensureFeedRepliesResolved(post) {
-    if (!post.reply_count || _repliesCache.has(post.id) || _repliesPending.has(post.id)) return;
+    if (!post.reply_count || _repliesPending.has(post.id)) return;
+    if (_repliesCache.has(post.id) && !_repliesStale.has(post.id)) return;
     _repliesPending.add(post.id);
     fetchFeedReplies(post.id);
   }
+
+  // The post can be rebuilt while a reply is sending or a GIF is being
+  // picked, so look its box up fresh rather than trusting an old node.
+  const replyInputFor = postId => listEl.querySelector(`.feed-post-reply-input[data-post-id="${postId}"]`);
 
   async function submitFeedReply(postId, input) {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
+    _replyDrafts.delete(postId);
+    // Put it back in whichever box is on screen now (and in the draft, in
+    // case the post is filtered out or about to be rebuilt).
+    const restore = () => {
+      const cur = replyInputFor(postId);
+      if (cur && !cur.value) cur.value = text;
+      _replyDrafts.set(postId, cur?.value || text);
+    };
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/replies`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
       }, 8000);
-      if (!r.ok) { input.value = text; return; }
+      if (!r.ok) { restore(); return; }
       const reply = await r.json();
       const list = _repliesCache.get(postId) || [];
       list.push(reply);
       _repliesCache.set(postId, list);
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reply_count = (post.reply_count || 0) + 1;
+      _localEditAt.set(postId, performance.now());
       // Blur first. The reconciler refuses to rebuild the post containing
       // the focused element so it can't yank a half-typed reply away — but
       // right here that post is the one that changed, and focus is sitting
@@ -1196,10 +1325,10 @@
       input.blur();
       renderFeed();
       if (refocus) {
-        const fresh = listEl.querySelector(`.feed-post-reply-input[data-post-id="${postId}"]`);
+        const fresh = replyInputFor(postId);
         if (fresh) fresh.focus();
       }
-    } catch (e) { input.value = text; }
+    } catch (e) { restore(); }
   }
 
   async function deleteFeedReply(postId, replyId) {
@@ -1214,6 +1343,7 @@
       _repliesCache.set(postId, list);
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reply_count = Math.max(0, (post.reply_count || 0) - 1);
+      _localEditAt.set(postId, performance.now());
       renderFeed();
     } catch (e) {}
   }
@@ -1269,14 +1399,21 @@
     }
     const replyGif = e.target.closest('.feed-post-reply-gif');
     if (replyGif) {
-      const input = listEl.querySelector(`.feed-post-reply-input[data-post-id="${replyGif.dataset.postId}"]`);
-      if (input) window.klabGifPicker?.open(replyGif, g => klabInsertGif(input, g, { short: true }));
+      const postId = Number(replyGif.dataset.postId);
+      const input = replyInputFor(postId);
+      if (input) window.klabGifPicker?.open(replyGif, g => {
+        const cur = replyInputFor(postId);
+        if (!cur) return;
+        // A rebuilt box has no caret of its own yet: add to the end.
+        if (cur !== input) cur.setSelectionRange(cur.value.length, cur.value.length);
+        klabInsertGif(cur, g, { short: true });
+      });
       return;
     }
     const replySend = e.target.closest('.feed-post-reply-send');
     if (replySend) {
       const postId = Number(replySend.dataset.postId);
-      const input = listEl.querySelector(`.feed-post-reply-input[data-post-id="${postId}"]`);
+      const input = replyInputFor(postId);
       if (input) submitFeedReply(postId, input);
       return;
     }
@@ -1305,8 +1442,8 @@
     const songCard = e.target.closest('.feed-post-song');
     if (songCard) {
       try {
-        const song = JSON.parse(decodeURIComponent(songCard.dataset.playSong));
-        if (typeof playSong === 'function') playSong(song);
+        const song = klabCleanSong(JSON.parse(decodeURIComponent(songCard.dataset.playSong)));
+        if (song && typeof playSong === 'function') playSong(song);
       } catch (e) {}
       return;
     }
@@ -1317,7 +1454,10 @@
     box?.classList.add('replying');
     const input = box?.querySelector('.feed-post-reply-input');
     if (!input) return;
-    if (mention && !input.value.includes('@' + mention)) input.value = '@' + mention + ' ' + input.value;
+    if (mention && !input.value.includes('@' + mention)) {
+      input.value = '@' + mention + ' ' + input.value;
+      _replyDrafts.set(postId, input.value);
+    }
     input.focus();
   }
   function mentionInComposer(username) {
@@ -1352,7 +1492,7 @@
     }
     const img = e.target.closest('.feed-post-image, .feed-post-text .md-img');
     let song = null;
-    try { const c = postEl.querySelector('.feed-post-song[data-play-song]'); if (c) song = JSON.parse(decodeURIComponent(c.dataset.playSong)); } catch {}
+    try { const c = postEl.querySelector('.feed-post-song[data-play-song]'); if (c) song = klabCleanSong(JSON.parse(decodeURIComponent(c.dataset.playSong))); } catch {}
     const mine = post.username === me;
     klabMenu(e, [
       { header: post.username },
@@ -1380,11 +1520,27 @@
     const input = e.target.closest('.feed-post-reply-input');
     if (input && e.key === 'Enter') submitFeedReply(Number(input.dataset.postId), input);
   });
+  listEl.addEventListener('input', (e) => {
+    const input = e.target.closest('.feed-post-reply-input');
+    if (!input) return;
+    const postId = Number(input.dataset.postId);
+    if (input.value) _replyDrafts.set(postId, input.value);
+    else _replyDrafts.delete(postId);
+  });
 
   const FEED_POLL_MS = 30000; // same cadence as notes/offline-roster — a feed doesn't need second-by-second freshness
   fetchFeed();
   setInterval(fetchFeed, FEED_POLL_MS);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchFeed(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshFeedTimes(); fetchFeed(); } });
+  // Relative times tick over in place, and media lookups that failed get
+  // another go once they're due (see FEED_MEDIA_RETRY_MS).
+  setInterval(() => {
+    if (document.hidden) return;
+    refreshFeedTimes();
+    _feedAvatarFailedAt.forEach((t, username) => { if (retryDue(_feedAvatarFailedAt, username)) ensureFeedAvatar(username); });
+    const live = new Set(_feedPosts.map(p => p.image_mxc).filter(Boolean));
+    _feedImageFailedAt.forEach((t, mxc) => { if (live.has(mxc) && retryDue(_feedImageFailedAt, mxc)) ensureFeedImage(mxc); });
+  }, 60000);
 
   // The very first fetchFeed() above almost always lands before Matrix has
   // finished (re)connecting — ensureFeedAvatar()/ensureFeedImage() correctly
@@ -1394,14 +1550,18 @@
   // click Load older" (whatever else happens to call renderFeed() first).
   // PREPARED is the same "client is actually usable now" signal the chat
   // module's own sync handler treats as settled.
-  // Forced: nothing in the render keys has changed yet at this point (the
-  // caches are still empty), so a plain renderFeed() skipped every post and
-  // their ensureFeed*() lookups never ran.
+  // A plain renderFeed() wouldn't do: nothing in the render keys has
+  // changed yet (the caches are still empty), so it skips every post and
+  // their ensureFeed*() lookups never run. Rebuilding every post instead
+  // restarted videos and GIFs for nothing, so kick the lookups off
+  // directly; each one that lands rebuilds only the posts it changes.
   MatrixChat.on('sync', state => {
     if (state !== 'PREPARED') return;
-    _lastFeedRenderKey = null;
-    listEl.querySelectorAll('.feed-post[data-post-key]').forEach(el => { el.dataset.postKey = ''; });
-    renderFeed();
+    _feedPosts.forEach(p => {
+      ensureFeedAvatar(p.username);
+      if (p.image_mxc) ensureFeedImage(p.image_mxc);
+      (_repliesCache.get(p.id) || []).forEach(r => ensureFeedAvatar(r.username));
+    });
   });
 })();
 

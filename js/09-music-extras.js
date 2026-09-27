@@ -41,14 +41,25 @@ async function buildGenres() {
   }));
 }
 
+// Six albums at a time: all at once (hundreds, for a big genre) queued
+// behind the browser's per-host limit until their timeouts fired, and
+// those albums silently dropped out of the shuffle.
 async function genreSongs(genre) {
-  const lists = await Promise.all(genre.albums.map(a =>
-    fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(a.id)}&${subsonicParams()}`, {}, 8000)
-      .then(r => r.json()).then(d => d['subsonic-response']?.album?.song || []).catch(() => [])));
+  const albums = genre.albums, lists = new Array(albums.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < albums.length) {
+      const i = next++;
+      lists[i] = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(albums[i].id)}&${subsonicParams()}`, {}, 8000)
+        .then(r => r.json()).then(d => d['subsonic-response']?.album?.song || []).catch(() => []);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, albums.length) }, worker));
   return lists.flat();
 }
 
 function openGenreView(genre) {
+  _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
   window.klabNav?.push({ tab: 'music', kind: 'genre', value: genre.value });
   hideSortBtn();
   pickerList.innerHTML = '';
@@ -114,8 +125,12 @@ async function loadGenres() {
 
       // The tile opens the genre's albums; its play button shuffles them all.
       const open = () => openGenreView(genre);
+      let busy = false;
       const play = async () => {
-        const songs = await genreSongs(genre);
+        if (busy) return;
+        busy = true;
+        let songs;
+        try { songs = await genreSongs(genre); } finally { busy = false; }
         if (!songs.length) { showToast('nothing to play in ' + genre.value, 'ti-alert-triangle'); return; }
         for (let i = songs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [songs[i], songs[j]] = [songs[j], songs[i]]; }
         playerState.playlist = songs; playerState.playlistIndex = 0;
@@ -127,7 +142,7 @@ async function loadGenres() {
       item.addEventListener('click', open);
       pickerList.appendChild(item);
     });
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load genres</div>'; }
+  } catch(e) { if (pickerTab === 'genres') pickerList.innerHTML = '<div class="picker-empty">failed to load genres</div>'; }
 }
 
 // ══════════════════════════════════════════
@@ -225,6 +240,7 @@ function addSongToPlaylist(plId, song) {
 // queue/requests do).
 
 function loadPlaylistView(pl) {
+  _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
   hideSortBtn();
   pickerList.classList.remove('picker-list-grid'); // a track list, not a grid — in case Albums/Artists left it on
   pickerList.innerHTML = '';
@@ -316,7 +332,10 @@ function ensurePlDelegate() {
     const btn = e.target.closest('[data-add-pl]');
     if (!btn) return;
     e.stopPropagation();
-    addSongToPlaylistFlow(JSON.parse(decodeURIComponent(btn.dataset.addPl)));
+    // The row's own song object when there is one: the attribute's copy
+    // leaves out album/artist links, length and quality.
+    const row = btn.closest('.picker-item');
+    addSongToPlaylistFlow((row && row._song) || JSON.parse(decodeURIComponent(btn.dataset.addPl)));
   });
 }
 
@@ -670,10 +689,16 @@ async function loadSongsIncremental() {
   _songsObserver = new IntersectionObserver(async ([entry]) => {
     if (!entry.isIntersecting) return;
     _songsObserver.unobserve(sentinel);
-    const more = await _fetchSongsPage(_songsOffset);
+    let more;
+    // One failed page used to end the list for good; it tries again when
+    // the bottom comes back into view.
+    try { more = await _fetchSongsPage(_songsOffset); }
+    catch (e) { if (sentinel.isConnected) setTimeout(() => sentinel.isConnected && _songsObserver.observe(sentinel), 3000); return; }
     if (pickerTab !== 'songs' || !sentinel.isConnected) return; // another view by now
     if (!more.length) { sentinel.remove(); lbl.textContent = `All Songs (${_songsOffset})`; return; }
-    pickerSongs = [...pickerSongs, ...more];
+    // In place: a song playing from this list keeps the same array as its
+    // playlist, so it plays on into the pages loaded after it.
+    pickerSongs.push(...more);
     sentinel.remove();
     renderSongItems(more, pickerList);
     _songsOffset += more.length;
@@ -816,7 +841,7 @@ function musicRequestRowHTML(req, avatarUrl) {
   return `<div class="picker-item" style="cursor:default;">
     ${artHTML}
     <div class="picker-item-info">
-      <div class="picker-item-title">${esc(req.title)} <span class="type-badge ${req.req_type}">${req.req_type}</span> ${statusHTML}</div>
+      <div class="picker-item-title">${esc(req.title)} <span class="type-badge ${req.req_type === 'song' ? 'song' : 'album'}">${req.req_type === 'song' ? 'song' : 'album'}</span> ${statusHTML}</div>
       <div class="picker-item-artist">${esc(req.artist || 'Unknown artist')}</div>
     </div>
     <div class="picker-item-requester" data-username="${esc(req.username)}" title="Requested by ${esc(req.username)}">${avatarInner}</div>

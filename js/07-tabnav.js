@@ -45,9 +45,7 @@ function setActiveTab(key) {
   // Landing on Chat with a room already selected but nothing else
   // happening to trigger a re-render (e.g. clicking the nav tab itself)
   // still counts as reading whatever's currently open.
-  if (key === 'chat' && typeof _chatActiveRoomId !== 'undefined' && _chatActiveRoomId && typeof markRoomRead === 'function') {
-    markRoomRead(_chatActiveRoomId);
-  }
+  if (key === 'chat' && typeof maybeReadActiveChatRoom === 'function') afterSwitchPaints(maybeReadActiveChatRoom);
   // renderTimeline()'s own roomChanged check only fires on an actual room
   // switch — arriving at the Chat tab itself (nav click, hash nav, a
   // deep link) was a complete no-op for it, since neither the room nor
@@ -77,7 +75,7 @@ function setActiveTab(key) {
     // block exists to fix, still half-open. Part of the "have to keep
     // scrolling down" report.
     if (typeof _forceScrollBottomOnNextRender !== 'undefined') _forceScrollBottomOnNextRender = true;
-    afterSwitchPaints(renderTimeline);
+    afterSwitchPaints(() => { if (!window.klabChatFlush?.()) renderTimeline(); });
   }
   if (location.hash.slice(1) !== key) location.hash = key;
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
@@ -90,7 +88,12 @@ function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
   });
-  window.addEventListener('hashchange', () => setActiveTab(location.hash.slice(1) || 'home'));
+  // A click already switched; the hash it set shouldn't do it all again.
+  window.addEventListener('hashchange', () => {
+    const key = location.hash.slice(1) || 'home';
+    if (document.querySelector(`.tab-panel[data-tab-panel="${CSS.escape(key)}"]`)?.classList.contains('active')) return;
+    setActiveTab(key);
+  });
   setActiveTab(location.hash.slice(1) || 'home');
 }
 
@@ -445,6 +448,8 @@ trapFocusWithin(
     if (e.clientX > r.left - 180 && e.clientX < r.right + 180 && e.clientY > r.top - 70 && e.clientY < r.bottom + 70) open();
   }, { passive: true });
   document.addEventListener('keydown', e => {
+    // Not while typing: a "2" in a message isn't a tab shortcut.
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
     if (e.key === 'Tab' || /^[1-9]$/.test(e.key)) open();
   }, true);
   nav.addEventListener('focusin', open);

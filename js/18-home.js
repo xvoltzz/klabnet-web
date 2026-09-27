@@ -23,7 +23,7 @@
   const bdLayers = $('hmBackdrop').children;
 
   const SLIDE_MS = 9000;
-  const POLL = { posts: 30e3, photos: 60e3, presence: 10e3, albums: 5 * 60e3 };
+  const POLL = { posts: 30e3, photos: 60e3, albums: 5 * 60e3 };
   const S = { posts: null, photoPosts: null, listeners: null, albums: null, chat: null };
   let active = false;
   const me = () => window.KLAB_USER?.username;
@@ -279,6 +279,9 @@
   });
   spotEl.addEventListener('pointermove', e => {
     if (!dragFrom) return;
+    // Pressed here but let go outside before it became a drag (capture only
+    // starts once it does), so the release never arrived: forget the press.
+    if (!e.buttons && !dragged) { dragFrom = null; return; }
     const dx = (e.clientX - dragFrom.x) / dragFrom.z;
     if (!dragged && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - dragFrom.y)) { dragged = true; spotEl.setPointerCapture?.(e.pointerId); }
     if (dragged) { const el = slidesEl.children[cur]; if (el) el.style.transform = `translateX(${dx * 0.35}px)`; }
@@ -309,8 +312,11 @@
         (img ? '<div class="hm-th" style="background-image:url(&quot;' + esc(img) + '&quot;)"></div>' : '') +
       '</div>';
     }).join('');
-    if (html === postsSig) return;
-    postsSig = html;
+    // Relative times are left out: the clock updates those in place, and a
+    // rebuild would re-hide any spoiler you'd opened.
+    const sig = html.replace(/<span class="hm-t"[^>]*>[^<]*<\/span>/g, '');
+    if (sig === postsSig) return;
+    postsSig = sig;
     postsEl.innerHTML = lbl('Feed') + '<div class="hm-plist">' + html + '</div>';
     // A post that wasn't here a moment ago slides in at the top.
     const topId = list[0]?.id ?? null;
@@ -338,7 +344,7 @@
     listenSig = full;
     listenEl.innerHTML = full;
   }
-  window.klabHomePresenceChanged = () => { if (active) renderListen(); };
+  window.klabHomePresenceChanged = () => { if (active) presenceChanged(); };
   if (typeof playerState !== 'undefined' && playerState.audio) {
     ['play', 'pause', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, () => { if (active) renderListen(); }));
   }
@@ -430,8 +436,8 @@
     klabMenu(e, [
       { header: p.username },
       { label: 'Open in feed', icon: 'ti-news', action: () => openPost(p.id) },
-      { label: 'Play song', icon: 'ti-player-play', hidden: !p.song, action: () => playSong(p.song) },
-      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !p.song, action: () => addToQueue(p.song) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !klabCleanSong(p.song), action: () => playSong(klabCleanSong(p.song)) },
+      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !klabCleanSong(p.song), action: () => addToQueue(klabCleanSong(p.song)) },
       { label: 'Copy text', icon: 'ti-copy', hidden: !p.text, action: () => klabCopy(p.text, 'Post') },
       ...person(p.username),
     ]);
@@ -482,23 +488,26 @@
       renderPhotos(); renderSpot();
     } catch (e) {}
   }
+  // Presence comes from the presence module, which polls it anyway and
+  // calls klabHomePresenceChanged() whenever it has something new.
   let lastSongs = null;
-  async function loadPresence() {
-    try {
-      const d = await getJSON('/api/presence');
-      const L = (d.listeners || []).filter(l => l.username !== me() && l.song);
-      // Someone pressing play on something new is worth a line.
-      const now = new Map(L.filter(l => l.playing).map(l => [l.username, l.songId || l.song]));
-      if (lastSongs) now.forEach((song, u) => {
-        if (lastSongs.get(u) !== song) {
-          const l = L.find(x => x.username === u);
-          live('play' + u + ':' + song, Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
-        }
-      });
-      lastSongs = now;
-      S.listeners = L;
-      renderListen();
-    } catch (e) {}
+  function presenceChanged() {
+    const of = window.klabPresenceOf;
+    if (!of) return;
+    // klabPresenceOf only gives a song while it's playing.
+    const L = [...(window.KLAB_ONLINE_USERNAMES || [])].filter(u => u && u !== me())
+      .map(u => Object.assign({ username: u }, of(u))).filter(l => l.song);
+    // Someone pressing play on something new is worth a line.
+    const now = new Map(L.map(l => [l.username, l.songId || l.song]));
+    if (lastSongs) now.forEach((song, u) => {
+      if (lastSongs.get(u) !== song) {
+        const l = L.find(x => x.username === u);
+        live('play' + u + ':' + song, Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
+      }
+    });
+    lastSongs = now;
+    S.listeners = L;
+    renderListen();
   }
   async function loadAlbums() {
     try {
@@ -551,14 +560,14 @@
     const every = (fn, ms) => timers.push(setInterval(() => { if (!document.hidden) fn(); }, ms));
     every(loadPosts, POLL.posts);
     every(loadPhotos, POLL.photos);
-    every(loadPresence, POLL.presence);
     every(loadAlbums, POLL.albums);
     every(tickClock, 5000);
-    // Avatars and post images resolve in the background; pick them up.
-    every(() => { postsSig = listenSig = chatSig = ''; renderPosts(); renderListen(); renderChat(); renderSpot(); }, 20e3);
+    // Avatars and post images resolve in the background; pick them up. Their
+    // URLs are in the HTML, so the signatures notice and nothing else rebuilds.
+    every(() => { renderPosts(); renderListen(); renderChat(); renderSpot(); }, 20e3);
   }
   function stopPolling() { timers.splice(0).forEach(clearInterval); }
-  function refreshAll() { loadPosts(); loadPhotos(); loadPresence(); loadAlbums(); loadChat(); tickClock(); }
+  function refreshAll() { loadPosts(); loadPhotos(); presenceChanged(); loadAlbums(); loadChat(); tickClock(); }
 
   window.klabHomeTabChanged = function(on) {
     if (on === active) return;

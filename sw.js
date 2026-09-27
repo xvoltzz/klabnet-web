@@ -20,7 +20,7 @@
 // asset request misses and goes to the network — even if their index.html
 // is itself still cached and still asking for the old URLs.
 // Bump this whenever a deploy MUST reach people who are already running.
-const CACHE = 'klabnet-static-v56';
+const CACHE = 'klabnet-static-v57';
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
@@ -60,17 +60,39 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (!isCacheable(url, event.request)) return; // straight to the network
 
-  // Stale-while-revalidate. Safe now that index.html versions every asset
-  // URL with ?v=<KLABNET_VERSION>: a deploy changes the URL, so a new
-  // version is always a cache miss rather than a stale hit that only
-  // corrects itself on the load after next.
+  // A ?v=<KLABNET_VERSION> URL never changes: served from the cache
+  // without asking the network, and when a deploy brings a new one, the
+  // old versions of that file are dropped (they used to pile up, a
+  // megabyte and more per deploy, forever).
+  if (url.searchParams.has('v')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      const hit = await cache.match(event.request);
+      if (hit) return hit;
+      const res = await fetch(event.request);
+      if (res && res.ok && res.type === 'basic') {
+        event.waitUntil((async () => {
+          await cache.put(event.request, res.clone());
+          for (const req of await cache.keys()) {
+            const u = new URL(req.url);
+            if (u.pathname === url.pathname && u.searchParams.get('v') !== url.searchParams.get('v')) await cache.delete(req);
+          }
+        })());
+      }
+      return res;
+    })());
+    return;
+  }
+
+  // Everything else (the icon, the manifest, fonts): stale-while-revalidate.
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(event.request);
-    const network = fetch(event.request).then(res => {
-      if (res && res.ok && res.type === 'basic') cache.put(event.request, res.clone());
+    const network = fetch(event.request).then(async res => {
+      if (res && res.ok && res.type === 'basic') await cache.put(event.request, res.clone());
       return res;
     }).catch(() => null);
+    event.waitUntil(network);
     return hit || (await network) || Response.error();
   })());
 });
@@ -82,8 +104,9 @@ self.addEventListener('notificationclick', event => {
   const tag = event.notification.data?.tag;
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const client = all[0];
-    if (client) { await client.focus(); if (tag) client.postMessage({ klabNotifClick: tag }); }
-    else await self.clients.openWindow('./');
+    if (!all.length) { await self.clients.openWindow('./'); return; }
+    // Every window hears it; the one that showed this notification acts on it.
+    if (tag) all.forEach(c => c.postMessage({ klabNotifClick: tag }));
+    await (all.find(c => c.focused) || all[0]).focus();
   })());
 });

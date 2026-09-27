@@ -4,6 +4,10 @@
 // Replace the existing loadPickerTab to handle new tabs
 const _origLoadPickerTab = loadPickerTab;
 loadPickerTab = async function(tab) {
+  // Whatever was loading for the view you're leaving (Home's random picks,
+  // a search, a pending search keystroke) must not draw over this one.
+  _pickerLoadToken++;
+  if (tab !== 'search') clearTimeout(pickerDebounce);
   if (tab === 'albums') { pickerTab = tab; await loadAlbums(); return; }
   if (tab === 'artists') { pickerTab = tab; await loadArtists(); return; }
   if (tab === 'queue') { pickerTab = tab; renderQueueList(); return; }
@@ -49,6 +53,12 @@ async function loadArtists() {
   } catch(e) { if (pickerTab === 'artists') pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
 }
 
+const _albumArtIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+  if (!e.isIntersecting) return;
+  _albumArtIO.unobserve(e.target);
+  e.target._loadArt?.();
+}), { rootMargin: '400px 0px' }) : null;
+
 function renderAlbumList(albums, appendMode) {
   if (!albums.length) { if (!appendMode) pickerList.innerHTML = '<div class="picker-empty">no albums</div>'; return; }
   if (!appendMode) {
@@ -69,11 +79,15 @@ function renderAlbumList(albums, appendMode) {
     ph.className = 'picker-item-art-ph';
     ph.innerHTML = '<i class="ti ti-vinyl"></i>';
 
-    const artUrl = ND_URL + '/rest/getCoverArt?id=' + album.coverArt + '&size=150&' + subsonicParams();
+    const artUrl = ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(album.coverArt || album.id) + '&size=150&' + subsonicParams();
     const artImg = new Image();
     artImg.className = 'picker-item-art';
+    artImg.decoding = 'async';
     artImg.onload = () => ph.replaceWith(artImg);
-    artImg.src = artUrl;
+    // Fetched as it nears the screen: the whole library at once was ~500
+    // cover requests in one burst, queued ahead of the music itself.
+    item._loadArt = () => { artImg.src = artUrl; };
+    if (_albumArtIO) _albumArtIO.observe(item); else item._loadArt();
 
     const info = document.createElement('div');
     info.className = 'picker-item-info';
@@ -186,8 +200,8 @@ async function hydrateArtistThumb(item, artistId) {
   if (!ph || !artistId) return;
   try {
     const [infoRes, artistRes] = await Promise.allSettled([
-      fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=1&${subsonicParams()}`, {}, 8000).then(r => r.json()),
-      fetchTimeout(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`, {}, 8000).then(r => r.json()),
+      fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${encodeURIComponent(artistId)}&count=1&${subsonicParams()}`, {}, 8000).then(r => r.json()),
+      fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artistId)}&${subsonicParams()}`, {}, 8000).then(r => r.json()),
     ]);
     const info = infoRes.status === 'fulfilled'
       ? infoRes.value['subsonic-response']?.artistInfo2
@@ -198,7 +212,7 @@ async function hydrateArtistThumb(item, artistId) {
     let url = info?.mediumImageUrl || info?.largeImageUrl || '';
     if (url && url.includes('2a96cbd8b46e442fc41c2b86b821562f')) url = '';
     if (!url && artist?.album?.[0]?.coverArt) {
-      url = `${ND_URL}/rest/getCoverArt?id=${artist.album[0].coverArt}&size=150&${subsonicParams()}`;
+      url = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.album[0].coverArt)}&size=150&${subsonicParams()}`;
     }
     if (!url || !ph.isConnected) return;
     const img = new Image();
@@ -255,7 +269,7 @@ async function loadArtistView(artist) {
   if (window.openArtistPage) { goToMusicDetail(() => window.openArtistPage(artist.id, artist.name)); return; }
   pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
   try {
-    const res = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${artist.id}&${subsonicParams()}`, {}, 8000);
+    const res = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artist.id)}&${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     const info = data['subsonic-response']?.artist;
     if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed</div>'; return; }
@@ -283,7 +297,7 @@ async function loadArtistView(artist) {
     albums.forEach(album => {
       // size=80 — same list-mode-row sizing fix as renderSongItem() above; this
       // is a fallback list view (openArtistPage unavailable), not the grid.
-      const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=80&${subsonicParams()}`;
+      const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=80&${subsonicParams()}`;
       const item = document.createElement('div');
       item.className = 'picker-item';
       const img = document.createElement('img');
@@ -312,7 +326,7 @@ async function loadArtistView(artist) {
       item.appendChild(info);
       item.appendChild(actions);
       const getTracks = async () => {
-        const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${album.id}&${subsonicParams()}`, {}, 8000);
+        const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(album.id)}&${subsonicParams()}`, {}, 8000);
         const d = await r.json();
         return d['subsonic-response']?.album?.song || [];
       };
@@ -352,7 +366,7 @@ function renderQueueList() {
   pickerList.appendChild(clearRow);
   queue.forEach((song, idx) => {
     // size=80 — same list-mode-row sizing fix as renderSongItem() above.
-    const artUrl = `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}`;
+    const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}`;
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `

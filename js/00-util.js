@@ -253,6 +253,9 @@ window.klabSoften = (function() {
     const ops = parseFilter(filter);
     if (!ops) return null;
     const img = await load(src);
+    // Only needed while baking: kept, one per song and backdrop, for as
+    // long as the tab stays open.
+    images.delete(src);
     if (!img || !img.naturalWidth) return null;
     const k = LONG / Math.max(w, h);   // canvas px per element px
     const cw = Math.max(8, Math.round(w * k)), ch = Math.max(8, Math.round(h * k));
@@ -324,7 +327,15 @@ window.klabSoften = (function() {
       const bw = Math.max(100, Math.round(w / 100) * 100), bh = Math.max(100, Math.round(h / 100) * 100);
       const key = m[1] + '|' + filter + '|' + bw + 'x' + bh;
       if (!baked.has(key)) {
-        if (baked.size > 240) baked.delete(baked.keys().next().value);
+        if (baked.size > 240) {
+          const oldKey = baked.keys().next().value, old = baked.get(oldKey);
+          baked.delete(oldKey);
+          // Freed, unless something on screen is still showing it.
+          old.then(u => {
+            if (!u || [...document.querySelectorAll('.soft')].some(e => e.style.backgroundImage.includes(u))) return;
+            URL.revokeObjectURL(u); ours.delete(u);
+          });
+        }
         baked.set(key, bake(m[1], filter, bw, bh));
       }
       const url = await baked.get(key);
@@ -500,4 +511,17 @@ async function klabCopyImage(src) {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
     showToast('Image copied', 'ti-photo');
   } catch { showToast("Couldn't copy that image", 'ti-photo-off'); }
+}
+
+// Songs other people hand us (feed posts, chat, photos, listening
+// parties) are only as trustworthy as the library ids in them look like
+// library ids: those end up in URLs and markup all over the player. Returns
+// a cleaned copy, or null when it doesn't name a real track.
+const _ND_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function klabCleanSong(s) {
+  if (!s || typeof s !== 'object' || !_ND_ID_RE.test(String(s.id ?? ''))) return null;
+  const out = { ...s, id: String(s.id) };
+  for (const k of ['coverArt', 'albumId', 'artistId']) if (out[k] != null && !_ND_ID_RE.test(String(out[k]))) delete out[k];
+  for (const k of ['title', 'artist', 'album']) if (out[k] != null) out[k] = String(out[k]).slice(0, 300);
+  return out;
 }

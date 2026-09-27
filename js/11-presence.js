@@ -144,11 +144,11 @@
     _songColorPending.add(songId);
     (async () => {
       try {
-        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${songId}&${subsonicParams()}`, {}, 6000);
+        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${encodeURIComponent(songId)}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         const coverArt = data['subsonic-response']?.song?.coverArt;
         _songColorCache.set(songId, coverArt
-          ? await sampleImageColor(`${ND_URL}/rest/getCoverArt?id=${coverArt}&size=64&${subsonicParams()}`)
+          ? await sampleImageColor(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverArt)}&size=64&${subsonicParams()}`)
           : null);
       } catch (e) {
         _songColorCache.set(songId, null);
@@ -499,7 +499,7 @@
     // check, so this is safe to call every poll; without it, a DM's online
     // dot would only ever update when something chat-specific also
     // happened to trigger a re-render.
-    if (typeof renderChannelList === 'function') renderChannelList();
+    if (typeof scheduleChatRender === 'function') scheduleChatRender();
     // Offline people are the bulk of the roster and none of the value —
     // no song, no note most of the time — but a full card each was
     // burying the handful of people actually around under a wall of
@@ -582,7 +582,7 @@
     try {
       let song = null;
       if (songId) {
-        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${songId}&${subsonicParams()}`, {}, 6000);
+        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${encodeURIComponent(songId)}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         song = data['subsonic-response']?.song || null;
       }
@@ -682,6 +682,8 @@
     }
     const hostId = matrixIdFor(username);
     if (!hostId) return;
+    // Following someone else now: the last host stops sending to us.
+    if (_partyHostId && _partyHostId !== hostId) leaveParty(true);
     _partyHostId = hostId;
     _partyHostLabel = username;
     renderPartyState();
@@ -736,12 +738,17 @@
     try {
       if (content.songId && content.songId !== song?.id) {
         _partyLoadingId = content.songId;
-        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${content.songId}&${subsonicParams()}`, {}, 6000);
+        const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${encodeURIComponent(content.songId)}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         const newSong = data['subsonic-response']?.song || null;
-        if (newSong) {
-          await playSong(newSong);
-          playerState.audio.currentTime = content.position || 0;
+        if (newSong && _partyHostId) {
+          // Marked for the playSong wrapper below, synchronously: it has to
+          // tell this apart from you picking a song while this one loads.
+          _partyPlay++;
+          const p = playSong(newSong);
+          _partyPlay--;
+          await p;
+          if (_partyHostId) playerState.audio.currentTime = content.position || 0;
         }
       } else if (song) {
         if (Math.abs(playerState.audio.currentTime - (content.position || 0)) > PARTY_DRIFT_S) {
@@ -758,15 +765,18 @@
   }
   // Ticks come every 5s while the host is there. Silence for 20s means
   // they closed the tab or went offline: stop showing "with X" forever.
-  const PARTY_GONE_MS = 20000;
-  function armPartyWatchdog() {
+  // A paused host in a background tab ticks far less often (browsers slow
+  // a silent hidden page's timers to once a minute), so that's not "gone".
+  const PARTY_GONE_MS = 20000, PARTY_PAUSED_GONE_MS = 150000;
+  function armPartyWatchdog(content) {
     clearTimeout(_partyAckTimer);
+    const wait = content && content.playing === false ? PARTY_PAUSED_GONE_MS : PARTY_GONE_MS;
     const host = _partyHostId, label = _partyHostLabel;
     _partyAckTimer = setTimeout(() => {
       if (_partyHostId !== host) return;
       showToast(`${label} stopped the listening party`, toastPerson(label));
       leaveParty(false);
-    }, PARTY_GONE_MS);
+    }, wait);
   }
 
   MatrixChat.on('toDevice', event => {
@@ -776,7 +786,7 @@
       _partySubscribers.set(sender, Date.now() + PARTY_SUB_TTL_MS);
       broadcastPartyTick(); // catch this subscriber up immediately, don't make them wait for the next 5s tick
     } else if (type === 'klab.sync_tick' && sender === _partyHostId) {
-      armPartyWatchdog(); // the host is there; expect the next tick soon
+      armPartyWatchdog(event.getContent()); // the host is there; expect the next tick soon
       applyPartyTick(event.getContent());
     } else if (type === 'klab.sync_stop') {
       _partySubscribers.delete(sender);
@@ -789,10 +799,13 @@
   // host's next tick over what should be playing. Onion-wraps playSong
   // once more, same pattern the lyrics engine and the media-session/
   // history/accent-color patch above it already use.
+  let _partyPlay = 0;
   const _origPlaySongParty = playSong;
   playSong = async function(song) {
+    // Your own pick leaves the party straight away, before it loads: a host
+    // tick arriving meanwhile used to pull you back to their song.
+    if (_partyHostId && _partyPlay === 0) leaveParty();
     await _origPlaySongParty(song);
-    if (_partyHostId && _applyingPartyTick === 0) leaveParty();
     broadcastPartyTick();
   };
   playerState.audio.addEventListener('play',  broadcastPartyTick);
@@ -1011,7 +1024,9 @@
     try {
       const src = 'let t;onmessage=e=>{clearInterval(t);t=setInterval(()=>postMessage(0),e.data)}';
       _beatWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
-      _beatWorker.onmessage = () => postPresence();
+      // Party ticks ride along: a host in a background tab keeps its
+      // followers in step instead of dropping to one tick a minute.
+      _beatWorker.onmessage = () => { postPresence(); broadcastPartyTick(); };
       _beatWorker.postMessage(document.hidden ? POLL_MS * 1.5 : POLL_MS);
       postPresence();
     } catch (e) {

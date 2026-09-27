@@ -54,9 +54,20 @@ window.klabGifPicker = (function() {
       if (looksLikeLink(input.value)) { showAdd(true, input.value.trim()); input.value = ''; return; }
       typeTimer = setTimeout(() => { q = input.value.trim(); load(true); }, 250);
     });
-    input.addEventListener('keydown', e => {
+    input.addEventListener('keydown', async e => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
-      if (e.key === 'Enter') { e.preventDefault(); grid.querySelector('.gif-item')?.click(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // Typed faster than the search debounce: the grid still holds the
+        // last query's results, so search what's in the box before picking.
+        if (input.value.trim() !== q || loading) {
+          clearTimeout(typeTimer);
+          q = input.value.trim();
+          await load(true);
+          if (panel.hidden || input.value.trim() !== q) return;
+        }
+        grid.querySelector('.gif-item')?.click();
+      }
     });
     panel.querySelector('.gif-add-toggle').addEventListener('click', () => showAdd(addForm.hidden));
     addForm.addEventListener('submit', e => { e.preventDefault(); addLink(); });
@@ -254,7 +265,15 @@ window.klabGifPicker = (function() {
 // where there's room; used by the feed composer and reply boxes.
 function klabInsertGif(field, g, opts) {
   const alt = (opts?.short ? 'gif' : (g.title || 'gif')).replace(/[\[\]]/g, '').slice(0, 60);
-  const md = '![' + alt + '](' + g.url + ')';
+  // One of ours goes in as a bare path: a full URL would carry whichever
+  // hostname this person reached klabnet by, which may not work for others.
+  // The markdown sanitizer allows exactly this path shape (11b-markdown.js).
+  let url = g.url;
+  try {
+    const u = new URL(g.url, location.origin);
+    if (u.origin === location.origin && /^\/api\/gifs\/files\/[0-9a-f]+\.gif$/i.test(u.pathname) && !u.search && !u.hash) url = u.pathname;
+  } catch (e) {}
+  const md = '![' + alt + '](' + url + ')';
   const v = field.value, s = field.selectionStart ?? v.length, e = field.selectionEnd ?? v.length;
   const nl = field.tagName === 'TEXTAREA';
   const before = nl && s > 0 && v[s - 1] !== '\n' ? '\n' : (s > 0 && !/\s$/.test(v.slice(0, s)) ? ' ' : '');

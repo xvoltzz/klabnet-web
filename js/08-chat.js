@@ -153,10 +153,14 @@ const MatrixChat = (function () {
       userId: session.userId,
       deviceId: session.deviceId,
     });
-    client.on(sdk.ClientEvent.Sync, state => {
+    client.on(sdk.ClientEvent.Sync, (state, prev, data) => {
       emit('sync', state);
       if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
+      // A token the server no longer accepts (signed out elsewhere, revoked)
+      // would otherwise just say "error" forever with no way back in.
+      if (state === 'ERROR' && data?.error?.errcode === 'M_UNKNOWN_TOKEN') emit('loggedOut');
     });
+    client.on('Session.logged_out', () => emit('loggedOut'));
     // Raw event-name strings rather than the SDK's enum constants (e.g.
     // sdk.RoomEvent.Timeline) — these wire-level names are spec-stable, and
     // pulling another named export off the CDN bundle isn't worth the risk
@@ -284,6 +288,17 @@ window.MatrixChat = MatrixChat; // console-testable; see the KLAB SOCIAL section
 // ══════════════════════════════════════════
 let _chatUiLoaded = false;
 let _chatActiveRoomId = null;
+// You picked a room (a tap, a link, a new DM), so nothing should replace it
+// with its own guess. And a room just created or joined, which the server
+// hasn't sent down yet: it's still the one to show when it arrives.
+let _chatRoomChosen = false;
+let _pendingActiveRoomId = null, _pendingActiveAt = 0;
+function chooseChatRoom(roomId) {
+  _chatActiveRoomId = roomId;
+  _chatRoomChosen = true;
+  _pendingActiveRoomId = roomId;
+  _pendingActiveAt = Date.now();
+}
 
 // Consistent per-sender nametag color — same idea as Discord/Slack role
 // colors: hash the (stable) Matrix user ID to one fixed entry in a curated
@@ -360,8 +375,10 @@ function profileColor(usernameOrMxId) {
 const _msgAvatarCache   = new Map(); // userId -> blob URL, or null
 const _msgAvatarPending = new Set();
 
+const _msgAvatarFailedAt = new Map();
 function ensureMsgAvatarResolved(userId) {
   if (!userId || _msgAvatarCache.has(userId) || _msgAvatarPending.has(userId)) return;
+  if (Date.now() - (_msgAvatarFailedAt.get(userId) || 0) < 60000) return;
   const client = MatrixChat.client;
   if (!client) return;
   _msgAvatarPending.add(userId);
@@ -370,7 +387,9 @@ function ensureMsgAvatarResolved(userId) {
       const info = await client.getProfileInfo(userId);
       _msgAvatarCache.set(userId, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
     } catch (e) {
-      if (!_msgAvatarCache.has(userId)) _msgAvatarCache.set(userId, null);
+      // A failed fetch isn't "no avatar": leave it uncached so the next
+      // render tries again, but not more than once a minute.
+      _msgAvatarFailedAt.set(userId, Date.now());
     }
     _msgAvatarPending.delete(userId);
     // Paint the now-resolved avatar directly into any already-rendered
@@ -589,7 +608,7 @@ function buildChannelItem(room, icon) {
       setChatMobileView('convo');
       return;
     }
-    _chatActiveRoomId = room.roomId;
+    _chatActiveRoomId = room.roomId; _chatRoomChosen = true;
     renderChannelList();
     setChatMobileView('convo');
   });
@@ -620,6 +639,27 @@ function buildChannelItem(room, icon) {
 // event across every joined room and every sync tick, not just when a
 // room was actually added/removed/renamed.
 let _lastChannelListKey = null;
+
+// A sync lands dozens of events at once, in every room, all day. Drawn at
+// most once a frame, and not at all while Chat isn't on screen: it catches
+// up the moment it is (klabChatFlush, from setActiveTab and visibility).
+let _chatRenderDirty = false, _chatRenderQueued = false;
+function scheduleChatRender() {
+  if (document.hidden || !document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
+    _chatRenderDirty = true;
+    return;
+  }
+  if (_chatRenderQueued) return;
+  _chatRenderQueued = true;
+  requestAnimationFrame(() => { _chatRenderQueued = false; _chatRenderDirty = false; renderChannelList(); });
+}
+window.klabChatFlush = function() {
+  if (!_chatRenderDirty || !MatrixChat.client) return false;
+  _chatRenderDirty = false;
+  renderChannelList();
+  return true;
+};
+document.addEventListener('visibilitychange', () => { if (!document.hidden && document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) window.klabChatFlush(); });
 
 function renderChannelList() {
   const list = document.getElementById('chatChannelsList');
@@ -654,7 +694,10 @@ function renderChannelList() {
     renderTimeline();
     return;
   }
-  if (!_chatActiveRoomId || !rooms.some(r => r.roomId === _chatActiveRoomId)) {
+  const present = id => rooms.some(r => r.roomId === id);
+  if (_pendingActiveRoomId && (present(_pendingActiveRoomId) || Date.now() - _pendingActiveAt > 20000)) _pendingActiveRoomId = null;
+  const waitingForIt = _chatActiveRoomId && _chatActiveRoomId === _pendingActiveRoomId;
+  if (!_chatActiveRoomId || (!present(_chatActiveRoomId) && !waitingForIt)) {
     _chatActiveRoomId = [...rooms].sort(byRecent)[0].roomId; // land where the conversation is
   }
 
@@ -827,7 +870,7 @@ function chatMessageMenu(e) {
   const img = alive && row.querySelector('.chat-msg-image');
   const imgReady = img?.src?.startsWith('blob:');
   let song = null;
-  try { const c = row.querySelector('.chat-msg-song[data-song]'); if (c) song = JSON.parse(decodeURIComponent(c.dataset.song)); } catch {}
+  try { const c = row.querySelector('.chat-msg-song[data-song]'); if (c) song = klabCleanSong(JSON.parse(decodeURIComponent(c.dataset.song))); } catch {}
   const inDmWithThem = getDmRoomIds().has(room.roomId);
   klabMenu(e, [
     { header: ev.sender?.name || user },
@@ -891,18 +934,36 @@ function chatConvMenu(e) {
 const _chatImageCache   = new Map(); // mxc:// -> blob URL or null
 const _chatImagePending = new Set();
 const CHAT_IMAGE_CACHE_MAX = 120; // see capBlobCache()'s own comment
+// A failed load (a timeout on a big GIF, the server restarting) is tried
+// again a minute later instead of staying blank for the session.
+const _chatImageFailedAt = new Map();
+// Evicts the least recently shown first, and never an image that's on
+// screen right now: revoking one of those left it (and Open/Copy image)
+// pointing at nothing, and the next render downloaded it all over again.
+function capChatImageCache() {
+  if (_chatImageCache.size <= CHAT_IMAGE_CACHE_MAX) return;
+  const onScreen = new Set([...document.querySelectorAll('.chat-msg-image[data-mxc]')].map(i => i.dataset.mxc));
+  for (const [key, url] of _chatImageCache) {
+    if (_chatImageCache.size <= CHAT_IMAGE_CACHE_MAX) break;
+    if (onScreen.has(key)) continue;
+    if (url) URL.revokeObjectURL(url);
+    _chatImageCache.delete(key);
+  }
+}
 function ensureChatImageResolved(mxc, animated) {
   if (!mxc || _chatImageCache.has(mxc) || _chatImagePending.has(mxc)) return;
+  if (Date.now() - (_chatImageFailedAt.get(mxc) || 0) < 60000) return;
   _chatImagePending.add(mxc);
   // A server thumbnail of a GIF is one still frame, so GIFs load whole
   // (they're GIPHY's under-2MB copies).
   MatrixChat.mxcToBlobUrl(mxc, animated ? { full: true } : { width: 400, height: 400, method: 'scale' }).then(url => {
-    _chatImageCache.set(mxc, url);
+    if (url) { _chatImageCache.set(mxc, url); _chatImageFailedAt.delete(mxc); }
+    else _chatImageFailedAt.set(mxc, Date.now());
   }).catch(() => {
-    _chatImageCache.set(mxc, null);
+    _chatImageFailedAt.set(mxc, Date.now());
   }).finally(() => {
     _chatImagePending.delete(mxc);
-    capBlobCache(_chatImageCache, CHAT_IMAGE_CACHE_MAX);
+    capChatImageCache();
     const url = _chatImageCache.get(mxc);
     if (!url) return;
     document.querySelectorAll(`.chat-msg-image[data-mxc="${CSS.escape(mxc)}"]`).forEach(img => {
@@ -965,6 +1026,17 @@ function renderTimeline() {
   if (!el) return;
   const roomChanged = _chatActiveRoomId !== _typingRenderedRoomId;
   if (roomChanged) {
+    // A reply started in the last room doesn't follow you into this one.
+    if (_replyingToEventId) clearReply();
+    // Members load lazily (only recent speakers come with the sync), which
+    // undercounted the header and left readers out of "Seen"; the rest now.
+    const opening = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+    if (opening) { _fillRounds.delete(opening.roomId); requestAnimationFrame(() => fillChatHistory(opening)); }
+    opening?.loadMembersIfNeeded?.().then(loaded => {
+      if (!loaded || _chatActiveRoomId !== opening.roomId) return;
+      syncChatHead();
+      updateSeenLine(opening, opening.getLiveTimeline().getEvents().filter(ev => ev.getType() === 'm.room.message'));
+    }).catch(() => {});
     // Switching conversations: the new one fades up, the way a Music view
     // does (the sidebar's highlight slides over to it, js/16-motion.js).
     // Not on the first render, and the composer stays put.
@@ -1012,14 +1084,7 @@ function renderTimeline() {
   // event we'd acknowledge has actually changed breaks the loop at the
   // source; the receipt listener no longer force-rebuilding at all (see
   // updateSeenLine()) closes it from the other side too.
-  if (!document.hidden && document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
-    markRoomRead(room.roomId);
-    const lastEvent = events[events.length - 1];
-    if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
-      _lastSentReadEventId.set(room.roomId, lastEvent.getId());
-      MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
-    }
-  }
+  if (chatRoomOnScreen()) readActiveChatRoom(room, events);
 
   // Reactions land as their own timeline events (type m.reaction, filtered
   // out of `events` above so they never render as message rows of their
@@ -1119,7 +1184,9 @@ function renderTimeline() {
     }
 
     const content = ev.getContent();
-    const replyToId = !ev.isRedacted() ? content['m.relates_to']?.['m.in_reply_to']?.event_id : null;
+    // From the original event: an edit's content (m.new_content) carries no
+    // reply relation, so an edited reply used to lose its quote.
+    const replyToId = !ev.isRedacted() ? (ev.replyEventId || ev.getWireContent?.()['m.relates_to']?.['m.in_reply_to']?.event_id || content['m.relates_to']?.['m.in_reply_to']?.event_id) : null;
     if (replyToId) {
       const quote = document.createElement('div');
       quote.className = 'chat-msg-reply-quote';
@@ -1152,6 +1219,8 @@ function renderTimeline() {
       img.dataset.mxc = content.url;
       img.alt = content.body || '';
       const cachedUrl = _chatImageCache.get(content.url);
+      // Shown again: most recently used, last to be evicted.
+      if (cachedUrl) { _chatImageCache.delete(content.url); _chatImageCache.set(content.url, cachedUrl); }
       if (cachedUrl) img.src = cachedUrl;
       body.appendChild(img);
     } else {
@@ -1301,6 +1370,22 @@ async function maybeLoadOlderMessages() {
   } finally {
     _paginatingRoomId = null;
   }
+  fillChatHistory(room);
+}
+
+// Older messages load when you scroll to the top, which you can't do when
+// what's loaded doesn't fill the pane (a tall window, or a first page that
+// was mostly joins and reactions). Keeps paging in until it can scroll, a
+// few pages at most.
+let _fillRounds = new Map();
+function fillChatHistory(room) {
+  const el = document.getElementById('chatTimeline');
+  if (!el || !room || room.roomId !== _chatActiveRoomId || !el.offsetParent) return;
+  if (el.scrollHeight > el.clientHeight + 60 || room.oldState.paginationToken === null) return;
+  const n = _fillRounds.get(room.roomId) || 0;
+  if (n >= 5) return;
+  _fillRounds.set(room.roomId, n + 1);
+  requestAnimationFrame(() => maybeLoadOlderMessages());
 }
 
 // gitea#3 emoji request, scoped down to plain Unicode (no custom-emoji
@@ -1352,12 +1437,17 @@ const _typingActiveRooms = new Set(); // roomIds currently reporting "typing" to
 // false->true transition — the 4s refresh timer (re-armed each keystroke)
 // is what keeps the room knowing we're still typing, not a fresh PUT per
 // character.
+const _typingSentAt = new Map();
 function notifyTyping() {
   if (!_chatActiveRoomId || !MatrixChat.client) return;
   const roomId = _chatActiveRoomId;
   clearTimeout(_typingStopTimers.get(roomId));
-  if (!_typingActiveRooms.has(roomId)) {
+  // The server forgets "typing" after 4s, so it's said again every 3s for
+  // as long as you keep going; once was just the first 4 seconds.
+  const now = Date.now();
+  if (!_typingActiveRooms.has(roomId) || now - (_typingSentAt.get(roomId) || 0) > 3000) {
     _typingActiveRooms.add(roomId);
+    _typingSentAt.set(roomId, now);
     MatrixChat.client.sendTyping(roomId, true, 4000).catch(() => {});
   }
   _typingStopTimers.set(roomId, setTimeout(() => {
@@ -1725,7 +1815,8 @@ function openBrowseModal() {
   joinByIdInput.addEventListener('keydown', e => { if (e.key === 'Enter') joinById(); });
 
   function renderResults(rooms) {
-    const joined = new Set(MatrixChat.client.getRooms().map(r => r.roomId));
+    // Rooms you've left stay in getRooms(); those can be joined again.
+    const joined = new Set(MatrixChat.client.getRooms().filter(r => r.getMyMembership?.() === 'join').map(r => r.roomId));
     listEl.innerHTML = '';
     if (!rooms.length) { listEl.innerHTML = '<div class="picker-empty">no channels found</div>'; return; }
     rooms.forEach(r => {
@@ -1760,7 +1851,9 @@ function openBrowseModal() {
   async function load(term) {
     listEl.innerHTML = '<div class="picker-empty">loading...</div>';
     try {
+      const ask = ++browseSeq;
       const res = await MatrixChat.client.publicRooms(term ? { limit: 50, filter: { generic_search_term: term } } : { limit: 50 });
+      if (ask !== browseSeq) return; // a later search already answered
       renderResults(res.chunk || []);
     } catch (e) {
       listEl.innerHTML = '<div class="picker-empty">failed to load channels</div>';
@@ -1774,6 +1867,7 @@ function openBrowseModal() {
   });
   load('');
 }
+let browseSeq = 0;
 
 function openCreateModal() {
   openChatModal('// create channel', `
@@ -1801,7 +1895,7 @@ function openCreateModal() {
         preset: 'public_chat',
       });
       closeChatModal();
-      _chatActiveRoomId = room_id;
+      chooseChatRoom(room_id);
       renderChannelList();
       setChatMobileView('convo');
       showToast(`Created #${name}`, 'ti-hash');
@@ -1846,7 +1940,7 @@ async function startDm(userId) {
       await client.setAccountData('m.direct', { ...directContent, [userId]: [...(directContent[userId] || []), roomId] });
     }
     closeChatModal();
-    _chatActiveRoomId = roomId;
+    chooseChatRoom(roomId);
     renderChannelList();
     setChatMobileView('convo');
   } catch (e) {
@@ -2386,7 +2480,7 @@ async function openProfileModal() {
       // timeline's cache (keyed by Matrix user ID) is in this same
       // global scope, so it's cleared directly.
       window.KLAB_REFRESH_MY_AVATAR && window.KLAB_REFRESH_MY_AVATAR();
-      if (pendingFile) _msgAvatarCache.delete(myId);
+      if (pendingFile) invalidateMsgAvatar(myId);
       // Chat color/bio/banner can change even when the avatar doesn't, so
       // these three surfaces (timeline, feed, presence-rail-via-the-hook
       // above) always get refreshed, not just on an avatar change.
@@ -2412,7 +2506,11 @@ async function openProfileModal() {
 // had no cache at all, so clicking around profiles leaked a fresh blob URL
 // on every single click, not just once per distinct person.
 let _profileViewBlobUrls = [];
+let _profileViewSeq = 0;
 async function openProfileView(username) {
+  // Opening someone else's before this one's details arrive: theirs must
+  // not land in the new one's card.
+  const seq = ++_profileViewSeq;
   _profileViewBlobUrls.forEach(u => URL.revokeObjectURL(u));
   _profileViewBlobUrls = [];
   if (!username) return;
@@ -2439,6 +2537,7 @@ async function openProfileView(username) {
     MatrixChat.mxcToBlobUrl(profile.banner_mxc, { full: true })
       .then(url => {
         const el = document.getElementById('profileViewBanner');
+        if (url && seq !== _profileViewSeq) { URL.revokeObjectURL(url); return; }
         if (url && el) { _profileViewBlobUrls.push(url); el.style.backgroundImage = `url(${url})`; }
       })
       .catch(() => {});
@@ -2446,10 +2545,12 @@ async function openProfileView(username) {
   try {
     const serverName = client.getUserId().split(':')[1];
     const info = await client.getProfileInfo(`@${username}:${serverName}`);
+    if (seq !== _profileViewSeq) return;
     const nameEl = document.getElementById('profileViewDisplayname');
     if (nameEl && info?.displayname) nameEl.textContent = info.displayname;
     if (info?.avatar_url) {
       const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
+      if (seq !== _profileViewSeq) { if (url) URL.revokeObjectURL(url); return; }
       const avatarEl = document.getElementById('profileViewAvatar');
       if (url && avatarEl) { _profileViewBlobUrls.push(url); avatarEl.innerHTML = `<img src="${esc(url)}" alt="" />`; }
     }
@@ -2527,6 +2628,53 @@ function updateSocialUnreadBadge() {
   updateChannelUnreadDots();
   refreshUnreadDmUsers();
 }
+// Unread state didn't survive a reload: DMs that arrived while klabnet was
+// closed showed nothing. The server keeps a count per room; start from it.
+function seedUnreadFromServer() {
+  const me = MatrixChat.client?.getUserId();
+  let changed = false;
+  for (const room of MatrixChat.client?.getRooms() || []) {
+    if (room.getMyMembership?.() !== 'join') continue;
+    let unread = (room.getUnreadNotificationCount?.('total') || 0) > 0;
+    if (!unread) {
+      // Servers that don't count for every room: the last message isn't ours
+      // and we haven't read up to it.
+      const last = roomLastMessage(room);
+      unread = !!last && last.getSender() !== me && !room.hasUserReadEvent?.(me, last.getId());
+    }
+    if (unread && !_chatUnreadRooms.has(room.roomId)) { _chatUnreadRooms.add(room.roomId); changed = true; }
+  }
+  if (changed) { updateSocialUnreadBadge(); updateChannelUnreadDots(); }
+}
+
+// Whether the open conversation is actually in front of someone: the Chat
+// tab, the page showing and focused (the desktop app behind another window
+// is "visible" but nobody's reading), and on a phone the conversation
+// rather than the room list. Only then does it count as read, receipts
+// ("Seen") included.
+function chatPaneShowing() {
+  if (document.hidden) return false;
+  if (!document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) return false;
+  return !(document.body.classList.contains('chat-rooms-view') && matchMedia('(max-width: 760px)').matches);
+}
+function chatRoomOnScreen() { return chatPaneShowing() && document.hasFocus(); }
+function readActiveChatRoom(room, events) {
+  room = room || (_chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId));
+  if (!room) return;
+  markRoomRead(room.roomId);
+  updateChannelUnreadDots();
+  const list = events || room.getLiveTimeline().getEvents().filter(ev => ev.getType() === 'm.room.message');
+  const lastEvent = list[list.length - 1];
+  if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
+    _lastSentReadEventId.set(room.roomId, lastEvent.getId());
+    MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
+  }
+}
+// Catch up the moment it is in front of someone.
+function maybeReadActiveChatRoom() { if (MatrixChat.client && _chatActiveRoomId && chatRoomOnScreen()) readActiveChatRoom(); }
+window.addEventListener('focus', maybeReadActiveChatRoom);
+document.addEventListener('visibilitychange', maybeReadActiveChatRoom);
+
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
 }
@@ -2569,10 +2717,9 @@ function notifyNewMessage(event, room) {
   if (event.getType() !== 'm.room.message') return;
   if (event.getRelation()?.rel_type === 'm.replace') return; // an edit, not a new message
   if (event.getSender() === MatrixChat.client.getUserId()) return; // our own message
-  const onThisRoomAlready = document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')
-    && room.roomId === _chatActiveRoomId;
+  const onThisRoomAlready = room.roomId === _chatActiveRoomId && chatPaneShowing();
   // Open on this room but in a background browser tab: you're not reading it.
-  if (onThisRoomAlready && !document.hidden) {
+  if (onThisRoomAlready) {
     SFX && SFX.play('receive', mxIdToUsername(event.getSender()));
     // Visible but behind another window: still worth a nudge.
     if (!document.hasFocus()) desktopNotifyMessage(event, room, getDmRoomIds().has(room.roomId));
@@ -2625,7 +2772,16 @@ function setChatMobileView(view) {
   // now, so the switch has to be visible to a selector that can reach both.
   // Only has an effect under the mobile breakpoint.
   document.body.classList.toggle('chat-rooms-view', view === 'rooms');
-  if (view !== 'rooms') syncChatMobileTitle();
+  if (view !== 'rooms') {
+    syncChatMobileTitle();
+    // The pane was display:none, where scrolling does nothing, so it would
+    // open wherever it was (the top, on iOS). Newest messages, and now read.
+    requestAnimationFrame(() => {
+      const tl = document.getElementById('chatTimeline');
+      if (tl) tl.scrollTop = tl.scrollHeight;
+      maybeReadActiveChatRoom();
+    });
+  }
 }
 // ── The bar over the conversation: who or what you're in ──
 function coverUrl(id, size) { return id ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(id)}&size=${size}&${subsonicParams()}` : ''; }
@@ -2678,7 +2834,7 @@ function syncChatHead() {
     const here = members.filter(u => window.KLAB_ONLINE_USERNAMES?.has(u)).length;
     const faces = members.slice(0, 5).map(u => `<span class="chat-head-mini" style="--c:${profileColor(u)}" title="${esc(u)}">${esc((u[0] || '?').toUpperCase())}</span>`).join('');
     html = back + '<span class="chat-head-hash">#</span>' +
-      `<div class="chat-head-who"><h2>${esc(room.name || 'channel')}</h2><div class="chat-head-sub"><span>${esc(topic || members.length + ' members')}</span></div></div>` +
+      `<div class="chat-head-who"><h2>${esc(room.name || 'channel')}</h2><div class="chat-head-sub"><span>${esc(topic || (room.getJoinedMemberCount?.() || members.length) + ' members')}</span></div></div>` +
       `<div class="chat-head-stack">${faces}<span>${here} here</span></div>`;
     // The channel takes on the last song someone shared in it.
     const evs = room.getLiveTimeline().getEvents();
@@ -2718,7 +2874,7 @@ function openChatRoom(roomId) {
   // that call marks whatever room is currently active as read (see its own
   // comment), so calling it first here was marking the room the user was
   // previously on as read instead of the one they're jumping to.
-  _chatActiveRoomId = roomId;
+  chooseChatRoom(roomId);
   setActiveTab('chat');
   renderChannelList();
   // Jumping to a specific room (a mention, "message user", a notification)
@@ -2772,12 +2928,31 @@ function showChatApp() {
       // The initial sync's own Room.timeline events (the catch-up replay
       // notifyNewMessage() guards against) always arrive before this fires,
       // so it's safe to flip the gate open right here.
-      if (state === 'PREPARED') { _chatSyncSettled = true; ensureJoinedToKlabnet(); }
-      renderChannelList();
+      if (state === 'PREPARED') {
+        _chatSyncSettled = true;
+        // Rooms arrive one by one during the first sync, so whichever came
+        // first got picked. Now that they're all here, land in the most
+        // recent conversation, unless you've already chosen one.
+        if (!_chatRoomChosen) _chatActiveRoomId = null;
+        seedUnreadFromServer();
+        ensureJoinedToKlabnet();
+      }
+      scheduleChatRender();
+    });
+    // The server stopped accepting our chat session (signed out elsewhere,
+    // revoked): back to the Connect screen instead of a dead chat.
+    MatrixChat.on('loggedOut', () => {
+      MatrixChat.logout();
+      _chatSyncSettled = false;
+      _chatRoomChosen = false;
+      _chatActiveRoomId = null;
+      document.getElementById('chatApp').hidden = true;
+      document.getElementById('chatConnect').hidden = false;
+      showToast('Chat was signed out. Connect again to keep chatting.', 'ti-plug-connected-x');
     });
     MatrixChat.on('memberProfileChanged', userId => invalidateMsgAvatar(userId));
     MatrixChat.on('timeline', (event, room) => {
-      renderChannelList(); // cascades to renderTimeline() too
+      scheduleChatRender(); // cascades to renderTimeline() too
       notifyNewMessage(event, room);
     });
     MatrixChat.on('typing', member => {
@@ -2937,19 +3112,17 @@ function ensureChatLoaded() {
   // fallback, same as before this existed.
   // The desktop app opens SSO in the system browser rather than a popup,
   // so there's no popup blocker to wait out: connect straight away.
-  if (window.klabnetDesktop) {
-    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] auto-connect failed', e));
-    window.KLAB_BOOT?.mark('matrix');
-    return;
-  }
-  const autoConnectOnFirstGesture = () => {
-    document.removeEventListener('pointerdown', autoConnectOnFirstGesture, true);
-    document.removeEventListener('keydown', autoConnectOnFirstGesture, true);
+  // It still waits for you to be there, though: started from the tray at
+  // login, it would open a browser tab out of nowhere.
+  const autoConnectOnFirstGesture = e => {
+    // A finger's pointerdown isn't a gesture a popup may open from (a
+    // mouse's is); its click is, a moment later.
+    if (e.type === 'pointerdown' && e.pointerType !== 'mouse' && !window.klabnetDesktop) return;
+    for (const t of ['pointerdown', 'click', 'keydown']) document.removeEventListener(t, autoConnectOnFirstGesture, true);
     if (MatrixChat.client) return;
-    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] auto-connect failed', e));
+    MatrixChat.login().then(showChatApp).catch(err => console.warn('[chat] auto-connect failed', err));
   };
-  document.addEventListener('pointerdown', autoConnectOnFirstGesture, true);
-  document.addEventListener('keydown', autoConnectOnFirstGesture, true);
+  for (const t of ['pointerdown', 'click', 'keydown']) document.addEventListener(t, autoConnectOnFirstGesture, true);
   // No existing session means Matrix won't even attempt to connect until
   // that first gesture (window.open() needs one) — nothing for the boot
   // overlay to wait on here, or it'd sit stuck until someone clicks.
@@ -3014,5 +3187,5 @@ document.getElementById('chatTimeline')?.addEventListener('click', e => {
   }
   if (e.target.closest('[data-share-np]')) { shareNowPlaying(); return; }
   const card = e.target.closest('.chat-msg-song');
-  if (card) { try { playSong(JSON.parse(decodeURIComponent(card.dataset.song))); } catch (err) {} }
+  if (card) { try { const s = klabCleanSong(JSON.parse(decodeURIComponent(card.dataset.song))); if (s) playSong(s); } catch (err) {} }
 });

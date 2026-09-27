@@ -78,7 +78,7 @@
 
   function restoreChat(d) {
     if (typeof renderChannelList !== 'function') return;
-    if (d.room && d.room !== _chatActiveRoomId) { _chatActiveRoomId = d.room; renderChannelList(); }
+    if (d.room && d.room !== _chatActiveRoomId) { if (typeof chooseChatRoom === 'function') chooseChatRoom(d.room); else _chatActiveRoomId = d.room; renderChannelList(); }
     if (d.view && typeof setChatMobileView === 'function') setChatMobileView(d.view);
   }
 

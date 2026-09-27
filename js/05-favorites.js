@@ -31,6 +31,10 @@ function removeFavorite(id) {
   updateFavBadge();
 }
 function updateFavBadge() {
+  // Every heart on screen follows, however it was toggled (a right-click
+  // menu or a list row used to leave the dock's and full player's stale).
+  updateDockFavBtn();
+  updateFSFavBtn();
   const el = document.getElementById('favCount');
   const n = getFavorites().length;
   if (el) el.textContent = n ? '(' + n + ')' : '';

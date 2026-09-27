@@ -76,7 +76,8 @@ const SFX = (() => {
     const c = getCtx();
     if (c.state !== 'running') c.resume();
   }
-  ['click', 'keydown', 'mousedown', 'pointerdown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
+  // Capture, so the first click unlocks before its own button's sound plays.
+  ['click', 'keydown', 'mousedown', 'pointerdown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true, capture: true }));
   function _resumeOnMove() {
     if (!ctx) return;
     if (ctx.state === 'suspended') { ctx.resume(); return; }
@@ -291,6 +292,9 @@ const SFX = (() => {
   }
   let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity, _lastRecvAt = -Infinity;
   function playGated(type, from) {
+    // Before any gesture the context can't run: notes scheduled then all
+    // went off together on the first click. Skipped instead.
+    if (!_unlocked) return;
     if (typeof _settings !== 'undefined') {
       if (!_settings.sfxEnabled) return;
       if (!_settings.notifSound && NOTIF.has(type)) return;
@@ -428,7 +432,9 @@ function updateMediaSession(song) {
   });
   ms.playbackState = 'playing';
   syncMediaPosition();
-  if (song.coverArt) embedMediaArt(song);
+  // Only iOS needs the artwork embedded (see below); everywhere else it
+  // was a second 1024px download per track, base64'd on the main thread.
+  if (song.coverArt && /iPad|iPhone|iPod/.test(navigator.userAgent + (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent) ? ' iPad' : ''))) embedMediaArt(song);
 }
 
 // iOS won't show artwork from another origin on the lock screen or in the

@@ -75,7 +75,7 @@
        dock — was sized for a normal desktop monitor's vertical room and
        doesn't shrink on its own just because the viewport got shorter;
        shrinking the whole page as one unit here is the same fix as the
-       large-display tiers above, just running the other direction. */
+       large-display tiers above, just running the other direction.
        Gated on min-width too: on a phone these fire for the wrong reason
        — landscape is short by nature, and on Android the layout viewport
        shrinks when the soft keyboard opens, so an unqualified max-height
@@ -3620,13 +3620,13 @@
     .picker-empty {
       font-size: 10px; letter-spacing: 0.15em; color: var(--text-dimmer);
       text-transform: uppercase; text-align: center; padding: 2rem;
-    }/* Top 3 get a medal instead of a bare number — the whole point of a
-       leaderboard is that the top spots feel like something { font-size: 15px; }
+    }
 
     ::selection {
       color: var(--bg);
       background: rgba(var(--accent-rgb),0.82);
-    }.hdr-btn:focus-visible,
+    }
+    .hdr-btn:focus-visible,
     .ctrl-btn:focus-visible,
     .fs-btn:focus-visible,
     .picker-action:focus-visible,
@@ -5432,7 +5432,7 @@
       display: flex; flex-direction: column; height: 100%; overflow: hidden;
       padding-bottom: 1.1rem; max-width: min(96vw, 1760px);
     }
-    body.tab-home-active:has(.player-dock:not(.hidden)) .dash { padding-bottom: calc(1.1rem + 88px); }
+    body.tab-home-active:not(.player-hidden) .dash { padding-bottom: calc(1.1rem + 88px); }
     body.tab-home-active .dash-body { flex: 1; min-height: 0; }
     body.tab-home-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
     body.tab-home-active .presence-rail { display: none; }
@@ -5626,7 +5626,7 @@
     @media (max-width: 1000px), (max-height: 700px) {
       body.tab-home-active { overflow: auto; height: auto; }
       body.tab-home-active .dash { height: auto; overflow: visible; }
-      body.tab-home-active:has(.player-dock:not(.hidden)) .dash { padding-bottom: calc(1.1rem + 96px); }
+      body.tab-home-active:not(.player-hidden) .dash { padding-bottom: calc(1.1rem + 96px); }
       .hm-grid { flex: none; grid-template-rows: none; grid-auto-rows: auto; }
       .hm-spot { grid-column: 1 / -1; grid-row: auto; height: min(62vh, 560px); }
       .hm-posts, .hm-listen { grid-column: span 6; grid-row: auto; min-height: 220px; }
@@ -7035,3 +7035,104 @@
     .presence-card-name .presence-plat { font-size: 12.5px; }
     .chat-face-name .presence-plat { font-size: 10px; margin-left: 3px; vertical-align: 0; }
     .presence-card-you { font-size: var(--fs-10); opacity: .45; font-weight: 400; }
+
+    /* Sliders take the drag themselves on touch screens instead of the
+       page scrolling or the full player's swipe-to-close taking it. */
+    #playerProgress, #volSlider, #fsProg, #fsVolBar, #sfxVolumeSlider { touch-action: none; }
+
+    /* ══ Rendering and correctness fixes (audit) ══ */
+
+    /* Lyrics on a phone: stacked, not a 360px player beside a 0px column. */
+    @media (max-width: 760px) {
+      .fs-player.lyrics-open { flex-direction: column; }
+      .fs-player.lyrics-open .fs-content {
+        width: 100%; max-width: none; flex-shrink: 0;
+        padding: max(56px, calc(env(safe-area-inset-top) + 44px)) 1.25rem .75rem;
+        border-right: 0; border-bottom: 1px solid rgba(255,255,255,.07);
+      }
+      .fs-player.lyrics-open .fs-art { width: 96px !important; height: 96px !important; }
+      .fs-player.lyrics-open .fs-lyrics-col { flex: 1 1 0; min-height: 0; }
+      .lyrics-scroll { padding: 25vh 1.25rem; }
+      /* The dock collapsing re-laid out the whole tab for every frame of
+         its slide; the space now changes once. */
+      .dash, .dash.dash-clearance,
+      body[class*="tab-"] .dash, body[class*="tab-"].player-hidden .dash { transition: none; }
+    }
+
+    /* Blurs on things repeated down a scrolling list re-blur every frame of
+       the scroll, per item; a near-opaque fill looks the same. */
+    #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action,
+    .mh-row-nav, .mh-flow-nav, .chat-msg-song-play, .chat-face-note {
+      -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+    #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action,
+    .mh-row-nav, .mh-flow-nav { background: color-mix(in srgb, var(--modal-bg) 88%, transparent); }
+    .chat-msg-song-play, .chat-face-note { background: color-mix(in srgb, var(--modal-bg) 70%, transparent); }
+    #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action[title="Play"] { background: var(--text); }
+
+    /* The "listening" pulse, on the compositor: a ring that scales and
+       fades, not a box-shadow repainted every frame for hours on Home. */
+    .presence-card.is-playing .presence-card-online { animation: none; }
+    .presence-card.is-playing .presence-card-online::after {
+      content: ''; position: absolute; inset: -2px; border-radius: 50%; pointer-events: none;
+      box-shadow: 0 0 0 3px rgba(74,222,128,.5); animation: dotRing 2.5s ease-out infinite;
+    }
+    @keyframes dotRing { from { transform: scale(.7); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+    /* The full player is always dark, light theme or not. */
+    [data-theme="light"] .fs-player .slider-track { background: rgba(255,255,255,.12); }
+    [data-theme="light"] .fs-player .slider-wrap:hover .slider-track { background: rgba(255,255,255,.18); }
+    [data-theme="light"] .fs-player .slider-dot { background: #fff; }
+
+    /* In the app the title bar covers the top 48px: a pinned day label
+       pins below it, not under it. */
+    html.app-titlebar #feedList .feed-day { top: var(--tb-h, 48px); }
+
+    /* Sizes in vh/vw grow with the big-screen zoom tiers (Chromium scales
+       viewport units by zoom): the photo composer ran off the screen. */
+    .add-app-modal { max-height: min(80vh, 100%); }
+    .add-app-modal.ph-compose { max-height: min(90vh, 100%); }
+    .settings-modal { max-height: min(80vh, 100%); }
+    .klab-menu { max-height: calc(100% - 16px); }
+
+    /* Toasts share the header menu's corner: an open menu stays on top. */
+    .hdr-more-menu { z-index: 510; }
+
+    /* Photos' backdrop, off its tab: not just see-through, gone. */
+    .ph-backdrop { visibility: hidden; transition: opacity .5s ease, visibility 0s .5s; }
+    body.tab-photos-active .ph-backdrop { visibility: visible; transition-delay: 0s; }
+
+    /* Cover Flow's reflections double the raster work: off in performance mode. */
+    html[data-fx="low"] .mh-cover { -webkit-box-reflect: none; }
+
+    /* The desktop player dock slides when hidden instead of snapping. */
+    .player-dock { transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease, transform .3s var(--m-ease), opacity .2s ease; }
+
+    /* In the app, things over the title bar take clicks instead of
+       dragging the window. */
+    .app-update-banner, #feedComposer.expanded { -webkit-app-region: no-drag; }
+    html.app-titlebar .app-update-banner { top: calc(var(--tb-h, 48px) + 8px); }
+
+    /* Windows sidebar without the window material, light theme. */
+    html.klabnet-app[data-platform="win32"][data-theme="light"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      background: color-mix(in srgb, var(--bg) 94%, #000);
+    }
+
+    /* iPhone in landscape gets the desktop layout: keep it off the notch. */
+    @supports (padding: max(0px)) {
+      @media (min-width: 761px) {
+        .dash { padding-left: max(1.75rem, env(safe-area-inset-left)); padding-right: max(1.75rem, env(safe-area-inset-right)); }
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .chat-face-eq i, .chat-head-eq i { animation: none; }
+      .hm-spot .hm-slide { transition: none; }
+      .presence-card.is-playing .presence-card-online::after { animation: none; opacity: 0; }
+      #tabNav, #playerDock, #tabNav .tab-nav-btn, .header .tab-nav .tab-nav-btn, .tab-nav { transition: none !important; }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      #tabNav, #playerDock, .side-nav, #feedList .feed-day-in {
+        background: var(--modal-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      }
+    }

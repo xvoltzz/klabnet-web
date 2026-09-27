@@ -46,6 +46,14 @@
   let pos = 0, target = 0; // strip x currently under the playhead / where it's gliding to
   let sel = -1;
   let hasOlder = true, loadingOlder = false, loadedOnce = false;
+  // Where the next older page starts: the oldest post a server page has
+  // returned. Not simply the last of `posts`, which can be a post you just
+  // dated into the past, far beyond what's loaded; paging from there would
+  // skip everything in between.
+  let cursor = null;
+  // Bumped when the order changes, so a page asked for under the old order
+  // is dropped when it lands.
+  let gen = 0;
   // 'shot' is the timeline (when photos were taken, the default); 'posted'
   // is "What's New" (by upload). Not remembered: the tab always opens on
   // the timeline.
@@ -74,20 +82,23 @@
   const selectedPhotoId = () => (sel >= 0 && items[sel]) ? items[sel].ph.id : null;
   const structureKey = list => list.map(p => p.id + ':' + p.photos.map(ph => ph.id).join(',')).join('|');
 
+  let lastFetch = 0;
   async function fetchLatest() {
     if (document.hidden) return;
-    const asked = order;
+    lastFetch = Date.now();
+    const asked = order, g = gen;
     try {
       const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const fresh = (await r.json()).posts || [];
       // Switched between Timeline and What's New while this was in flight.
-      if (asked !== order) return;
+      if (g !== gen) return;
       // Merge: the newest page replaces whatever overlaps it; older pages
       // already loaded by scrubbing left stay put.
       const last = fresh[fresh.length - 1];
       const merged = fresh.concat(last ? posts.filter(p => before(p, last)) : []);
       if (!loadedOnce) hasOlder = fresh.length === PAGE;
+      if (last && (!cursor || before(last, cursor))) cursor = { sort_at: last.sort_at, id: last.id };
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
       // One try: a photo that isn't in the newest page shouldn't grab the
@@ -100,17 +111,27 @@
   }
 
   async function fetchOlder() {
-    if (loadingOlder || !hasOlder || !posts.length) return;
+    if (loadingOlder || !hasOlder || !cursor) return;
     loadingOlder = true;
+    const g = gen;
     try {
-      const last = posts[posts.length - 1];
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(last.sort_at)}&before_id=${last.id}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(cursor.sort_at)}&before_id=${cursor.id}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
+      if (g !== gen) return;
       hasOlder = older.length === PAGE;
-      if (older.length) applyPosts(posts.concat(older), { keepSelection: true });
+      if (older.length) {
+        const last = older[older.length - 1];
+        cursor = { sort_at: last.sort_at, id: last.id };
+        // Sorted in rather than appended: a post re-dated into the past
+        // may already be sitting at the end, and may be in this page too.
+        const ids = new Set(older.map(p => p.id));
+        const next = posts.filter(p => !ids.has(p.id)).concat(older)
+          .sort((a, b) => before(a, b) ? 1 : before(b, a) ? -1 : 0);
+        applyPosts(next, { keepSelection: true });
+      }
     } catch (e) { /* the next scrub to the left edge retries */ }
-    finally { loadingOlder = false; }
+    finally { if (g === gen) loadingOlder = false; }
   }
 
   // Swap in a new post list. The strip only rebuilds when the set of
@@ -119,6 +140,7 @@
   function applyPosts(next, { keepSelection, focusPostId } = {}) {
     const prevKey = structureKey(posts);
     const keepId = keepSelection ? selectedPhotoId() : null;
+    const keepX = keepId ? centers[sel] : 0;
     const wasAtNewest = sel >= 0 && items[sel]?.post === posts[0] && items[sel].k === 0;
     posts = next;
     if (!focusPostId && structureKey(posts) === prevKey && items.length) {
@@ -137,7 +159,19 @@
     if (focusPostId) idx = items.findIndex(it => it.post.id === focusPostId);
     else if (keepId && !wasAtNewest) idx = items.findIndex(it => it.ph.id === keepId);
     if (idx < 0) idx = newestPostStart();
-    pos = target = centers[idx];
+    if (keepId && items[idx].ph.id === keepId) {
+      // Still on the same photo (usually older pages loading in on its left
+      // mid-scrub): everything in flight moves with it, so a glide, a jump
+      // or a drag carries on instead of landing on whatever now sits at the
+      // old strip position or index.
+      const dx = centers[idx] - keepX;
+      pos += dx; target += dx;
+      if (drag) drag.start += dx;
+      if (jump >= 0) jump = idx;
+    } else {
+      cancelAnimationFrame(raf); raf = 0; jump = -1;
+      pos = target = centers[idx];
+    }
     sel = -1;
     select(idx);
     renderStrip();
@@ -167,6 +201,7 @@
     order = next;
     document.querySelectorAll('#phOrder button').forEach(b => b.setAttribute('aria-pressed', b.dataset.order === order));
     posts = []; items = []; sel = -1; hasOlder = true; loadedOnce = false;
+    cursor = null; gen++; loadingOlder = false;
     strip.textContent = ''; thumbEls = []; centers = [];
     SFX && SFX.play('click');
     fetchLatest();
@@ -226,6 +261,17 @@
     });
     strip.style.width = x + 'px';
   }
+  // --ph-thumb is smaller on a phone-width window, and the strip was laid
+  // out for the old size: lay it out again and put the playhead back.
+  function relayoutIfThumbChanged() {
+    const was = thumbPx;
+    readThumbSize();
+    if (thumbPx === was || sel < 0 || !items[sel]) return;
+    layoutStrip();
+    cancelAnimationFrame(raf); raf = 0; jump = -1;
+    pos = target = centers[sel];
+    thumbEls[sel].classList.add('sel');
+  }
 
   function nearest(x) {
     // centers is sorted, so binary search
@@ -238,7 +284,7 @@
   // Dock-style magnification: thumbs swell as they near the playhead.
   function renderStrip() {
     if (!centers.length) return;
-    const mid = wrap.clientWidth / 2;
+    const mid = (wrapW || wrap.clientWidth) / 2;
     strip.style.transform = `translate3d(${mid - pos}px,0,0)`;
     const t = thumbPx;
     const lo = pos - mid - 80, hi = pos + mid + 80;
@@ -290,7 +336,8 @@
     const im = new Image(); im.decoding = 'async'; im.src = u;
     // Decoded ahead of time too, not just downloaded: decoding a 2560px JPEG
     // takes ~35ms, and left until first paint it lands inside a frame.
-    im._ready = im.decode().then(() => { im._decoded = true; }, () => {});
+    // One that fails isn't kept, so the next visit tries again.
+    im._ready = im.decode().then(() => { im._decoded = true; }, () => { if (preloaded.get(u) === im) preloaded.delete(u); });
     preloaded.set(u, im);
     if (preloaded.size > 24) preloaded.delete(preloaded.keys().next().value);
   }
@@ -320,12 +367,32 @@
     // invisible, and it's a fraction of the 2560px one's size.
     return longest <= 1700 ? 'medium' : 'display';
   }
+  // The frame's and the strip's sizes, kept by a ResizeObserver: fitImg()
+  // and renderStrip() run on every scrub frame right after the rails' text
+  // was rewritten, and reading them from layout there forced a synchronous
+  // layout each time. Border box, so a scrollbar coming and going in the
+  // phone layout doesn't feed back into a refit.
+  let frameW = 0, frameH = 0, wrapW = 0;
+  const sizeObs = new ResizeObserver(() => {
+    frameW = frame.clientWidth; frameH = frame.clientHeight; wrapW = wrap.clientWidth;
+    if (!isActive() || !frameW) return;
+    fitImg(); renderStrip();
+  });
+  sizeObs.observe(frame, { box: 'border-box' });
+  sizeObs.observe(wrap);
+
   function fitImg() {
     if (sel < 0 || !items[sel]) return;
     const ph = items[sel].ph;
     const r = ph.w / ph.h;
-    const fw = frame.clientWidth, fh = frame.clientHeight;
-    if (fw && fh) frameBox = { w: fw, h: fh };
+    // The phone layout reads the rails' heights below anyway, and a
+    // scrollbar there can take some of the width, so it measures fresh; so
+    // does arriving on the tab, before the observer has reported.
+    const fresh = narrowMq.matches || !frameW;
+    const fw = fresh ? frame.clientWidth : frameW, fh = fresh ? frame.clientHeight : frameH;
+    // Not laid out (the tab is hidden): leave the photo the size it was.
+    if (!fw || !fh) return;
+    frameBox = { w: fw, h: fh };
     let w;
     if (shell.classList.contains('bare')) {
       // Info hidden: the photo gets the whole frame.
@@ -505,13 +572,25 @@
     // Just the first photo is warmed, once the page has gone quiet.
     if (sel < 0 || !items[sel]) return;
     if (!isActive()) { warmSoon(); return; }
-    const i = sel;
-    const big = fileUrl(items[i].ph.id, sizeFor(items[i].ph));
+    const i = sel, id = items[i].ph.id;
+    const big = fileUrl(id, sizeFor(items[i].ph));
     preload(i);
-    const show = () => { if (sel === i) { mainImg.src = big; mainImg.classList.remove('lowres'); } };
-    preloaded.get(big)._ready.then(show);
+    // Checked by photo, not index: an older page loading in shifts every index.
+    const im = preloaded.get(big);
+    const show = () => {
+      if (!im._decoded || selectedPhotoId() !== id || mainImg.getAttribute('src') === big) return;
+      mainImg.src = big; mainImg.classList.remove('lowres');
+    };
+    im._ready.then(show);
     for (const d of [1, -1, 2]) preload(i + d);
+    // Whatever earlier stops were still fetching isn't wanted any more.
+    const want = new Set([i, i + 1, i - 1, i + 2].filter(j => items[j]).map(j => fileUrl(items[j].ph.id, sizeFor(items[j].ph))));
+    for (const [u, p] of preloaded) if (!p.complete && !want.has(u)) { preloaded.delete(u); p.src = ''; }
   }
+  // Key repeat and wheel clicks call goTo() many times a second; only the
+  // photo you stop on should queue a full-size download and decode.
+  let settleTimer = 0;
+  const settleSoon = () => { clearTimeout(settleTimer); settleTimer = setTimeout(settle, 120); };
   // A jump (arrow key, tapping a thumb) knows where it's going, so the
   // photo switches and sharpens right away while the strip glides after
   // it, instead of staying blurred for the whole glide and flashing every
@@ -550,7 +629,7 @@
     target = centers[i];
     jump = i;
     select(i);
-    settle();
+    settleSoon();
     setBackdrop();
     kick();
   }
@@ -564,7 +643,7 @@
   // Drag the strip. Moving your finger right reveals older photos.
   let drag = null;
   wrap.addEventListener('pointerdown', e => {
-    if (!items.length) return;
+    if (!items.length || e.button !== 0) return; // a right-click opens the menu, it doesn't jump
     drag = { x: e.clientX, start: target, moved: false, z: zoomFactor() };
     wrap.setPointerCapture(e.pointerId);
     wrap.classList.add('dragging');
@@ -683,12 +762,20 @@
       if (list.dataset.postId !== String(post.id)) return;
       renderReplies(post, replies);
     } catch (e) {
-      if (list.dataset.postId === String(post.id)) list.innerHTML = '<div class="ph-replies-empty">couldn’t load comments</div>';
-      list.dataset.postId = '';
+      // Only if it's still this post's list: another post's may be loading.
+      if (list.dataset.postId === String(post.id)) {
+        list.innerHTML = '<div class="ph-replies-empty">couldn’t load comments</div>';
+        list.dataset.postId = '';
+      }
     }
   }
+  // After a reply is posted or deleted, the list may have moved on to
+  // another post while the request was out.
+  const showingReplies = post => $('phReplies').dataset.postId === String(post.id);
+  const shownReplies = post => ($('phReplies')._repliesFor === post.id && $('phReplies')._replies) || [];
   function renderReplies(post, replies) {
     const list = $('phReplies');
+    list._repliesFor = post.id;
     list.innerHTML = replies.length ? replies.map(rep =>
       `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${esc(rep.text)}</span>` +
         ((rep.username === me() || window.KLAB_USER?.is_admin)
@@ -712,7 +799,7 @@
       const reply = await r.json();
       input.value = '';
       post.reply_count = (post.reply_count || 0) + 1;
-      renderReplies(post, ($('phReplies')._replies || []).concat(reply));
+      if (showingReplies(post)) renderReplies(post, shownReplies(post).concat(reply));
       renderPost('refresh');
     } catch (err) { showToast('couldn’t post that comment', 'ti-alert-triangle'); }
     finally { input.disabled = false; input.focus(); }
@@ -726,7 +813,7 @@
       const r = await fetchTimeout(`/api/posts/${post.id}/replies/${del.dataset.replyId}`, { method: 'DELETE' }, 8000);
       if (!r.ok) throw new Error();
       post.reply_count = Math.max(0, (post.reply_count || 1) - 1);
-      renderReplies(post, ($('phReplies')._replies || []).filter(x => String(x.id) !== del.dataset.replyId));
+      if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => String(x.id) !== del.dataset.replyId));
       renderPost('refresh');
     } catch (err) { showToast('couldn’t delete that comment', 'ti-alert-triangle'); }
   });
@@ -745,7 +832,8 @@
       const r = await fetchTimeout(`/api/posts/${post.id}`, { method: 'DELETE' }, 10000);
       if (!r.ok) throw new Error();
       if (clipPostId === post.id) stopClip();
-      applyPosts(posts.filter(p => p !== post), { keepSelection: false });
+      // By id: a poll during the confirm or the request swaps in new objects.
+      applyPosts(posts.filter(p => p.id !== post.id), { keepSelection: false });
       showToast('post deleted', 'ti-trash');
     } catch (e) { showToast('couldn’t delete that post', 'ti-alert-triangle'); }
   });
@@ -755,12 +843,15 @@
   // reads in the order things happened.
   const editBackdrop = $('phEditBackdrop');
   let editing = null;
+  // The date field only holds the day. Sent back untouched it would reset
+  // the time of day to noon, so it's only sent when you changed it.
+  let editDate0 = '';
   const editTags = makeTagPicker('phEdit', () => editing?.username);
   $('phEditBtn').addEventListener('click', () => {
     if (sel < 0) return;
     editing = items[sel].post;
     loadRoster();
-    $('phEditDate').value = (editing.shot_at || '').slice(0, 10);
+    $('phEditDate').value = editDate0 = (editing.shot_at || '').slice(0, 10);
     $('phEditDate').max = new Date().toISOString().slice(0, 10);
     $('phEditCaption').value = editing.text || '';
     editTags.set(editing.tags || []);
@@ -779,9 +870,10 @@
     const btn = $('phEditSave');
     btn.disabled = true;
     try {
+      const body = { caption: $('phEditCaption').value.trim(), tags: editTags.get() };
+      if ($('phEditDate').value !== editDate0) body.shot_at = $('phEditDate').value;
       const r = await fetchTimeout(`${API}/${editing.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shot_at: $('phEditDate').value, caption: $('phEditCaption').value.trim(), tags: editTags.get() }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }, 10000);
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'couldn’t save');
@@ -819,10 +911,10 @@
     const own = post.username === me() || window.KLAB_USER?.is_admin;
     const original = fileUrl(ph.id, 'original');
     // Actions on "the post" work on the one on stage, so show it first.
-    const onStage = fn => () => { select(i); fn(); };
+    const onStage = fn => () => { goTo(i); fn(); };
     klabMenu(e, [
       { header: post.username },
-      { label: 'Show', icon: 'ti-eye', hidden: i === sel, action: () => { select(i); } },
+      { label: 'Show', icon: 'ti-eye', hidden: i === sel, action: () => goTo(i) },
       { label: liked ? 'Unlike' : 'Like', icon: liked ? 'ti-heart-off' : 'ti-heart', action: () => toggleReaction(post, LIKE) },
       { label: 'Comments', icon: 'ti-message-circle', action: onStage(() => setSide(true)) },
       { label: infoOn ? 'Hide details' : 'Show details', icon: 'ti-info-circle', hidden: i !== sel, action: () => setInfo(!infoOn) },
@@ -831,7 +923,7 @@
       { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(fileUrl(ph.id, sizeFor(ph))) },
       { label: 'Copy image link', icon: 'ti-link', action: () => klabCopy(new URL(original, location.href).href, 'Link') },
       '-',
-      { label: 'Play song', icon: 'ti-player-play', hidden: !post.song, action: () => playSong(post.song) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !klabCleanSong(post.song), action: () => playSong(klabCleanSong(post.song)) },
       '-',
       { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(post.username) },
       { label: 'Message', icon: 'ti-message-2-plus', hidden: post.username === me(), action: () => messageUser(post.username) },
@@ -877,6 +969,7 @@
     clip.src = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.songId)}&${subsonicParams()}`;
     clip.volume = 0;
     clip.addEventListener('loadedmetadata', () => {
+      if (clipPostId !== postId) return; // stopped (or moved on) while it loaded
       try { clip.currentTime = clipStart; } catch (e) {}
       clip.play().then(() => {
         if (clipPostId !== postId) return;
@@ -890,7 +983,11 @@
     clearTimeout(clipTimer);
     if (clipPostId === null && clip.paused) return;
     clipPostId = null;
-    fade(clip, 0, 350, () => { if (clipPostId === null) { clip.pause(); clip.removeAttribute('src'); clip.load(); } });
+    const halt = () => { if (clipPostId === null) { clip.pause(); clip.removeAttribute('src'); clip.load(); } };
+    // A hidden page runs no animation frames, so the fade would never
+    // finish and the clip would keep playing out of sight: stop it outright.
+    if (document.hidden) { cancelAnimationFrame(clip._fadeRaf); halt(); }
+    else fade(clip, 0, 350, halt);
     markSongPlaying();
   }
   function markSongPlaying() {
@@ -979,7 +1076,9 @@
       playerState.audio.pause();
       pausedByPhotos = true;
     }
-    requestAnimationFrame(() => { readThumbSize(); fitImg(); renderStrip(); setBackdrop(); settle(); scheduleClip(); });
+    requestAnimationFrame(() => { relayoutIfThumbChanged(); fitImg(); renderStrip(); setBackdrop(); settle(); scheduleClip(); });
+    // The poll only runs while you're here, so catch up on arrival.
+    if (Date.now() - lastFetch > 10000) fetchLatest();
   };
 
   // ── Keyboard ──
@@ -990,6 +1089,7 @@
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;
+    if (window.klabAwaitingG?.()) return; // "g h", "g c": going to a tab, not a photo
     const el = document.activeElement;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
     const k = e.key;
@@ -1007,7 +1107,7 @@
     e.stopImmediatePropagation();
   }, true);
 
-  window.addEventListener('resize', () => { if (isActive()) { readThumbSize(); renderStrip(); fitImg(); } });
+  window.addEventListener('resize', () => { if (isActive()) { relayoutIfThumbChanged(); renderStrip(); fitImg(); } });
   frame.addEventListener('transitionend', fitImg);
 
   // ══ Composer ══
@@ -1055,7 +1155,8 @@
   // Dropping files anywhere on the tab (or on the open composer) starts a post.
   [shell, backdrop].forEach(el => {
     el.addEventListener('dragover', e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); el.classList.add('drop-hover'); } });
-    el.addEventListener('dragleave', e => { if (e.target === el) el.classList.remove('drop-hover'); });
+    // Leaving for somewhere outside it, not just moving between its children.
+    el.addEventListener('dragleave', e => { if (!el.contains(e.relatedTarget)) el.classList.remove('drop-hover'); });
     el.addEventListener('drop', e => {
       el.classList.remove('drop-hover');
       if (!e.dataTransfer?.files?.length) return;
@@ -1101,15 +1202,17 @@
       if (xhr.status === 200 && body.id) {
         Object.assign(d, { status: 'done', id: body.id, w: body.w, h: body.h, exif: body.exif || {} });
         d.edited = Object.assign({}, d.exif);
+        finishTile(d);
       } else {
         d.status = 'error';
         d.error = body.error || (xhr.status === 413 ? 'too large' : 'upload failed');
+        renderDraftTile(d);
       }
-      renderDrafts();
+      draftChanged(d);
       autoShotDate();
       pumpUploads();
     };
-    xhr.onerror = () => { d.xhr = null; d.status = 'error'; d.error = 'upload failed'; renderDrafts(); pumpUploads(); };
+    xhr.onerror = () => { d.xhr = null; d.status = 'error'; d.error = 'upload failed'; renderDraftTile(d); draftChanged(d); pumpUploads(); };
     const fd = new FormData();
     fd.append('file', d.file, d.file.name);
     xhr.send(fd);
@@ -1130,6 +1233,25 @@
     const bar = el.querySelector('.ph-tile-bar');
     if (bar && d.status === 'uploading') bar.style.width = Math.round((d.progress || 0) * 100) + '%';
     else el.innerHTML = tileHTML(d);
+  }
+  // One upload finishing touches only its own tile, and the details editor
+  // only when it's that photo's: rebuilding everything took the cursor out
+  // of a camera field you were typing in and re-decoded every full-size
+  // preview.
+  function draftChanged(d) {
+    if (d === activeDraft) renderExifEditor();
+    updateSubmit();
+  }
+  // A finished upload drops its progress bar, then trades the full-size
+  // local preview for the server's small thumbnail once that has loaded.
+  function finishTile(d) {
+    grid.querySelector(`.ph-tile[data-key="${d.key}"] .ph-tile-state`)?.remove();
+    const t = new Image();
+    t.onload = () => {
+      if (d.preview) { URL.revokeObjectURL(d.preview); d.preview = null; }
+      renderDraftTile(d);
+    };
+    t.src = fileUrl(d.id, 'thumb');
   }
   function renderDrafts() {
     grid.innerHTML = drafts.map(d =>
@@ -1157,7 +1279,11 @@
     }
     if (e.target.closest('#phComposeAdd')) { fileInput.click(); return; }
     const tile = e.target.closest('.ph-tile');
-    if (tile) { activeDraft = drafts.find(x => x.key === Number(tile.dataset.key)) || activeDraft; renderDrafts(); }
+    if (tile) {
+      activeDraft = drafts.find(x => x.key === Number(tile.dataset.key)) || activeDraft;
+      grid.querySelectorAll('.ph-tile[data-key]').forEach(el => el.classList.toggle('active', el.dataset.key === String(activeDraft?.key)));
+      renderExifEditor();
+    }
   });
 
   function renderExifEditor() {
@@ -1277,9 +1403,13 @@
     const body = {
       caption: $('phComposeCaption').value.trim(),
       photos: ready.map(d => ({ id: d.id, exif: d.edited })),
-      shot_at: $('phShotDate').value || '',
+      // The field only holds the day. Left as filled in from the photos,
+      // nothing is sent and the server uses their full capture time; emptied
+      // by hand, it's sent as cleared, or the server would fill it back in.
+      shot_at: shotEdited ? $('phShotDate').value : '',
       tags: composerTags.get(),
     };
+    if (shotEdited && !body.shot_at) body.shot_at_cleared = true;
     if (pickedSong) {
       body.song = {
         songId: pickedSong.id, title: pickedSong.title, artist: pickedSong.artist || '',
@@ -1374,12 +1504,18 @@
     if (!previewAudio.paused) { try { previewAudio.currentTime = Number($('phSongStart').value); } catch (e) {} }
   });
   $('phSongRemove').addEventListener('click', () => { pickedSong = null; renderSongPick(); });
+  // Set from pressing preview until it's stopped. The audio is still paused
+  // while it loads, so without this a stop in that moment (or closing the
+  // composer) did nothing and it started playing anyway once it had loaded.
+  let previewWanted = false;
   $('phSongPreview').addEventListener('click', () => {
-    if (!previewAudio.paused) { stopPreview(); return; }
+    if (previewWanted) { stopPreview(); return; }
     stopClip();
+    previewWanted = true;
     previewAudio.src = `${ND_URL}/rest/stream?id=${encodeURIComponent(pickedSong.id)}&${subsonicParams()}`;
     previewAudio.volume = playerState.volume;
     previewAudio.addEventListener('loadedmetadata', () => {
+      if (!previewWanted) return;
       try { previewAudio.currentTime = Number($('phSongStart').value); } catch (e) {}
       previewAudio.play().catch(() => {});
     }, { once: true });
@@ -1387,7 +1523,8 @@
     $('phSongPreview').innerHTML = '<i class="ti ti-player-stop"></i>';
   });
   function stopPreview() {
-    if (!previewAudio.paused) previewAudio.pause();
+    previewWanted = false;
+    previewAudio.pause();
     $('phSongPreview').innerHTML = '<i class="ti ti-player-play"></i>';
   }
   previewAudio.addEventListener('timeupdate', () => {
@@ -1399,5 +1536,5 @@
   renderDrafts();
   renderSongPick();
   fetchLatest();
-  setInterval(fetchLatest, POLL_MS);
+  setInterval(() => { if (isActive()) fetchLatest(); }, POLL_MS);
 })();

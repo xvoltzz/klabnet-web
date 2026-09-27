@@ -336,7 +336,7 @@ function sampleImageColor(imgUrl) {
 
   function setBg(url) {
     if (!url) return;
-    bg.style.backgroundImage = `url(${url})`;
+    bg.style.backgroundImage = `url("${String(url).replace(/["\\\n]/g, '')}")`;
     window.klabSoften?.(bg);
   }
 
@@ -349,7 +349,7 @@ function sampleImageColor(imgUrl) {
     const isNow = playerState?.currentSong?.id === song.id;
     // size=80 — ~2.3x the 34px .ap-track-art box, was 150.
     const artUrl = showArt && song.coverArt
-      ? `${ND_URL}/rest/getCoverArt?id=${song.coverArt}&size=80&${subsonicParams()}` : '';
+      ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}` : '';
     const row = document.createElement('div');
     row.className = 'ap-track' + (isNow ? ' ap-now' : '');
     row.dataset.songId = song.id;
@@ -407,8 +407,8 @@ function sampleImageColor(imgUrl) {
       const myLoadToken = ++_apLoadToken;
       try {
         const [artRes, infoRes, topRes] = await Promise.allSettled([
-          fetchTimeout(`${ND_URL}/rest/getArtist?id=${artistId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
-          fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${artistId}&count=10&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artistId)}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${encodeURIComponent(artistId)}&count=10&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
           fetchTimeout(`${ND_URL}/rest/getTopSongs?artist=${encodeURIComponent(artistName)}&count=5&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
         if (myLoadToken !== _apLoadToken) return; // superseded by a newer openArtistPage/openAlbumPage call
@@ -421,7 +421,7 @@ function sampleImageColor(imgUrl) {
         let heroUrl = info?.largeImageUrl || info?.mediumImageUrl || '';
         if ((!heroUrl || heroUrl.includes('2a96cbd8b46e442fc41c2b86b821562f')) && artist?.album?.length) {
           // Last.fm placeholder detected — use album art instead
-          heroUrl = `${ND_URL}/rest/getCoverArt?id=${artist.album[0].coverArt}&size=800&${subsonicParams()}`;
+          heroUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.album[0].coverArt)}&size=800&${subsonicParams()}`;
         }
         if (heroUrl) setBg(heroUrl);
 
@@ -432,7 +432,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${heroUrl
-            ? `<img class="ap-hero-img" src="${heroUrl}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
+            ? `<img class="ap-hero-img" src="${esc(heroUrl)}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
             : `<div class="ap-hero-img-ph"><i class="ti ti-user-circle"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Artist</span>
@@ -468,7 +468,7 @@ function sampleImageColor(imgUrl) {
           const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'Discography';
           const grid = document.createElement('div'); grid.className = 'ap-disc-grid';
           sorted.forEach(album => {
-            const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=300&${subsonicParams()}`;
+            const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=300&${subsonicParams()}`;
             const card = document.createElement('div'); card.className = 'ap-disc-card';
             card._album = { ...album, artist: album.artist || artistName, artistId: album.artistId || artistId };
             card.innerHTML = `<img src="${artUrl}" loading="lazy" alt="" /><div class="ap-disc-card-title">${esc(album.name||album.title)}</div><div class="ap-disc-card-year">${album.year||''}</div>`;
@@ -527,8 +527,8 @@ function sampleImageColor(imgUrl) {
       const myLoadToken = ++_apLoadToken;
       try {
         const [albRes, infoRes] = await Promise.allSettled([
-          fetchTimeout(`${ND_URL}/rest/getAlbum?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
-          fetchTimeout(`${ND_URL}/rest/getAlbumInfo2?id=${albumId}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
+          fetchTimeout(`${ND_URL}/rest/getAlbumInfo2?id=${encodeURIComponent(albumId)}&${subsonicParams()}`, {}, 8000).then(r=>r.json()),
         ]);
         if (myLoadToken !== _apLoadToken) return; // superseded by a newer openArtistPage/openAlbumPage call
 
@@ -538,8 +538,8 @@ function sampleImageColor(imgUrl) {
         if (!album) { scroll.innerHTML = '<div class="ap-error"><i class="ti ti-alert-triangle"></i> Album not found</div>'; return; }
 
         const songs  = album.song || [];
-        const artLg  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=800&${subsonicParams()}` : '';
-        const artSm  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=300&${subsonicParams()}` : '';
+        const artLg  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=800&${subsonicParams()}` : '';
+        const artSm  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=300&${subsonicParams()}` : '';
         const totSec = songs.reduce((s,t) => s+(t.duration||0), 0);
         const durStr = totSec > 3600
           ? `${Math.floor(totSec/3600)}h ${Math.floor((totSec%3600)/60)}m`

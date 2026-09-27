@@ -30,7 +30,7 @@
     if (hljsState !== 'idle') return;
     hljsState = 'loading';
     const s = document.createElement('script');
-    s.src = 'js/vendor/highlight.min.js?v=' + (window.KLABNET_VERSION || '');
+    s.src = 'js/vendor/highlight.min.js?v=' + (typeof KLABNET_VERSION !== 'undefined' ? KLABNET_VERSION : ''); // a top-level const, so not on window
     s.onload = () => {
       hljsState = window.hljs ? 'ready' : 'failed';
       cache.clear();
@@ -84,6 +84,11 @@
           '<code' + (l ? ' data-lang="' + esc(l) + '" class="language-' + esc(l) + cls + '"' : '') + '>' + body + '</code></pre>';
       },
       image({ href, title, text }) {
+        // Our own GIF stash is loaded from wherever you're viewing klabnet,
+        // not from the hostname the poster happened to use (older posts
+        // carry theirs baked in).
+        const gif = GIF_PATH_RE.exec(String(href || ''));
+        if (gif) href = gif[1];
         return '<img class="md-img" src="' + esc(href) + '" alt="' + esc(text) + '"' + (title ? ' title="' + esc(title) + '"' : '') + ' loading="lazy" />';
       },
     },
@@ -98,11 +103,18 @@
     // Someone else's image host shouldn't learn which page you were on.
     if (node.tagName === 'IMG') node.setAttribute('referrerpolicy', 'no-referrer');
   });
+  const GIF_PATH_RE = /^(?:https?:\/\/[^/?#]+)?(\/api\/gifs\/files\/[0-9a-f]+\.gif)$/i;
   const PURIFY = {
-    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+    // Relative URLs stay out, except the one shape the GIF picker inserts.
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|\/api\/gifs\/files\/[0-9a-f]+\.gif$)/i,
     FORBID_TAGS: ['style', 'form', 'input', 'textarea', 'select', 'button', 'iframe', 'video', 'audio', 'svg', 'math'],
     ADD_TAGS: ['mark'],
     ADD_ATTR: ['target', 'referrerpolicy', 'data-lang'],
+    // DOMPurify checks every attribute not on its "URI-safe" list against
+    // ALLOWED_URI_REGEXP, so with the strict one above it dropped these
+    // plain values: lazy images, focusable spoilers, a list's start
+    // number, table column alignment.
+    ADD_URI_SAFE_ATTR: ['loading', 'tabindex', 'start', 'align'],
     RETURN_DOM: true,
   };
 
