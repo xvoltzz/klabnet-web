@@ -238,7 +238,7 @@ function setPlayIcon(playing) {
     btn.classList.toggle('playing', playing);
   }
   const fsi = document.getElementById('fsPlayIcon');
-  if (fsi) fsi.className = playing ? 'ti ti-player-pause' : 'ti ti-player-play';
+  if (fsi) fsi.className = playing ? 'ti ti-player-pause-filled' : 'ti ti-player-play-filled';
 }
 
 async function loadRandomSongs() {
@@ -1217,7 +1217,9 @@ function updateFSUI(song) {
   }
   _fsArtPending = null;
 
-  const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=800&${subsonicParams()}`;
+  // The cover is drawn up to 640px across: enough pixels for this screen.
+  const artSize = Math.min(1200, Math.ceil(640 * (window.devicePixelRatio || 1) / 300) * 300);
+  const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${artSize}&${subsonicParams()}`;
   // Background is stretched across the whole viewport, so it needs a source
   // sized to the actual screen — a fixed size (this used to be a flat 1600)
   // is fine on a 1080p laptop but visibly blocky once stretched across a
@@ -1264,6 +1266,15 @@ function updateFSUI(song) {
     img.onerror = () => { fsArt.innerHTML = '<i class="ti ti-music"></i>'; };
     fsArt.appendChild(img);
     fsArt.style.opacity = '1';
+    // Then the same cover at high resolution, once it's ready.
+    if (song.album && window.klabHiResArt) {
+      window.klabHiResArt({ albumId: song.albumId || '', artist: window.klabAlbumArtistOf(song), album: song.album }).then(r => {
+        if (!r || !r.large || !img.isConnected) return;
+        const pre = new Image();
+        pre.src = r.large;
+        return pre.decode().then(() => { if (img.isConnected) img.src = r.large; });
+      }).catch(() => {});
+    }
   }, 200);
 }
 
@@ -1299,7 +1310,7 @@ if (playerState.audio) {
     }
     _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
     _fsDurEl.textContent = formatTime(playerState.audio.duration);
-    _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause' : 'ti ti-player-play';
+    _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause-filled' : 'ti ti-player-play-filled';
   };
   playerState.audio.addEventListener('timeupdate', () => {
     // This fires continuously during all playback — skip the work

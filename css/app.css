@@ -7299,3 +7299,120 @@
     .mh-flow-scroll.dragging .mh-flow-thumb { cursor: grabbing; background: linear-gradient(#85858c, #505056 50%, #3a3a40 51%, #47474d); }
     /* Room for it under the caption. */
     .np-flow { --cf-top: calc((100% - var(--mh-size, 300px) - 200px) / 2); }
+
+    /* ══════════════════════════════════════════════════════════════════
+       FULL PLAYER, in Music's language
+       The cover big on the left, the way Cover Flow faces you; on the
+       right a section label, the title, sentence-case links, one white
+       primary button, quiet icon controls and "Up next" listed the way
+       Music lists songs. Always dark (it sits on the cover's own wash),
+       so its colours are fixed rather than the theme's.
+       ══════════════════════════════════════════════════════════════════ */
+    .fs-player { --fs-t: #f2efe8; --fs-dim: rgba(255,255,255,.62); --fs-dimmer: rgba(255,255,255,.4); --fs-line: rgba(255,255,255,.1); }
+    .fs-bg { filter: blur(60px) saturate(150%) brightness(.36); }
+    .fs-player::after {
+      /* Music's vignette: the edges fall away so the middle reads. */
+      content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0,0,0,.55) 100%);
+    }
+    .fs-label {
+      font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--fs-dimmer);
+      margin-bottom: 10px;
+    }
+    .fs-label span { text-transform: none; letter-spacing: normal; font-weight: 500; opacity: .75; margin-left: 4px; }
+    .fs-label span:empty { display: none; }
+    #fsPlayer .fs-title { color: var(--fs-t); text-shadow: none; font-weight: 700; margin-bottom: 6px; }
+    #fsPlayer .fs-artist { color: var(--fs-t); opacity: .85; }
+    #fsPlayer .fs-album { color: var(--fs-dim); margin-top: 2px; }
+    #fsPlayer .fs-quality {
+      display: inline-block; margin-top: 12px; padding: 3px 8px; border-radius: 6px;
+      border: 1px solid var(--fs-line); font: 600 10px var(--font-ui); letter-spacing: .08em; color: var(--fs-dimmer);
+    }
+    #fsPlayer .fs-quality.lossless { color: rgba(var(--accent-rgb),.95); border-color: rgba(var(--accent-rgb),.3); }
+    #fsPlayer .fs-quality:empty { display: none; }
+    .fs-art { border-radius: 10px; border-color: rgba(255,255,255,.12); box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 8px 24px rgba(0,0,0,.35); }
+    .fs-times { font: 500 11px var(--font-ui); letter-spacing: 0; color: var(--fs-dimmer); font-variant-numeric: tabular-nums; }
+
+    /* Controls: quiet icons, and play as Music's white primary. */
+    .fs-secondary-controls { display: flex; align-items: center; gap: 4px; width: 100%; }
+    .fs-spacer { flex: 1; }
+    #fsPlayer .fs-btn:not(.fs-play) { color: var(--fs-dim); background: none; border: 0; }
+    #fsPlayer .fs-btn:not(.fs-play):hover { color: #fff; background: rgba(255,255,255,.1); }
+    #fsPlayer .fs-btn-sm { width: 36px; height: 36px; font-size: 18px; border-radius: var(--radius-md); }
+    #fsPlayer .fs-btn[aria-pressed="true"], #fsPlayer #fsLyrics.lyrics-active { color: rgba(var(--accent-rgb),1) !important; opacity: 1 !important; }
+    #fsPlayer #fsFav.is-fav { color: var(--danger-color); }
+    .fs-controls { gap: 14px; }
+    #fsPlayer .fs-controls .fs-btn:not(.fs-play) { width: 44px; height: 44px; font-size: 24px; color: var(--fs-t); }
+    #fsPlayer .fs-btn.fs-play {
+      width: 60px; height: 60px; border-radius: 50%; font-size: 26px;
+      background: var(--fs-t); color: #0b0b0b; border: 0;
+      box-shadow: 0 0 14px rgba(255,248,236,.18), 0 0 38px rgba(255,248,236,.08);
+      transition: transform .12s, opacity .15s;
+    }
+    #fsPlayer .fs-btn.fs-play:hover { background: var(--fs-t); opacity: .92; }
+    .fs-vol i { color: var(--fs-dimmer); }
+    #fsPlayer .fs-close { background: rgba(255,255,255,.06); border: 1px solid var(--fs-line); color: var(--fs-dim); }
+    #fsPlayer .fs-close:hover { background: rgba(255,255,255,.12); color: #fff; }
+
+    /* Up next: Music's song rows, on dark. */
+    .fs-upnext { width: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .fs-upnext[hidden] { display: none; }
+    .fs-upnext-list {
+      display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden;
+      -webkit-mask-image: linear-gradient(#000 calc(100% - 40px), transparent); mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+    }
+    .fs-upnext-row {
+      display: flex; align-items: center; gap: 12px; width: 100%; flex: none;
+      padding: 6px 8px; margin: 0 -8px; box-sizing: content-box; border-radius: 8px;
+      border: 1px solid transparent; background: none; color: var(--fs-t); text-align: left; cursor: pointer;
+      font-family: var(--font-ui); transition: background-color .15s, border-color .15s;
+    }
+    .fs-upnext-row:hover { background: rgba(255,255,255,.07); border-color: var(--fs-line); }
+    .fs-upnext-row img, .fs-upnext-row .ph {
+      width: 40px; height: 40px; border-radius: 6px; flex: none; object-fit: cover;
+      border: 1px solid var(--fs-line); background: rgba(255,255,255,.06);
+    }
+    .fs-upnext-row .ph { display: grid; place-items: center; color: var(--fs-dimmer); font-size: 16px; }
+    .fs-upnext-row .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .fs-upnext-row .t { font-size: var(--fs-13); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fs-upnext-row .a { font-size: var(--fs-12); color: var(--fs-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fs-upnext-row .q { font: 600 10px var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: rgba(var(--accent-rgb),.9); flex: none; }
+    .fs-upnext-row .d { font-size: var(--fs-12); color: var(--fs-dimmer); font-variant-numeric: tabular-nums; flex: none; min-width: 34px; text-align: right; }
+
+    /* Room for it (a desktop window, not a phone): cover left, the rest
+       beside it, all of it as tall as the cover. */
+    @media (min-width: 900px) and (min-height: 560px) {
+      .fs-player:not(.lyrics-open) { --fs-art: min(64vh, 42vw, 640px); padding: 3rem 4rem; }
+      .fs-player:not(.lyrics-open) .fs-content {
+        display: grid; width: auto; max-width: none; gap: 0;
+        grid-template-columns: var(--fs-art) minmax(340px, 440px);
+        grid-template-rows: auto auto auto auto minmax(0, 1fr);
+        grid-template-areas: "art meta" "art prog" "art ctrl" "art sec" "art next";
+        column-gap: clamp(44px, 5vw, 96px);
+        height: var(--fs-art); align-items: start;
+      }
+      .fs-player:not(.lyrics-open) .fs-art-tilt-wrap { grid-area: art; }
+      .fs-player:not(.lyrics-open) .fs-art {
+        width: var(--fs-art); height: var(--fs-art);
+        /* Cover Flow's floor: a faded reflection under the cover. Static,
+           so it's drawn once, not every frame. */
+        -webkit-box-reflect: below 2px linear-gradient(transparent 76%, rgba(0,0,0,.2));
+      }
+      .fs-player:not(.lyrics-open) .fs-meta { grid-area: meta; text-align: left; }
+      .fs-player:not(.lyrics-open) .fs-prog-wrap { grid-area: prog; margin-top: 22px; }
+      .fs-player:not(.lyrics-open) .fs-controls { grid-area: ctrl; margin-top: 14px; margin-left: -10px; }
+      .fs-player:not(.lyrics-open) .fs-vol { grid-area: ctrl; justify-self: end; align-self: center; width: auto; margin-top: 14px; }
+      .fs-player:not(.lyrics-open) .fs-secondary-controls { grid-area: sec; margin: 12px 0 0 -8px; width: calc(100% + 16px); }
+      .fs-player:not(.lyrics-open) .fs-upnext { grid-area: next; margin-top: 26px; height: 100%; }
+      #fsPlayer:not(.lyrics-open) .fs-title { font-size: clamp(28px, 2.6vw, 40px); line-height: 1.12; letter-spacing: -0.02em; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      #fsPlayer:not(.lyrics-open) .fs-artist { font-size: 18px; }
+      #fsPlayer:not(.lyrics-open) .fs-album { font-size: 15px; }
+    }
+    /* Smaller windows and phones: one column, no list (lyrics too). */
+    @media not ((min-width: 900px) and (min-height: 560px)) { .fs-upnext { display: none !important; } }
+    .fs-player.lyrics-open .fs-upnext { display: none !important; }
+    .fs-player.lyrics-open .fs-secondary-controls { justify-content: center; }
+    html[data-fx="low"] .fs-player .fs-art { -webkit-box-reflect: initial; }
+    /* The artist and album are the dock's .player-link spans: the full
+       player's own sizes, not the dock's. */
+    #fsPlayer .fs-link { font-size: inherit; font-weight: inherit; color: inherit; letter-spacing: inherit; }

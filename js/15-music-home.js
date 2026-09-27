@@ -898,7 +898,7 @@
 
   // ── Kept live ──
   const a = playerState.audio;
-  a.addEventListener('loadstart', npRender);
+  a.addEventListener('loadstart', () => { npRender(); fsUpRender(); });
   const npPlaying = () => npFlow.el.classList.toggle('is-playing', !!playerState.currentSong && playerState.playing);
   for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { npPlaying(); if (npFlow.el.isConnected) { npFlow.refreshCaption(); npProg.update(); } });
   a.addEventListener('timeupdate', npProg.update);
@@ -906,7 +906,39 @@
   npPlaying();
   // The queue and shuffle change what's next.
   const _npQueueBadge = updateQueueBadge;
-  updateQueueBadge = function() { _npQueueBadge(); npRender(); };
+  updateQueueBadge = function() { _npQueueBadge(); npRender(); fsUpRender(); };
   const _npShuffle = syncShuffleBtns;
-  syncShuffleBtns = function() { _npShuffle(); npRender(); };
+  syncShuffleBtns = function() { _npShuffle(); npRender(); fsUpRender(); };
+
+  // ── The full player's "Up next" ──
+  // The same songs Cover Flow shows to the right of the one playing, as a
+  // list the way Music lists songs. Drawn only while the player is open.
+  const fsEl = document.getElementById('fsPlayer');
+  const fsUp = document.getElementById('fsUpNext');
+  const fsUpList = document.getElementById('fsUpNextList');
+  const fsUpNote = document.getElementById('fsUpNextNote');
+  function fsUpRender() {
+    if (!fsUp || !fsEl.classList.contains('open')) return;
+    const { items, center, queued } = npItems();
+    const next = items.slice(center + (playerState.currentSong ? 1 : 0)).slice(0, 8);
+    fsUp.hidden = !next.length;
+    fsUpNote.textContent = [queued ? `${queued} queued` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
+    fsUpList.textContent = '';
+    for (const it of next) {
+      const s = it.song;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'fs-upnext-row';
+      row.innerHTML =
+        (s.coverArt ? `<img src="${esc(art(s.coverArt, 96))}" alt="" decoding="async" draggable="false">` : '<span class="ph"><i class="ti ti-music"></i></span>') +
+        `<span class="m"><span class="t">${esc(s.title || 'Unknown')}</span><span class="a">${esc(s.artist || '')}</span></span>` +
+        (it.kind === 'queue' ? '<span class="q">Queued</span>' : '') +
+        `<span class="d">${s.duration ? formatTime(s.duration) : ''}</span>`;
+      row.addEventListener('click', () => npJump(it));
+      row.addEventListener('contextmenu', e => { e.preventDefault(); showSongCtx(e.clientX, e.clientY, s); });
+      fsUpList.appendChild(row);
+    }
+  }
+  const _npOpenFS = openFS;
+  openFS = function() { _npOpenFS(); fsUpRender(); };
 })();

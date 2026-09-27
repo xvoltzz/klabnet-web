@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.87" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.09.27.89" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.87" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.09.27.89" />
 </head>
 <body>
 
@@ -239,6 +239,7 @@ window.KLAB_BOOT = (function() {
   <div class="fs-content">
     <div class="fs-art-tilt-wrap"><div class="fs-art" id="fsArt" style="position:relative;"><i class="ti ti-music"></i></div></div>
     <div class="fs-meta">
+      <div class="fs-label">Now playing</div>
       <div class="fs-title" id="fsTitle">Nothing playing</div>
       <div class="fs-artist" id="fsArtist"></div>
       <div class="fs-album" id="fsAlbum"></div>
@@ -252,19 +253,19 @@ window.KLAB_BOOT = (function() {
       </div>
       <div class="fs-times"><span id="fsCur">0:00</span><span id="fsDur">0:00</span></div>
     </div>
-    <div class="fs-secondary-controls" style="display:flex;align-items:center;gap:8px;width:100%;justify-content:center;margin-bottom:-0.5rem;">
-      <button class="fs-btn fs-btn-sm" id="fsShuffle" title="Shuffle" style="width:34px;height:34px;font-size:16px;opacity:0.5;"><i class="ti ti-arrows-shuffle"></i></button>
-      <button class="fs-btn fs-btn-sm" id="fsFav" title="Favorite" style="width:34px;height:34px;font-size:18px;opacity:0.6;"><i class="ti ti-heart" id="fsFavIcon"></i></button>
-      <button class="fs-btn fs-btn-sm" id="fsLyrics" title="Lyrics" style="width:34px;height:34px;font-size:15px;opacity:0.5;"><i class="ti ti-microphone-2"></i></button>
-      <button class="fs-btn fs-btn-sm" id="fsShare" title="Share to Feed" style="width:34px;height:34px;font-size:15px;opacity:0.5;"><i class="ti ti-share-2"></i></button>
-      <span style="flex:1"></span>
-      <button class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat" style="width:34px;height:34px;font-size:16px;opacity:0.5;"><i class="ti ti-repeat"></i></button>
-      <button class="fs-btn fs-btn-sm" id="fsQueue" title="Music Manager" style="width:34px;height:34px;font-size:16px;opacity:0.5;" onclick="closeFS();openPicker()"><i class="ti ti-music-search"></i></button>
+    <div class="fs-secondary-controls">
+      <button class="fs-btn fs-btn-sm" id="fsShuffle" title="Shuffle" aria-pressed="false"><i class="ti ti-arrows-shuffle"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsFav" title="Favorite" aria-pressed="false"><i class="ti ti-heart" id="fsFavIcon"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsLyrics" title="Lyrics" aria-pressed="false"><i class="ti ti-microphone-2"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsShare" title="Share to feed"><i class="ti ti-share-2"></i></button>
+      <span class="fs-spacer"></span>
+      <button class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat" aria-pressed="false"><i class="ti ti-repeat"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsQueue" title="Open Music" onclick="closeFS();openPicker()"><i class="ti ti-music-search"></i></button>
     </div>
     <div class="fs-controls">
-      <button class="fs-btn" id="fsPrev"><i class="ti ti-player-skip-back"></i></button>
-      <button class="fs-btn fs-play" id="fsPlay"><i class="ti ti-player-play" id="fsPlayIcon"></i></button>
-      <button class="fs-btn" id="fsNext"><i class="ti ti-player-skip-forward"></i></button>
+      <button class="fs-btn" id="fsPrev" title="Previous" aria-label="Previous"><i class="ti ti-player-skip-back-filled"></i></button>
+      <button class="fs-btn fs-play" id="fsPlay" title="Play" aria-label="Play"><i class="ti ti-player-play-filled" id="fsPlayIcon"></i></button>
+      <button class="fs-btn" id="fsNext" title="Next" aria-label="Next"><i class="ti ti-player-skip-forward-filled"></i></button>
     </div>
     <div class="fs-vol">
       <i class="ti ti-volume" id="fsVolIcon" style="cursor:pointer;" title="Mute"></i>
@@ -273,7 +274,11 @@ window.KLAB_BOOT = (function() {
         <div class="slider-fill" id="fsVolFill" style="width:80%"></div>
         <div class="slider-dot" id="fsVolDot"></div>
       </div>
-
+    </div>
+    <!-- What's coming, the way Music lists songs (js/15-music-home.js). -->
+    <div class="fs-upnext" id="fsUpNext" hidden>
+      <div class="fs-label">Up next <span id="fsUpNextNote"></span></div>
+      <div class="fs-upnext-list" id="fsUpNextList"></div>
     </div>
   </div>
 
@@ -997,30 +1002,30 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.27.87';</script>
-<script defer src="js/00-util.js?v=v2026.09.27.87"></script>
-<script defer src="js/01-shell.js?v=v2026.09.27.87"></script>
-<script defer src="js/02-player.js?v=v2026.09.27.87"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.27.87"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.27.87"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.27.87"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.27.87"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.27.87"></script>
-<script defer src="js/08-chat.js?v=v2026.09.27.87"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.27.87"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.27.87"></script>
-<script defer src="js/11-presence.js?v=v2026.09.27.87"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.27.87"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.27.87"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.27.87"></script>
-<script defer src="js/11c-gifs.js?v=v2026.09.27.87"></script>
-<script defer src="js/12-feed.js?v=v2026.09.27.87"></script>
-<script defer src="js/13-tail.js?v=v2026.09.27.87"></script>
-<script defer src="js/14-photos.js?v=v2026.09.27.87"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.27.87"></script>
-<script defer src="js/16-motion.js?v=v2026.09.27.87"></script>
-<script defer src="js/17-history.js?v=v2026.09.27.87"></script>
-<script defer src="js/18-home.js?v=v2026.09.27.87"></script>
+<script>const KLABNET_VERSION = 'v2026.09.27.89';</script>
+<script defer src="js/00-util.js?v=v2026.09.27.89"></script>
+<script defer src="js/01-shell.js?v=v2026.09.27.89"></script>
+<script defer src="js/02-player.js?v=v2026.09.27.89"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.09.27.89"></script>
+<script defer src="js/04-sfx.js?v=v2026.09.27.89"></script>
+<script defer src="js/05-favorites.js?v=v2026.09.27.89"></script>
+<script defer src="js/06-prefs.js?v=v2026.09.27.89"></script>
+<script defer src="js/07-tabnav.js?v=v2026.09.27.89"></script>
+<script defer src="js/08-chat.js?v=v2026.09.27.89"></script>
+<script defer src="js/09-music-extras.js?v=v2026.09.27.89"></script>
+<script defer src="js/10-lyrics.js?v=v2026.09.27.89"></script>
+<script defer src="js/11-presence.js?v=v2026.09.27.89"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.09.27.89"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.09.27.89"></script>
+<script defer src="js/11b-markdown.js?v=v2026.09.27.89"></script>
+<script defer src="js/11c-gifs.js?v=v2026.09.27.89"></script>
+<script defer src="js/12-feed.js?v=v2026.09.27.89"></script>
+<script defer src="js/13-tail.js?v=v2026.09.27.89"></script>
+<script defer src="js/14-photos.js?v=v2026.09.27.89"></script>
+<script defer src="js/15-music-home.js?v=v2026.09.27.89"></script>
+<script defer src="js/16-motion.js?v=v2026.09.27.89"></script>
+<script defer src="js/17-history.js?v=v2026.09.27.89"></script>
+<script defer src="js/18-home.js?v=v2026.09.27.89"></script>
 
 </body>
 </html>

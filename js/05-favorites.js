@@ -99,8 +99,8 @@ function updateFSFavBtn() {
   if (!icon || !btn || !song) return;
   const fav = isFavorite(song.id);
   icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
-  btn.style.color = fav ? 'var(--danger-color)' : '';
-  btn.style.opacity = fav ? '0.9' : '0.6';
+  btn.classList.toggle('is-fav', fav);
+  btn.setAttribute('aria-pressed', fav);
 }
 
 document.getElementById('fsFav').addEventListener('click', () => {
@@ -122,10 +122,7 @@ function syncShuffleBtns() {
     dockBtn.style.opacity = _shuffleOn ? '1' : '0.45';
     dockBtn.style.color   = _shuffleOn ? 'rgba(var(--accent-rgb),1)' : '';
   }
-  if (fsBtn) {
-    fsBtn.style.opacity = _shuffleOn ? '1' : '0.5';
-    fsBtn.style.color   = _shuffleOn ? 'rgba(var(--accent-rgb),1)' : '';
-  }
+  if (fsBtn) fsBtn.setAttribute('aria-pressed', _shuffleOn);
 }
 
 document.getElementById('fsShuffle').addEventListener('click', () => {
@@ -136,9 +133,7 @@ document.getElementById('fsShuffle').addEventListener('click', () => {
 
 document.getElementById('fsRepeat').addEventListener('click', () => {
   _repeatOn = !_repeatOn;
-  const btn = document.getElementById('fsRepeat');
-  btn.style.opacity = _repeatOn ? '1' : '0.5';
-  btn.style.color = _repeatOn ? 'rgba(var(--accent-rgb),1)' : '';
+  document.getElementById('fsRepeat').setAttribute('aria-pressed', _repeatOn);
   SFX.play('click');
   if (_repeatOn) playerState.audio.loop = true;
   else playerState.audio.loop = false;

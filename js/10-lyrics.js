@@ -72,7 +72,7 @@ playSong = async function(song) {
   updateFSUI(song);
   updateDockFavBtn();
   updateFSFavBtn();
-  document.getElementById('fsPlayIcon').className = 'ti ti-player-pause';
+  document.getElementById('fsPlayIcon').className = 'ti ti-player-pause-filled';
   addToPlayHistory(song);
   if (song?.coverArt) {
     // size=64 — matches sampleImageColor()'s own sampling size elsewhere;
