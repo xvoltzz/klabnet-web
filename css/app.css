@@ -7537,3 +7537,23 @@
     }
     /* Narrow: the Show toggles are icon buttons again. */
     .ph-actions .ph-btn:not(.ph-btn-post) span, .ph-actions .ph-btn .s-toggle { display: none; }
+
+    /* Photos: the photo's song, a small box pinned to the sidebar's
+       bottom (art, title, artist, the bars while it plays), with the mute
+       button beside it. Gone when the photo has no song. */
+    .ph-now {
+      margin-top: auto; flex: none; display: flex; align-items: center; gap: 2px;
+      padding: 4px; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+    }
+    .ph-now:has(.ph-song.none), .ph-shell.is-empty .ph-now { display: none; }
+    .ph-sidebar .ph-now .ph-song {
+      flex: 1; min-width: 0; margin: 0; padding: 4px 8px 4px 4px; border: 0; border-radius: 8px; background: none;
+    }
+    .ph-sidebar .ph-now .ph-song:hover { background: var(--glass-fill-h); }
+    .ph-sidebar .ph-now .ph-song-art { width: 40px; height: 40px; }
+    .ph-sidebar .ph-now #phSoundBtn {
+      flex: none; width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 8px; color: var(--text-dim);
+    }
+    .ph-sidebar .ph-now #phSoundBtn i { width: auto; }
+    .ph-sidebar .ph-now #phSoundBtn span, .ph-sidebar .ph-now #phSoundBtn .s-toggle { display: none; }
+    .ph-sidebar .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }

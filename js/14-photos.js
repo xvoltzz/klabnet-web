@@ -369,12 +369,14 @@
     if (narrowMq.matches) {
       if (railL.parentElement === frame) return;
       actions.append(b('phOrder'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      railR.insertBefore(b('phSong'), b('phReacts'));
       frame.insertBefore(railL, mainImg);
       frame.insertBefore(railR, mainImg.nextSibling);
     } else {
       if (railL.parentElement === $('phSideInfo')) return;
       $('phSideViews').append(b('phOrder'), b('phPostBtn'));
-      $('phSideToggles').append(b('phInfoBtn'), b('phSoundBtn'));
+      $('phSideToggles').append(b('phInfoBtn'));
+      $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);
     }
   }
