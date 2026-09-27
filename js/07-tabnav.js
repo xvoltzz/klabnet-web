@@ -601,11 +601,21 @@ window.klabSideNav = (function() {
       const r = wco.getTitlebarAreaRect();
       if (r && r.width) controls = Math.max(0, window.innerWidth - (r.x + r.width));
     }
+    // macOS: the traffic lights are on the left instead (20px in, three
+    // 12px buttons 8px apart, then a gap), gone in full screen.
+    const mac = app.platform === 'darwin';
+    const left = mac && !root.classList.contains('app-fullscreen') ? 80 : 0;
     root.style.setProperty('--tb-h', (tb / z).toFixed(2) + 'px');
-    root.style.setProperty('--wco-right', (controls / z).toFixed(2) + 'px');
+    root.style.setProperty('--wco-right', (mac ? 0 : controls / z).toFixed(2) + 'px');
+    root.style.setProperty('--wco-left', (left / z).toFixed(2) + 'px');
   }
   syncTitlebar();
   window.addEventListener('resize', syncTitlebar);
+  if (app.platform === 'darwin' && app.windowControls) {
+    const fs = st => { root.classList.toggle('app-fullscreen', !!st?.fullscreen); syncTitlebar(); };
+    app.windowControls.onState(fs);
+    app.windowControls.state().then(fs).catch(() => {});
+  }
   navigator.windowControlsOverlay?.addEventListener?.('geometrychange', syncTitlebar);
   document.addEventListener('DOMContentLoaded', syncTitlebar);
 
@@ -685,8 +695,21 @@ window.klabSideNav = (function() {
   function render() {
     if (!settings) return;
     $('appLoginToggle')?.classList.toggle('on', !!settings.openAtLogin);
-    const loginLabel = $('appLoginLabel');
-    if (loginLabel) loginLabel.textContent = settings.platform === 'win32' || !settings.platform ? 'Start with Windows' : 'Start when you log in';
+    const mac = settings.platform === 'darwin', win = settings.platform === 'win32' || !settings.platform;
+    const text = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+    text('appNameLabel', mac ? 'klabnet for Mac' : win ? 'klabnet for Windows' : 'klabnet for Linux');
+    text('appLoginLabel', win ? 'Start with Windows' : mac ? 'Open at login' : 'Start when you log in');
+    text('appLoginSub', mac ? 'Opens in the Dock, without a window, when you log in' : 'Opens quietly in the tray when you sign in');
+    // A Mac app always keeps running when its window closes (Cmd+Q quits).
+    const trayRow = $('appTrayRow');
+    if (trayRow) trayRow.hidden = mac;
+    // Materials: the Mac has one (the sidebar's vibrancy) or none.
+    const mat = $('appMaterial');
+    if (mat && mac && !mat.dataset.mac) {
+      mat.dataset.mac = '1';
+      mat.innerHTML = '<button type="button" data-v="vibrancy">Vibrancy</button><button type="button" data-v="none">Solid</button>';
+      text('appMaterialSub', 'Let the desktop show through the sidebar, like Finder');
+    }
     const frameRow = $('appFrameRow');
     if (frameRow) frameRow.hidden = settings.platform !== 'linux';
     document.querySelectorAll('#appFrame button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (settings.linuxFrame || 'auto'))));
