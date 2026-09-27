@@ -8,6 +8,17 @@ loadPickerTab = async function(tab) {
   // a search, a pending search keystroke) must not draw over this one.
   _pickerLoadToken++;
   if (tab !== 'search') clearTimeout(pickerDebounce);
+  // Now Playing lives at the foot of the sidebar, apart from the other rows.
+  const np = document.getElementById('musicNowPlaying');
+  np?.classList.toggle('active', tab === 'nowplaying');
+  if (tab === 'nowplaying') {
+    pickerTab = tab;
+    document.querySelectorAll('.picker-tab, .music-playlist-row').forEach(t => t.classList.remove('active'));
+    hideSortBtn?.();
+    setMusicViewTitle('nowplaying');
+    window.klabRenderNowPlaying?.(pickerList);
+    return;
+  }
   if (tab === 'albums') { pickerTab = tab; await loadAlbums(); return; }
   if (tab === 'artists') { pickerTab = tab; await loadArtists(); return; }
   if (tab === 'queue') { pickerTab = tab; renderQueueList(); return; }

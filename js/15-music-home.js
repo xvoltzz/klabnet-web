@@ -41,46 +41,72 @@
   }
 
   // ══ Cover Flow ══
-  // One element for the life of the page: re-inserted each time Home
-  // renders, so it keeps its place and its covers instead of reloading.
-  const flow = (() => {
+  // One component, two places: Home's recently added albums, and Now
+  // Playing (what you heard, what's on, what's next). The caller gives it
+  // items and says how each one looks and what its buttons do:
+  //   cover(item)          image URL
+  //   caption(item, i)     { k, t, a }: a small label, title, detail line
+  //   actions(item, i)     [{ label, icon, primary, run }] under the caption
+  //   open(item, i)        a click (or Enter) on the middle cover
+  //   decorate(coverEl, item)  e.g. for its right-click menu
+  // It keeps one element, so it keeps its place and covers between visits.
+  function makeCoverFlow({ label, cover, caption, actions, open, decorate, big = false }) {
     const el = document.createElement('section');
     el.className = 'mh-flow';
     el.tabIndex = 0;
-    el.setAttribute('aria-label', 'Recently added albums');
+    el.setAttribute('aria-label', label);
     el.innerHTML =
       '<div class="mh-flow-bg"></div><div class="mh-flow-bg"></div>' +
       '<div class="mh-flow-stage"></div>' +
       '<button type="button" class="mh-flow-nav prev" title="Previous"><i class="ti ti-chevron-left"></i></button>' +
       '<button type="button" class="mh-flow-nav next" title="Next"><i class="ti ti-chevron-right"></i></button>' +
-      '<div class="mh-flow-caption"><div class="t"></div><div class="a"></div>' +
-        '<div class="mh-flow-actions"><button type="button" class="mh-flow-play"><i class="ti ti-player-play-filled"></i> Play</button>' +
-        '<button type="button" class="mh-flow-open">Open album</button></div></div>';
+      '<div class="mh-flow-caption"><div class="k"></div><div class="t"></div><div class="a"></div><div class="mh-flow-actions"></div></div>';
     const stage = el.querySelector('.mh-flow-stage');
     const bgs = el.querySelectorAll('.mh-flow-bg');
-    let albums = [], covers = [], loadedAt = 0;
+    const capK = el.querySelector('.mh-flow-caption .k'), capT = el.querySelector('.mh-flow-caption .t');
+    const capA = el.querySelector('.mh-flow-caption .a'), capActs = el.querySelector('.mh-flow-actions');
+    let items = [], covers = [], keys = '';
     let pos = 0, target = 0, raf = 0, idle = 0, center = -1, bgOn = 0;
 
-    const size = () => (matchMedia(KLAB_PHONE_MQ).matches ? 150 : 230);
-    const clamp = x => Math.max(0, Math.min(albums.length - 1, x));
+    const size = () => (matchMedia(KLAB_PHONE_MQ).matches ? (big ? 190 : 150) : (big ? 300 : 230));
+    const clamp = x => Math.max(0, Math.min(items.length - 1, x));
 
     function build() {
       stage.textContent = '';
-      covers = albums.map((a, i) => {
+      covers = items.map((it, i) => {
         const c = document.createElement('div');
         c.className = 'mh-cover';
         c.dataset.i = i;
-        c._album = a;
+        decorate?.(c, it);
         const img = new Image();
         img.alt = ''; img.draggable = false; img.decoding = 'async';
         img.onload = () => img.classList.add('loaded');
-        img.src = art(a.coverArt || a.id, 500);
+        const src = cover(it);
+        if (src) img.src = src;
         c.appendChild(img);
         stage.appendChild(c);
         return c;
       });
       center = -1;
       render();
+    }
+
+    function showCaption() {
+      const it = items[center];
+      if (!it) return;
+      const cap = caption(it, center);
+      capK.textContent = cap.k || ''; capK.hidden = !cap.k;
+      capT.textContent = cap.t || '';
+      capA.textContent = cap.a || '';
+      capActs.replaceChildren(...(actions?.(it, center) || []).map(a => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        if (a.primary) b.className = 'mh-flow-play';
+        b.innerHTML = (a.icon ? '<i class="ti ' + a.icon + '"></i> ' : '');
+        b.append(a.label);
+        b.addEventListener('click', () => a.run(it, center));
+        return b;
+      }));
     }
 
     // Each cover's place is a function of its distance from the centre, d:
@@ -103,22 +129,21 @@
         c.style.opacity = ad > 6 ? String(Math.max(0, 7 - ad)) : '';
       }
       const ci = Math.round(pos);
-      if (ci !== center && albums[ci]) {
+      if (ci !== center && items[ci]) {
         center = ci;
         covers.forEach((c, i) => c.classList.toggle('center', i === ci));
-        const a = albums[ci];
-        el.querySelector('.mh-flow-caption .t').textContent = a.name || a.title || '';
-        el.querySelector('.mh-flow-caption .a').textContent = [a.artist, a.year, fmtAdded(a.created)].filter(Boolean).join(' · ');
+        showCaption();
       }
     }
 
     // The blurred cover behind the flow, crossfaded once it comes to rest
     // (a full-width blur repainted every frame is the expensive thing here).
     function setBg() {
-      const a = albums[center];
-      if (!a) return;
+      const it = items[center];
+      const src = it && cover(it);
+      if (!src) return;
       const next = bgs[1 - bgOn];
-      next.style.backgroundImage = `url("${art(a.coverArt || a.id, 200)}")`;
+      next.style.backgroundImage = `url("${src.replace(/size=\d+/, 'size=200')}")`;
       window.klabSoften?.(next);
       next.classList.add('on');
       bgs[bgOn].classList.remove('on');
@@ -137,8 +162,6 @@
 
     el.querySelector('.prev').addEventListener('click', () => go(target - 1));
     el.querySelector('.next').addEventListener('click', () => go(target + 1));
-    el.querySelector('.mh-flow-play').addEventListener('click', () => albums[center] && playAlbum(albums[center].id));
-    el.querySelector('.mh-flow-open').addEventListener('click', () => albums[center] && openAlbum(albums[center]));
 
     // Sideways trackpad swipes glide through it. A vertical wheel is left
     // alone, so a mouse still scrolls the page past it.
@@ -176,7 +199,7 @@
         const c = e.target.closest('.mh-cover');
         if (c) {
           const i = Number(c.dataset.i);
-          if (i === center) openAlbum(albums[i]); else go(i);
+          if (i === center) open?.(items[i], i); else go(i);
         }
       }
       drag = null;
@@ -189,25 +212,64 @@
     el.addEventListener('keydown', e => {
       if (e.key === 'ArrowLeft') go(target - 1);
       else if (e.key === 'ArrowRight') go(target + 1);
-      else if (e.key === 'Enter' && albums[center]) openAlbum(albums[center]);
+      else if (e.key === 'Enter' && items[center]) open?.(items[center], center);
       else return;
       e.preventDefault(); e.stopPropagation();
     });
 
     window.addEventListener('resize', () => { if (el.isConnected) render(); });
 
+    // New items. The covers are only rebuilt when the list really changed
+    // (keyOf), and it lands on `at`: gliding from `from` when given (Now
+    // Playing sliding on to the next song), otherwise straight there.
+    function set(next, at = 0, { keyOf = (it, i) => i, from } = {}) {
+      const k = next.map(keyOf).join('|');
+      items = next;
+      el.hidden = !items.length;
+      if (!items.length) { stage.textContent = ''; covers = []; keys = ''; return; }
+      const fresh = k !== keys;
+      keys = k;
+      if (fresh) {
+        cancelAnimationFrame(raf); raf = 0;
+        pos = clamp(from ?? at); target = clamp(at);
+        build();
+        if (pos !== target) kick(); else setBg();
+      } else {
+        target = clamp(at);
+        showCaption();   // the same items, but what the buttons say may differ (play/pause)
+        kick();
+      }
+    }
+    return { el, set, go, render, refreshCaption: showCaption };
+  }
+  window.klabCoverFlow = makeCoverFlow;
+
+  // Home's: recently added albums.
+  const flow = (() => {
+    let loadedAt = 0, albums = [];
+    const f = makeCoverFlow({
+      label: 'Recently added albums',
+      cover: a => art(a.coverArt || a.id, 500),
+      caption: a => ({ t: a.name || a.title || '', a: [a.artist, a.year, fmtAdded(a.created)].filter(Boolean).join(' · ') }),
+      actions: a => [
+        { label: 'Play', icon: 'ti-player-play-filled', primary: true, run: () => playAlbum(a.id) },
+        { label: 'Open album', run: () => openAlbum(a) },
+      ],
+      open: a => openAlbum(a),
+      decorate: (c, a) => { c._album = a; },
+    });
     async function load() {
-      if (albums.length && Date.now() - loadedAt < REFRESH_MS) { render(); return; }
+      if (albums.length && Date.now() - loadedAt < REFRESH_MS) { f.render(); return; }
       try {
         const fresh = await albumList('newest', 30);
         loadedAt = Date.now();
-        const same = fresh.map(a => a.id).join() === albums.map(a => a.id).join();
+        // The same albums: leave it where you'd flicked it to.
+        if (albums.length && fresh.map(a => a.id).join() === albums.map(a => a.id).join()) { f.render(); return; }
         albums = fresh;
-        el.hidden = !albums.length;
-        if (!same) { pos = target = 0; build(); setBg(); }
-      } catch (e) { if (!albums.length) el.hidden = true; }
+        f.set(albums, 0, { keyOf: a => a.id });
+      } catch (e) { if (!albums.length) f.el.hidden = true; }
     }
-    return { el, load };
+    return { el: f.el, load };
   })();
 
   // Home is rebuilt on every visit and a reshuffle swaps the wheel. What the
@@ -608,4 +670,130 @@
       }
     });
   };
+
+  // ══ Now Playing ══
+  // What you heard, what's on and what's next, as one Cover Flow: the last
+  // songs you played to the left, the one playing facing you, then your
+  // queue and the rest of what's playing to the right (in the order they'll
+  // actually come; with shuffle on only the queue is known). It slides
+  // along as songs change. Opened from the button at the foot of Music's
+  // sidebar, which also shows what's on.
+  const NP_BEFORE = 20, NP_AFTER = 30;
+  const npAlbum = song => song.albumId ? [{ label: 'Open album', run: () => openAlbum({ id: song.albumId, name: song.album }) }] : [];
+  function npJump(it) {
+    if (it.kind === 'queue') {
+      // Straight to that one: what was queued before it is skipped.
+      queue.splice(0, it.k);
+      const song = queue.shift();
+      updateQueueBadge();
+      playSong(song);
+    } else if (it.kind === 'next') {
+      playerState.playlistIndex = it.i;
+      playSong(playerState.playlist[it.i]);
+    } else {
+      const i = playerState.playlist.findIndex(x => x.id === it.song.id);
+      if (i >= 0) playerState.playlistIndex = i;
+      playSong(it.song);
+    }
+    SFX && SFX.play('click');
+  }
+  const npFlow = makeCoverFlow({
+    label: 'Now playing',
+    big: true,
+    cover: it => it.song.coverArt ? art(it.song.coverArt, 500) : '',
+    caption: it => ({
+      k: it.kind === 'now' ? (playerState.playing ? 'Now playing' : 'Paused')
+        : it.kind === 'played' ? 'Played' : it.kind === 'queue' ? 'In your queue' : 'Up next',
+      t: it.song.title || '',
+      a: [it.song.artist, it.song.album].filter(Boolean).join(' · '),
+    }),
+    actions: it => it.kind === 'now'
+      ? [{ label: playerState.playing ? 'Pause' : 'Play', icon: playerState.playing ? 'ti-player-pause-filled' : 'ti-player-play-filled', primary: true, run: () => togglePlay() }, ...npAlbum(it.song)]
+      : [{ label: 'Play', icon: 'ti-player-play-filled', primary: true, run: () => npJump(it) }, ...npAlbum(it.song)],
+    open: it => (it.kind === 'now' ? openFS() : npJump(it)),
+    decorate: (c, it) => { c._npSong = it.song; },
+  });
+  npFlow.el.classList.add('np-flow');
+  // Right-click a cover: the song's own menu.
+  npFlow.el.addEventListener('contextmenu', e => {
+    const c = e.target.closest('.mh-cover');
+    if (!c?._npSong) return;
+    e.preventDefault();
+    showSongCtx(e.clientX, e.clientY, c._npSong);
+  });
+
+  function npItems() {
+    const cur = playerState.currentSong;
+    const before = _heard.slice(-NP_BEFORE).map(song => ({ song, kind: 'played' }));
+    const after = queue.map((song, k) => ({ song, kind: 'queue', k }));
+    if (!_shuffleOn) {
+      const pl = playerState.playlist || [];
+      for (let i = playerState.playlistIndex + 1; i < pl.length && after.length < NP_AFTER; i++) after.push({ song: pl[i], kind: 'next', i });
+    }
+    const items = [...before, ...(cur ? [{ song: cur, kind: 'now' }] : []), ...after.slice(0, NP_AFTER)];
+    return { items, center: cur ? before.length : 0, queued: queue.length, later: after.length - queue.length };
+  }
+  let npLastSongId = null;
+  function npRender() {
+    if (!npFlow.el.isConnected) return;
+    const { items, center, queued, later } = npItems();
+    // Moved on to the next song: slide over from the one before.
+    const curId = items[center]?.song.id ?? null;
+    const from = npLastSongId && curId !== npLastSongId && items[center - 1]?.song.id === npLastSongId ? center - 1 : undefined;
+    npLastSongId = curId;
+    npFlow.set(items, center, { keyOf: it => it.kind + ':' + it.song.id + ':' + (it.k ?? it.i ?? ''), from });
+    const empty = document.getElementById('npEmpty');
+    if (empty) empty.hidden = !!items.length;
+    const sub = document.getElementById('musicViewSub');
+    if (sub && pickerTab === 'nowplaying') {
+      sub.textContent = [queued ? `${queued} in your queue` : '', later ? `${later} more after` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
+    }
+  }
+  window.klabRenderNowPlaying = function(list) {
+    list.classList.remove('picker-list-grid');
+    list.innerHTML = '<div class="picker-empty" id="npEmpty" hidden>Nothing playing yet. Play something and it all shows up here.</div>';
+    list.appendChild(npFlow.el);
+    npLastSongId = null;
+    npRender();
+    requestAnimationFrame(() => npFlow.render());
+  };
+
+  // ── The button at the foot of the sidebar ──
+  const npBtn = document.createElement('button');
+  npBtn.type = 'button';
+  npBtn.className = 'music-nowplaying';
+  npBtn.id = 'musicNowPlaying';
+  npBtn.title = 'Now playing';
+  npBtn.innerHTML = '<span class="mnp-art"><i class="ti ti-music"></i></span>' +
+    '<span class="mnp-tx"><span class="mnp-k">Now playing</span><span class="mnp-t">Nothing yet</span><span class="mnp-a"></span></span>' +
+    '<span class="mnp-eq" aria-hidden="true"><i></i><i></i><i></i></span>';
+  document.getElementById('musicSidebar')?.appendChild(npBtn);
+  npBtn.addEventListener('click', () => {
+    window.closeApPanel?.();
+    SFX && SFX.play('nav');
+    loadPickerTab('nowplaying');
+  });
+  function npButton() {
+    const s = playerState.currentSong;
+    npBtn.querySelector('.mnp-t').textContent = s ? (s.title || 'Unknown') : 'Nothing yet';
+    npBtn.querySelector('.mnp-a').textContent = s ? (s.artist || '') : '';
+    const a = npBtn.querySelector('.mnp-art');
+    const src = s?.coverArt ? art(s.coverArt, 100) : '';
+    if (a.dataset.src !== src) {
+      a.dataset.src = src;
+      a.innerHTML = src ? `<img src="${esc(src)}" alt="" />` : '<i class="ti ti-music"></i>';
+    }
+    npBtn.classList.toggle('is-playing', !!s && playerState.playing);
+  }
+  npButton();
+
+  // ── Kept live ──
+  const a = playerState.audio;
+  a.addEventListener('loadstart', () => { npButton(); npRender(); });
+  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { npButton(); if (npFlow.el.isConnected) npFlow.refreshCaption(); });
+  // The queue and shuffle change what's next.
+  const _npQueueBadge = updateQueueBadge;
+  updateQueueBadge = function() { _npQueueBadge(); npRender(); };
+  const _npShuffle = syncShuffleBtns;
+  syncShuffleBtns = function() { _npShuffle(); npRender(); };
 })();
