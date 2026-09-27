@@ -50,7 +50,7 @@
   //   open(item, i)        a click (or Enter) on the middle cover
   //   decorate(coverEl, item)  e.g. for its right-click menu
   // It keeps one element, so it keeps its place and covers between visits.
-  function makeCoverFlow({ label, cover, caption, actions, open, decorate, big = false }) {
+  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize }) {
     const el = document.createElement('section');
     el.className = 'mh-flow';
     el.tabIndex = 0;
@@ -68,7 +68,7 @@
     let items = [], covers = [], keys = '';
     let pos = 0, target = 0, raf = 0, idle = 0, center = -1, bgOn = 0;
 
-    const size = () => (matchMedia(KLAB_PHONE_MQ).matches ? (big ? 190 : 150) : (big ? 300 : 230));
+    const size = () => coverSize ? coverSize(el) : (matchMedia(KLAB_PHONE_MQ).matches ? 150 : 230);
     const clamp = x => Math.max(0, Math.min(items.length - 1, x));
 
     function build() {
@@ -671,13 +671,12 @@
     });
   };
 
-  // ══ Now Playing ══
-  // What you heard, what's on and what's next, as one Cover Flow: the last
+  // ══ Cover Flow (the view) ══
+  // What you heard, what's on and what's next, filling Music: the last
   // songs you played to the left, the one playing facing you, then your
   // queue and the rest of what's playing to the right (in the order they'll
   // actually come; with shuffle on only the queue is known). It slides
-  // along as songs change. Opened from the button at the foot of Music's
-  // sidebar, which also shows what's on.
+  // along as songs change. The covers are as big as the window allows.
   const NP_BEFORE = 20, NP_AFTER = 30;
   const npAlbum = song => song.albumId ? [{ label: 'Open album', run: () => openAlbum({ id: song.albumId, name: song.album }) }] : [];
   function npJump(it) {
@@ -698,8 +697,11 @@
     SFX && SFX.play('click');
   }
   const npFlow = makeCoverFlow({
-    label: 'Now playing',
-    big: true,
+    label: 'Cover Flow',
+    coverSize: el => {
+      const w = el.clientWidth || 800, h = el.clientHeight || 600;
+      return Math.round(Math.max(170, Math.min(h - 200, w * 0.42, 600)));
+    },
     cover: it => it.song.coverArt ? art(it.song.coverArt, 500) : '',
     caption: it => ({
       k: it.kind === 'now' ? (playerState.playing ? 'Now playing' : 'Paused')
@@ -745,52 +747,23 @@
     const empty = document.getElementById('npEmpty');
     if (empty) empty.hidden = !!items.length;
     const sub = document.getElementById('musicViewSub');
-    if (sub && pickerTab === 'nowplaying') {
+    if (sub && pickerTab === 'coverflow') {
       sub.textContent = [queued ? `${queued} in your queue` : '', later ? `${later} more after` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
     }
   }
-  window.klabRenderNowPlaying = function(list) {
+  window.klabRenderCoverFlow = function(list) {
     list.classList.remove('picker-list-grid');
-    list.innerHTML = '<div class="picker-empty" id="npEmpty" hidden>Nothing playing yet. Play something and it all shows up here.</div>';
+    list.innerHTML = '<div class="picker-empty" id="npEmpty" hidden>Nothing playing yet. Play something and your music shows up here.</div>';
     list.appendChild(npFlow.el);
     npLastSongId = null;
     npRender();
     requestAnimationFrame(() => npFlow.render());
   };
 
-  // ── The button at the foot of the sidebar ──
-  const npBtn = document.createElement('button');
-  npBtn.type = 'button';
-  npBtn.className = 'music-nowplaying';
-  npBtn.id = 'musicNowPlaying';
-  npBtn.title = 'Now playing';
-  npBtn.innerHTML = '<span class="mnp-art"><i class="ti ti-music"></i></span>' +
-    '<span class="mnp-tx"><span class="mnp-k">Now playing</span><span class="mnp-t">Nothing yet</span><span class="mnp-a"></span></span>' +
-    '<span class="mnp-eq" aria-hidden="true"><i></i><i></i><i></i></span>';
-  document.getElementById('musicSidebar')?.appendChild(npBtn);
-  npBtn.addEventListener('click', () => {
-    window.closeApPanel?.();
-    SFX && SFX.play('nav');
-    loadPickerTab('nowplaying');
-  });
-  function npButton() {
-    const s = playerState.currentSong;
-    npBtn.querySelector('.mnp-t').textContent = s ? (s.title || 'Unknown') : 'Nothing yet';
-    npBtn.querySelector('.mnp-a').textContent = s ? (s.artist || '') : '';
-    const a = npBtn.querySelector('.mnp-art');
-    const src = s?.coverArt ? art(s.coverArt, 100) : '';
-    if (a.dataset.src !== src) {
-      a.dataset.src = src;
-      a.innerHTML = src ? `<img src="${esc(src)}" alt="" />` : '<i class="ti ti-music"></i>';
-    }
-    npBtn.classList.toggle('is-playing', !!s && playerState.playing);
-  }
-  npButton();
-
   // ── Kept live ──
   const a = playerState.audio;
-  a.addEventListener('loadstart', () => { npButton(); npRender(); });
-  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { npButton(); if (npFlow.el.isConnected) npFlow.refreshCaption(); });
+  a.addEventListener('loadstart', npRender);
+  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { if (npFlow.el.isConnected) npFlow.refreshCaption(); });
   // The queue and shuffle change what's next.
   const _npQueueBadge = updateQueueBadge;
   updateQueueBadge = function() { _npQueueBadge(); npRender(); };

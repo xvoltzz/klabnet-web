@@ -7182,39 +7182,28 @@
     .img-view-backdrop.framed .img-view-img { border-radius: 6px; box-shadow: 0 30px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06); }
     html[data-fx="low"] .img-view-backdrop.framed { background: rgba(0,0,0,0.94); }
 
-    /* ══ Now Playing ══ */
-    /* Cover Flow's small label over the title ("Now playing", "Up next"). */
+    /* ══ Cover Flow ══ */
+    /* The flow's small label over the title ("Now playing", "Up next"). */
     .mh-flow-caption .k { font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); margin-bottom: 2px; }
     .mh-flow-caption .k[hidden] { display: none; }
-    .np-flow { height: calc(26px + var(--mh-h, 300px) + 38px + 126px); margin-top: 6px; }
-    .np-flow .mh-flow-caption .t { font-size: var(--fs-18); }
-    .np-flow .mh-flow-caption .a { font-size: var(--fs-13); }
 
-    /* The button at the foot of Music's sidebar: what's on, and the way in. */
-    .music-nowplaying {
-      margin-top: auto; flex-shrink: 0; position: relative;
-      display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
-      padding: 8px 10px 8px 8px; border-radius: 10px; text-align: left; cursor: pointer;
-      border: 1px solid var(--glass-border); background: var(--glass-fill); color: var(--text);
-      transition: border-color .15s ease, background-color .15s ease;
+    /* The Cover Flow view fills Music: no card around it, the album's
+       colour washing the whole area, covers as big as the window allows,
+       the stage and caption centred in the height there is. */
+    #pickerList:has(> .np-flow) { overflow: hidden; }
+    .np-flow {
+      --cf-top: calc((100% - var(--mh-size, 300px) - 150px) / 2);
+      height: 100%; min-height: 440px; margin: 0; border: 0; border-radius: 14px;
+      background: transparent;
     }
-    #musicShell .music-sidebar .music-nowplaying { margin-top: auto; }
-    .music-nowplaying:hover { border-color: var(--glass-border-h); }
-    .music-nowplaying.active { border-color: var(--glass-border-h); background: var(--glass-fill-h); }
-    .music-nowplaying .mnp-art {
-      width: 42px; height: 42px; flex: none; border-radius: 6px; overflow: hidden;
-      display: grid; place-items: center; background: var(--glass-fill-h); color: var(--text-dimmer); font-size: 18px;
-      box-shadow: 0 4px 12px var(--shadow-20);
-    }
-    .music-nowplaying .mnp-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .music-nowplaying .mnp-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-    .music-nowplaying .mnp-k { font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
-    .music-nowplaying .mnp-t { font: 500 var(--fs-13) var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .music-nowplaying .mnp-a { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .music-nowplaying .mnp-a:empty { display: none; }
-    .music-nowplaying .mnp-eq { display: none; gap: 2px; align-items: flex-end; height: 12px; flex: none; }
-    .music-nowplaying.is-playing .mnp-eq { display: inline-flex; }
-    .music-nowplaying .mnp-eq i { width: 2.5px; height: 100%; transform-origin: bottom; border-radius: 2px; background: rgb(var(--accent-rgb)); animation: hmEq .9s ease-in-out infinite; }
-    .music-nowplaying .mnp-eq i:nth-child(2) { animation-delay: -.3s; } .music-nowplaying .mnp-eq i:nth-child(3) { animation-delay: -.6s; }
-    @media (prefers-reduced-motion: reduce) { .music-nowplaying .mnp-eq i { animation: none; } }
-    html[data-fx="low"] .music-nowplaying .mnp-eq i { animation: none; }
+    .np-flow .mh-flow-bg { inset: -30%; filter: blur(70px) saturate(1.6); }
+    .np-flow .mh-flow-bg.on { opacity: .62; }
+    [data-theme="light"] .np-flow .mh-flow-bg.on { opacity: .4; }
+    .np-flow .mh-flow-stage { top: var(--cf-top); }
+    .np-flow .mh-flow-nav { top: calc(var(--cf-top) + var(--mh-size, 300px) / 2 - 18px); }
+    .np-flow .mh-flow-caption { bottom: auto; top: calc(var(--cf-top) + var(--mh-size, 300px) + 36px); gap: 3px; }
+    .np-flow .mh-flow-caption .t { font-size: var(--fs-22); font-weight: 700; letter-spacing: -0.01em; }
+    .np-flow .mh-flow-caption .a { font-size: var(--fs-14); }
+    .np-flow .mh-flow-actions { margin-top: 12px; }
+    .np-flow .mh-flow-actions button { height: 34px; padding: 0 16px; font-size: var(--fs-13); }
+    .np-flow .mh-cover img { border-radius: 6px; box-shadow: 0 30px 70px rgba(0,0,0,.55); }

@@ -241,7 +241,6 @@ function addSongToPlaylist(plId, song) {
 
 function loadPlaylistView(pl) {
   _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
-  document.getElementById('musicNowPlaying')?.classList.remove('active');
   hideSortBtn();
   pickerList.classList.remove('picker-list-grid'); // a track list, not a grid — in case Albums/Artists left it on
   pickerList.innerHTML = '';
@@ -1133,7 +1132,7 @@ async function loadAlbumView(albumId, albumName, backFn) {
 // ══════════════════════════════════════════
 const MUSIC_VIEW_TITLES = {
   recent: 'Recently played', songs: 'Songs', albums: 'Albums', artists: 'Artists', genres: 'Genres',
-  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', nowplaying: 'Now playing',
+  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', coverflow: 'Cover Flow',
 };
 function musicGreeting() {
   const h = new Date().getHours();
