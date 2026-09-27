@@ -554,7 +554,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${artSm
-            ? `<img class="ap-hero-img square" src="${artSm}" data-cover="${esc(album.coverArt)}" alt="${esc(album.name || album.title || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
+            ? `<img class="ap-hero-img square" src="${artSm}" data-cover="${esc(album.coverArt)}" data-album-id="${esc(albumId)}" data-artist="${esc(album.artist || '')}" data-album="${esc(album.name || album.title || '')}" alt="${esc(album.name || album.title || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
             : `<div class="ap-hero-img-ph square"><i class="ti ti-vinyl"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Album</span>

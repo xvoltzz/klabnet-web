@@ -469,25 +469,82 @@ function klabAlbumMenu(e, album) {
     '-',
     { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
     { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !album.artistId, action: () => loadArtistView({ id: album.artistId, name: album.artist }) },
-    { label: 'View cover', icon: 'ti-photo', hidden: !(album.coverArt || album.id), action: () => viewCover(album.coverArt || album.id, name) },
+    { label: 'View cover', icon: 'ti-photo', hidden: !(album.coverArt || album.id), action: () => viewCover(album.coverArt || album.id, name, null, { albumId: album.id, artist: album.artist || '', album: name }) },
     '-',
     { label: 'Download (ZIP)', icon: 'ti-download', action: () => downloadAlbumZip(album.id, name) },
   ]);
 }
 
+// ── High-resolution album art, for display ──
+// klabnet-api finds the same cover at high resolution in an outside
+// catalogue (see its /api/music-requests/artwork). Only ever shown on top:
+// Navidrome's own art, files and "last added" are left exactly as they are.
+// Remembered per album on this device, misses too for a week; an API
+// that doesn't have the endpoint yet just means Navidrome's art.
+const HIRES_KEY = 'klabnet_hires_art';
+let _hiresStore = null, _hiresOff = false, _hiresSaveT = 0;
+const _hiresPending = new Map();
+function hiresStore() {
+  if (!_hiresStore) { try { _hiresStore = JSON.parse(localStorage.getItem(HIRES_KEY)) || {}; } catch { _hiresStore = {}; } }
+  return _hiresStore;
+}
+function hiresSave() {
+  clearTimeout(_hiresSaveT);
+  _hiresSaveT = setTimeout(() => {
+    const st = hiresStore(), keys = Object.keys(st);
+    if (keys.length > 800) keys.sort((a, b) => st[a].t - st[b].t).slice(0, keys.length - 800).forEach(k => delete st[k]);
+    try { localStorage.setItem(HIRES_KEY, JSON.stringify(st)); } catch (e) {}
+  }, 1500);
+}
+// The artist to match on: the album's, not a track's featured guests.
+const albumArtistOf = s => s.albumArtist || s.displayAlbumArtist || (Array.isArray(s.albumArtists) && s.albumArtists[0]?.name) || s.artist || '';
+function klabHiResArtCached(o) {
+  const hit = o && hiresStore()[o.albumId || (o.artist + '|' + o.album)];
+  return hit && hit.l ? { large: hit.l, full: hit.f } : null;
+}
+function klabHiResArt(o) {
+  if (_hiresOff || !o || !o.album || !o.artist) return Promise.resolve(null);
+  const key = o.albumId || (o.artist + '|' + o.album);
+  const st = hiresStore(), hit = st[key];
+  if (hit && (hit.l || Date.now() - hit.t < 7 * 864e5)) return Promise.resolve(hit.l ? { large: hit.l, full: hit.f } : null);
+  if (_hiresPending.has(key)) return _hiresPending.get(key);
+  const qs = new URLSearchParams({ artist: o.artist, album: o.album, mbid: o.mbid || '' });
+  const p = fetchTimeout('/api/music-requests/artwork?' + qs, {}, 15000)
+    .then(r => {
+      if (r.status === 404 || r.status === 405 || r.status === 422) { _hiresOff = true; return null; }
+      return r.ok ? r.json() : null;
+    })
+    .then(d => {
+      if (!d) return null;
+      if (d.large || d.source === 'none') { st[key] = { l: d.large || '', f: d.full || '', t: Date.now() }; hiresSave(); }
+      return d.large ? { large: d.large, full: d.full } : null;
+    })
+    .catch(() => null)
+    .finally(() => _hiresPending.delete(key));
+  _hiresPending.set(key, p);
+  return p;
+}
+window.klabHiResArt = klabHiResArt;
+window.klabAlbumArtistOf = albumArtistOf;
+
 // A cover, nearly full screen: the viewer opens on the copy already on
 // screen and sharpens to the original when it arrives.
-function viewCover(coverId, alt, shownSrc) {
+// meta ({ albumId, artist, album }), when known, looks for it at high
+// resolution first (briefly: a slow lookup opens Navidrome's original).
+async function viewCover(coverId, alt, shownSrc, meta) {
   if (!coverId) return;
   const url = size => `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverId)}${size ? '&size=' + size : ''}&${subsonicParams()}`;
   SFX && SFX.play('open');
-  openImageViewer({ thumbSrc: shownSrc || url(600), fullSrc: url(0), alt: alt || '', framed: true });
+  let hi = meta ? klabHiResArtCached(meta) : null;
+  if (meta && !hi) hi = await Promise.race([klabHiResArt(meta), new Promise(r => setTimeout(() => r(null), 700))]);
+  openImageViewer({ thumbSrc: shownSrc || url(600), fullSrc: hi?.full || url(0), alt: alt || '', framed: true });
 }
 document.addEventListener('click', e => {
   const img = e.target.closest?.('img[data-cover], img[data-view-full]');
   if (!img || img.naturalWidth === 0) return;
   e.stopPropagation();
-  if (img.dataset.cover) viewCover(img.dataset.cover, img.alt, img.currentSrc || img.src);
+  const meta = img.dataset.album ? { albumId: img.dataset.albumId || '', artist: img.dataset.artist || '', album: img.dataset.album } : null;
+  if (img.dataset.cover) viewCover(img.dataset.cover, img.alt, img.currentSrc || img.src, meta);
   else { SFX && SFX.play('open'); openImageViewer({ thumbSrc: img.currentSrc || img.src, alt: img.alt || '', framed: true }); }
 }, true);
 

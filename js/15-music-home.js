@@ -50,10 +50,12 @@
   //   open(item, i)        a click (or Enter) on the middle cover
   //   decorate(coverEl, item)  e.g. for its right-click menu
   //   scrollbar            an iTunes-style scrollbar under it
+  //   hires(item)          Promise of a sharper image URL for the cover,
+  //                        swapped in once it's decoded (display only)
   // caption may also return eq: true (a playing glyph before the label) and
   // node: an element of its own to show under the detail line.
   // It keeps one element, so it keeps its place and covers between visits.
-  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize, scrollbar }) {
+  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize, scrollbar, hires }) {
     const el = document.createElement('section');
     el.className = 'mh-flow';
     el.tabIndex = 0;
@@ -113,6 +115,7 @@
         refl.onload = () => refl.classList.add('loaded');
         if (src) refl.src = src;
         c.appendChild(refl);
+        c._img = img; c._refl = refl; c._item = it;
         stage.appendChild(c);
         return c;
       });
@@ -150,7 +153,7 @@
         // Five either side: the ones further out are slivers anyway, and
         // every one is a big layer for the GPU to move each frame.
         if (ad > 5.5) { if (c._on !== false) { c.style.display = 'none'; c._on = false; } continue; }
-        if (c._on !== true) { c.style.display = ''; c._on = true; }
+        if (c._on !== true) { c.style.display = ''; c._on = true; if (hires && !c._hi) sharpen(c); }
         let x, rot, z;
         if (ad < 1) { x = d * S * 0.66; rot = -d * 62; z = -ad * S * 0.55; }
         else { x = sg * (S * 0.66 + (ad - 1) * S * 0.24); rot = -sg * 62; z = -S * 0.55; }
@@ -167,6 +170,24 @@
         covers.forEach((c, i) => c.classList.toggle('center', i === ci));
         showCaption();
       }
+    }
+
+    // The first time a cover comes into view, ask for its art at high
+    // resolution; it replaces the cover (and its reflection) once decoded,
+    // so there's never a flash or a half-drawn image.
+    function sharpen(c) {
+      c._hi = true;
+      Promise.resolve(hires(c._item)).then(u => {
+        if (!u || !c.isConnected) return;
+        const pre = new Image();
+        pre.decoding = 'async';
+        pre.src = u;
+        return pre.decode().then(() => {
+          if (!c.isConnected) return;
+          c._img.src = u; c._refl.src = u;
+          c._img.classList.add('loaded'); c._refl.classList.add('loaded');
+        });
+      }).catch(() => {});
     }
 
     // ── The scrollbar ──
@@ -342,6 +363,7 @@
       ],
       open: a => openAlbum(a),
       decorate: (c, a) => { c._album = a; },
+      hires: a => window.klabHiResArt?.({ albumId: a.id, artist: a.artist || '', album: a.name || a.title || '', mbid: a.musicBrainzId || '' }).then(r => r && r.large),
     });
     async function load() {
       if (albums.length && Date.now() - loadedAt < REFRESH_MS) { f.render(); return; }
@@ -800,6 +822,7 @@
   })();
   const npFlow = makeCoverFlow({
     label: 'Cover Flow',
+    hires: it => window.klabHiResArt?.({ albumId: it.song.albumId || '', artist: window.klabAlbumArtistOf?.(it.song) || it.song.artist || '', album: it.song.album || '' }).then(r => r && r.large),
     coverSize: el => {
       const w = el.clientWidth || 800, h = el.clientHeight || 600;
       return Math.round(Math.max(170, Math.min(h - 250, w * 0.42, 600)));

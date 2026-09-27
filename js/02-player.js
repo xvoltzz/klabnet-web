@@ -1257,7 +1257,10 @@ function updateFSUI(song) {
     fsArt.innerHTML = '';
     const img = document.createElement('img');
     img.src = artUrl;
-    if (song.coverArt) { img.dataset.cover = song.coverArt; img.alt = song.album || song.title || ''; }
+    if (song.coverArt) {
+      img.dataset.cover = song.coverArt; img.alt = song.album || song.title || '';
+      if (song.album) { img.dataset.album = song.album; img.dataset.albumId = song.albumId || ''; img.dataset.artist = window.klabAlbumArtistOf?.(song) || song.artist || ''; }
+    }
     img.onerror = () => { fsArt.innerHTML = '<i class="ti ti-music"></i>'; };
     fsArt.appendChild(img);
     fsArt.style.opacity = '1';
