@@ -945,14 +945,32 @@
   // leaves a 2.5x margin while cutting a hidden tab from 450 to 300 POSTs
   // an hour. Coming back to the tab fires an immediate beat below, so the
   // longer gap is never visible to anyone.
+  //
+  // The timer itself lives in a worker. After five minutes in the
+  // background Chrome (and the desktop app, sitting in the tray) runs a
+  // page's own timers at most once a minute, so a page-side 12s beat
+  // became one a minute against the 30s TTL: everyone with klabnet open
+  // but out of sight flickered offline for half of every minute. A
+  // worker's timers aren't throttled that way; each tick just asks the
+  // page to beat, and messages to the page aren't throttled either.
   let _heartbeatTimer = null;
+  let _beatWorker = null;
   function beat() {
     postPresence();
     _heartbeatTimer = setTimeout(beat, document.hidden ? POLL_MS * 1.5 : POLL_MS);
   }
   function startHeartbeat() {
-    if (_heartbeatTimer) return;
-    beat();
+    if (_heartbeatTimer || _beatWorker) return;
+    try {
+      const src = 'let t;onmessage=e=>{clearInterval(t);t=setInterval(()=>postMessage(0),e.data)}';
+      _beatWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      _beatWorker.onmessage = () => postPresence();
+      _beatWorker.postMessage(document.hidden ? POLL_MS * 1.5 : POLL_MS);
+      postPresence();
+    } catch (e) {
+      _beatWorker = null;
+      beat(); // no workers: the page timer, throttled or not
+    }
   }
 
   startPoll();
@@ -961,7 +979,10 @@
     document.hidden ? stopPoll() : startPoll();
     // Re-beat immediately on return so the backed-off gap can't leave a
     // stale presence record visible to anyone else.
-    if (!document.hidden) {
+    if (_beatWorker) {
+      _beatWorker.postMessage(document.hidden ? POLL_MS * 1.5 : POLL_MS);
+      if (!document.hidden) postPresence();
+    } else if (!document.hidden) {
       clearTimeout(_heartbeatTimer);
       _heartbeatTimer = null;
       startHeartbeat();

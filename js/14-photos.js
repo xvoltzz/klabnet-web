@@ -810,6 +810,43 @@
   }
   $('phSideClose').addEventListener('click', () => setSide(false));
 
+  // ── Right-click: the photo on stage, or any thumb in the strip ──
+  function photoMenu(e, i) {
+    const it = items[i];
+    if (!it) return;
+    const { post, ph } = it;
+    const liked = !!post.reactions?.[LIKE]?.mine;
+    const own = post.username === me() || window.KLAB_USER?.is_admin;
+    const original = fileUrl(ph.id, 'original');
+    // Actions on "the post" work on the one on stage, so show it first.
+    const onStage = fn => () => { select(i); fn(); };
+    klabMenu(e, [
+      { header: post.username },
+      { label: 'Show', icon: 'ti-eye', hidden: i === sel, action: () => { select(i); } },
+      { label: liked ? 'Unlike' : 'Like', icon: liked ? 'ti-heart-off' : 'ti-heart', action: () => toggleReaction(post, LIKE) },
+      { label: 'Comments', icon: 'ti-message-circle', action: onStage(() => setSide(true)) },
+      { label: infoOn ? 'Hide details' : 'Show details', icon: 'ti-info-circle', hidden: i !== sel, action: () => setInfo(!infoOn) },
+      '-',
+      { label: 'Open original', icon: 'ti-external-link', action: () => window.open(original, '_blank', 'noopener') },
+      { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(fileUrl(ph.id, sizeFor(ph))) },
+      { label: 'Copy image link', icon: 'ti-link', action: () => klabCopy(new URL(original, location.href).href, 'Link') },
+      '-',
+      { label: 'Play song', icon: 'ti-player-play', hidden: !post.song, action: () => playSong(post.song) },
+      '-',
+      { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(post.username) },
+      { label: 'Message', icon: 'ti-message-2-plus', hidden: post.username === me(), action: () => messageUser(post.username) },
+      '-',
+      { label: 'Edit post', icon: 'ti-pencil', hidden: !own, action: onStage(() => $('phEditBtn').click()) },
+      { label: 'Delete post', icon: 'ti-trash', warn: true, hidden: !own, action: onStage(() => $('phDelete').click()) },
+    ]);
+  }
+  stage.addEventListener('contextmenu', e => { if (sel >= 0 && !e.target.closest('button, a')) photoMenu(e, sel); });
+  strip.addEventListener('contextmenu', e => {
+    const t = e.target.closest('.ph-thumb');
+    const i = t ? thumbEls.indexOf(t) : -1;
+    if (i >= 0) photoMenu(e, i);
+  });
+
   // ══ Song clips ══
   // A separate <audio> from the main player. The main player is paused
   // while you're on this tab (see klabPhotosTabChanged), so clips play on

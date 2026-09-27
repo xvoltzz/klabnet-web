@@ -160,6 +160,7 @@ function renderPlaylistNav() {
     const row = document.createElement('div');
     row.className = 'music-playlist-row';
     row.dataset.plId = pl.id;
+    row._playlist = pl;
     const artSong = pl.songs.find(s => s.coverArt);
     const artHTML = artSong
       ? `<img class="music-playlist-row-art" src="${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artSong.coverArt)}&size=60&${subsonicParams()}" alt="" loading="lazy" />`
@@ -412,6 +413,94 @@ function downloadAlbumZip(albumId, albumName) {
   _dlAnchor(`${ND_URL}/rest/download?id=${encodeURIComponent(albumId)}&${subsonicParams()}`);
   showToast(`Downloading "${albumName || 'album'}" (ZIP)`, toastArt(albumId));
 }
+
+// ══════════════════════════════════════════
+//  ALBUM / ARTIST / PLAYLIST MENUS — any element carrying _album,
+//  _artist or _playlist gets a right-click menu, wherever it's drawn
+//  (album grids, Music Home rows, an artist's discography, the sidebar).
+// ══════════════════════════════════════════
+async function albumSongs(albumId) {
+  const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&${subsonicParams()}`, {}, 8000);
+  return (await r.json())['subsonic-response']?.album?.song || [];
+}
+
+function playSongList(songs, { shuffle = false } = {}) {
+  if (!songs.length) return;
+  playerState.playlist = songs;
+  if (shuffle) { _shuffleOn = true; syncShuffleBtns(); }
+  const i = shuffle ? Math.floor(Math.random() * songs.length) : 0;
+  playerState.playlistIndex = i;
+  playSong(songs[i]);
+}
+
+function klabAlbumMenu(e, album) {
+  const name = album.name || album.title || 'Album';
+  const withSongs = fn => async () => {
+    try { fn(await albumSongs(album.id)); }
+    catch { showToast('Couldn’t load that album', 'ti-alert-triangle'); }
+  };
+  klabMenu(e, [
+    { header: name },
+    { label: 'Play', icon: 'ti-player-play', action: withSongs(s => playSongList(s)) },
+    { label: 'Shuffle', icon: 'ti-arrows-shuffle', action: withSongs(s => playSongList(s, { shuffle: true })) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', action: withSongs(s => {
+      queue.push(...s); updateQueueBadge(); SFX && SFX.play('queue');
+      showToast('Queued ' + s.length + ' tracks', toastArt(album.coverArt || album.id));
+    }) },
+    '-',
+    { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
+    { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !album.artistId, action: () => loadArtistView({ id: album.artistId, name: album.artist }) },
+    '-',
+    { label: 'Download (ZIP)', icon: 'ti-download', action: () => downloadAlbumZip(album.id, name) },
+  ]);
+}
+
+function klabArtistMenu(e, artist) {
+  klabMenu(e, [
+    { header: artist.name || 'Artist' },
+    { label: 'Open artist', icon: 'ti-microphone-2', action: () => loadArtistView(artist) },
+    { label: 'Copy name', icon: 'ti-copy', action: () => klabCopy(artist.name, 'Artist name') },
+  ]);
+}
+
+function klabPlaylistMenu(e, pl, row) {
+  const n = pl.songs.length;
+  klabMenu(e, [
+    { header: pl.name },
+    { label: 'Play', icon: 'ti-player-play', hidden: !n, action: () => playSongList([...pl.songs]) },
+    { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: !n, action: () => playSongList([...pl.songs], { shuffle: true }) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: () => {
+      queue.push(...pl.songs); updateQueueBadge(); SFX && SFX.play('queue');
+      showToast('Queued ' + n + ' tracks', 'ti-playlist-add');
+    } },
+    '-',
+    { label: 'Open', icon: 'ti-playlist', action: () => row.click() },
+    { label: 'Rename', icon: 'ti-pencil', action: async () => {
+      const name = await showInputDialog('// rename playlist', '', 'Playlist name', pl.name);
+      if (!name || name === pl.name) return;
+      const wasActive = row.classList.contains('active');
+      const pls = getPlaylists();
+      const p = pls.find(x => x.id === pl.id);
+      if (!p) return;
+      p.name = name;
+      savePlaylists(pls); // redraws the sidebar
+      if (wasActive) {
+        document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(pl.id)}"]`)?.classList.add('active');
+        setMusicViewTitle('playlist', name);
+      }
+    } },
+    '-',
+    { label: 'Delete playlist', icon: 'ti-trash', warn: true, action: () => row.querySelector('.music-playlist-row-del')?.click() },
+  ]);
+}
+
+document.addEventListener('contextmenu', e => {
+  for (let n = e.target; n && n !== document.body; n = n.parentElement) {
+    if (n._album) { klabAlbumMenu(e, n._album); return; }
+    if (n._artist) { klabArtistMenu(e, n._artist); return; }
+    if (n._playlist) { klabPlaylistMenu(e, n._playlist, n); return; }
+  }
+});
 
 // ══════════════════════════════════════════
 //  SONG CONTEXT MENU — right-click a song (picker rows, player dock)

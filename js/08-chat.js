@@ -779,6 +779,109 @@ function clearReply() {
   if (preview) { preview.hidden = true; preview.innerHTML = ''; }
 }
 
+function mentionInComposer(username) {
+  const input = document.getElementById('chatComposerInput');
+  if (!input || !username) return;
+  input.value += (input.value && !/\s$/.test(input.value) ? ' ' : '') + '@' + username + ' ';
+  input.focus();
+  notifyTyping();
+  autoGrowChatComposer();
+}
+
+// An edit is a new message that points at the old one (m.replace); the
+// timeline already folds edits in and marks them "(edited)".
+async function editChatMessage(eventId) {
+  const roomId = _chatActiveRoomId;
+  const ev = roomId && MatrixChat.client?.getRoom(roomId)?.findEventById(eventId);
+  if (!ev) return;
+  const before = ev.getContent().body || '';
+  const text = await showInputDialog('// edit message', '', '', before);
+  if (!text || text === before) return;
+  try {
+    await MatrixChat.client.sendMessage(roomId, {
+      msgtype: 'm.text', body: '* ' + text,
+      'm.new_content': { msgtype: 'm.text', body: text },
+      'm.relates_to': { rel_type: 'm.replace', event_id: eventId },
+    });
+  } catch (e) { showToast("Couldn't edit that message", 'ti-message-x'); }
+}
+
+async function deleteChatMessage(eventId) {
+  const roomId = _chatActiveRoomId;
+  if (!roomId || !(await showConfirmDialog('// delete message', 'Delete this message for everyone?', 'Delete'))) return;
+  try { await MatrixChat.client.redactEvent(roomId, eventId); }
+  catch (e) { showToast("Couldn't delete that message", 'ti-message-x'); }
+}
+
+function chatMessageMenu(e) {
+  const row = e.target.closest('.chat-msg[data-event-id]');
+  const room = row && _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
+  const ev = room?.findEventById(row.dataset.eventId);
+  if (!ev) return;
+  const id = ev.getId();
+  const mine = ev.getSender() === MatrixChat.client.getUserId();
+  const user = mxIdToUsername(ev.getSender());
+  const content = ev.getContent();
+  const alive = !ev.isRedacted();
+  const isText = alive && content.msgtype !== 'm.image' && !content['klab.song'] && !!content.body;
+  const img = alive && row.querySelector('.chat-msg-image');
+  const imgReady = img?.src?.startsWith('blob:');
+  let song = null;
+  try { const c = row.querySelector('.chat-msg-song[data-song]'); if (c) song = JSON.parse(decodeURIComponent(c.dataset.song)); } catch {}
+  const inDmWithThem = getDmRoomIds().includes(room.roomId);
+  klabMenu(e, [
+    { header: ev.sender?.name || user },
+    { reacts: [...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
+    { label: 'Reply', icon: 'ti-arrow-back-up', hidden: !alive, action: () => startReply(id) },
+    { label: 'Edit', icon: 'ti-pencil', hidden: !(mine && isText), action: () => editChatMessage(id) },
+    { label: 'Copy text', icon: 'ti-copy', hidden: !isText, action: () => klabCopy(content.body, 'Message') },
+    { label: 'Open image', icon: 'ti-photo', hidden: !imgReady, action: () => openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt }) },
+    { label: 'Copy image', icon: 'ti-copy', hidden: !imgReady, action: () => klabCopyImage(img.src) },
+    '-',
+    { label: 'Play song', icon: 'ti-player-play', hidden: !song, action: () => playSong(song) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !song, action: () => addToQueue(song) },
+    '-',
+    { label: 'Mention', icon: 'ti-at', hidden: mine, action: () => mentionInComposer(user) },
+    { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(user) },
+    { label: 'Message', icon: 'ti-message-2-plus', hidden: mine || inDmWithThem, action: () => messageUser(user) },
+    '-',
+    { label: 'Delete message', icon: 'ti-trash', warn: true, hidden: !(mine && alive), action: () => deleteChatMessage(id) },
+  ]);
+}
+
+function chatConvMenu(e) {
+  const row = e.target.closest('.chat-conv[data-room-id]');
+  const room = row && MatrixChat.client?.getRoom(row.dataset.roomId);
+  if (!room) return;
+  const invited = room.getMyMembership?.() === 'invite';
+  const isDm = getDmRoomIds().includes(room.roomId);
+  const other = isDm && !invited ? dmOtherUsername(room) : null;
+  const isHome = room.getCanonicalAlias?.() === KLABNET_ROOM_ALIAS;
+  klabMenu(e, [
+    { header: room.name || 'Conversation' },
+    { label: invited ? 'Accept invite' : 'Open', icon: invited ? 'ti-mail-opened' : 'ti-message', action: () => row.click() },
+    { label: 'Mark as read', icon: 'ti-checks', hidden: !_chatUnreadRooms.has(room.roomId), action: () => {
+      markRoomRead(room.roomId);
+      updateChannelUnreadDots();
+      const last = roomLastMessage(room);
+      if (last) MatrixChat.client.sendReadReceipt(last).catch(() => {});
+    } },
+    '-',
+    { label: 'View profile', icon: 'ti-user-circle', hidden: !other, action: () => openProfileView(other) },
+    { label: 'Copy name', icon: 'ti-copy', hidden: isDm, action: () => klabCopy('#' + (room.name || ''), 'Channel name') },
+    '-',
+    { label: 'Close conversation', icon: 'ti-x', warn: true, hidden: !isDm, action: () => row.querySelector('.chat-channel-close')?.click() },
+    { label: 'Leave channel', icon: 'ti-door-exit', warn: true, hidden: isDm || invited || isHome, action: async () => {
+      if (!(await showConfirmDialog('// leave channel', 'Leave ' + (room.name || 'this channel') + '? You can join again from Browse.', 'Leave'))) return;
+      try {
+        await MatrixChat.client.leave(room.roomId);
+        if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
+        renderChannelList();
+      } catch (err) { showToast("Couldn't leave: " + (err.message || 'error'), 'ti-door-off'); }
+    } },
+  ]);
+}
+
 // Chat image messages (m.image) — same lazy-resolve-then-DOM-patch idiom as
 // ensureMsgAvatarResolved() above (never forces a renderTimeline() rebuild
 // on resolve, which is what used to cause the chat flicker bug). Unlike the
@@ -2729,6 +2832,8 @@ function showChatApp() {
     document.getElementById('chatReplyPreview')?.addEventListener('click', e => {
       if (e.target.closest('.chat-reply-preview-close')) clearReply();
     });
+    document.getElementById('chatTimeline')?.addEventListener('contextmenu', chatMessageMenu);
+    document.getElementById('chatSide')?.addEventListener('contextmenu', chatConvMenu);
     document.getElementById('chatTimeline')?.addEventListener('click', e => {
       const reactBtn = e.target.closest('.chat-msg-action-btn[data-action="react"]');
       if (reactBtn) {

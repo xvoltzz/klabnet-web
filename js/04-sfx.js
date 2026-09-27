@@ -16,6 +16,13 @@
 const SFX = (() => {
   let ctx = null, master = null, verb = null, dry = null;
   let _sfxVol = 0.7;
+  // Voiced to sit back, not in your ears: everything a fifth lower than it
+  // was written, rounder (less FM brightness and tine), a gentler top end,
+  // a drier room, and the whole instrument at about half the level the
+  // volume setting used to mean.
+  const TRANSPOSE = -7;   // semitones
+  const LEVEL = 0.55;     // of the volume setting
+  const BRIGHT = 0.55;    // of each note's FM brightness
 
   // D major pentatonic, D3..D7, as frequencies.
   const PENTA = [];
@@ -43,18 +50,18 @@ const SFX = (() => {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       master = ctx.createGain();
-      master.gain.value = _sfxVol;
+      master.gain.value = _sfxVol * LEVEL;
       // Takes the edge off anything bright before it reaches ears.
       const tame = ctx.createBiquadFilter();
-      tame.type = 'lowpass'; tame.frequency.value = 7000; tame.Q.value = 0.3;
+      tame.type = 'lowpass'; tame.frequency.value = 4200; tame.Q.value = 0.3;
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 3;
       comp.attack.value = 0.003; comp.release.value = 0.12;
       master.connect(tame); tame.connect(comp); comp.connect(ctx.destination);
       dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
       const conv = ctx.createConvolver();
-      conv.buffer = impulse(ctx, 1.5, 3.2);
-      verb = ctx.createGain(); verb.gain.value = 0.24;
+      conv.buffer = impulse(ctx, 1.1, 3.4);
+      verb = ctx.createGain(); verb.gain.value = 0.18;
       verb.connect(conv); conv.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
@@ -84,7 +91,7 @@ const SFX = (() => {
     o = o || {};
     const c = getCtx();
     const t = c.currentTime + (at || 0) + 0.005;
-    const f = hz(midi) * Math.pow(2, (Math.random() * 2 - 1) * 4 / 1200);   // ±4 cents
+    const f = hz(midi + TRANSPOSE) * Math.pow(2, (Math.random() * 2 - 1) * 4 / 1200);   // ±4 cents
     const v = wob(vel, 0.08);
     const out = c.createGain();
     const pan = c.createStereoPanner ? c.createStereoPanner() : null;
@@ -98,7 +105,7 @@ const SFX = (() => {
     // note opens bright and settles into a round tone.
     const car = c.createOscillator(), mod = c.createOscillator(), modG = c.createGain(), amp = c.createGain();
     car.frequency.value = f; mod.frequency.value = f * (o.ratio || 1);
-    const idx = (o.bright ?? 1.1) * f;
+    const idx = (o.bright ?? 1.1) * BRIGHT * f;
     modG.gain.setValueAtTime(idx, t);
     modG.gain.exponentialRampToValueAtTime(Math.max(1, idx * 0.04), t + Math.min(0.35, decay * 0.6));
     mod.connect(modG); modG.connect(car.frequency); car.connect(amp); amp.connect(out);
@@ -112,7 +119,7 @@ const SFX = (() => {
       const tn = c.createOscillator(), tg = c.createGain();
       tn.type = 'sine'; tn.frequency.value = f * 4.2;
       tg.gain.setValueAtTime(0.0001, t);
-      tg.gain.linearRampToValueAtTime(v * 0.09 * (o.tine ?? 1), t + 0.002);
+      tg.gain.linearRampToValueAtTime(v * 0.035 * (o.tine ?? 1), t + 0.002);
       tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
       tn.connect(tg); tg.connect(out); tn.start(t); tn.stop(t + 0.08);
     }
@@ -280,7 +287,7 @@ const SFX = (() => {
   }
   function setVolume(v) {
     _sfxVol = Math.max(0, Math.min(1, v));
-    if (master && ctx) master.gain.setTargetAtTime(_sfxVol, ctx.currentTime, 0.02);
+    if (master && ctx) master.gain.setTargetAtTime(_sfxVol * LEVEL, ctx.currentTime, 0.02);
   }
   let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity, _lastRecvAt = -Infinity;
   function playGated(type, from) {
@@ -383,26 +390,8 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
   }
   setPlayingClass();
 
-  let lastPremiumHover = 0;
-  const hoverSelector = '.hdr-btn, .ctrl-btn, .fs-btn, .picker-action, .picker-tab, .tab-nav-btn';
-  document.addEventListener('pointerover', e => {
-    const el = e.target.closest(hoverSelector);
-    if (!el || el._premiumHovered) return;
-    el._premiumHovered = true;
-    const now = Date.now();
-    if (now - lastPremiumHover > 110) {
-      lastPremiumHover = now;
-      SFX && SFX.play('hover');
-    }
-  }, { passive: true });
-
-  document.addEventListener('pointerout', e => {
-    const el = e.target.closest(hoverSelector);
-    if (!el) return;
-    const to = e.relatedTarget;
-    if (to && el.contains(to)) return;
-    el._premiumHovered = false;
-  }, { passive: true });
+  // (Buttons used to chime on hover too. Sounds are for things you do,
+  // not for the mouse passing by.)
 })();
 
 // ══════════════════════════════════════════

@@ -1311,6 +1311,71 @@
       return;
     }
   });
+  function openReplyBox(postId, mention) {
+    _openReplyBoxes.add(postId);
+    const box = listEl.querySelector('.feed-post-replies[data-post-id="' + postId + '"]');
+    box?.classList.add('replying');
+    const input = box?.querySelector('.feed-post-reply-input');
+    if (!input) return;
+    if (mention && !input.value.includes('@' + mention)) input.value = '@' + mention + ' ' + input.value;
+    input.focus();
+  }
+  function mentionInComposer(username) {
+    const ta = document.getElementById('feedComposerText');
+    if (!ta) return;
+    ta.value += (ta.value && !/\s$/.test(ta.value) ? ' ' : '') + '@' + username + ' ';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+    ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  listEl.addEventListener('contextmenu', (e) => {
+    const postEl = e.target.closest('.feed-post[data-post-id]');
+    const post = postEl && _feedPosts.find(p => p.id === Number(postEl.dataset.postId));
+    if (!post) return;
+    const me = window.KLAB_USER?.username;
+    const replyEl = e.target.closest('.feed-post-reply');
+    if (replyEl) {
+      const who = replyEl.querySelector('.feed-post-reply-name')?.dataset.username;
+      const del = replyEl.querySelector('.feed-post-reply-delete');
+      const text = replyEl.querySelector('.feed-post-reply-text')?.innerText.trim();
+      klabMenu(e, [
+        { header: who || 'Reply' },
+        { label: 'Reply', icon: 'ti-arrow-back-up', action: () => openReplyBox(post.id, who !== me ? who : null) },
+        { label: 'Copy text', icon: 'ti-copy', hidden: !text, action: () => klabCopy(text, 'Reply') },
+        '-',
+        { label: 'View profile', icon: 'ti-user-circle', hidden: !who, action: () => openProfileView(who) },
+        { label: 'Message', icon: 'ti-message-2-plus', hidden: !who || who === me, action: () => messageUser(who) },
+        '-',
+        { label: 'Delete reply', icon: 'ti-trash', warn: true, hidden: !del, action: () => deleteFeedReply(post.id, Number(del.dataset.replyId)) },
+      ]);
+      return;
+    }
+    const img = e.target.closest('.feed-post-image, .feed-post-text .md-img');
+    let song = null;
+    try { const c = postEl.querySelector('.feed-post-song[data-play-song]'); if (c) song = JSON.parse(decodeURIComponent(c.dataset.playSong)); } catch {}
+    const mine = post.username === me;
+    klabMenu(e, [
+      { header: post.username },
+      { reacts: [...FEED_QUICK_REACTIONS, '😮', '😢'], action: emoji => {
+        const btn = postEl.querySelector('.feed-post-add-reaction');
+        if (btn) floatEmoji(btn, emoji);
+        toggleFeedReaction(post.id, emoji);
+      } },
+      { label: 'Reply', icon: 'ti-message-circle', action: () => openReplyBox(post.id) },
+      { label: 'Copy text', icon: 'ti-copy', hidden: !post.text, action: () => klabCopy(post.text, 'Post') },
+      '-',
+      { label: 'Open image', icon: 'ti-photo', hidden: !img, action: () => openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt }) },
+      { label: 'Copy image', icon: 'ti-copy', hidden: !img, action: () => klabCopyImage(img.src) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !song, action: () => playSong(song) },
+      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !song, action: () => addToQueue(song) },
+      '-',
+      { label: 'Mention', icon: 'ti-at', hidden: mine, action: () => mentionInComposer(post.username) },
+      { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(post.username) },
+      { label: 'Message', icon: 'ti-message-2-plus', hidden: mine, action: () => messageUser(post.username) },
+      '-',
+      { label: 'Delete post', icon: 'ti-trash', warn: true, hidden: !postEl.querySelector('.feed-post-delete'), action: () => deletePost(post.id) },
+    ]);
+  });
   listEl.addEventListener('keydown', (e) => {
     const input = e.target.closest('.feed-post-reply-input');
     if (input && e.key === 'Enter') submitFeedReply(Number(input.dataset.postId), input);

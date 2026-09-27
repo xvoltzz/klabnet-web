@@ -418,8 +418,9 @@ trapFocusWithin(
   let timer = 0, lastCheck = 0;
   function arm() {
     clearTimeout(timer);
-    if (!desk.matches) return;
+    if (!desk.matches || window.klabSideNav?.on()) return;
     timer = setTimeout(() => {
+      if (window.klabSideNav?.on()) return;
       if (nav.matches(':hover, :focus-within')) arm();
       else document.body.classList.add('nav-mini');
     }, IDLE_MS);
@@ -450,6 +451,113 @@ trapFocusWithin(
   window.addEventListener('hashchange', open);
   desk.addEventListener('change', () => { document.body.classList.remove('nav-mini'); arm(); });
   arm();
+})();
+
+// ══════════════════════════════════════════
+//  SIDEBAR NAVIGATION (Settings → Appearance → Navigation)
+//  html[data-nav] is set in <head> and the CSS lays the page out from it;
+//  this moves the tab buttons into the sidebar (and back to the header
+//  for Tabs, or on a phone, where they're the bottom dock), and runs the
+//  ☰ button: in a wide window it folds the sidebar to icons and back, and
+//  where the sidebar is icons-only for lack of room, or hidden (Menu), it
+//  opens it over the page.
+// ══════════════════════════════════════════
+window.klabSideNav = (function() {
+  const root = document.documentElement;
+  const desk = matchMedia('(min-width: 761px)');
+  const roomy = matchMedia('(min-width: 1100px)');
+  const nav = document.getElementById('tabNav');
+  const header = document.querySelector('.header');
+  if (!nav || !header) return null;
+  const headerSlot = header.querySelector('.header-right');
+
+  const side = document.createElement('aside');
+  side.className = 'side-nav';
+  side.id = 'sideNav';
+  side.setAttribute('aria-label', 'Navigation');
+  const foot = document.createElement('div');
+  foot.className = 'side-nav-foot';
+  foot.innerHTML = '<button type="button" class="side-nav-item" id="sideNavSettings" title="Settings"><i class="ti ti-settings"></i><span>Settings</span></button>';
+  side.appendChild(foot);
+  document.body.appendChild(side);
+  foot.querySelector('#sideNavSettings').addEventListener('click', () => { close(); document.getElementById('settingsBtn')?.click(); });
+
+  const burger = document.createElement('button');
+  burger.type = 'button';
+  burger.className = 'hdr-btn nav-burger';
+  burger.id = 'navBurger';
+  burger.title = 'Navigation';
+  burger.setAttribute('aria-label', 'Navigation');
+  burger.innerHTML = '<i class="ti ti-menu-2"></i>';
+
+  const mode = () => root.getAttribute('data-nav') || 'top';
+  const on = () => desk.matches && mode() !== 'top';
+  // Showing names inline, or only icons (or nothing) with the full
+  // sidebar a click away over the page.
+  const inlineFull = () => mode() === 'side' && roomy.matches;
+
+  function place() {
+    const sideOn = on();
+    if (sideOn && nav.parentElement !== side) side.insertBefore(nav, foot);
+    if (!sideOn && nav.parentElement !== header) header.insertBefore(nav, headerSlot);
+    // The ☰ goes where the window's own controls are: the title bar in
+    // the app, otherwise the top of the sidebar, or the header when the
+    // sidebar is hidden.
+    if (!sideOn) burger.remove();
+    else if (root.classList.contains('app-titlebar') || mode() === 'menu') {
+      const left = header.querySelector('.header-left');
+      left.insertBefore(burger, left.querySelector('.logo'));
+    } else side.prepend(burger);
+    // The header's ☰ was "More"; next to a real ☰ it becomes ⋯.
+    const more = document.querySelector('#headerMoreBtn i');
+    if (more) more.className = 'ti ' + (sideOn ? 'ti-dots' : 'ti-menu-2');
+    root.classList.toggle('nav-side-on', sideOn);
+    if (sideOn) document.body.classList.remove('nav-mini');
+    burger.setAttribute('aria-expanded', String(inlineFull() || root.classList.contains('nav-flyout')));
+    // The sliding highlight measures on resize.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+
+  function close() {
+    if (!root.classList.contains('nav-flyout')) return;
+    root.classList.remove('nav-flyout');
+    burger.setAttribute('aria-expanded', 'false');
+  }
+  burger.addEventListener('click', () => {
+    SFX && SFX.play('click');
+    if (mode() === 'side' && roomy.matches) set('rail');
+    else if (mode() === 'rail') set('side');
+    else {
+      root.classList.toggle('nav-flyout');
+      burger.setAttribute('aria-expanded', String(root.classList.contains('nav-flyout')));
+    }
+  });
+  // An opened-over-the-page sidebar closes once you've picked something,
+  // clicked elsewhere, or pressed Escape.
+  nav.addEventListener('click', e => { if (e.target.closest('.tab-nav-btn')) close(); });
+  document.addEventListener('pointerdown', e => {
+    if (root.classList.contains('nav-flyout') && !side.contains(e.target) && !burger.contains(e.target)) close();
+  }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  function set(v, { save = true } = {}) {
+    close();
+    root.setAttribute('data-nav', v);
+    if (save) { try { localStorage.setItem('klabnet_nav', v); } catch (e) {} }
+    place();
+    document.querySelectorAll('#navStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  }
+  document.getElementById('navStyle')?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    SFX && SFX.play('click');
+    set(b.dataset.v);
+  });
+
+  desk.addEventListener('change', () => { close(); place(); });
+  roomy.addEventListener('change', () => { close(); place(); });
+  set(mode(), { save: false });
+  return { on, set, mode };
 })();
 
 // ══════════════════════════════════════════

@@ -417,6 +417,52 @@
     else setActiveTab('chat');
   });
 
+  // ── right-click ──
+  const person = u => [
+    '-',
+    { label: 'View profile', icon: 'ti-user-circle', hidden: !u, action: () => openProfileView(u) },
+    { label: 'Message', icon: 'ti-message-2-plus', hidden: !u || u === window.KLAB_USER?.username, action: () => messageUser(u) },
+  ];
+  postsEl.addEventListener('contextmenu', e => {
+    const row = e.target.closest('.hm-pi');
+    const p = row && (S.posts || []).find(x => x.id === +row.dataset.post);
+    if (!p) return;
+    klabMenu(e, [
+      { header: p.username },
+      { label: 'Open in feed', icon: 'ti-news', action: () => openPost(p.id) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !p.song, action: () => playSong(p.song) },
+      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !p.song, action: () => addToQueue(p.song) },
+      { label: 'Copy text', icon: 'ti-copy', hidden: !p.text, action: () => klabCopy(p.text, 'Post') },
+      ...person(p.username),
+    ]);
+  });
+  photosEl.addEventListener('contextmenu', e => {
+    const b = e.target.closest('.hm-pgrid b');
+    if (!b) return;
+    const pp = (S.photoPosts || []).find(x => x.id === +b.dataset.post);
+    klabMenu(e, [
+      { header: pp?.username || 'Photo' },
+      { label: 'Open in Photos', icon: 'ti-photo', action: () => openPhoto(+b.dataset.post, b.dataset.photo) },
+      { label: 'Open original', icon: 'ti-external-link', action: () => window.open('/api/posts/photos/files/' + b.dataset.photo + '/original', '_blank', 'noopener') },
+      ...person(pp?.username),
+    ]);
+  });
+  chatEl.addEventListener('contextmenu', e => {
+    const m = e.target.closest('.hm-cm');
+    if (!m) return;
+    const u = m.querySelector('.hm-name')?.textContent;
+    klabMenu(e, [
+      { header: u || 'Chat' },
+      { label: 'Open conversation', icon: 'ti-message', action: () => openChatRoom(m.dataset.room) },
+      ...person(u),
+    ]);
+  });
+  flowEl.addEventListener('contextmenu', e => {
+    const c = e.target.closest('.hm-fc');
+    const a = c && (S.albums || [])[+c.dataset.i];
+    if (a && window.klabAlbumMenu) window.klabAlbumMenu(e, a);
+  });
+
   // ── data ──
   async function loadPosts() {
     try {

@@ -6696,3 +6696,234 @@
     :is(.picker-link, .player-link, .fs-link, .ap-hero-artist-link,
         .feed-post-name, .feed-post-reply-name, .feed-post-mention,
         .chat-msg-sender, .chat-msg-reply-quote-name):hover { text-decoration-line: underline; }
+
+    /* Menus are surfaces you read, not panes you look through: nearly
+       opaque, still frosted. In the app a CSS blur can only blur the
+       page's own pixels, and over the window material there often aren't
+       any, which left a 72% glass menu showing straight through. */
+    .ctx-menu, .hdr-more-menu {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 45%, rgba(255,255,255,0) 100%),
+        color-mix(in srgb, var(--modal-bg) 92%, transparent);
+    }
+
+    /* Shared right-click menu (klabMenu in 00-util.js): the emoji row on
+       messages and posts, and a cap so a long menu scrolls, not overflows. */
+    .klab-menu { max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
+    .klab-menu .ctx-item:focus { outline: none; background: var(--glass-fill-h); color: var(--text); }
+    .ctx-reacts { display: flex; gap: 2px; padding: 2px 2px 4px; }
+    .ctx-reacts + .ctx-item { margin-top: 0; }
+    .ctx-reacts button {
+      flex: 1; min-width: 30px; padding: 6px 0; border: 0; border-radius: var(--radius-sm);
+      background: none; font-size: 17px; line-height: 1; cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .ctx-reacts button:hover, .ctx-reacts button:focus { outline: none; background: var(--glass-fill-h); transform: scale(1.12); }
+    .ctx-reacts button:active { transform: scale(0.94); }
+
+    /* ══ Sidebar navigation ══
+       html[data-nav] (set in <head>, changed in Settings → Appearance or
+       with the ☰ button; js/07-tabnav.js):
+         side  names and icons, 232px; in a window under 1100px wide it
+               shows icons and ☰ opens the full one over the page
+         rail  icons only
+         menu  hidden; ☰ opens it over the page
+         top   the tabs stay in the header
+       The pane runs from under the title bar to above the player bar, and
+       the page moves over by its width. Phones keep the bottom dock. */
+    .side-nav { display: none; }
+    .nav-burger { display: none; }
+    @media (max-width: 760px) { #navStyleRow { display: none; } }
+
+    @media (min-width: 761px) {
+      html[data-nav="side"] { --nav-w: 232px; }
+      html[data-nav="rail"] { --nav-w: 56px; }
+      html[data-nav="menu"] { --nav-w: 0px; }
+      html.app-titlebar { --nav-top: var(--tb-h, 48px); }
+      html.klabnet-app body:not(.player-hidden):not(.tab-photos-active) { --nav-bottom: var(--dock-h); }
+
+      html:not([data-nav="top"]) body { padding-left: var(--nav-w); transition: padding-left .28s var(--m-ease); }
+      /* Before the script has moved them, the header's tabs would flash. */
+      html:not([data-nav="top"]) .header .tab-nav { visibility: hidden; }
+      /* Settings lives at the foot of the sidebar, like a desktop app's. */
+      html.nav-side-on #settingsBtn { display: none; }
+      html.nav-side-on .nav-burger { display: grid; place-items: center; }
+
+      /* The floating player (browsers) centres on the page, not the window. */
+      html:not(.klabnet-app):not([data-nav="top"]) .player-dock {
+        left: calc(50% + var(--nav-w) / 2);
+        width: min(calc(var(--content-w) + 200px), calc(100vw - var(--nav-w) - 3rem));
+      }
+
+      html:not([data-nav="top"]) .side-nav {
+        display: flex; flex-direction: column; gap: 2px;
+        position: fixed; z-index: 57; left: 0; top: var(--nav-top, 0px); bottom: var(--nav-bottom, 0px);
+        width: var(--nav-w); box-sizing: border-box; padding: 6px 6px 8px;
+        overflow: hidden auto; scrollbar-width: none; overscroll-behavior: contain;
+        transition: width .28s var(--m-ease), bottom .3s ease, box-shadow .2s ease, background-color .2s ease;
+        -webkit-user-select: none; user-select: none;
+      }
+      html[data-nav="menu"]:not(.nav-flyout) .side-nav { visibility: hidden; transition: width .28s var(--m-ease), visibility 0s .28s; }
+      /* Opened over the page. */
+      html.nav-flyout .side-nav {
+        width: 264px; z-index: 59; visibility: visible;
+        background: color-mix(in srgb, var(--modal-bg) 94%, transparent);
+        -webkit-backdrop-filter: blur(30px) saturate(1.5); backdrop-filter: blur(30px) saturate(1.5);
+        box-shadow: 1px 0 0 var(--glass-border-h), 12px 0 40px var(--shadow-40);
+      }
+
+      #sideNav #tabNav.tab-nav {
+        display: flex; flex-direction: column; gap: 2px; flex: none;
+        margin: 0; padding: 0; border: 0; border-radius: 0; overflow: visible;
+        background: none !important; box-shadow: none !important;
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      }
+      #sideNav .tab-nav-btn, #sideNav .side-nav-item, #sideNav .nav-burger {
+        position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 14px;
+        width: 100%; max-width: none; min-width: 0; height: 40px; flex: none; box-sizing: border-box;
+        padding: 0 0 0 12px; margin: 0; opacity: 1; pointer-events: auto; overflow: hidden;
+        border: 1px solid transparent; border-radius: var(--radius-md); background: transparent;
+        color: var(--text-dim); font: 500 13px/1 var(--font-ui); letter-spacing: 0.01em; text-transform: none;
+        white-space: nowrap; cursor: pointer;
+        transition: background-color .15s, color .15s, border-color .15s;
+      }
+      #sideNav .tab-nav-btn i, #sideNav .side-nav-item i, #sideNav .nav-burger i { font-size: 18px; width: 20px; flex: none; text-align: center; }
+      #sideNav .tab-nav-btn span:not(#socialUnreadBadge), #sideNav .side-nav-item span {
+        display: inline; animation: none; transition: opacity .2s ease;
+      }
+      #sideNav .tab-nav-btn:hover, #sideNav .side-nav-item:hover, #sideNav .nav-burger:hover { color: var(--text); background: var(--glass-fill); }
+      #sideNav .tab-nav-btn.active { color: var(--text); }
+      #sideNav .nav-burger { margin-bottom: 6px; }
+      .side-nav-foot { margin-top: auto; padding-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+
+      /* Icons only: the names fade, the icons stay put. */
+      html[data-nav="rail"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge),
+      html[data-nav="side"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 1; }
+      html[data-nav="rail"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 0; }
+
+      /* Unread: a count at the row's end, or a dot on the icon. */
+      #sideNav #socialUnreadBadge:not(:empty) {
+        position: static; margin-left: auto; margin-right: 10px;
+        min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+        background: #ff453a; color: #fff; font: 700 10px/18px var(--font-ui); letter-spacing: 0; text-align: center; animation: none;
+      }
+      html[data-nav="rail"]:not(.nav-flyout) #sideNav #socialUnreadBadge:not(:empty) {
+        position: absolute; left: 26px; top: 5px; margin: 0; min-width: 16px; height: 16px; font-size: 9px; line-height: 16px; padding: 0 4px;
+      }
+
+      /* klabnet's own look (browsers, Hyprland and the like): a glass pane,
+         the accent highlight sliding between rows. */
+      html:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background:
+          linear-gradient(90deg, rgba(255,255,255,0.025), rgba(255,255,255,0)),
+          color-mix(in srgb, var(--bg) 55%, transparent);
+        box-shadow: 1px 0 0 var(--glass-border);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+      }
+      html[data-fx="low"] .side-nav { background: var(--bg) !important; }
+      #sideNav .motion-pill-tabs { border-radius: var(--radius-md); }
+      /* Performance mode's solid highlight, in each desktop's own shade. */
+      html[data-fx="low"] #sideNav #tabNav .motion-pill { background: var(--sb-sel, color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%)) !important; }
+    }
+    /* Narrow window: icons, with the whole sidebar a ☰ away. */
+    @media (min-width: 761px) and (max-width: 1099px) {
+      html[data-nav="side"] { --nav-w: 56px; }
+      html[data-nav="side"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 0; }
+      html[data-nav="side"]:not(.nav-flyout) #sideNav #socialUnreadBadge:not(:empty) {
+        position: absolute; left: 26px; top: 5px; margin: 0; min-width: 16px; height: 16px; font-size: 9px; line-height: 16px; padding: 0 4px;
+      }
+    }
+
+    /* ── Windows: a WinUI NavigationView ──
+       The pane sits on the window's Mica/Acrylic, and the page is a layer
+       above it with its own faint fill, a hairline edge and a rounded
+       top-left corner. Rows are 36px Segoe UI, a quiet fill marks the
+       selected one and an accent pill slides beside it. */
+    @media (min-width: 761px) {
+      html.klabnet-app[data-platform="win32"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 4px 4px 6px;
+      }
+      html.klabnet-app[data-platform="win32"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav { background: color-mix(in srgb, var(--bg) 70%, #202020); }
+      html.klabnet-app[data-platform="win32"].nav-side-on body::before {
+        content: ''; position: fixed; z-index: 1; pointer-events: none;
+        left: var(--nav-w); top: var(--nav-top, 0px); right: 0; bottom: var(--nav-bottom, 0px);
+        background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-width: 1px 0 0 1px;
+        border-top-left-radius: 8px; transition: left .28s var(--m-ease), bottom .3s ease;
+      }
+      html.klabnet-app[data-platform="win32"][data-theme="light"].nav-side-on body::before { background: rgba(255,255,255,0.5); border-color: rgba(0,0,0,0.06); }
+      html.klabnet-app[data-platform="win32"][data-nav="menu"].nav-side-on body::before { border-top-left-radius: 0; border-left-width: 0; }
+      html.klabnet-app[data-platform="win32"] { --win-sel: rgba(255,255,255,0.06); --sb-sel: var(--win-sel); }
+      html.klabnet-app[data-platform="win32"][data-theme="light"] { --win-sel: rgba(0,0,0,0.04); }
+      html.klabnet-app[data-platform="win32"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) {
+        height: 36px; border: 0; border-radius: 4px; gap: 16px; padding-left: 14px;
+        font: 400 14px/1 "Segoe UI Variable Text", "Segoe UI", var(--font-ui); letter-spacing: 0; color: var(--text);
+      }
+      html.klabnet-app[data-platform="win32"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) i { font-size: 16px; width: 18px; filter: none; }
+      html.klabnet-app[data-platform="win32"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: var(--tb-hover); }
+      html.klabnet-app[data-platform="win32"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):active { background: var(--tb-press); color: var(--text-dim); }
+      html.klabnet-app[data-platform="win32"] #sideNav .tab-nav-btn.active:hover { background: var(--tb-hover); }
+      html.klabnet-app[data-platform="win32"] #sideNav .motion-pill-tabs {
+        background: var(--win-sel); border: 0; box-shadow: none; border-radius: 4px;
+      }
+      html.klabnet-app[data-platform="win32"] #sideNav .motion-pill-tabs::after {
+        content: ''; position: absolute; left: 0; top: 50%; width: 3px; height: 16px; margin-top: -8px;
+        border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
+      }
+      html.klabnet-app[data-platform="win32"] #sideNav .tab-nav-btn.active i { filter: none; }
+      html.klabnet-app[data-platform="win32"].nav-flyout .side-nav { border-radius: 0 8px 8px 0; }
+      /* The ☰ in the title bar, flat like the buttons beside it. */
+      html.app-titlebar .header .nav-burger { width: 40px; height: 34px; min-width: 40px; margin-right: 2px; }
+      html.app-titlebar[data-platform="win32"] .header .nav-burger {
+        border: 0; border-radius: 4px; background: transparent; color: var(--text); box-shadow: none;
+      }
+      html.app-titlebar[data-platform="win32"] .header .nav-burger:hover { background: var(--tb-hover); }
+      html.app-titlebar[data-platform="win32"] .header .nav-burger i { font-size: 16px; }
+    }
+
+    /* ── GNOME: a libadwaita sidebar ──
+       Its own slightly different shade, rounded rows, and the selected row
+       simply filled; no accent bar. */
+    @media (min-width: 761px) {
+      html.klabnet-app[data-desktop="gnome"] { --adw-sidebar: color-mix(in srgb, var(--bg) 88%, #fff 5%); --adw-row-sel: rgba(255,255,255,0.1); --adw-row-hover: rgba(255,255,255,0.07); --sb-sel: var(--adw-row-sel); }
+      html.klabnet-app[data-desktop="gnome"][data-theme="light"] { --adw-sidebar: color-mix(in srgb, var(--bg) 90%, #000 4%); --adw-row-sel: rgba(0,0,0,0.08); --adw-row-hover: rgba(0,0,0,0.05); }
+      html.klabnet-app[data-desktop="gnome"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: var(--adw-sidebar); box-shadow: 1px 0 0 rgba(0,0,0,0.25); -webkit-backdrop-filter: none; backdrop-filter: none;
+      }
+      html.klabnet-app[data-desktop="gnome"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) {
+        height: 38px; border: 0; border-radius: 6px; font: 400 14px/1 var(--adw-font, "Adwaita Sans", "Cantarell", system-ui, sans-serif);
+        letter-spacing: 0; color: var(--text); gap: 12px;
+      }
+      html.klabnet-app[data-desktop="gnome"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) i { font-size: 16px; filter: none; }
+      html.klabnet-app[data-desktop="gnome"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: var(--adw-row-hover); }
+      html.klabnet-app[data-desktop="gnome"] #sideNav .motion-pill-tabs { background: var(--adw-row-sel); border: 0; box-shadow: none; border-radius: 6px; }
+      html.klabnet-app[data-desktop="gnome"] #sideNav .tab-nav-btn.active i { filter: none; }
+      html.app-headerbar .header .nav-burger {
+        width: 34px; height: 34px; min-width: 34px; border: 0; border-radius: 6px; color: var(--text); background: transparent; box-shadow: none;
+      }
+      html.app-headerbar .header .nav-burger:hover { background: var(--adw-hover); }
+    }
+
+    /* ── KDE Plasma: a Breeze sidebar, like System Settings' ──
+       Flat rows; the selected one gets an accent-tinted fill and frame,
+       and hovering outlines a row in the accent. */
+    @media (min-width: 761px) {
+      html.klabnet-app[data-desktop="kde"] { --sb-sel: color-mix(in srgb, var(--de-accent, #3daee9) 22%, transparent); }
+      html.klabnet-app[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: color-mix(in srgb, var(--bg) 92%, #fff 3%); box-shadow: 1px 0 0 var(--glass-border); -webkit-backdrop-filter: none; backdrop-filter: none;
+      }
+      html.klabnet-app[data-desktop="kde"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) {
+        height: 36px; border-radius: 3px; gap: 10px; font: 400 13px/1 var(--breeze-font, "Noto Sans", system-ui, sans-serif); letter-spacing: 0; color: var(--text);
+      }
+      html.klabnet-app[data-desktop="kde"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) i { font-size: 16px; filter: none; }
+      html.klabnet-app[data-desktop="kde"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover {
+        background: transparent; border-color: color-mix(in srgb, var(--de-accent, #3daee9) 70%, transparent);
+      }
+      html.klabnet-app[data-desktop="kde"] #sideNav .motion-pill-tabs {
+        background: color-mix(in srgb, var(--de-accent, #3daee9) 22%, transparent);
+        border: 1px solid color-mix(in srgb, var(--de-accent, #3daee9) 75%, transparent); box-shadow: none; border-radius: 3px;
+      }
+      html.klabnet-app[data-desktop="kde"] #sideNav .tab-nav-btn.active i { filter: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html:not([data-nav="top"]) body, .side-nav, .side-nav *, html.klabnet-app[data-platform="win32"].nav-side-on body::before { transition: none !important; }
+    }

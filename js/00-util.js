@@ -345,3 +345,159 @@ window.klabSoften = (function() {
 
   return soften;
 })();
+
+// ── Right-click menus ──
+// One menu element, built fresh from a list each time it opens:
+//   { label, icon, action, warn, hidden }   an item
+//   '-'                                      a divider (doubled or stray ones drop out)
+//   { header: 'text' }                       the small label on top
+//   { reacts: ['👍', …], action: emoji => … } a row of emoji to react with
+// klabMenu(e, items) opens it at the pointer from a contextmenu event. It
+// leaves the browser's own menu alone for text fields, selected text, and
+// Shift+right-click, so copy, paste and spellcheck still work.
+const klabMenu = (() => {
+  let menu = null;
+  const isOpen = () => !!menu && menu.classList.contains('visible');
+  const close = () => { if (isOpen()) menu.classList.remove('visible'); };
+
+  function setup() {
+    menu = document.createElement('div');
+    menu.className = 'ctx-menu klab-menu';
+    menu.setAttribute('role', 'menu');
+    document.body.appendChild(menu);
+    document.addEventListener('pointerdown', e => { if (isOpen() && !menu.contains(e.target)) close(); }, true);
+    // Capture, so another right-click closes this one before whatever
+    // handler it hits opens the next menu.
+    document.addEventListener('contextmenu', e => { if (!menu.contains(e.target)) close(); }, true);
+    addEventListener('scroll', e => { if (e.target !== menu) close(); }, true);
+    addEventListener('resize', close);
+    addEventListener('blur', close);
+    document.addEventListener('keydown', e => {
+      if (!isOpen()) return;
+      const rows = [...menu.querySelectorAll('.ctx-item, .ctx-reacts button')];
+      const i = rows.indexOf(document.activeElement);
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowDown') rows[(i + 1) % rows.length]?.focus();
+      else if (e.key === 'ArrowUp') rows[i <= 0 ? rows.length - 1 : i - 1]?.focus();
+      else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) rows[i].click();
+      else { if (e.key === 'Tab') close(); return; }
+      // The menu has the keyboard while it's open: Escape shouldn't also
+      // close the player or a dialog underneath it.
+      e.preventDefault(); e.stopImmediatePropagation();
+    }, true);
+  }
+
+  function native(e) {
+    if (e.shiftKey) return true;
+    if (e.target.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return true;
+    const sel = getSelection();
+    return !!sel && !sel.isCollapsed && !!String(sel).trim() && sel.containsNode(e.target, true);
+  }
+
+  function tidy(items) {
+    const out = [];
+    for (const it of items) {
+      if (!it || it.hidden) continue;
+      const last = out[out.length - 1];
+      if (it === '-' && (!last || last === '-' || last.header)) continue;
+      out.push(it);
+    }
+    while (out[out.length - 1] === '-') out.pop();
+    return out;
+  }
+
+  function run(fn, arg) {
+    close();
+    try { const r = fn?.(arg); if (r?.catch) r.catch(err => console.error('[menu]', err)); }
+    catch (err) { console.error('[menu]', err); }
+  }
+
+  function open(e, items) {
+    if (e.defaultPrevented || native(e)) return false;
+    // A link inside whatever was clicked gets the usual link actions too.
+    const a = e.target.closest?.('a[href]');
+    if (a && /^https?:/.test(a.href)) {
+      const at = items.findIndex(it => !it?.header);
+      items = [...items];
+      items.splice(at < 0 ? items.length : at, 0,
+        { label: 'Open link', icon: 'ti-external-link', action: () => window.open(a.href, '_blank', 'noopener') },
+        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(a.href, 'Link') },
+        '-');
+    }
+    const list = tidy(items);
+    if (!list.some(it => it.action)) return false;
+    e.preventDefault();
+    if (!menu) setup();
+    document.querySelectorAll('.ctx-menu.visible').forEach(m => m.classList.remove('visible'));
+
+    menu.replaceChildren(...list.map(it => {
+      if (it === '-') return Object.assign(document.createElement('div'), { className: 'ctx-divider' });
+      if (it.header) return Object.assign(document.createElement('div'), { className: 'ctx-label', textContent: it.header });
+      if (it.reacts) {
+        const row = document.createElement('div');
+        row.className = 'ctx-reacts';
+        it.reacts.forEach(emoji => {
+          const b = Object.assign(document.createElement('button'), { type: 'button', textContent: emoji, tabIndex: -1 });
+          b.addEventListener('click', () => run(it.action, emoji));
+          row.appendChild(b);
+        });
+        return row;
+      }
+      const row = document.createElement('div');
+      row.className = 'ctx-item' + (it.warn ? ' warn' : '');
+      row.tabIndex = -1;
+      row.setAttribute('role', 'menuitem');
+      row.innerHTML = '<i class="ti ' + (it.icon || 'ti-point') + '"></i>';
+      row.append(it.label);
+      row.addEventListener('click', () => run(it.action));
+      return row;
+    }));
+
+    // The menu key and Shift+F10 fire with no pointer position.
+    let x = e.clientX, y = e.clientY;
+    if (!x && !y && e.target.getBoundingClientRect) {
+      const r = e.target.getBoundingClientRect();
+      x = r.left + 16; y = r.top + Math.min(r.height, 28);
+    }
+    const z = zoomFactor();
+    menu.style.left = menu.style.top = '0px';
+    menu.classList.add('visible'); // measurable only once it's shown
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    const vw = innerWidth / z, vh = innerHeight / z;
+    let left = x / z, top = y / z;
+    // Like a native menu: flip to the other side of the pointer rather
+    // than slide under it.
+    if (left + w > vw - 8) left = Math.max(8, left - w);
+    if (top + h > vh - 8) top = Math.max(8, top - h >= 8 ? top - h : vh - h - 8);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    return true;
+  }
+
+  return Object.assign(open, { close });
+})();
+
+async function klabCopy(text, what) {
+  try {
+    await navigator.clipboard.writeText(String(text));
+    showToast((what || 'Text') + ' copied', 'ti-copy');
+  } catch { showToast("Couldn't copy that", 'ti-copy-off'); }
+}
+
+// The clipboard only takes PNGs, so anything else goes through a canvas.
+async function klabCopyImage(src) {
+  try {
+    const png = (async () => {
+      const blob = await (await fetch(src)).blob();
+      if (blob.type === 'image/png') return blob;
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      return await new Promise(r => c.toBlob(r, 'image/png'));
+    })();
+    // Passing the promise keeps Safari's user-gesture window open.
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    showToast('Image copied', 'ti-photo');
+  } catch { showToast("Couldn't copy that image", 'ti-photo-off'); }
+}

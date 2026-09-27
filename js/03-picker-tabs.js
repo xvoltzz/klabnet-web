@@ -62,6 +62,7 @@ function renderAlbumList(albums, appendMode) {
   albums.forEach(album => {
     const item = document.createElement('div');
     item.className = 'picker-item';
+    item._album = album; // right-click menu (09-music-extras.js)
 
     // Always show placeholder immediately — swap with art when loaded
     const ph = document.createElement('div');
@@ -231,6 +232,7 @@ function renderArtistList(indexes) {
     idx.artist.forEach(artist => {
       const item = document.createElement('div');
       item.className = 'picker-item';
+      item._artist = artist;
       item.innerHTML = `
         ${artistPlaceholderHTML(artist.name)}
         <div class="picker-item-info">

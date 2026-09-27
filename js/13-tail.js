@@ -73,18 +73,9 @@
 (function() {
   const list = document.getElementById('pickerList');
   if (!list) return;
-  let _lastBrowse = 0;
 
-  // Subtle hover on picker items
-  list.addEventListener('mouseover', e => {
-    const item = e.target.closest('.picker-item, .picker-song, [class*="picker-"]');
-    if (!item) return;
-    const now = Date.now();
-    if (now - _lastBrowse > 60) { // throttle — 60ms min between sounds
-      _lastBrowse = now;
-      SFX && SFX.play('browse');
-    }
-  });
+  // (Rows used to tick as the mouse passed over them. Sounds are for
+  // things you do, not for the mouse passing by.)
 
   // Subtle click on picker items (album, artist, song rows — not play button)
   list.addEventListener('click', e => {
@@ -335,29 +326,10 @@ function sampleImageColor(imgUrl) {
     titleEl.classList.toggle('vis', scroll.scrollTop > 160);
   }, { passive: true });
 
-  let _lastApHover = 0;
-  // .ap-btn-play/.ap-btn-queue deliberately excluded — they're small
-  // targets sitting right next to each other on every track row, so
-  // hovering around to click one tended to re-trigger the sound rapidly
-  // (every track row itself still gets a hover cue via .ap-track).
+  // Album page items click when you click them (they used to chime on
+  // hover too; sounds are for things you do, not the mouse passing by).
   const apSoundTargets = '.ap-track,.ap-disc-card,.ap-sim-chip,.ap-read-more,.ap-back,.ap-close,.ap-hero-artist-link';
-  panel.addEventListener('pointerover', e => {
-    const target = e.target.closest(apSoundTargets);
-    if (!target || target._apHovered) return;
-    target._apHovered = true;
-    const now = Date.now();
-    if (now - _lastApHover > 90) {
-      _lastApHover = now;
-      SFX && SFX.play('hover');
-    }
-  }, { passive: true });
-  panel.addEventListener('pointerout', e => {
-    const target = e.target.closest(apSoundTargets);
-    if (!target) return;
-    const to = e.relatedTarget;
-    if (to && target.contains(to)) return;
-    target._apHovered = false;
-  }, { passive: true });
+
   panel.addEventListener('click', e => {
     if (e.target.closest(apSoundTargets)) SFX && SFX.play('click');
   }, true);
@@ -498,6 +470,7 @@ function sampleImageColor(imgUrl) {
           sorted.forEach(album => {
             const artUrl = `${ND_URL}/rest/getCoverArt?id=${album.coverArt}&size=300&${subsonicParams()}`;
             const card = document.createElement('div'); card.className = 'ap-disc-card';
+            card._album = { ...album, artist: album.artist || artistName, artistId: album.artistId || artistId };
             card.innerHTML = `<img src="${artUrl}" loading="lazy" alt="" /><div class="ap-disc-card-title">${esc(album.name||album.title)}</div><div class="ap-disc-card-year">${album.year||''}</div>`;
             card.addEventListener('click', () => window.openAlbumPage(album.id, album.name||album.title));
             grid.appendChild(card);
