@@ -356,7 +356,9 @@
     // One that fails isn't kept, so the next visit tries again.
     im._ready = im.decode().then(() => { im._decoded = true; }, () => { if (preloaded.get(u) === im) preloaded.delete(u); });
     preloaded.set(u, im);
-    if (preloaded.size > 24) preloaded.delete(preloaded.keys().next().value);
+    // A few around where you are: each is a full-size photo held decoded
+    // (~17MB at 2560px), and 24 of them was a few hundred MB of memory.
+    if (preloaded.size > 6) preloaded.delete(preloaded.keys().next().value);
   }
 
   // Size the <img> box from the photo's known aspect ratio, so the 320px
@@ -1135,11 +1137,17 @@
     // setActiveTab() calls this on every switch, Photos to Photos too (the
     // nav button again): only really arriving pauses your music, or music
     // started here (the photo's "Play song") stopped on that second click.
-    const arriving = active && !shown;
+    const arriving = active && !shown, leaving = !active && shown;
     shown = active;
     if (!active) {
       stopClip();
       stopPreview();
+      // The photos warmed up ahead are let go (the one showing stays):
+      // decoded full-size photos are the biggest thing this page holds,
+      // and Chromium keeps its own decoded copy of every one drawn until
+      // the system runs short, so the desktop app asks it to let go too.
+      preloaded.clear();
+      if (leaving) window.klabnetDesktop?.trimMemory?.();
       if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); }
       return;
     }

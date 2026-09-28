@@ -5298,8 +5298,11 @@
     /* scaleX, not width: the Home tab is left open for hours, and a width animation re-lays out the page every frame */
     .hm-bars b i { display: block; height: 100%; width: 100%; transform: scaleX(0); transform-origin: left; background: #fff; }
     .hm-bars b.done i { transform: none; }
-    .hm-bars b.run i { animation: hmFill var(--hm-slide, 9s) linear forwards; }
-    @keyframes hmFill { to { transform: scaleX(1); } }
+    /* Filled by js/18-home.js a step a second, eased over a quarter of it:
+       a smooth fill kept an animation running the whole time Home is open,
+       and a running animation makes the window redraw every frame (at 4K,
+       behind Acrylic, that's the GPU busy for a progress bar). */
+    .hm-bars b.run i { transition: transform .25s ease; }
     [data-theme="light"] .hm-bars b { background: rgba(0,0,0,.12); }
     [data-theme="light"] .hm-bars b i { background: var(--text); }
     .hm-arrive { position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit; opacity: 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7), inset 0 0 70px rgba(255,255,255,.14); }
@@ -7617,3 +7620,5 @@
        dragged by. */
     html.app-titlebar :is(.ctx-menu, .klab-menu, .hdr-more-menu, .gif-picker, .feed-composer-scrim,
       .add-app-backdrop, .settings-backdrop, .img-view-backdrop, .toast-item) { -webkit-app-region: no-drag; }
+    /* The multi-line version (editing a message keeps its line breaks). */
+    .chat-modal-input.chat-modal-textarea { height: auto; min-height: 96px; max-height: 50vh; padding: 9px 11px; line-height: 1.45; resize: vertical; font: inherit; }

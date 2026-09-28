@@ -310,8 +310,18 @@ window.klabSoften = (function() {
     } catch (e) { return null; }  // tainted (no CORS): keep the live filter
   }
 
+  // A backdrop is baked down to LONG px, so a cover art source bigger than
+  // a few hundred px is only memory: a 3200px one is ~40MB once decoded.
+  function smaller(u) {
+    if (!/\/rest\/getCoverArt\?/.test(u)) return u;
+    return /[?&]size=\d+/.test(u) ? u.replace(/([?&])size=\d+/, '$1size=300') : u + '&size=300';
+  }
+
   function soften(el) {
     if (!el) return;
+    const u0 = (el.style.backgroundImage || '').match(/url\(["']?(.+?)["']?\)/)?.[1];
+    // Swapped before the big one is ever fetched (styles apply later).
+    if (u0 && smaller(u0) !== u0) el.style.backgroundImage = `url("${smaller(u0)}")`;
     const bg = el.style.backgroundImage || '';
     el.classList.remove('soft', 'soft-grad');
     const m0 = bg.match(/url\(["']?(.+?)["']?\)/);

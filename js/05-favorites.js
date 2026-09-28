@@ -14,13 +14,34 @@ function getFavorites() {
   if (_favCache) return _favCache;
   try { _favCache = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { _favCache = []; }
   if (!Array.isArray(_favCache)) _favCache = [];
+  // Favourites saved as whole song records (before slimSong): slimmed once.
+  if (_favCache.some(f => f && (f.path || f.size || f.created))) {
+    _favCache = _favCache.filter(Boolean).map(slimSong);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(_favCache)); } catch (e) {}
+  }
   _favIdSet = new Set(_favCache.map(s => s && s.id));
   return _favCache;
 }
 function isFavorite(id) { getFavorites(); return _favIdSet.has(id); }
+// What a favourite needs to play and show, not Navidrome's whole song
+// record (~1KB each: paths, genres, replay gain...). That's what kept the
+// list to 200, which quietly dropped the oldest when you hit it.
+const FAV_FIELDS = ['id', 'title', 'artist', 'artistId', 'album', 'albumId', 'albumArtist', 'displayAlbumArtist',
+  'coverArt', 'duration', 'track', 'year', 'suffix', 'bitRate', 'bitDepth', 'samplingRate', 'musicBrainzId'];
+const FAV_MAX = 2000;
+function slimSong(song) {
+  const out = {};
+  for (const k of FAV_FIELDS) if (song[k] != null && song[k] !== '') out[k] = song[k];
+  return out;
+}
 function addFavorite(song) {
   const favs = getFavorites();
-  if (!isFavorite(song.id)) { favs.unshift(song); localStorage.setItem(FAV_KEY, JSON.stringify(favs.slice(0,200))); }
+  if (!isFavorite(song.id)) {
+    // Full: say so, rather than dropping the oldest behind your back.
+    if (favs.length >= FAV_MAX) { showToast?.(`Favorites are full (${FAV_MAX.toLocaleString()} songs). Remove some to add more.`, 'ti-heart'); return; }
+    favs.unshift(slimSong(song));
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) { showToast?.('Couldn’t save that favorite: storage is full', 'ti-alert-triangle'); }
+  }
   invalidateFavCache();
   updateFavBadge();
 }

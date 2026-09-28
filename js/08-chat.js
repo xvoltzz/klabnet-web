@@ -852,7 +852,7 @@ async function editChatMessage(eventId) {
   const ev = roomId && MatrixChat.client?.getRoom(roomId)?.findEventById(eventId);
   if (!ev) return;
   const before = ev.getContent().body || '';
-  const text = await showInputDialog('// edit message', '', '', before);
+  const text = await showInputDialog('Edit message', '', '', before, { multiline: true });
   if (!text || text === before) return;
   try {
     await MatrixChat.client.sendMessage(roomId, {
@@ -1747,11 +1747,16 @@ document.addEventListener('keydown', e => {
 // (clearing a note) treat "OK with nothing typed" as a real, different
 // action from "Cancel, leave it as it was". Callers that should reject a
 // blank value (e.g. a playlist needs a name) check that themselves.
-function showInputDialog(title, message, placeholder, defaultValue) {
+// { multiline: true } is a text box that keeps line breaks (editing a
+// message): Enter saves, Shift+Enter starts a new line, like the composer.
+function showInputDialog(title, message, placeholder, defaultValue, opts = {}) {
   return new Promise(resolve => {
+    const fieldHTML = opts.multiline
+      ? `<textarea class="chat-modal-input chat-modal-textarea" id="inputDialogField" placeholder="${esc(placeholder || '')}" rows="4"></textarea>`
+      : `<input type="text" class="chat-modal-input" id="inputDialogField" placeholder="${esc(placeholder || '')}" autocomplete="off" />`;
     openChatModal(title, `
       <div class="chat-modal-row-sub" style="margin-bottom:8px;">${esc(message || '')}</div>
-      <input type="text" class="chat-modal-input" id="inputDialogField" placeholder="${esc(placeholder || '')}" autocomplete="off" />
+      ${fieldHTML}
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="ap-btn-queue" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
         <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;margin-top:0;">OK</button>
@@ -1764,7 +1769,9 @@ function showInputDialog(title, message, placeholder, defaultValue) {
     const cleanup = result => { resolve(result); closeChatModal(); };
     document.getElementById('inputDialogCancel').addEventListener('click', () => cleanup(null));
     document.getElementById('inputDialogOk').addEventListener('click', () => cleanup(field.value.trim()));
-    field.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('inputDialogOk').click(); });
+    field.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing && !(opts.multiline && e.shiftKey)) { e.preventDefault(); document.getElementById('inputDialogOk').click(); }
+    });
   });
 }
 function showConfirmDialog(title, message, confirmLabel) {
@@ -2314,6 +2321,9 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false } = 
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+    // A full-size picture (a 3000px cover is ~36MB decoded): the desktop
+    // app hands Chromium's decoded copy back (see klabnet-desktop).
+    if (haveFull) window.klabnetDesktop?.trimMemory?.();
   }
   function onKey(e) {
     // Only the viewer: Escape used to close the full player under it too.

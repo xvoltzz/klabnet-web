@@ -1243,12 +1243,10 @@ function updateFSUI(song) {
   // The cover is drawn up to 640px across: enough pixels for this screen.
   const artSize = Math.min(1200, Math.ceil(640 * (window.devicePixelRatio || 1) / 300) * 300);
   const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${artSize}&${subsonicParams()}`;
-  // Background is stretched across the whole viewport, so it needs a source
-  // sized to the actual screen — a fixed size (this used to be a flat 1600)
-  // is fine on a 1080p laptop but visibly blocky once stretched across a
-  // 4K/5K/8K display. Scale the request with the real viewport and DPR,
-  // capped so a stray 8K + browser zoom combo doesn't request something wild.
-  const bgSize = Math.min(3200, Math.round(Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio || 1)));
+  // Not screen-sized any more: it's blurred by 60px (and baked down to a
+  // 96px image by klabSoften), so 300px looks identical, where a 3200px
+  // source cost ~40MB of memory decoded for a blur.
+  const bgSize = 300;
   const bgUrl  = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${bgSize}&${subsonicParams()}`;
 
   // Crossfade FS background — preload before swap.

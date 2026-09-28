@@ -174,7 +174,7 @@ async function loadServerPrefs() {
   if (pending) scheduleSave();
 }
 
-let _prefsSaving = null, _prefsSaveAgain = false;
+let _prefsSaving = null, _prefsSaveAgain = false, _prefsNoPatch = false;
 async function saveServerPrefs() {
   if (window.KLAB_USER.username === 'anonymous') return; // kept; uploaded once we know who you are
   // One at a time. A save asked for meanwhile runs when this one's done:
@@ -186,26 +186,47 @@ async function saveServerPrefs() {
     const mine = PREF_NAMES.filter(n => prefChangedHere(n, base));
     if (!mine.length) return;
     try {
-      // Onto the server's copy as it is now, not as this tab last saw it.
-      const server = await fetchServerPrefs();
-      const merged = { ...server };
-      const sent = {};
-      for (const n of PREF_NAMES) {
-        merged[n] = mine.includes(n) ? localPref(n) : (n in server ? server[n] : localPref(n));
-        sent[n] = encPref(merged[n]);
+      // PATCH: just these fields, merged on the server in one request, which
+      // is what lets a save started as the tab closes actually land (a GET
+      // then a PUT got cut off after the GET). It answers with the merged
+      // whole. An API without PATCH yet: the GET-merge-PUT it replaced.
+      let server = null;
+      if (!_prefsNoPatch) {
+        const changes = {};
+        for (const n of mine) changes[n] = localPref(n);
+        const body = JSON.stringify(changes);
+        // keepalive lets it outlive the tab, but browsers refuse (throw) one
+        // over 64KB; counted in bytes (three a character for CJK titles).
+        const res = await fetchTimeout('/api/prefs', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body, keepalive: new Blob([body]).size < 60000,
+        }, 8000);
+        if (res.status === 404 || res.status === 405) _prefsNoPatch = true;
+        // Redirected: the session lapsed and this landed on a sign-in page,
+        // which answers 200 without having saved anything.
+        else if (!res.ok || res.redirected) return; // still marked changed; tried again next time
+        else server = await res.json();
       }
-      const body = JSON.stringify(merged);
-      // keepalive lets a save started as the tab closes finish, but browsers
-      // refuse (throw) one over 64KB, so a big library saves without it.
-      // Counted in bytes: titles in Japanese or Korean are three bytes a
-      // character, and a body under 60000 characters could still be refused,
-      // on every save, for good.
-      const res = await fetchTimeout('/api/prefs', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, keepalive: new Blob([body]).size < 60000,
-      }, 8000);
-      // Redirected: the session lapsed and this landed on a sign-in page,
-      // which answers 200 without having saved anything.
-      if (!res.ok || res.redirected) return; // still marked changed; tried again next time
+      const merged = {};
+      const sent = {};
+      if (server) {
+        for (const n of PREF_NAMES) {
+          merged[n] = mine.includes(n) ? localPref(n) : (n in server ? server[n] : localPref(n));
+          sent[n] = encPref(merged[n]);
+        }
+      } else {
+        // Onto the server's copy as it is now, not as this tab last saw it.
+        server = await fetchServerPrefs();
+        Object.assign(merged, server);
+        for (const n of PREF_NAMES) {
+          merged[n] = mine.includes(n) ? localPref(n) : (n in server ? server[n] : localPref(n));
+          sent[n] = encPref(merged[n]);
+        }
+        const body = JSON.stringify(merged);
+        const res = await fetchTimeout('/api/prefs', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, keepalive: new Blob([body]).size < 60000,
+        }, 8000);
+        if (!res.ok || res.redirected) return;
+      }
       // Other devices' changes that came along with the merge, unless this
       // field was edited again while the save was in flight.
       let wrote = false;
