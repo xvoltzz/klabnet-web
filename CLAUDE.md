@@ -46,6 +46,6 @@ The real site needs Authentik, so local testing uses a mock server. It serves th
   - Blurred backdrops never need big art: `klabSoften` (js/00-util.js) bakes them to 96px and downsizes any `getCoverArt` source to 300px before it's fetched. Don't give a blurred background a screen-sized image.
   - Decoded pictures are the memory. Chromium keeps every one it has drawn until the OS says memory is short. When a screen lets go of many big pictures, call `window.klabnetDesktop?.trimMemory?.()`, as Photos does when you leave it and the image viewer does when it closes.
   - Photos keeps at most 6 preloaded photos (`preloaded` in js/14-photos.js) and clears them on leaving the tab.
-  - Avoid animations that never stop on screens left open (Home). Any running animation makes the window redraw every frame, which is steady GPU at 4K behind Acrylic. Home's spotlight bar is stepped from JS once a second for this reason.
+  - Animations that never stop make the window redraw every frame (steady GPU at 4K behind Acrylic), so avoid adding new ones. Home's spotlight progress bar was stepped once a second to save that, but the owner found it ugly: it's a smooth CSS animation again, on purpose.
 - **Prefs** save with `PATCH /api/prefs` (just the changed fields, merged on the server, one request, so it survives a closing tab), falling back to GET+PUT on an API without PATCH.
 - **Favourites** are slimmed song records (`slimSong` in js/05-favorites.js), up to 2000; adding past that says so rather than dropping the oldest.

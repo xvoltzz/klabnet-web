@@ -143,7 +143,7 @@
   }
 
   // ── spotlight ──
-  let slides = [], cur = 0, slideTimer = 0, fillTimer = 0, slideSig = '', newestKey = null;
+  let slides = [], cur = 0, slideTimer = 0, slideSig = '', newestKey = null;
   const openPost = id => (window.klabFeedFocus ? window.klabFeedFocus(id) : setActiveTab('feed'));
   const openPhoto = (postId, photoId) => (window.klabOpenPhoto ? window.klabOpenPhoto(postId, photoId) : setActiveTab('photos'));
   function postSlide(p) {
@@ -237,26 +237,12 @@
     [...slidesEl.children].forEach((el, j) => el.classList.toggle('on', j === i));
     [...barsEl.children].forEach((b, j) => {
       b.className = j < i ? 'done' : '';
-      b.firstChild && (b.firstChild.style.transform = '');
       if (j === i) { void b.offsetWidth; b.className = 'run'; }
     });
-    fillBar();
     const s = slides[i];
     if (s && active) setBackdrop(s.img, s.tint);
     clearTimeout(slideTimer);
     if (active && slides.length > 1) slideTimer = setTimeout(() => showSlide((cur + 1) % slides.length), SLIDE_MS);
-  }
-  // The running bar fills a step a second (see .hm-bars b.run in the CSS).
-  function fillBar() {
-    clearInterval(fillTimer);
-    const bar = barsEl.querySelector('b.run i');
-    if (!bar || !active) return;
-    const t0 = Date.now();
-    fillTimer = setInterval(() => {
-      const k = Math.min(1, (Date.now() - t0 + 250) / SLIDE_MS);
-      bar.style.transform = `scaleX(${k.toFixed(3)})`;
-      if (k >= 1 || !bar.isConnected) clearInterval(fillTimer);
-    }, 1000);
   }
   spotEl.style.setProperty('--hm-slide', SLIDE_MS + 'ms');
   // Flicking through: arrows, a two-finger swipe, or a drag / touch swipe.
@@ -588,7 +574,7 @@
   window.klabHomeTabChanged = function(on) {
     if (on === active) return;
     active = on;
-    clearTimeout(slideTimer); clearInterval(flowTimer); clearInterval(fillTimer);
+    clearTimeout(slideTimer); clearInterval(flowTimer);
     if (on) {
       bdKey = '';
       refreshAll();
