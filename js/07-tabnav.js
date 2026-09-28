@@ -716,7 +716,7 @@ window.klabSideNav = (function() {
     if (mat && settings.platform === 'linux' && !mat.dataset.kde) {
       mat.dataset.kde = '1';
       mat.innerHTML = '<button type="button" data-v="blur">Blur</button><button type="button" data-v="none">Solid</button>';
-      text('appMaterialSub', 'KWin blurs what’s behind klabnet. Switching restarts klabnet (blur runs it through XWayland on Wayland)');
+      text('appMaterialSub', 'Experimental: KWin blurs what’s behind klabnet (through XWayland on Wayland). Switching restarts klabnet; if it crashes, it goes back to Solid');
     }
     if (mat && mac && !mat.dataset.mac) {
       mat.dataset.mac = '1';
