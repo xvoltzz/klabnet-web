@@ -712,11 +712,11 @@ window.klabSideNav = (function() {
     if (trayRow) trayRow.hidden = mac;
     // Materials: the Mac has one (the sidebar's vibrancy) or none.
     const mat = $('appMaterial');
-    // KDE: KWin's blur behind the window, or none; switching restarts.
+    // KDE with the Better Blur effect: a see-through window, or none; switching restarts.
     if (mat && settings.platform === 'linux' && !mat.dataset.kde) {
       mat.dataset.kde = '1';
       mat.innerHTML = '<button type="button" data-v="blur">Blur</button><button type="button" data-v="none">Solid</button>';
-      text('appMaterialSub', 'Experimental: KWin blurs what’s behind klabnet (through XWayland on Wayland). Switching restarts klabnet; if it crashes, it goes back to Solid');
+      text('appMaterialSub', 'Experimental: a see-through window for the Better Blur effect (add “klabnet” to its window classes). Switching restarts klabnet; if it crashes, it goes back to Solid');
     }
     if (mat && mac && !mat.dataset.mac) {
       mat.dataset.mac = '1';

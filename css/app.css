@@ -7636,10 +7636,10 @@
     html.klabnet-app:not(.app-titlebar) .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
     html.klabnet-app:not(.app-titlebar) .prompt-cursor { height: 0.9rem; }
 
-    /* ── KDE with KWin's blur (Settings → App → Window material) ──
-       The window is see-through and KWin blurs what's behind it; the page
-       tints it like Acrylic on Windows (html.app-material rules above), and
-       the Breeze sidebar goes a lighter glass instead of solid. */
+    /* ── KDE with blur (Settings → App → Window material) ──
+       The window is see-through and KWin's Better Blur effect blurs what's
+       behind it; the page tints it like Acrylic on Windows (html.app-material
+       rules above), and the Breeze sidebar goes a lighter glass. */
     @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app.app-material[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
         background: color-mix(in srgb, var(--bg) 30%, transparent);
