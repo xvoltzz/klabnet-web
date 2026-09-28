@@ -134,7 +134,7 @@ function klabArtFallback(img, placeholderClass, iconClass) {
 
 // Both remaining context menus (presence cards, song rows) are
 // fixed-position elements living inside the zoomed `html` subtree (see the
-// `zoom` tiers on large displays in the stylesheet). `clientX`/`clientY`
+// `zoom` tiers for short windows in the stylesheet). `clientX`/`clientY`
 // are reported in real, unzoomed viewport pixels, but a fixed-position
 // descendant's `left`/`top` are lengths *inside* the zoomed context —
 // assigning the raw client coords shoots the menu off to the right/bottom

@@ -10,6 +10,8 @@
 //  shows photos posted meanwhile next, keeps the screen awake, and only
 //  ever holds two photos (the one showing and the one coming).
 //
+//  "Mine" narrows it to your own photos.
+//
 //  Keys: Space pause · ←/→ previous/next · I details · Esc exit. S opens
 //  it from Photos (js/14-photos.js, which provides window.klabPhotos).
 // ══════════════════════════════════════════
@@ -18,7 +20,7 @@
   const SPEEDS = [5, 8, 15, 30];
   const FADE_MS = 1400;           // the crossfade (--ss-fade in the CSS)
   const TRIM_EVERY = 40;          // slides between handing decoded photos back (desktop app)
-  const opts = { secs: 8, shuffle: true, info: true, songs: false };
+  const opts = { secs: 8, shuffle: true, info: true, songs: false, mine: false };
   try { Object.assign(opts, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   if (!SPEEDS.includes(opts.secs)) opts.secs = 8;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(opts)); } catch (e) {} };
@@ -33,6 +35,10 @@
 
   // ── The deck ──
   const byId = id => P().items().find(it => it.ph.id === id);
+  const me = () => (window.KLAB_USER?.username || '').toLowerCase();
+  // The photos it shows: everyone's, or with "Mine" only your own.
+  const pool = () => P().items().filter(it => !opts.mine || (it.post.username || '').toLowerCase() === me());
+  const hasMine = () => P().items().some(it => (it.post.username || '').toLowerCase() === me());
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
@@ -40,7 +46,7 @@
   // Newest first in order, or shuffled; either way starting on the photo
   // Photos was showing.
   function buildDeck(startId) {
-    const ids = P().items().map(it => it.ph.id).reverse();
+    const ids = pool().map(it => it.ph.id).reverse();
     known = new Set(ids);
     if (opts.shuffle) shuffle(ids);
     const i = ids.indexOf(startId);
@@ -51,10 +57,10 @@
   // Photos that turned up since (a new post, an older page): new posts
   // straight after the current one, older pages mixed into what's to come.
   function mergeNew() {
-    const fresh = P().items().map(it => it.ph.id).filter(id => !known.has(id));
+    const fresh = pool().map(it => it.ph.id).filter(id => !known.has(id));
     if (!fresh.length) return;
     fresh.forEach(id => known.add(id));
-    const newest = P().items().slice(-1)[0]?.ph.id;
+    const newest = pool().slice(-1)[0]?.ph.id;
     for (const id of fresh.reverse()) {
       if (id === newest || !opts.shuffle) deck.splice(at + 1, 0, id);
       else deck.splice(at + 1 + Math.floor(Math.random() * (deck.length - at)), 0, id);
@@ -88,6 +94,11 @@
         '<span class="ss-sep"></span>' +
         '<div class="ss-speed" role="group" aria-label="Seconds per photo">' + SPEEDS.map(s => `<button type="button" data-secs="${s}">${s}s</button>`).join('') + '</div>' +
         '<span class="ss-sep"></span>' +
+        '<div class="ss-speed ss-whose" role="group" aria-label="Whose photos">' +
+          '<button type="button" data-mine="0" title="Everyone\u2019s photos">Everyone</button>' +
+          '<button type="button" data-mine="1" title="Only your photos">Mine</button>' +
+        '</div>' +
+        '<span class="ss-sep"></span>' +
         '<button type="button" data-act="shuffle" title="Shuffle" aria-label="Shuffle"><i class="ti ti-arrows-shuffle"></i></button>' +
         '<button type="button" data-act="info" title="Details (I)" aria-label="Details"><i class="ti ti-info-circle"></i></button>' +
         '<button type="button" data-act="songs" title="Play the photos’ songs" aria-label="Play the photos’ songs"><i class="ti ti-music"></i></button>' +
@@ -101,7 +112,8 @@
       if (!b) { poke(); return; }
       SFX && SFX.play('click');
       const act = b.dataset.act;
-      if (b.dataset.secs) { opts.secs = Number(b.dataset.secs); save(); syncBar(); restartTimer(); }
+      if (b.dataset.mine) setMine(b.dataset.mine === '1');
+      else if (b.dataset.secs) { opts.secs = Number(b.dataset.secs); save(); syncBar(); restartTimer(); }
       else if (act === 'prev') step(-1);
       else if (act === 'next') step(1);
       else if (act === 'play') setPaused(!paused);
@@ -120,7 +132,8 @@
     root.classList.toggle('no-info', !opts.info);
     root.classList.toggle('paused', paused);
     root.style.setProperty('--ss-secs', opts.secs + 's');
-    root.querySelectorAll('.ss-speed button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.secs) === opts.secs)));
+    root.querySelectorAll('.ss-whose button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.mine === '1') === opts.mine)));
+    root.querySelectorAll('.ss-speed:not(.ss-whose) button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.secs) === opts.secs)));
     const set = (act, on) => root.querySelector(`[data-act="${act}"]`).setAttribute('aria-pressed', String(on));
     set('shuffle', opts.shuffle); set('info', opts.info); set('songs', opts.songs);
     const play = root.querySelector('[data-act="play"]');
@@ -210,7 +223,7 @@
   async function step(dir) {
     clearTimeout(timer);
     mergeNew();
-    if (!deck.length) return;
+    if (!deck.length) { restartTimer(); return; }
     // Up to three tries: a photo that won't load (deleted since) is skipped.
     for (let tries = 0; tries < 3; tries++) {
       at += dir;
@@ -233,6 +246,16 @@
     const id = deck[at + 1];
     const it = id != null && byId(id);
     ahead = it ? Object.assign(new Image(), { src: P().url(it.ph, true) }) : null;
+  }
+  // Everyone's or only mine: the deck starts over from the photo showing
+  // (if it's still in it) or moves straight on to the first that is.
+  function setMine(on) {
+    if (on === opts.mine) return;
+    if (on && !hasMine() && !P().hasOlder()) { showToast('You haven\u2019t posted any photos yet', 'ti-photo'); return; }
+    opts.mine = on; save(); syncBar();
+    buildDeck(lastId);
+    if (deck[0] === lastId) at = 0;
+    else step(1);
   }
   function setPaused(on) {
     paused = on;
@@ -275,6 +298,8 @@
     clockTimer = setInterval(tickClock, 15000);
     document.body.classList.add('ss-on');
     requestAnimationFrame(() => root.classList.add('open'));
+    // "Mine" left on from last time, with nothing of yours to show.
+    if (opts.mine && !hasMine() && !P().hasOlder()) { opts.mine = false; save(); syncBar(); }
     buildDeck(P().current());
     // Full screen where the browser allows it (it needs this click/key).
     root.requestFullscreen?.().then(() => { root._wentFull = true; }).catch(() => {});
