@@ -7604,13 +7604,13 @@
     /* The toolbar: room for the traffic lights, no room kept on the right. */
     /* --mac-hdr-x is where the toolbar starts: the window's edge, or the
        full sidebar's. Past the traffic lights sits the sidebar button
-       (32px + 8px), then klabnet's name. */
+       (12px + 36px + 12px), then klabnet's name. */
     html.app-titlebar[data-platform="darwin"] { --mac-hdr-x: 0px; }
     html.app-titlebar[data-platform="darwin"] .header {
       left: var(--mac-hdr-x); padding-left: calc(var(--wco-left, 80px) + 12px); padding-right: 12px;
       transition: background-color .2s ease, box-shadow .2s ease, left .28s var(--m-ease), padding-left .28s var(--m-ease);
     }
-    html.app-titlebar.nav-side-on[data-platform="darwin"] .header { padding-left: calc(var(--wco-left, 80px) + 52px); }
+    html.app-titlebar.nav-side-on[data-platform="darwin"] .header { padding-left: calc(var(--wco-left, 80px) + 60px); }
     html.app-titlebar[data-platform="darwin"] .header-right { margin-right: 0; }
     html.app-titlebar[data-platform="darwin"] .prompt-text { font-size: 0.9rem; }
 
@@ -7680,12 +7680,16 @@
          header makes a containing block of its own; keep it that way).
          The glyph is the Mac's sidebar symbol, not a ☰. */
       html.app-titlebar[data-platform="darwin"] .header .nav-burger {
-        position: fixed; top: calc((var(--tb-h, 52px) - 30px) / 2); left: calc(var(--wco-left, 80px) + 12px);
-        width: 32px; height: 30px; min-width: 32px; min-height: 30px; margin: 0; border: 0; border-radius: 8px;
-        background: transparent; box-shadow: none; color: var(--text-dim);
+        position: fixed; top: calc((var(--tb-h, 52px) - 36px) / 2); left: calc(var(--wco-left, 80px) + 12px);
+        width: 36px; height: 36px; min-width: 36px; min-height: 36px; margin: 0; border-radius: 50%;
+        /* Liquid Glass, like the capsule of buttons at the other end. */
+        background: var(--mac-glass); border: .5px solid var(--mac-glass-rim); color: var(--text);
+        box-shadow: inset 0 1px 0 var(--mac-glass-hi), var(--mac-glass-shadow);
+        -webkit-backdrop-filter: var(--mac-glass-blur); backdrop-filter: var(--mac-glass-blur);
         transition: background-color .15s, color .15s;
       }
-      html.app-titlebar[data-platform="darwin"] .header .nav-burger:hover { background: var(--mac-hover); color: var(--text); }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger:hover { background: color-mix(in srgb, var(--mac-glass), var(--text) 8%); }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger:active { background: color-mix(in srgb, var(--mac-glass), var(--text) 16%); }
       html.app-titlebar[data-platform="darwin"] .header .nav-burger i { display: none; }
       html.app-titlebar[data-platform="darwin"] .header .nav-burger::before {
         content: ''; width: 19px; height: 15px; background: currentColor;
@@ -7701,9 +7705,15 @@
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) { --nav-top: 0px; --mac-hdr-x: var(--nav-w); }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header { padding-left: 1.75rem; }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: calc(var(--tb-h, 52px) + 4px); }
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--tb-h, 52px); -webkit-app-region: drag;
+      /* In two pieces either side of the sidebar button: the sidebar comes
+         after the header in the page, so a drag strip under the button
+         would win over its no-drag and swallow the click. */
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before,
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::after {
+        content: ''; position: absolute; top: 0; height: var(--tb-h, 52px); -webkit-app-region: drag;
       }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before { left: 0; width: calc(var(--wco-left, 80px) + 8px); }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::after { left: calc(var(--wco-left, 80px) + 52px); right: 0; }
       /* The full sidebar owns the top of the window instead: the layer's
          cut-out corner shrinks to nothing along the sidebar's edge. */
       html.klabnet-app.app-material.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) body::before {
