@@ -563,6 +563,19 @@ function sampleImageColor(imgUrl) {
             <div class="ap-hero-sub">${[album.year, `${songs.length} track${songs.length!==1?'s':''}`, durStr].filter(Boolean).join(' · ')}</div>
           </div>`;
         frag.appendChild(hero);
+        // Then the cover at high resolution (klabHiResArt, kept on our own
+        // server), swapped in once it's decoded; Navidrome's stays if
+        // there's none.
+        const heroImg = hero.querySelector('img.ap-hero-img');
+        if (heroImg && window.klabHiResArt) {
+          window.klabHiResArt({ albumId: album.id, artist: album.artist || '', album: album.name || album.title || '', mbid: album.musicBrainzId || '' })
+            .then(r => {
+              if (!r || !r.large) return;
+              const pre = new Image();
+              pre.src = r.large;
+              return pre.decode().then(() => { if (heroImg.isConnected) heroImg.src = r.large; });
+            }).catch(() => {});
+        }
 
         const body = document.createElement('div');
         body.className = 'ap-body';
