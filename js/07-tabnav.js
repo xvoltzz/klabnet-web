@@ -712,6 +712,12 @@ window.klabSideNav = (function() {
     if (trayRow) trayRow.hidden = mac;
     // Materials: the Mac has one (the sidebar's vibrancy) or none.
     const mat = $('appMaterial');
+    // KDE: KWin's blur behind the window, or none; switching restarts.
+    if (mat && settings.platform === 'linux' && !mat.dataset.kde) {
+      mat.dataset.kde = '1';
+      mat.innerHTML = '<button type="button" data-v="blur">Blur</button><button type="button" data-v="none">Solid</button>';
+      text('appMaterialSub', 'KWin blurs what’s behind klabnet. Switching restarts klabnet (blur runs it through XWayland on Wayland)');
+    }
     if (mat && mac && !mat.dataset.mac) {
       mat.dataset.mac = '1';
       mat.innerHTML = '<button type="button" data-v="vibrancy">Vibrancy</button><button type="button" data-v="none">Solid</button>';
@@ -749,6 +755,9 @@ window.klabSideNav = (function() {
     const b = e.target.closest('button[data-v]');
     if (!b) return;
     SFX && SFX.play('click');
+    // On Linux the app restarts to switch (the window can't change after
+    // it's made): say so, the answer won't come.
+    if (settings?.platform === 'linux' && b.getAttribute('aria-pressed') !== 'true') $('appMaterialSub').textContent = 'Restarting klabnet…';
     settings = await app.setSetting('material', b.dataset.v);
     render();
   });

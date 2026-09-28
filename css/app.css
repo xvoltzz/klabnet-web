@@ -7622,3 +7622,26 @@
       .add-app-backdrop, .settings-backdrop, .img-view-backdrop, .toast-item) { -webkit-app-region: no-drag; }
     /* The multi-line version (editing a message keeps its line breaks). */
     .chat-modal-input.chat-modal-textarea { height: auto; min-height: 96px; max-height: 50vh; padding: 9px 11px; line-height: 1.45; resize: vertical; font: inherit; }
+
+    /* ══ klabnet for Linux (desktop's own frame): the app's compact header ══
+       Windows, the Mac and GNOME make klabnet's header the title bar, which
+       brings a small mark and no splash (see html.app-titlebar). KDE and the
+       rest keep the desktop's own frame, and got the website's big header:
+       the same compact identity here, and the space back. */
+    html.klabnet-app:not(.app-titlebar) .header { margin-bottom: 1.1rem; align-items: center; }
+    html.klabnet-app:not(.app-titlebar) .header-left { gap: 0.6rem; align-self: center; }
+    html.klabnet-app:not(.app-titlebar) .logo { width: 24px; height: 24px; }
+    html.klabnet-app:not(.app-titlebar) .header-text { gap: 0; }
+    html.klabnet-app:not(.app-titlebar) :is(.prompt-prefix, .header-meta, .motd) { display: none; }
+    html.klabnet-app:not(.app-titlebar) .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
+    html.klabnet-app:not(.app-titlebar) .prompt-cursor { height: 0.9rem; }
+
+    /* ── KDE with KWin's blur (Settings → App → Window material) ──
+       The window is see-through and KWin blurs what's behind it; the page
+       tints it like Acrylic on Windows (html.app-material rules above), and
+       the Breeze sidebar goes a lighter glass instead of solid. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.klabnet-app.app-material[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: color-mix(in srgb, var(--bg) 30%, transparent);
+      }
+    }
