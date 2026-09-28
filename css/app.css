@@ -7657,9 +7657,16 @@
     html.klabnet-app.app-material[data-desktop="kde"] { background: transparent; }
     html.klabnet-app.app-material[data-desktop="kde"] body { background: color-mix(in srgb, var(--bg) var(--app-tint, 10%), transparent); }
     html.klabnet-app.app-material[data-desktop="kde"] :is(.hm-backdrop, .ph-backdrop) { display: none; }
+    /* The player bar is glass over whatever scrolls under it (the page's
+       own blur), with the desktop's showing through where the page is clear.
+       Clear on its own, content scrolling past it read as a mess. Without
+       the page's blur (reduced effects) it's mostly solid instead. */
     html.klabnet-app.app-material[data-desktop="kde"] #playerDock {
-      background: color-mix(in srgb, var(--bg) calc(var(--app-tint, 10%) + 25%), transparent) !important;
-      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      background: color-mix(in srgb, var(--bg) calc(var(--app-tint, 10%) + 40%), transparent) !important;
+      -webkit-backdrop-filter: blur(28px) saturate(1.5) !important; backdrop-filter: blur(28px) saturate(1.5) !important;
+    }
+    html.klabnet-app.app-material[data-desktop="kde"][data-fx="low"] #playerDock {
+      background: color-mix(in srgb, var(--bg) 85%, transparent) !important;
     }
     @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app.app-material[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
