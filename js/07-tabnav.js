@@ -722,6 +722,13 @@ window.klabSideNav = (function() {
         ? 'KWin blurs what’s behind klabnet'
         : 'Experimental: a see-through window for the Better Blur effect (add “klabnet” to its window classes). Switching restarts klabnet; if it crashes, it goes back to Solid');
     }
+    // KDE with blur: the glass tint, like a terminal's background opacity.
+    const tintRow = $('appTintRow');
+    if (tintRow) tintRow.hidden = !(kde && settings.material === 'blur' && typeof settings.tint === 'number');
+    if (typeof settings.tint === 'number' && $('appTint') && document.activeElement !== $('appTint')) {
+      $('appTint').value = Math.round(settings.tint * 100);
+      text('appTintVal', Math.round(settings.tint * 100) + '%');
+    }
     if (mat && mac && !mat.dataset.mac) {
       mat.dataset.mac = '1';
       mat.innerHTML = '<button type="button" data-v="vibrancy">Vibrancy</button><button type="button" data-v="none">Solid</button>';
@@ -754,6 +761,16 @@ window.klabSideNav = (function() {
   }, true);
   toggle('appLoginToggle', 'openAtLogin');
   toggle('appTrayToggle', 'closeToTray');
+
+  // Dragging shows it live; it's saved a moment after you stop.
+  let tintTimer = 0;
+  $('appTint')?.addEventListener('input', e => {
+    const v = Number(e.target.value);
+    document.documentElement.style.setProperty('--app-tint', v + '%');
+    const out = $('appTintVal'); if (out) out.textContent = v + '%';
+    clearTimeout(tintTimer);
+    tintTimer = setTimeout(async () => { settings = await app.setSetting('tint', v / 100); }, 250);
+  });
 
   $('appMaterial')?.addEventListener('click', async e => {
     const b = e.target.closest('button[data-v]');
