@@ -7647,3 +7647,23 @@
         background: color-mix(in srgb, var(--bg) 30%, transparent);
       }
     }
+
+    /* ══ klabnet for KDE with KWin's blur: see-through glass ══
+       The desktop shows through, blurred, like a Plasma panel: one light
+       tint (html and body each tinting 18% stacked to a third), the sidebar
+       and player bar mostly clear, and klabnet's own full-page album-art
+       backdrops off, since they'd paint over the wallpaper. Windows and the
+       Mac keep their own recipes. */
+    html.klabnet-app.app-material[data-desktop="kde"] { background: transparent; }
+    html.klabnet-app.app-material[data-desktop="kde"] body { background: color-mix(in srgb, var(--bg) 10%, transparent); }
+    html.klabnet-app.app-material[data-desktop="kde"] :is(.hm-backdrop, .ph-backdrop) { display: none; }
+    html.klabnet-app.app-material[data-desktop="kde"] #playerDock {
+      background: color-mix(in srgb, var(--bg) 35%, transparent) !important;
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+    }
+    @media (min-width: 761px), (pointer: fine) {
+      html.klabnet-app.app-material[data-desktop="kde"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: color-mix(in srgb, var(--bg) 14%, transparent) !important;
+        box-shadow: 1px 0 0 color-mix(in srgb, var(--text) 10%, transparent);
+      }
+    }
