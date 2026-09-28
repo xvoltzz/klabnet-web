@@ -42,3 +42,10 @@ The real site needs Authentik, so local testing uses a mock server. It serves th
 - **Photos:**
   - On desktop, `js/14-photos.js` moves its controls into the sidebar (`placeChrome()`). On touch screens ≤900px it puts them back beside the photo.
   - The photo count comes from the API's `total` on the first page.
+- **Memory:** klabnet sat near 1GB in the desktop app. The details, measurements and the desktop-side fix are in klabnet-desktop's CLAUDE.md ("Memory (RAM) and GPU"). The rules this repo follows because of it:
+  - Blurred backdrops never need big art: `klabSoften` (js/00-util.js) bakes them to 96px and downsizes any `getCoverArt` source to 300px before it's fetched. Don't give a blurred background a screen-sized image.
+  - Decoded pictures are the memory. Chromium keeps every one it has drawn until the OS says memory is short. When a screen lets go of many big pictures, call `window.klabnetDesktop?.trimMemory?.()`, as Photos does when you leave it and the image viewer does when it closes.
+  - Photos keeps at most 6 preloaded photos (`preloaded` in js/14-photos.js) and clears them on leaving the tab.
+  - Avoid animations that never stop on screens left open (Home). Any running animation makes the window redraw every frame, which is steady GPU at 4K behind Acrylic. Home's spotlight bar is stepped from JS once a second for this reason.
+- **Prefs** save with `PATCH /api/prefs` (just the changed fields, merged on the server, one request, so it survives a closing tab), falling back to GET+PUT on an API without PATCH.
+- **Favourites** are slimmed song records (`slimSong` in js/05-favorites.js), up to 2000; adding past that says so rather than dropping the oldest.
