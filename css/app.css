@@ -7570,7 +7570,8 @@
            sit in its top; the window's vibrancy shows through the whole
            page, as Acrylic does on Windows, the content a shade darker
          · sidebar rows are a source list: 32px, SF 13px, plain icons,
-           the selection a rounded fill that doesn't slide, its label
+           the selection a rounded fill (sliding between rows, as klabnet's
+           does everywhere; the owner wanted the animation), its label
            semibold
          · toolbar buttons are Liquid Glass: the header's buttons share one
            glass capsule (the sidebar button stays a plain icon, so it
@@ -7667,7 +7668,7 @@
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: transparent; color: var(--text); }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):active { background: var(--mac-hover); }
       html.klabnet-app[data-platform="darwin"] #sideNav .motion-pill-tabs {
-        background: var(--mac-sel); border: 0; box-shadow: none; border-radius: 8px; transition: none !important;
+        background: var(--mac-sel); border: 0; box-shadow: none; border-radius: 8px;
       }
       html.klabnet-app[data-platform="darwin"] #sideNav .tab-nav-btn.active i { filter: none; }
       html.klabnet-app[data-platform="darwin"] #sideNav #socialUnreadBadge:not(:empty) {
