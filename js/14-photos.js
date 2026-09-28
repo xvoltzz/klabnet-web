@@ -118,6 +118,9 @@
       // selection minutes later when older pages happen to load.
       if (pendingFocus) { focusPhoto(pendingFocus.postId, pendingFocus.photoId); pendingFocus = null; }
     } catch (e) {
+      // A request from before a switch to What's New failing says nothing
+      // about the new order's own, which may still be on its way.
+      if (g !== gen) return;
       pendingFocus = null;
       if (!loadedOnce) showEmpty('Couldn’t load photos. Retrying…');
     }
@@ -365,7 +368,8 @@
   const railR = frame.querySelector('.ph-rail-r');
   // Narrow means a phone or a small tablet: a desktop window of any width
   // keeps the sidebar layout (no phone UI on a desktop).
-  const narrowMq = matchMedia('(max-width: 900px) and (pointer: coarse)');
+  // The exact opposite of the CSS's desktop layout, (min-width: 901px), (pointer: fine).
+  const narrowMq = matchMedia('(max-width: 900px) and (not (pointer: fine))');
   // Where the chrome lives: in Music's sidebar on a wide window; beside
   // and under the photo when it's narrow. Moved, not copied, so every
   // listener and id stays as it is.
@@ -524,11 +528,17 @@
   function renderPost(mode) {
     if (sel < 0 || !items[sel]) return;
     const { post, k, ph } = items[sel];
-    const postChanged = mode === 'post';
+    // Not when the open comments are already this post's: applyPosts()
+    // re-selects the same photo after every poll or older page that
+    // changes the strip, and reloading then blanked the list mid-read.
+    const postChanged = mode === 'post' &&
+      !(shell.classList.contains('side-open') && $('phReplies').dataset.postId === String(post.id));
     $('phDots').innerHTML = post.photos.length > 1
       ? post.photos.map((_, j) => `<span class="${j === k ? 'on' : ''}"></span>`).join('') : '';
     const s = specsHTML(ph.exif || {});
-    if ($('phGear').innerHTML !== s.gear) $('phGear').innerHTML = s.gear;
+    // Compared with what was written, not innerHTML (the browser's own
+    // re-serialisation of it can differ, which rewrote it every scrub frame).
+    if ($('phGear')._html !== s.gear) { $('phGear').innerHTML = s.gear; $('phGear')._html = s.gear; }
     if ($('phSpecRow')._html !== s.specs) { $('phSpecRow').innerHTML = s.specs; $('phSpecRow')._html = s.specs; }
     $('phOriginal').href = fileUrl(ph.id, 'original');
     $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
@@ -643,6 +653,9 @@
     scrubbing = on;
     shell.classList.toggle('scrubbing', on);
     if (on) { clearTimeout(clipTimer); return; }
+    // Switched order (or the last post went) mid-scrub: nothing to land on,
+    // and centers[-1] would leave the glide chasing NaN every frame.
+    if (!centers.length) return;
     target = centers[nearest(target)];
     kick();
     if (pos === target) settle();
@@ -718,6 +731,11 @@
     // scrolls it, or there'd be no way down to them with a mouse.
     if (narrowMq.matches && frame.contains(e.target) && Math.abs(e.deltaY) > Math.abs(e.deltaX) &&
         frame.scrollHeight > frame.clientHeight + 1) return;
+    // Same for the sidebar on a short window: a long caption pushes the
+    // song off its bottom, and it scrolls (overflow-y: auto) only if the
+    // wheel is let through.
+    const side = e.target.closest('.ph-sidebar');
+    if (side && Math.abs(e.deltaY) > Math.abs(e.deltaX) && side.scrollHeight > side.clientHeight + 1) return;
     e.preventDefault();
     const notch = e.deltaMode === 1 || (Math.abs(e.deltaX) < 1 && Math.abs(e.deltaY) >= 50);
     if (notch) {
@@ -1008,7 +1026,11 @@
         if (clipPostId !== postId) return;
         fade(clip, playerState.volume, 600);
         markSongPlaying();
-      }).catch(() => { /* autoplay blocked or stream failed: stay silent */ });
+      }).catch(() => {
+        // Autoplay blocked or stream failed: stay silent, and forget it, or
+        // the first press on the song would "stop" a clip that isn't playing.
+        if (clipPostId === postId) clipPostId = null;
+      });
     }, { once: true });
     clip.load();
   }
@@ -1038,6 +1060,9 @@
     const post = items[sel].post;
     if (clipPostId !== null && clipPostId !== post.id) stopClip();
     if (!soundOn || !post.song || clipSuppressed === post.id || document.hidden) return;
+    // The composer's song preview is playing: a poll re-selecting, or
+    // coming back to the window, mustn't start a clip over it.
+    if (previewWanted) return;
     if (!playerState.audio.paused) return; // your own music is on (a listening party, a media key): it wins
     clipTimer = setTimeout(() => {
       if (sel >= 0 && items[sel].post === post && !scrubbing && isActive()) playClip(post.song, post.id);
@@ -1105,15 +1130,20 @@
   // Called by setActiveTab() on every tab change. Arriving pauses your
   // music (unless you're in a listening party, which it would break);
   // leaving resumes it, but only if this tab was what paused it.
-  let pausedByPhotos = false;
+  let pausedByPhotos = false, shown = false;
   window.klabPhotosTabChanged = function(active) {
+    // setActiveTab() calls this on every switch, Photos to Photos too (the
+    // nav button again): only really arriving pauses your music, or music
+    // started here (the photo's "Play song") stopped on that second click.
+    const arriving = active && !shown;
+    shown = active;
     if (!active) {
       stopClip();
       stopPreview();
       if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); }
       return;
     }
-    if (!playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) {
+    if (arriving && !playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) {
       playerState.audio.pause();
       pausedByPhotos = true;
     }
@@ -1126,7 +1156,10 @@
   // Capture phase on window, so while this tab is showing its keys win over
   // the global ones (←/→ are prev/next track elsewhere, j/k scroll).
   function anyModalOpen() {
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open');
+    // A right-click menu too: this handler runs before the menu's own (window
+    // capture beats document capture), so ↑/↓ moved the photo instead of the
+    // menu's highlight, under a menu still about the old one.
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible, .fs-player.open');
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;
@@ -1498,7 +1531,8 @@
   $('phSongSearch').addEventListener('input', e => {
     clearTimeout(songSearchTimer);
     const q = e.target.value.trim();
-    if (!q) { $('phSongResults').innerHTML = ''; return; }
+    // Cleared: a search still out for what was there mustn't fill it back in.
+    if (!q) { ++songSearchToken; $('phSongResults').innerHTML = ''; return; }
     songSearchTimer = setTimeout(async () => {
       const token = ++songSearchToken;
       try {
@@ -1520,6 +1554,9 @@
     const b = e.target.closest('.ph-song-result');
     if (!b) return;
     pickedSong = $('phSongResults')._songs[Number(b.dataset.i)];
+    // Nor one still out when a song is picked (it would be waiting under
+    // the box when the song is removed again).
+    clearTimeout(songSearchTimer); ++songSearchToken;
     $('phSongSearch').value = '';
     $('phSongResults').innerHTML = '';
     const start = $('phSongStart');

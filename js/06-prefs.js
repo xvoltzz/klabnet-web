@@ -57,8 +57,12 @@ async function checkSession() {
   _sessionCheckedAt = Date.now();
   _sessionCheckBusy = true;
   try {
-    const res = await fetchTimeout('/api/me', {}, 8000);
-    if (res.status === 401 || res.status === 403) { location.reload(); return; }
+    // Not followed: a lapsed Authentik session answers with a redirect to
+    // its sign-in page, and following that ended in a CORS failure that
+    // looked just like a bad connection, so the tab never noticed. A
+    // reload goes through the sign-in (or quietly renews the session).
+    const res = await fetchTimeout('/api/me', { redirect: 'manual' }, 8000);
+    if (res.type === 'opaqueredirect' || res.status === 401 || res.status === 403) { location.reload(); return; }
     if (!res.ok) return; // transient failure — don't punish a bad connection
     const data = await res.json();
     // Started while /api/me was unreachable: this is who we are, not a
@@ -127,6 +131,19 @@ function afterPrefsWritten() {
   if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
   if (typeof updateFavBadge === 'function') updateFavBadge();
   if (typeof applyCustomBg === 'function') applyCustomBg();
+  // A theme picked on another device (or in another tab) shows here now,
+  // not after the next reload. The unwrapped one: this isn't a change to save.
+  try {
+    const t = localStorage.getItem(PREF_KEYS.theme);
+    if (t && t !== currentTheme) _origApplyTheme(t);
+  } catch (e) {}
+  // Playlists made elsewhere: the sidebar is only drawn when Music first
+  // opens and on local edits, so it kept the old list until a reload.
+  if (typeof renderPlaylistNav === 'function') {
+    const on = document.querySelector('.music-playlist-row.active')?.dataset.plId;
+    renderPlaylistNav();
+    if (on) document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(on)}"]`)?.classList.add('active');
+  }
 }
 
 async function fetchServerPrefs() {
@@ -157,10 +174,13 @@ async function loadServerPrefs() {
   if (pending) scheduleSave();
 }
 
-let _prefsSaving = null;
+let _prefsSaving = null, _prefsSaveAgain = false;
 async function saveServerPrefs() {
   if (window.KLAB_USER.username === 'anonymous') return; // kept; uploaded once we know who you are
-  if (_prefsSaving) return _prefsSaving;
+  // One at a time. A save asked for meanwhile runs when this one's done:
+  // what it would have sent was changed after this one picked its fields,
+  // and used to wait for the next edit, hide or reload to go up.
+  if (_prefsSaving) { _prefsSaveAgain = true; return _prefsSaving; }
   _prefsSaving = (async () => {
     const base = readPrefBase();
     const mine = PREF_NAMES.filter(n => prefChangedHere(n, base));
@@ -177,10 +197,15 @@ async function saveServerPrefs() {
       const body = JSON.stringify(merged);
       // keepalive lets a save started as the tab closes finish, but browsers
       // refuse (throw) one over 64KB, so a big library saves without it.
+      // Counted in bytes: titles in Japanese or Korean are three bytes a
+      // character, and a body under 60000 characters could still be refused,
+      // on every save, for good.
       const res = await fetchTimeout('/api/prefs', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, keepalive: body.length < 60000,
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, keepalive: new Blob([body]).size < 60000,
       }, 8000);
-      if (!res.ok) return; // still marked changed; tried again next time
+      // Redirected: the session lapsed and this landed on a sign-in page,
+      // which answers 200 without having saved anything.
+      if (!res.ok || res.redirected) return; // still marked changed; tried again next time
       // Other devices' changes that came along with the merge, unless this
       // field was edited again while the save was in flight.
       let wrote = false;
@@ -196,7 +221,10 @@ async function saveServerPrefs() {
       // Offline or the server's down: the changes stay marked and go up
       // with the next save, or at the next start.
     }
-  })().finally(() => { _prefsSaving = null; });
+  })().finally(() => {
+    _prefsSaving = null;
+    if (_prefsSaveAgain) { _prefsSaveAgain = false; scheduleSave(); }
+  });
   return _prefsSaving;
 }
 
@@ -301,7 +329,8 @@ window.addEventListener('storage', e => {
 // barely changes.
 const UPDATE_CHECK_MS = 5 * 60 * 1000;
 async function checkForUpdate() {
-  if (document.hidden) return;
+  // Already saying so: no need to keep downloading the page to find out again.
+  if (document.hidden || document.getElementById('updateBanner')) return;
   try {
     const res = await fetchTimeout(location.pathname || '/', { cache: 'no-store' }, 8000);
     const html = await res.text();
@@ -386,7 +415,9 @@ function loadSettings() {
 }
 
 function saveSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(_settings));
+  // Storage full or blocked: the setting still applies for this visit. A
+  // throw here stopped the toggle's handler before it applied anything.
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(_settings)); } catch (e) {}
 }
 
 // ── Desktop notifications ──

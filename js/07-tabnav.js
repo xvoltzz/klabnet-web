@@ -77,7 +77,14 @@ function setActiveTab(key) {
     if (typeof _forceScrollBottomOnNextRender !== 'undefined') _forceScrollBottomOnNextRender = true;
     afterSwitchPaints(() => { if (!window.klabChatFlush?.()) renderTimeline(); });
   }
-  if (location.hash.slice(1) !== key) location.hash = key;
+  // A hash that isn't a tab (none yet on a first visit, or an old bookmark
+  // like #apps) is corrected in place. Setting it pushed a new entry, and
+  // Back to the bad hash just pushed it again: Back could never leave.
+  const was = location.hash.slice(1);
+  if (was !== key) {
+    if (TABS.includes(was)) location.hash = key;
+    else history.replaceState(history.state, '', '#' + key);
+  }
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') afterSwitchPaints(ensureMusicTabLoaded);

@@ -121,7 +121,7 @@ function renderAlbumList(albums, appendMode) {
     item.append(ph, info, acts);
 
     const fetchTracks = async () => {
-      const r = await fetchTimeout(ND_URL + '/rest/getAlbum?id=' + album.id + '&' + subsonicParams(), {}, 8000);
+      const r = await fetchTimeout(ND_URL + '/rest/getAlbum?id=' + encodeURIComponent(album.id) + '&' + subsonicParams(), {}, 8000);
       const d = await r.json();
       return d['subsonic-response']?.album?.song || [];
     };
@@ -393,7 +393,8 @@ function renderQueueList() {
     item.addEventListener('click', async () => {
       const at = queue.indexOf(song); if (at < 0) { renderQueueList(); return; }
       const s = queue.splice(at, 1)[0];
-      updateQueueBadge(); await playSong(s);
+      // Redrawn, or the song just taken off the queue stayed listed in it.
+      updateQueueBadge(); renderQueueList(); await playSong(s);
     });
     pickerList.appendChild(item);
   });

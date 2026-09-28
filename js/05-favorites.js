@@ -35,6 +35,17 @@ function updateFavBadge() {
   // menu or a list row used to leave the dock's and full player's stale).
   updateDockFavBtn();
   updateFSFavBtn();
+  // And the song rows' own: a heart from the song menu, the dock or the
+  // full player left the same song's row in the list showing the old state.
+  document.querySelectorAll('#pickerList .picker-item').forEach(r => {
+    const b = r._song && r.querySelector('[data-fav]');
+    if (!b) return;
+    const on = isFavorite(r._song.id);
+    if (b.classList.contains('fav-active') === on) return;
+    b.classList.toggle('fav-active', on);
+    b.title = on ? 'Remove from favorites' : 'Add to favorites';
+    const i = b.querySelector('i'); if (i) i.className = 'ti ' + (on ? 'ti-heart-filled' : 'ti-heart');
+  });
   const el = document.getElementById('favCount');
   const n = getFavorites().length;
   if (el) el.textContent = n ? '(' + n + ')' : '';

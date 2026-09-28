@@ -78,7 +78,10 @@
 
   function restoreChat(d) {
     if (typeof renderChannelList !== 'function') return;
-    if (d.room && d.room !== _chatActiveRoomId) { if (typeof chooseChatRoom === 'function') chooseChatRoom(d.room); else _chatActiveRoomId = d.room; renderChannelList(); }
+    // A conversation closed or left since: getRoom() still has it, so it
+    // would open again for a while, with a composer that can't send.
+    const membership = d.room && window.MatrixChat?.client?.getRoom(d.room)?.getMyMembership?.();
+    if (d.room && d.room !== _chatActiveRoomId && (membership === 'join' || membership === 'invite')) { if (typeof chooseChatRoom === 'function') chooseChatRoom(d.room); else _chatActiveRoomId = d.room; renderChannelList(); }
     if (d.view && typeof setChatMobileView === 'function') setChatMobileView(d.view);
   }
 
@@ -116,7 +119,11 @@
     const orig = setChatMobileView;
     setChatMobileView = function(view) {
       orig(view);
-      if (activeTab() === 'chat') push({ tab: 'chat', kind: 'room', room: _chatActiveRoomId, view });
+      // The list/conversation switch is only a screen on a phone; on a
+      // desktop both are showing, and recording it made a Back press that
+      // changed nothing (entering Chat says 'rooms', then a jump says 'convo').
+      const phone = matchMedia(KLAB_PHONE_MQ).matches;
+      if (activeTab() === 'chat') push({ tab: 'chat', kind: 'room', room: _chatActiveRoomId, ...(phone ? { view } : {}) });
     };
   }
 

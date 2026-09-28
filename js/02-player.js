@@ -87,6 +87,11 @@ playerState.audio.addEventListener('play', () => {
   // replaying the same song from the start counts again
   if (playerState.audio.currentTime < 1) _scrobbledFor = null;
 });
+// Repeat (audio.loop) starts the song over with a seek, not a new 'play',
+// so each time round only counted once without this.
+playerState.audio.addEventListener('seeked', () => {
+  if (playerState.audio.currentTime < 1) _scrobbledFor = null;
+});
 
 // Keeps the "now playing" highlight in any open album/artist track list
 // in sync with playback — needed because tracks also advance without a
@@ -270,6 +275,9 @@ async function playSong(song) {
   updatePlayerUI(song);
   const streamUrl = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.id)}&${subsonicParams()}`;
   playerState.audio.src = streamUrl;
+  // Picking another song mid fade-in: the fade would otherwise keep
+  // pulling this one's volume back down to where it had got to.
+  if (!_playSilently) clearInterval(_loginFadeInterval);
   playerState.audio.volume = _playSilently ? 0 : playerState.volume;
   try {
     await playerState.audio.play();
@@ -304,7 +312,10 @@ playerState.audio.addEventListener('error', () => {
     return;
   }
   showToast(title ? `Couldn't play "${title}", skipping` : "Couldn't play that track, skipping", 'ti-player-skip-forward');
-  setTimeout(() => nextSong(), 600);
+  // Only if it's still the broken one: a song picked in the meantime
+  // used to be skipped straight away too.
+  const failed = playerState.currentSong;
+  setTimeout(() => { if (playerState.currentSong === failed) nextSong(); }, 600);
 });
 playerState.audio.addEventListener('playing', () => { _failedInARow = 0; });
 // Whatever started it (Play after a blocked autoplay, the lock screen, a
@@ -367,18 +378,25 @@ async function prevSong() {
   }
   // Otherwise back to what you heard before this, keeping the playlist's
   // place in step when it came from there.
+  // _goingBack is only up while playSong starts (it reads it straight
+  // away): held across the whole load, a song you picked while this one
+  // buffered was left out of the history too.
   const back = _heard.pop();
   if (back) {
     const i = playerState.playlist.findIndex(x => x.id === back.id);
     if (i >= 0) playerState.playlistIndex = i;
+    let p;
     _goingBack = true;
-    try { await playSong(back); } finally { _goingBack = false; }
+    try { p = playSong(back); } finally { _goingBack = false; }
+    await p;
     return;
   }
   if (!playerState.playlist.length) { playerState.audio.currentTime = 0; return; }
   playerState.playlistIndex = (playerState.playlistIndex-1+playerState.playlist.length) % playerState.playlist.length;
+  let p;
   _goingBack = true;
-  try { await playSong(playerState.playlist[playerState.playlistIndex]); } finally { _goingBack = false; }
+  try { p = playSong(playerState.playlist[playerState.playlistIndex]); } finally { _goingBack = false; }
+  await p;
 }
 
 // Progress tracking — dock only. The fullscreen player's own timeupdate
@@ -580,7 +598,12 @@ async function tryPlayLoginSong() {
   const song = getLoginSong();
   if (!song) return;
   _playSilently = true;
-  try { await playSong(song); } finally { _playSilently = false; }
+  let p;
+  try { p = playSong(song); } finally { _playSilently = false; }
+  await p;
+  // Something else picked while it loaded: that one plays at your volume,
+  // not faded up from silence.
+  if (playerState.currentSong !== song) return;
   // Fade in over 2s
   let vol = 0;
   clearInterval(_loginFadeInterval);
@@ -1333,6 +1356,9 @@ function updateQueueBadge() {
 function addToQueue(song) {
   queue.push(song);
   updateQueueBadge();
+  // A song's menu works from anywhere (the dock, the full player), so the
+  // Queue view can be open underneath.
+  if (pickerTab === 'queue') renderQueueList();
   showToast(`"${song.title}" added to queue`, toastArt(song.coverArt));
 }
 

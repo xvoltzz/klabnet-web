@@ -67,13 +67,15 @@ function extractAlbumColor(imgUrl) {
 // ── playSong — single consolidated patch ──
 const _origPlaySong = playSong;
 playSong = async function(song) {
-  await _origPlaySong(song);
-  // Media session + history + album color
+  // The full player, hearts and colour follow the new song as soon as it's
+  // picked, like the dock does, rather than once it has buffered enough to
+  // start: off the LAN that was seconds of the full player showing the last
+  // song. (The play icon is setPlayIcon's; forcing "pause" here was wrong
+  // whenever play was refused, e.g. a login song before any tap.)
+  const started = _origPlaySong(song);
   updateFSUI(song);
   updateDockFavBtn();
   updateFSFavBtn();
-  document.getElementById('fsPlayIcon').className = 'ti ti-player-pause-filled';
-  addToPlayHistory(song);
   if (song?.coverArt) {
     // size=64 — matches sampleImageColor()'s own sampling size elsewhere;
     // averaging pixel color for an accent tint doesn't benefit from a
@@ -84,6 +86,10 @@ playSong = async function(song) {
   } else {
     _resetAccent();
   }
+  await started;
+  // Skipped before it ever started: it wasn't played.
+  if (song && playerState.currentSong !== song) return;
+  addToPlayHistory(song);
 };
 
 // ── Keyboard shortcuts ──────────────────────────
@@ -93,6 +99,12 @@ document.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
   // Alt+← is the browser's Back, Cmd+M minimizes: not ours.
   if (e.altKey || e.ctrlKey || e.metaKey) return;
+  // Not under a dialog or an open menu (a number of them used to skip the
+  // song behind "Delete this?"), and Space on a focused button presses
+  // that button rather than playing or pausing the music.
+  if (e.code !== 'Escape' && (document.body.classList.contains('feed-composer-open') ||
+      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .klab-menu.visible'))) return;
+  if (e.code === 'Space' && document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary')) return;
 
   if (e.code === 'Space') {
     e.preventDefault();
@@ -367,6 +379,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   const _origPlaySongLyrics = playSong;
   playSong = async function(song) {
     await _origPlaySongLyrics(song);
+    // Skipped past before it started: the newer song's call does this.
+    // Carrying on fetched the skipped song's lyrics and showed them until
+    // the new one had buffered.
+    if (song && playerState.currentSong !== song) return;
     _currentSongId = null; // invalidate cache for new song
     // Fetched when they'll be seen; opening the full player loads them.
     if (lyricsVisible()) {

@@ -131,6 +131,8 @@
   function live(key, t, html) {
     const fresh = !liveSeen.has(key);
     liveSeen.add(key);
+    // A screen meant to be left open: forget the oldest, like plainCache.
+    if (liveSeen.size > 500) liveSeen.delete(liveSeen.values().next().value);
     if (liveReady ? !fresh : t < liveT) return;
     liveT = Math.max(liveT, t);
     liveEl.hidden = false;

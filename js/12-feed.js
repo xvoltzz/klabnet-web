@@ -231,6 +231,9 @@
     // on screen instead and start tracking from there.
     if (seen[me] === undefined) {
       markMentionsSeen(_feedPosts.reduce((max, p) => Math.max(max, p.id), 0));
+      // The notification floor too, or the first mention after this became
+      // the floor and never notified.
+      if (_mentionFloor === null) _mentionFloor = _feedPosts.reduce((max, p) => Math.max(max, p.id), 0);
       mentionsDotEl.hidden = true;
       return;
     }
@@ -265,6 +268,7 @@
   const _feedAvatarCache   = new Map(); // username -> blob URL or null
   const _feedAvatarPending = new Set();
   const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
+  const _feedImageAskedAt = new Map(); // mxc -> when Home last asked (see capFeedImageCache)
   const _feedImagePending  = new Set();
   // A lookup that failed (as opposed to "has no avatar") is cached as null
   // too, but only for a while: a blip in Matrix shouldn't leave a blank
@@ -284,6 +288,10 @@
   function capFeedImageCache() {
     if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) return;
     const live = new Set(_feedPosts.map(p => p.image_mxc).filter(Boolean));
+    // Home shows images of its own posts, which needn't be loaded here:
+    // anything it asked for in the last few minutes is still on screen.
+    const recent = Date.now() - 10 * 60 * 1000;
+    for (const [mxc, t] of _feedImageAskedAt) { if (t > recent) live.add(mxc); else _feedImageAskedAt.delete(mxc); }
     for (const [mxc, url] of _feedImageCache) {
       if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) break;
       if (live.has(mxc)) continue;
@@ -366,7 +374,7 @@
     const canDelete = reply.username === me || window.KLAB_USER?.is_admin;
     ensureFeedAvatar(reply.username);
     const avatarUrl = _feedAvatarCache.get(reply.username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (reply.username || '?')[0].toUpperCase();
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((reply.username || '?')[0].toUpperCase());
     return '<div class="feed-post-reply">' +
       '<div class="feed-post-reply-avatar" data-username="' + esc(reply.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-reply-body">' +
@@ -408,7 +416,7 @@
     const canDelete = post.username === me || window.KLAB_USER?.is_admin;
     ensureFeedAvatar(post.username);
     const avatarUrl = _feedAvatarCache.get(post.username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (post.username || '?')[0].toUpperCase();
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((post.username || '?')[0].toUpperCase());
     let imageHTML = '';
     if (post.image_mxc) {
       ensureFeedImage(post.image_mxc);
@@ -753,7 +761,12 @@
       if (btn && btn.classList.contains('feed-post-more')) btn.remove();
     });
   }
-  window.klabFeedShown = () => { unfoldShortPosts(); refreshFeedTimes(); };
+  // Also re-checks the mentions dot: its dwell timer gives up if you're not
+  // on the feed when it fires, and a poll with nothing new doesn't render,
+  // so a mention seen on the way back in stayed "unread" indefinitely. And
+  // a draft restored while another tab was showing was sized against a
+  // hidden textarea, clipped to its first two lines.
+  window.klabFeedShown = () => { unfoldShortPosts(); refreshFeedTimes(); updateMentionsDot(); if (textEl.value) autoGrowComposer(); };
 
   // Avatar/image/reply resolutions land one at a time; a cold load of 50
   // posts fired ~35 separate full rebuilds, each re-creating every <img> on
@@ -799,6 +812,7 @@
   // Same idea for a post's attached image (Home shows them).
   window.klabResolveFeedImage = function(mxc) {
     if (!mxc) return null;
+    _feedImageAskedAt.set(mxc, Date.now());
     ensureFeedImage(mxc);
     return _feedImageCache.get(mxc) || null;
   };
@@ -879,7 +893,11 @@
       // still calls renderFeed() directly and unconditionally elsewhere;
       // this only short-circuits the specific "just refetched, nothing
       // changed" case, regardless of which caller triggered the fetch.
-      if (signature !== _lastFeedPostsSignature) {
+      // Also when the last render was held back by the typing guard (key
+      // left null): nothing else re-renders once focus leaves that reply
+      // box, so a new reply on that post stayed hidden until some unrelated
+      // change came along.
+      if (signature !== _lastFeedPostsSignature || _lastFeedRenderKey === null) {
         _lastFeedPostsSignature = signature;
         renderFeed();
       }
@@ -890,7 +908,12 @@
       // rather than yanking already-read content out from under someone.
       if (!_feedLoadedOk) {
         listEl.innerHTML = '<div class="feed-empty">Couldn\'t load the feed.<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
-        document.getElementById('feedRetryBtn')?.addEventListener('click', fetchFeed);
+        // Shows it's trying again; otherwise a retry that failed redrew the
+        // identical error and looked like the button did nothing.
+        document.getElementById('feedRetryBtn')?.addEventListener('click', () => {
+          listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
+          fetchFeed();
+        });
         _lastFeedRenderKey = null;
       }
     } finally {
@@ -1116,8 +1139,17 @@
         throw new Error(d.error || 'Failed to post');
       }
       // Anything typed while it was sending stays; only what was sent goes.
-      if (textEl.value.trim() === text) clearComposer();
+      // This used to leave the sent text in the box along with the new
+      // typing, so the next send posted it a second time.
+      const nowText = textEl.value;
+      if (nowText.trim() === text) clearComposer();
       else {
+        const at = text ? nowText.indexOf(text) : -1;
+        if (at !== -1) {
+          textEl.value = (nowText.slice(0, at) + nowText.slice(at + text.length)).replace(/^\s+/, '');
+          saveDraftNow();
+          autoGrowComposer();
+        }
         _pendingFile = null; fileEl.value = ''; previewWrapEl.hidden = true;
         imageBtnEl.classList.remove('has-image'); setPendingSong(null);
       }
@@ -1164,6 +1196,9 @@
     imageBtnEl.classList.add('has-image');
     const reader = new FileReader();
     reader.onload = () => {
+      // Removed, or replaced by another pick/paste, while this was reading:
+      // showing it now would preview an image that won't be sent.
+      if (_pendingFile !== file) return;
       previewEl.src = reader.result;
       previewWrapEl.hidden = false;
     };
@@ -1518,7 +1553,8 @@
   });
   listEl.addEventListener('keydown', (e) => {
     const input = e.target.closest('.feed-post-reply-input');
-    if (input && e.key === 'Enter') submitFeedReply(Number(input.dataset.postId), input);
+    // Not mid-IME: that Enter picks a candidate (same check as chat's composer).
+    if (input && e.key === 'Enter' && !e.isComposing) submitFeedReply(Number(input.dataset.postId), input);
   });
   listEl.addEventListener('input', (e) => {
     const input = e.target.closest('.feed-post-reply-input');
@@ -1531,7 +1567,8 @@
   const FEED_POLL_MS = 30000; // same cadence as notes/offline-roster — a feed doesn't need second-by-second freshness
   fetchFeed();
   setInterval(fetchFeed, FEED_POLL_MS);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshFeedTimes(); fetchFeed(); } });
+  // The mentions dot too: its dwell timer gives up while the tab is hidden.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshFeedTimes(); updateMentionsDot(); fetchFeed(); } });
   // Relative times tick over in place, and media lookups that failed get
   // another go once they're due (see FEED_MEDIA_RETRY_MS).
   setInterval(() => {

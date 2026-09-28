@@ -293,6 +293,9 @@ function sampleImageColor(imgUrl) {
     panel.classList.remove('open');
     document.body.classList.remove('ap-open');
     _stack = [];
+    // A page still loading mustn't fill the closed panel (and set its
+    // backdrop) when it lands.
+    _apLoadToken++;
     scroll.innerHTML = '';
     bg.style.backgroundImage = '';
   }
@@ -399,10 +402,12 @@ function sampleImageColor(imgUrl) {
   // ══════════════════════════════════════════
   window.openArtistPage = async function(artistId, artistName) {
     if (!panel.classList.contains('open')) panelOpen();
-    titleEl.textContent = artistName || '';
-    titleEl.classList.remove('vis');
 
     const renderFn = async () => {
+      // Set here, not above: Back re-runs this, and the top bar went on
+      // naming the album you'd just stepped back from.
+      titleEl.textContent = artistName || '';
+      titleEl.classList.remove('vis');
       loading();
       const myLoadToken = ++_apLoadToken;
       try {
@@ -519,10 +524,10 @@ function sampleImageColor(imgUrl) {
   // ══════════════════════════════════════════
   window.openAlbumPage = async function(albumId, albumName) {
     if (!panel.classList.contains('open')) panelOpen();
-    titleEl.textContent = albumName || '';
-    titleEl.classList.remove('vis');
 
     const renderFn = async () => {
+      titleEl.textContent = albumName || '';
+      titleEl.classList.remove('vis');
       loading();
       const myLoadToken = ++_apLoadToken;
       try {

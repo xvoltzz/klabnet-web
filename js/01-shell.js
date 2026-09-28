@@ -152,7 +152,7 @@ if (motdRefreshBtn) {
 function scheduleMotdCycle() {
   const delay = 45000 + Math.random() * 30000; // 45–75s
   setTimeout(() => {
-    rerollMotd(true);
+    if (!document.hidden) rerollMotd(true); // nobody's looking
     scheduleMotdCycle();
   }, delay);
 }
@@ -371,6 +371,9 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       return; // never swallow Escape — other open panels have their own handlers for it
     }
     if (isEditableTarget()) return;
+    // Not behind a dialog: a number switched tabs and "n" skipped the song
+    // under an open "Delete this?". "?" still closes the shortcuts panel.
+    if (dialogOpen() && !(e.key === '?' && document.getElementById('keyHintsBackdrop')?.classList.contains('open'))) return;
 
     if (awaitingG) {
       clearTimeout(awaitingGTimer);

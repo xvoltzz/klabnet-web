@@ -246,7 +246,7 @@
   function cardHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (username||'?')[0].toUpperCase();
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username||'?')[0].toUpperCase());
     const playable = !isMe && playing && (songId || song);
     // data-username is always present (the context menu's Message action
     // needs it regardless of playable state) — the sync-specific attrs
@@ -432,7 +432,7 @@
   function offlineRowHTML(person) {
     ensureAvatarResolved(person.username);
     const avatarUrl = _avatarCache.get(person.username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : (person.username || '?')[0].toUpperCase();
+    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((person.username || '?')[0].toUpperCase());
     return '<div class="presence-row" data-username="' + esc(person.username) + '"' +
       ' style="--name-color:' + profileColor(person.username) + ';" title="' + esc(person.username) + '">' +
       '<div class="presence-row-avatar">' + avatarInner + '</div>' +
@@ -750,7 +750,10 @@
           await p;
           if (_partyHostId) playerState.audio.currentTime = content.position || 0;
         }
-      } else if (song) {
+      } else if (song && content.songId) {
+        // Not for an empty songId: that's a host with nothing loaded (just
+        // reloaded, answering our renewal), and "syncing" to it seeked
+        // your own song back to 0 and paused it.
         if (Math.abs(playerState.audio.currentTime - (content.position || 0)) > PARTY_DRIFT_S) {
           playerState.audio.currentTime = content.position || 0;
         }

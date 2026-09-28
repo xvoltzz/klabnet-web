@@ -60,6 +60,11 @@ async function genreSongs(genre) {
 
 function openGenreView(genre) {
   _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
+  // It's part of Genres, also when Back/Forward reopens it from another
+  // section: "← Genres" (loadGenres) draws nothing unless this says so.
+  pickerTab = 'genres';
+  document.querySelectorAll('.picker-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'genres'));
+  document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
   window.klabNav?.push({ tab: 'music', kind: 'genre', value: genre.value });
   hideSortBtn();
   pickerList.innerHTML = '';
@@ -83,9 +88,13 @@ function openGenreView(genre) {
 
 // Reopen a genre by name (browser back/forward, see js/17-history.js).
 window.klabOpenGenre = async value => {
-  if (!_genresCache) { _genresCache = await buildGenres(); _genresAt = Date.now(); }
-  const g = _genresCache.find(x => x.value === value);
-  if (g) openGenreView(g); else loadGenres();
+  const t = ++_pickerLoadToken;
+  try {
+    if (!_genresCache) { _genresCache = await buildGenres(); _genresAt = Date.now(); }
+  } catch (e) {} // offline: Genres below says it failed
+  if (t !== _pickerLoadToken) return; // moved on while the library was read
+  const g = _genresCache?.find(x => x.value === value);
+  if (g) openGenreView(g); else loadPickerTab('genres');
 };
 
 async function loadGenres() {
@@ -464,6 +473,7 @@ function klabAlbumMenu(e, album) {
     { label: 'Shuffle', icon: 'ti-arrows-shuffle', action: withSongs(s => playSongList(s, { shuffle: true })) },
     { label: 'Add to queue', icon: 'ti-playlist-add', action: withSongs(s => {
       queue.push(...s); updateQueueBadge(); SFX && SFX.play('queue');
+      if (pickerTab === 'queue') renderQueueList(); // this menu can open over the Queue view
       showToast('Queued ' + s.length + ' tracks', toastArt(album.coverArt || album.id));
     }) },
     '-',
@@ -568,6 +578,7 @@ function klabPlaylistMenu(e, pl, row) {
     { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: !n, action: () => playSongList([...pl.songs], { shuffle: true }) },
     { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: () => {
       queue.push(...pl.songs); updateQueueBadge(); SFX && SFX.play('queue');
+      if (pickerTab === 'queue') renderQueueList(); // the sidebar is beside the Queue view
       showToast('Queued ' + n + ' tracks', 'ti-playlist-add');
     } },
     '-',
@@ -824,6 +835,10 @@ function renderSongsTabSorted() {
 }
 
 loadPickerTab = async function(tab) {
+  // These never reach 03's wrapper, which is what stops a view still
+  // loading (Home's picks, a search, a keystroke waiting to search) from
+  // drawing over this one once it arrives: done here for them.
+  if (tab === 'songs' || tab === 'genres') { _pickerLoadToken++; clearTimeout(pickerDebounce); }
   if (tab === 'songs')     { pickerTab = tab; await loadAllSongs(); return; }
   if (tab === 'genres')    { pickerTab = tab; await loadGenres(); return; }
   return _origLoadPickerTabNew(tab);
@@ -864,7 +879,8 @@ loadPickerTab = async function(tab) {
     // rather than delegating, since Requests has no sortable content and
     // is never a grid view.
     hideSortBtn();
-    pickerList.classList.remove('picker-list-grid');
+    pickerList.classList.remove('picker-list-grid', 'mh-home'); // Home's layout stayed on when you came from Home
+    _pickerLoadToken++; clearTimeout(pickerDebounce); // see the songs/genres wrapper
     pickerTab = tab;
     await loadMusicRequestsTab();
     return;

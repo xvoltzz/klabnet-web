@@ -85,6 +85,10 @@ const MatrixChat = (function () {
     if (window.klabnetDesktop?.matrixSsoLogin) return window.klabnetDesktop.matrixSsoLogin(MATRIX_URL);
     return new Promise((resolve, reject) => {
       const redirectUrl = `${location.origin}${location.pathname}?matrixSsoCallback=1`;
+      // A token left behind by an earlier attempt nobody collected (the page
+      // reloaded mid-login) is long expired; the poll below would grab it
+      // first and fail the login.
+      localStorage.removeItem(MATRIX_PENDING_KEY);
       const popup = window.open(
         `${MATRIX_URL}/_matrix/client/v3/login/sso/redirect?redirectUrl=${encodeURIComponent(redirectUrl)}`,
         'matrix-sso-login',
@@ -153,14 +157,19 @@ const MatrixChat = (function () {
       userId: session.userId,
       deviceId: session.deviceId,
     });
+    // A client that's since been stopped can still have a request fail with
+    // M_UNKNOWN_TOKEN (its token is the dead one), and that must not sign
+    // out the fresh session that replaced it. It also keeps one dead token
+    // from reporting itself twice (the sync error and the logout event).
+    const thisClient = client;
     client.on(sdk.ClientEvent.Sync, (state, prev, data) => {
       emit('sync', state);
       if (state === 'PREPARED') console.info('[MatrixChat] synced. rooms:', client.getRooms());
       // A token the server no longer accepts (signed out elsewhere, revoked)
       // would otherwise just say "error" forever with no way back in.
-      if (state === 'ERROR' && data?.error?.errcode === 'M_UNKNOWN_TOKEN') emit('loggedOut');
+      if (state === 'ERROR' && data?.error?.errcode === 'M_UNKNOWN_TOKEN' && client === thisClient) emit('loggedOut');
     });
-    client.on('Session.logged_out', () => emit('loggedOut'));
+    client.on('Session.logged_out', () => { if (client === thisClient) emit('loggedOut'); });
     // Raw event-name strings rather than the SDK's enum constants (e.g.
     // sdk.RoomEvent.Timeline) — these wire-level names are spec-stable, and
     // pulling another named export off the CDN bundle isn't worth the risk
@@ -1035,7 +1044,10 @@ function renderTimeline() {
     opening?.loadMembersIfNeeded?.().then(loaded => {
       if (!loaded || _chatActiveRoomId !== opening.roomId) return;
       syncChatHead();
-      updateSeenLine(opening, opening.getLiveTimeline().getEvents().filter(ev => ev.getType() === 'm.room.message'));
+      // Same list renderTimeline() judges "Seen" by, edits left out: an
+      // edit of an older message isn't the last thing said.
+      updateSeenLine(opening, opening.getLiveTimeline().getEvents().filter(ev =>
+        ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace'));
     }).catch(() => {});
     // Switching conversations: the new one fades up, the way a Music view
     // does (the sidebar's highlight slides over to it, js/16-motion.js).
@@ -1045,6 +1057,10 @@ function renderTimeline() {
     }
     _typingRenderedRoomId = _chatActiveRoomId;
     _typingUsers.clear();
+    // Someone already mid-sentence in the room you open sends no new typing
+    // event until they stop, so they're read off the members as they are.
+    const myId = MatrixChat.client?.getUserId();
+    opening?.getJoinedMembers?.().forEach(m => { if (m.typing && m.userId !== myId) _typingUsers.set(m.userId, m.name); });
     renderTypingLine();
   }
   const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
@@ -1548,6 +1564,9 @@ function initChatImageSend() {
     _pendingChatImage = file;
     const reader = new FileReader();
     reader.onload = () => {
+      // Sent (or replaced by another pick) before the read finished: showing
+      // it now would put back a preview of an image that's no longer attached.
+      if (_pendingChatImage !== file) return;
       previewImg.src = reader.result;
       wrap.hidden = false;
     };
@@ -2059,12 +2078,15 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
 
       function cleanup(result) {
         backdrop.remove();
-        document.removeEventListener('keydown', onEscape);
+        document.removeEventListener('keydown', onEscape, true);
         URL.revokeObjectURL(objectUrl);
         resolve(result);
       }
-      function onEscape(e) { if (e.key === 'Escape') cleanup(null); }
-      document.addEventListener('keydown', onEscape);
+      // Captured and stopped here: the shared modal's own Escape listener
+      // would otherwise also close the profile editor underneath, throwing
+      // away whatever was typed there.
+      function onEscape(e) { if (e.key === 'Escape') { e.stopImmediatePropagation(); cleanup(null); } }
+      document.addEventListener('keydown', onEscape, true);
       backdrop.querySelector('#imgCropCancel').addEventListener('click', () => cleanup(null));
       backdrop.addEventListener('click', e => { if (e.target === backdrop) cleanup(null); });
       backdrop.querySelector('#imgCropUse').addEventListener('click', () => {
@@ -2423,18 +2445,6 @@ async function openProfileModal() {
     bannerEl.style.backgroundImage = `url(${previewUrl})`;
   });
 
-  try {
-    const info = await client.getProfileInfo(myId);
-    nameEl.value = info?.displayname || '';
-    if (info?.avatar_url) {
-      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
-      // Hide the fallback initial letter once a real photo loads — it's a
-      // flex sibling of the <img>, not something the image covers, so
-      // without this it stays visible right alongside the photo.
-      if (url) { _profileModalBlobUrls.push(url); initialEl.style.display = 'none'; avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`); }
-    }
-  } catch (e) { /* fall back to the initial-letter placeholder */ }
-
   avatarEl.addEventListener('click', () => fileEl.click());
   fileEl.addEventListener('change', async () => {
     const file = fileEl.files?.[0];
@@ -2501,6 +2511,25 @@ async function openProfileModal() {
       saveBtn.disabled = false; saveBtn.textContent = 'Save';
     }
   });
+
+  // Filled in last: the buttons above used to be wired only after this
+  // (a profile lookup plus a full-size avatar download) finished, so Save
+  // and the avatar did nothing until then. A name typed or a photo picked
+  // in the meantime wins over what arrives.
+  let nameTouched = false;
+  nameEl.addEventListener('input', () => { nameTouched = true; }, { once: true });
+  try {
+    const info = await client.getProfileInfo(myId);
+    if (!nameTouched) nameEl.value = info?.displayname || '';
+    if (info?.avatar_url) {
+      const url = await MatrixChat.mxcToBlobUrl(info.avatar_url, { full: true });
+      // Hide the fallback initial letter once a real photo loads — it's a
+      // flex sibling of the <img>, not something the image covers, so
+      // without this it stays visible right alongside the photo.
+      if (url) _profileModalBlobUrls.push(url);
+      if (url && !pendingFile) { initialEl.style.display = 'none'; avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`); }
+    }
+  } catch (e) { /* fall back to the initial-letter placeholder */ }
 }
 
 // Read-only counterpart to openProfileModal() — a quick look at someone
@@ -2954,6 +2983,10 @@ function showChatApp() {
       _chatSyncSettled = false;
       _chatRoomChosen = false;
       _chatActiveRoomId = null;
+      // Nothing can be read while signed out, so the tab title and badge
+      // shouldn't keep counting; reconnecting seeds them from the server.
+      _chatUnreadRooms.clear();
+      updateSocialUnreadBadge();
       document.getElementById('chatApp').hidden = true;
       document.getElementById('chatConnect').hidden = false;
       showToast('Chat was signed out. Connect again to keep chatting.', 'ti-plug-connected-x');

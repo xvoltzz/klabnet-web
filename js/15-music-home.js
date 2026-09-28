@@ -106,8 +106,9 @@
         const img = new Image();
         img.alt = ''; img.draggable = false; img.decoding = 'async';
         img.onload = () => img.classList.add('loaded');
-        const src = cover(it);
-        if (src) img.src = src;
+        // The picture is only asked for once the cover first comes into view
+        // (render()): a flow holds ~50 covers and shows about 11.
+        c._src = cover(it);
         c.appendChild(img);
         // Its reflection: a flipped, faded copy inside the cover's own
         // layer, drawn once and carried along. (-webkit-box-reflect redrew
@@ -116,7 +117,6 @@
         refl.className = 'mh-refl';
         refl.alt = ''; refl.draggable = false; refl.decoding = 'async';
         refl.onload = () => refl.classList.add('loaded');
-        if (src) refl.src = src;
         c.appendChild(refl);
         c._img = img; c._refl = refl; c._item = it;
         stage.appendChild(c);
@@ -156,7 +156,11 @@
         // Five either side: the ones further out are slivers anyway, and
         // every one is a big layer for the GPU to move each frame.
         if (ad > 5.5) { if (c._on !== false) { c.style.display = 'none'; c._on = false; } continue; }
-        if (c._on !== true) { c.style.display = ''; c._on = true; if (hires && !c._hi) sharpen(c); }
+        if (c._on !== true) {
+          c.style.display = ''; c._on = true;
+          if (c._src) { c._img.src = c._src; c._refl.src = c._src; c._src = ''; }
+          if (hires && !c._hi) sharpen(c);
+        }
         let x, rot, z;
         if (ad < 1) { x = d * S * 0.66; rot = -d * 62; z = -ad * S * 0.55; }
         else { x = sg * (S * 0.66 + (ad - 1) * S * 0.24); rot = -sg * 62; z = -S * 0.55; }
@@ -795,6 +799,8 @@
       queue.splice(0, it.k);
       const song = queue.shift();
       updateQueueBadge();
+      // The full player's Up next can sit over the Queue view.
+      if (pickerTab === 'queue') renderQueueList();
       playSong(song);
     } else if (it.kind === 'next') {
       playerState.playlistIndex = it.i;
@@ -871,8 +877,20 @@
     return { items, center: cur ? before.length : 0, queued: queue.length, later: after.length - queue.length };
   }
   let npLastSongId = null;
+  // Cover Flow stays in the page after you leave Music (or the window is
+  // minimised), and every song change rebuilt its fifty covers there and
+  // fetched and decoded the sharp art for the middle ones, unseen. Now it
+  // waits and catches up when it's back on screen. That's judged on the
+  // list it sits in: the flow itself is display:none while it's empty, and
+  // would never have been filled.
+  let npStale = false;
+  const npShown = () => !document.hidden && !!npFlow.el.parentElement?.getClientRects().length;
+  const npCatchUp = () => { if (npStale && npFlow.el.isConnected && npShown()) { npStale = false; npRender(); } };
+  new ResizeObserver(npCatchUp).observe(pickerList); // display:none to shown resizes it
+  document.addEventListener('visibilitychange', npCatchUp);
   function npRender() {
     if (!npFlow.el.isConnected) return;
+    if (!npShown()) { npStale = true; return; }
     const { items, center, queued, later } = npItems();
     // Moved on to the next song: slide over from the one before.
     const curId = items[center]?.song.id ?? null;
