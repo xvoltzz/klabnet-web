@@ -704,7 +704,9 @@ window.klabSideNav = (function() {
     $('appLoginToggle')?.classList.toggle('on', !!settings.openAtLogin);
     const mac = settings.platform === 'darwin', win = settings.platform === 'win32' || !settings.platform;
     const text = (id, t) => { const el = $(id); if (el) el.textContent = t; };
-    text('appNameLabel', mac ? 'klabnet for Mac' : win ? 'klabnet for Windows' : 'klabnet for Linux');
+    // klabnet-kde (the native KDE app) says shell: 'kde'.
+    const kde = settings.shell === 'kde';
+    text('appNameLabel', mac ? 'klabnet for Mac' : win ? 'klabnet for Windows' : kde ? 'klabnet for KDE' : 'klabnet for Linux');
     text('appLoginLabel', win ? 'Start with Windows' : mac ? 'Open at login' : 'Start when you log in');
     text('appLoginSub', mac ? 'Opens in the Dock, without a window, when you log in' : 'Opens quietly in the tray when you sign in');
     // A Mac app always keeps running when its window closes (Cmd+Q quits).
@@ -716,7 +718,9 @@ window.klabSideNav = (function() {
     if (mat && settings.platform === 'linux' && !mat.dataset.kde) {
       mat.dataset.kde = '1';
       mat.innerHTML = '<button type="button" data-v="blur">Blur</button><button type="button" data-v="none">Solid</button>';
-      text('appMaterialSub', 'Experimental: a see-through window for the Better Blur effect (add “klabnet” to its window classes). Switching restarts klabnet; if it crashes, it goes back to Solid');
+      text('appMaterialSub', kde
+        ? 'KWin blurs what’s behind klabnet'
+        : 'Experimental: a see-through window for the Better Blur effect (add “klabnet” to its window classes). Switching restarts klabnet; if it crashes, it goes back to Solid');
     }
     if (mat && mac && !mat.dataset.mac) {
       mat.dataset.mac = '1';
@@ -724,7 +728,7 @@ window.klabSideNav = (function() {
       text('appMaterialSub', 'Let the desktop show through the sidebar, like Finder');
     }
     const frameRow = $('appFrameRow');
-    if (frameRow) frameRow.hidden = settings.platform !== 'linux';
+    if (frameRow) frameRow.hidden = settings.platform !== 'linux' || kde;
     document.querySelectorAll('#appFrame button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (settings.linuxFrame || 'auto'))));
     $('appTrayToggle')?.classList.toggle('on', !!settings.closeToTray);
     const row = $('appMaterialRow');
@@ -757,7 +761,7 @@ window.klabSideNav = (function() {
     SFX && SFX.play('click');
     // On Linux the app restarts to switch (the window can't change after
     // it's made): say so, the answer won't come.
-    if (settings?.platform === 'linux' && b.getAttribute('aria-pressed') !== 'true') $('appMaterialSub').textContent = 'Restarting klabnet…';
+    if (settings?.platform === 'linux' && settings.shell !== 'kde' && b.getAttribute('aria-pressed') !== 'true') $('appMaterialSub').textContent = 'Restarting klabnet…';
     settings = await app.setSetting('material', b.dataset.v);
     render();
   });
