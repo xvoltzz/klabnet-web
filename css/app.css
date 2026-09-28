@@ -6586,7 +6586,9 @@
         box-shadow: 1px 0 0 var(--glass-border);
         -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
       }
-      html[data-fx="low"] .side-nav { background: var(--bg) !important; }
+      /* Not in an app window with a material behind it (Acrylic, KWin's
+         blur): the desktop draws that blur, so it costs the page nothing. */
+      html[data-fx="low"]:not(.app-material) .side-nav { background: var(--bg) !important; }
       #sideNav .motion-pill-tabs { border-radius: var(--radius-md); }
       /* Performance mode's solid highlight, in each desktop's own shade. */
       html[data-fx="low"] #sideNav #tabNav .motion-pill { background: var(--sb-sel, color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%)) !important; }
