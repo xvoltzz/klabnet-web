@@ -42,6 +42,7 @@ The real site needs Authentik, so local testing uses a mock server. It serves th
 - **Photos:**
   - On desktop, `js/14-photos.js` moves its controls into the sidebar (`placeChrome()`). On touch screens ≤900px it puts them back beside the photo.
   - The photo count comes from the API's `total` on the first page.
+  - The slideshow (`js/19-slideshow.js`, the S key or the Slideshow row) works through `window.klabPhotos`, which 14-photos.js exposes (items, urls, paging, the photo's song). It holds only two photos at a time, loads older pages in the background, and keeps the screen awake with a Wake Lock.
 - **Memory:** klabnet sat near 1GB in the desktop app. The details, measurements and the desktop-side fix are in klabnet-desktop's CLAUDE.md ("Memory (RAM) and GPU"). The rules this repo follows because of it:
   - Blurred backdrops never need big art: `klabSoften` (js/00-util.js) bakes them to 96px and downsizes any `getCoverArt` source to 300px before it's fetched. Don't give a blurred background a screen-sized image.
   - Decoded pictures are the memory. Chromium keeps every one it has drawn until the OS says memory is short. When a screen lets go of many big pictures, call `window.klabnetDesktop?.trimMemory?.()`, as Photos does when you leave it and the image viewer does when it closes.

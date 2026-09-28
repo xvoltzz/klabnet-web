@@ -380,13 +380,13 @@
     const b = id => $(id);
     if (narrowMq.matches) {
       if (railL.parentElement === frame) return;
-      actions.append(b('phOrder'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      actions.append(b('phOrder'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
       railR.insertBefore(b('phSong'), b('phReacts'));
       frame.insertBefore(railL, mainImg);
       frame.insertBefore(railR, mainImg.nextSibling);
     } else {
       if (railL.parentElement === $('phSideInfo')) return;
-      $('phSideViews').append(b('phOrder'), b('phPostBtn'));
+      $('phSideViews').append(b('phOrder'), b('phSlideBtn'), b('phPostBtn'));
       $('phSideToggles').append(b('phInfoBtn'));
       $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);
@@ -1058,7 +1058,8 @@
 
   function scheduleClip() {
     clearTimeout(clipTimer);
-    if (!isActive() || sel < 0 || scrubbing) return;
+    // The slideshow plays (or doesn't) its own photos' songs.
+    if (!isActive() || sel < 0 || scrubbing || document.body.classList.contains('ss-on')) return;
     const post = items[sel].post;
     if (clipPostId !== null && clipPostId !== post.id) stopClip();
     if (!soundOn || !post.song || clipSuppressed === post.id || document.hidden) return;
@@ -1133,6 +1134,28 @@
   // music (unless you're in a listening party, which it would break);
   // leaving resumes it, but only if this tab was what paused it.
   let pausedByPhotos = false, shown = false;
+  // ── For the slideshow (js/19-slideshow.js) ──
+  $('phSlideBtn')?.addEventListener('click', () => { SFX && SFX.play('click'); window.klabSlideshow?.open(); });
+  window.klabPhotos = {
+    items: () => items,
+    current: () => (sel >= 0 && items[sel] ? items[sel].ph.id : null),
+    // The copy sharp enough for a whole screen of this one.
+    url: (ph, full) => fileUrl(ph.id, full ? (Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1) <= 1700 ? 'medium' : 'display') : 'thumb'),
+    hasOlder: () => hasOlder,
+    loadOlder: () => fetchOlder(),
+    avatarHTML, fmtShot,
+    // Lands the tab on the photo the slideshow ended on.
+    show: id => { const i = items.findIndex(it => it.ph.id === id); if (i >= 0) goTo(i); },
+    playSong: post => { if (post && post.song) { if (clipPostId !== post.id) playClip(post.song, post.id); } else stopClip(); },
+    stopSong: () => stopClip(),
+    // A slideshow without the photos' songs leaves your music playing
+    // (Photos pauses it on arrival); one with them pauses it again.
+    releaseMusic: () => { if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); } },
+    holdMusic: () => {
+      if (!playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) { playerState.audio.pause(); pausedByPhotos = true; }
+    },
+  };
+
   window.klabPhotosTabChanged = function(active) {
     // setActiveTab() calls this on every switch, Photos to Photos too (the
     // nav button again): only really arriving pauses your music, or music
@@ -1140,6 +1163,7 @@
     const arriving = active && !shown, leaving = !active && shown;
     shown = active;
     if (!active) {
+      window.klabSlideshow?.close();
       stopClip();
       stopPreview();
       // The photos warmed up ahead are let go (the one showing stays):
@@ -1167,7 +1191,7 @@
     // A right-click menu too: this handler runs before the menu's own (window
     // capture beats document capture), so ↑/↓ moved the photo instead of the
     // menu's highlight, under a menu still about the old one.
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible, .fs-player.open');
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible, .fs-player.open, .ss.open');
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;
@@ -1181,6 +1205,7 @@
     else if (k === 'ArrowDown' || k === 'j') goPost(-1);
     else if (k === 'c') setSide(!shell.classList.contains('side-open'));
     else if (k === 'i') { SFX && SFX.play('click'); setInfo(!infoOn); }
+    else if (k === 's') window.klabSlideshow?.open();
     else if (k === 'End' || k === 'G') goTo(newestPostStart());
     else if (k === 'Home') goTo(0);
     else if (k === 'Escape' && shell.classList.contains('side-open')) setSide(false);

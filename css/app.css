@@ -7328,6 +7328,126 @@
 
 
     /* ══════════════════════════════════════════════════════════════════
+       PHOTOS SLIDESHOW (js/19-slideshow.js)
+       Full screen and always dark, whatever the theme: the photo whole
+       over a blur of itself, drifting, crossfading into the next. Who,
+       when and the caption bottom-left, a clock top-right, and Music's
+       glass capsule of controls at the bottom that only shows while the
+       mouse moves (the cursor hides with it).
+       ══════════════════════════════════════════════════════════════════ */
+    .ss {
+      --ss-fade: 1.4s; --ss-secs: 8s;
+      position: fixed; inset: 0; z-index: 3000; overflow: hidden; background: #000;
+      color: #f2efe9; font-family: var(--font-ui); cursor: none;
+      opacity: 0; transition: opacity .4s ease;
+      -webkit-user-select: none; user-select: none;
+    }
+    .ss.open { opacity: 1; }
+    .ss.ui { cursor: default; }
+    .ss-slide { position: absolute; inset: 0; opacity: 0; transition: opacity var(--ss-fade) ease; }
+    .ss-slide.on { opacity: 1; }
+    .ss-fill {
+      position: absolute; inset: -8%; background-size: cover; background-position: center;
+      filter: blur(60px) saturate(1.4) brightness(.45);
+    }
+    .ss-img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      filter: drop-shadow(0 20px 60px rgba(0,0,0,.55));
+    }
+    .ss-img:not([src]) { visibility: hidden; }
+    /* The drift: starts a little in, slides slowly out toward somewhere
+       random over the photo's time plus the fades either side. */
+    .ss-img.kb {
+      transform-origin: var(--kb-o, 50% 50%);
+      animation: ss-kb calc(var(--ss-secs) + var(--ss-fade) * 2) linear both;
+    }
+    @keyframes ss-kb { from { transform: scale(var(--kb-s, 1.08)); } to { transform: scale(1); } }
+    .ss.paused .ss-img.kb { animation-play-state: paused; }
+    .ss-shade {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0) 34%),
+        linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,0) 22%);
+    }
+
+    /* ── Who, when, the caption ── */
+    .ss-info {
+      position: absolute; left: clamp(24px, 4vw, 64px); bottom: clamp(24px, 5vh, 56px);
+      max-width: min(46rem, 60vw); display: flex; flex-direction: column; gap: 10px;
+      opacity: 0; transform: translateY(8px); transition: opacity .8s ease, transform .8s ease, bottom .35s ease;
+      text-shadow: 0 1px 12px rgba(0,0,0,.5); pointer-events: none;
+    }
+    .ss-info.show { opacity: 1; transform: none; }
+    .ss.no-info .ss-info { opacity: 0 !important; }
+    .ss.ui .ss-info { bottom: calc(clamp(24px, 5vh, 56px) + 72px); }
+    .ss-who { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+    .ss-who .ph-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; box-shadow: 0 0 0 1px rgba(255,255,255,.18); }
+    .ss-who .ph-avatar-letter { display: grid; place-items: center; font: 600 13px var(--font-ui); color: #fff; }
+    .ss-who .n { font-weight: 600; }
+    .ss-who .m { color: rgba(242,239,233,.62); }
+    .ss-who .m::before { content: '\00b7'; margin-right: 10px; color: rgba(242,239,233,.38); }
+    .ss-cap {
+      font: 600 clamp(20px, 2.1vw, 32px)/1.3 var(--font-ui); letter-spacing: -0.01em;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .ss-cap:empty { display: none; }
+
+    /* ── The clock ── */
+    .ss-clock {
+      position: absolute; top: clamp(20px, 4vh, 48px); right: clamp(24px, 4vw, 64px); text-align: right;
+      text-shadow: 0 1px 14px rgba(0,0,0,.5); pointer-events: none;
+    }
+    .ss-clock .t { font: 300 clamp(36px, 4.4vw, 72px)/1 var(--font-ui); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+    .ss-clock .d { margin-top: 6px; font-size: 14px; color: rgba(242,239,233,.62); }
+
+    /* ── The controls: Music's glass capsule ── */
+    .ss-bar {
+      position: absolute; left: 50%; bottom: clamp(20px, 4vh, 44px); display: flex; align-items: center; gap: 4px;
+      padding: 6px; border-radius: 10px; border: 1px solid rgba(255,252,248,.14);
+      background: rgba(24,22,20,.55); -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: opacity .3s ease, transform .3s ease;
+    }
+    .ss.ui .ss-bar { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+    .ss-bar button {
+      height: 38px; min-width: 38px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid transparent; border-radius: 8px; background: none; color: rgba(242,239,233,.72);
+      font: 500 13px var(--font-ui); cursor: pointer; transition: background-color .15s, color .15s, border-color .15s;
+    }
+    .ss-bar button i { font-size: 18px; }
+    .ss-bar button:hover { background: rgba(255,252,248,.09); color: #f2efe9; }
+    .ss-bar button[aria-pressed="true"] { color: #f2efe9; background: rgba(255,252,248,.1); border-color: rgba(255,252,248,.14); }
+    .ss-bar button[aria-pressed="true"] i { filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),.55)); }
+    /* Play/pause: the primary button, filled with the text colour. */
+    .ss-bar .ss-play { width: 42px; height: 42px; min-width: 0; padding: 0; border-radius: 50%; background: #f2efe9; color: #111; margin: 0 2px; }
+    .ss-bar .ss-play:hover { background: #fff; color: #000; box-shadow: 0 0 18px rgba(255,255,255,.3); }
+    .ss-bar .ss-play i { font-size: 18px; }
+    .ss-speed { display: flex; gap: 2px; }
+    .ss-speed button { min-width: 0; padding: 0 9px; font-variant-numeric: tabular-nums; }
+    .ss-sep { width: 1px; height: 22px; margin: 0 4px; background: rgba(255,252,248,.14); }
+
+    /* ── Time to the next photo ── */
+    .ss-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.06); opacity: 0; transition: opacity .3s; }
+    .ss.ui .ss-progress { opacity: 1; }
+    .ss-progress i { display: block; height: 100%; width: 100%; background: rgba(242,239,233,.7); transform-origin: left; transform: scaleX(0); }
+    .ss-progress i.run { animation: ss-prog var(--ss-secs) linear forwards; }
+    .ss.paused .ss-progress i { animation-play-state: paused; }
+    @keyframes ss-prog { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+    /* Phones: the bar is the width of the screen, less on it. */
+    @media (max-width: 760px) and (pointer: coarse) {
+      .ss-bar { left: 12px; right: 12px; transform: translateY(12px); justify-content: center; flex-wrap: wrap; }
+      .ss.ui .ss-bar { transform: none; }
+      .ss-speed, .ss-bar .ss-sep { display: none; }
+      .ss-info { max-width: calc(100vw - 48px); }
+      .ss.ui .ss-info { bottom: calc(clamp(24px, 5vh, 56px) + 64px); }
+    }
+    /* Reduced effects: no live blur behind the bar. */
+    html[data-fx="low"] .ss-bar { background: rgba(24,22,20,.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    html[data-fx="low"] .ss-img { filter: none; }
+
+
+    /* ══════════════════════════════════════════════════════════════════
        KLABNET FOR MAC: look and feel like a Mac app (macOS 27)
        data-platform="darwin" (klabnet-desktop on macOS). The window has
        no title bar: klabnet's header is the toolbar (52px), with the
