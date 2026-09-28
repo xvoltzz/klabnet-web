@@ -7637,7 +7637,7 @@
         clip-path: polygon(0 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) var(--mac-cut), 0 var(--mac-cut));
         transition: clip-path .28s var(--m-ease);
       }
-      html.klabnet-app[data-platform="darwin"].nav-side-on:not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-platform="darwin"].nav-side-on:not([data-nav="top"]):not(.nav-flyout) .side-nav {
         box-shadow: 1px 0 0 var(--mac-line);
         transition: width .28s var(--m-ease), top .28s var(--m-ease), padding-top .28s var(--m-ease), bottom .3s ease;
       }
@@ -7702,18 +7702,18 @@
        the toolbar starts at its edge, klabnet's name in line with the
        page below (.dash's 1.75rem). The strip under the lights drags. */
     @media (min-width: 1100px) {
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) { --nav-top: 0px; --mac-hdr-x: var(--nav-w); }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) { --mac-hdr-x: var(--nav-w); }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header { padding-left: 1.75rem; }
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: calc(var(--tb-h, 52px) + 4px); }
-      /* In two pieces either side of the sidebar button: the sidebar comes
-         after the header in the page, so a drag strip under the button
-         would win over its no-drag and swallow the click. */
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before,
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::after {
-        content: ''; position: absolute; top: 0; height: var(--tb-h, 52px); -webkit-app-region: drag;
+      /* The sidebar's box itself still starts under the toolbar: the
+         header sits in a stacking context below the sidebar, so a sidebar
+         reaching the window's top covered the sidebar button and took its
+         clicks. What reads as the sidebar up there is the tint layer's
+         shape; the strip over it, to drag the window by and carry the
+         divider up to the top, hangs off the header's left edge. */
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header::before {
+        content: ''; position: absolute; top: 0; bottom: 0; left: calc(-1 * var(--mac-hdr-x)); width: var(--mac-hdr-x);
+        box-shadow: 1px 0 0 var(--mac-line); -webkit-app-region: drag;
       }
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before { left: 0; width: calc(var(--wco-left, 80px) + 8px); }
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::after { left: calc(var(--wco-left, 80px) + 52px); right: 0; }
       /* The full sidebar owns the top of the window instead: the layer's
          cut-out corner shrinks to nothing along the sidebar's edge. */
       html.klabnet-app.app-material.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) body::before {
