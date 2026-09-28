@@ -7585,7 +7585,7 @@
       --mac-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", var(--font-ui);
       --mac-accent: var(--de-accent, #0a84ff);
       --mac-hover: rgba(255,255,255,0.08); --mac-press: rgba(255,255,255,0.14);
-      --mac-sel: rgba(255,255,255,0.1); --mac-line: rgba(0,0,0,0.45);
+      --mac-sel: rgba(255,255,255,0.1); --mac-line: rgba(255,255,255,0.07);
       --sb-sel: var(--mac-sel);
       /* Liquid Glass, as far as CSS goes: a frosted fill a shade off the
          page, a hairline rim, a bright top edge (the specular) and a soft
@@ -7597,12 +7597,20 @@
     html.klabnet-app[data-platform="darwin"][data-theme="light"] {
       --mac-accent: var(--de-accent, #007aff);
       --mac-hover: rgba(0,0,0,0.05); --mac-press: rgba(0,0,0,0.1);
-      --mac-sel: rgba(0,0,0,0.08); --mac-line: rgba(0,0,0,0.1);
+      --mac-sel: rgba(0,0,0,0.08); --mac-line: rgba(0,0,0,0.08);
       --mac-glass: rgba(255,255,255,0.62); --mac-glass-rim: rgba(0,0,0,0.07);
       --mac-glass-hi: rgba(255,255,255,0.9); --mac-glass-shadow: 0 6px 20px rgba(0,0,0,0.1);
     }
     /* The toolbar: room for the traffic lights, no room kept on the right. */
-    html.app-titlebar[data-platform="darwin"] .header { padding-left: calc(var(--wco-left, 80px) + 12px); padding-right: 12px; }
+    /* --mac-hdr-x is where the toolbar starts: the window's edge, or the
+       full sidebar's. Past the traffic lights sits the sidebar button
+       (32px + 8px), then klabnet's name. */
+    html.app-titlebar[data-platform="darwin"] { --mac-hdr-x: 0px; }
+    html.app-titlebar[data-platform="darwin"] .header {
+      left: var(--mac-hdr-x); padding-left: calc(var(--wco-left, 80px) + 12px); padding-right: 12px;
+      transition: background-color .2s ease, box-shadow .2s ease, left .28s var(--m-ease), padding-left .28s var(--m-ease);
+    }
+    html.app-titlebar.nav-side-on[data-platform="darwin"] .header { padding-left: calc(var(--wco-left, 80px) + 52px); }
     html.app-titlebar[data-platform="darwin"] .header-right { margin-right: 0; }
     html.app-titlebar[data-platform="darwin"] .prompt-text { font-size: 0.9rem; }
 
@@ -7618,26 +7626,28 @@
       top: 0; bottom: 0; right: 0; left: 0; background: color-mix(in srgb, var(--bg) 30%, transparent);
     }
     @media (min-width: 761px), (pointer: fine) {
-      html.klabnet-app.app-material[data-platform="darwin"].nav-side-on body::before {
-        left: var(--nav-w); transition: left .28s var(--m-ease);
-        box-shadow: -1px 0 0 var(--mac-line);
-      }
       /* A collapsed sidebar (the rail, or a window too narrow for the full
          one) is narrower than the traffic lights: the toolbar runs across
          the top unbroken, lights and all, and the rail starts under it,
-         as in a Mac app with its sidebar hidden. */
-      html.klabnet-app.app-material.app-titlebar[data-platform="darwin"].nav-side-on body::before {
-        left: 0; box-shadow: none;
-        clip-path: polygon(0 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) var(--tb-h, 52px), 0 var(--tb-h, 52px));
+         as in a Mac app with its sidebar hidden. The full sidebar's shape
+         (below) has the same six points, so one morphs into the other as
+         the sidebar opens and closes instead of jumping. */
+      html.klabnet-app.app-material[data-platform="darwin"].nav-side-on body::before {
+        --mac-cut: var(--tb-h, 52px);
+        clip-path: polygon(0 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) var(--mac-cut), 0 var(--mac-cut));
+        transition: clip-path .28s var(--m-ease);
       }
-      html.klabnet-app.app-titlebar[data-platform="darwin"].nav-side-on:not(.nav-flyout) .side-nav { box-shadow: 1px 0 0 var(--mac-line); }
+      html.klabnet-app[data-platform="darwin"].nav-side-on:not(.nav-flyout) .side-nav {
+        box-shadow: 1px 0 0 var(--mac-line);
+        transition: width .28s var(--m-ease), top .28s var(--m-ease), padding-top .28s var(--m-ease), bottom .3s ease;
+      }
     }
 
     @media (min-width: 761px), (pointer: fine) {
       /* ── The sidebar: a source list ── */
       html.klabnet-app[data-platform="darwin"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
         background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
-        padding: 6px 10px 10px;
+        padding: 4px 10px 10px;
       }
       html.klabnet-app[data-platform="darwin"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav {
         background: color-mix(in srgb, var(--bg) 88%, #808080 12%); box-shadow: 1px 0 0 var(--mac-line);
@@ -7664,31 +7674,41 @@
         background: none; color: var(--text-dim); font: 400 13px/18px var(--mac-font); min-width: 0; padding: 0; margin-right: 8px;
       }
       html.klabnet-app[data-platform="darwin"].nav-flyout .side-nav { border-radius: 0 10px 10px 0; }
+      /* The sidebar button stays in one spot beside the traffic lights,
+         open or closed, like Finder's and Mail's: fixed to the window, not
+         the toolbar, which slides with the sidebar (and nothing up the
+         header makes a containing block of its own; keep it that way).
+         The glyph is the Mac's sidebar symbol, not a ☰. */
       html.app-titlebar[data-platform="darwin"] .header .nav-burger {
-        width: 32px; height: 30px; min-width: 32px; margin-right: 8px; border: 0; border-radius: 8px;
+        position: fixed; top: calc((var(--tb-h, 52px) - 30px) / 2); left: calc(var(--wco-left, 80px) + 12px);
+        width: 32px; height: 30px; min-width: 32px; min-height: 30px; margin: 0; border: 0; border-radius: 8px;
         background: transparent; box-shadow: none; color: var(--text-dim);
+        transition: background-color .15s, color .15s;
       }
       html.app-titlebar[data-platform="darwin"] .header .nav-burger:hover { background: var(--mac-hover); color: var(--text); }
-      html.app-titlebar[data-platform="darwin"] .header .nav-burger i { font-size: 17px; }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger i { display: none; }
+      html.app-titlebar[data-platform="darwin"] .header .nav-burger::before {
+        content: ''; width: 19px; height: 15px; background: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 19 15' fill='none' stroke='black' stroke-width='1.4'%3E%3Crect x='.7' y='.7' width='17.6' height='13.6' rx='3'/%3E%3Cpath d='M6.5.7v13.6'/%3E%3Cpath d='M2.8 4h1.6M2.8 6.5h1.6M2.8 9h1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+                mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 19 15' fill='none' stroke='black' stroke-width='1.4'%3E%3Crect x='.7' y='.7' width='17.6' height='13.6' rx='3'/%3E%3Cpath d='M6.5.7v13.6'/%3E%3Cpath d='M2.8 4h1.6M2.8 6.5h1.6M2.8 9h1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
     }
     /* A full sidebar (wide window, Navigation: Sidebar) runs the window's
        whole height, like Finder's: the traffic lights sit in its top and
-       the toolbar starts at its edge, the sidebar button's glyph in line
-       with the page below (.dash's 1.75rem, less the button's 8px inset).
-       The strip under the lights drags. */
+       the toolbar starts at its edge, klabnet's name in line with the
+       page below (.dash's 1.75rem). The strip under the lights drags. */
     @media (min-width: 1100px) {
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) { --nav-top: 0px; }
-      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header { left: var(--nav-w); padding-left: calc(1.75rem - 8px); }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) { --nav-top: 0px; --mac-hdr-x: var(--nav-w); }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header { padding-left: 1.75rem; }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: calc(var(--tb-h, 52px) + 4px); }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav::before {
         content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--tb-h, 52px); -webkit-app-region: drag;
       }
-      html.app-titlebar.app-fullscreen[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { padding-top: 10px; }
-      /* The full sidebar owns the top of the window instead. */
+      /* The full sidebar owns the top of the window instead: the layer's
+         cut-out corner shrinks to nothing along the sidebar's edge. */
       html.klabnet-app.app-material.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) body::before {
-        left: var(--nav-w); clip-path: none; box-shadow: -1px 0 0 var(--mac-line);
+        clip-path: polygon(var(--nav-w) 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) 0, var(--nav-w) 0);
       }
-      html.klabnet-app.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .side-nav { box-shadow: none; }
     }
 
     /* ── Toolbar buttons: Liquid Glass, grouped in one capsule ── */
