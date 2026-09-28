@@ -1497,9 +1497,8 @@
       }, 15000);
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'couldn’t post');
-      // Drop the local previews without deleting the now-posted uploads.
-      drafts.forEach(d => { if (d.preview) URL.revokeObjectURL(d.preview); });
-      drafts = [];
+      // resetComposer() drops the local previews (the posted uploads stay),
+      // and stops any photo added while this was posting, which isn't in it.
       resetComposer();
       closeComposer();
       if (!isActive()) setActiveTab('photos');

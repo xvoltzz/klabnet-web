@@ -1303,10 +1303,15 @@
       _repliesPending.delete(postId);
       // Only a rebuild of the post asks again, and nothing rebuilds it if
       // the fetch failed, so its replies would stay missing all session.
-      if (!ok) setTimeout(() => {
-        const post = _feedPosts.find(p => p.id === postId);
-        if (post) ensureFeedRepliesResolved(post);
-      }, 15000);
+      // Not while the tab is hidden, though: then it waits to be looked at.
+      if (!ok) {
+        const retry = () => {
+          if (document.hidden) { document.addEventListener('visibilitychange', retry, { once: true }); return; }
+          const post = _feedPosts.find(p => p.id === postId);
+          if (post) ensureFeedRepliesResolved(post);
+        };
+        setTimeout(retry, 15000);
+      }
     }
   }
 

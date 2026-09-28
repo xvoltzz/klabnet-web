@@ -322,7 +322,10 @@ function sampleImageColor(imgUrl) {
   // Click outside the card (on the backdrop) to close
   panel.addEventListener('click', e => { if (e.target === panel) panelClose(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && panel.classList.contains('open')) panelClose();
+    // Not from under a dialog opened over it (a confirm, the cover viewer,
+    // settings): Escape closes that one.
+    if (e.key === 'Escape' && panel.classList.contains('open') &&
+        !document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .klab-menu.visible')) panelClose();
   });
   trapFocusWithin(panel.querySelector('.ap-card'), () => panel.classList.contains('open'));
   scroll.addEventListener('scroll', () => {

@@ -322,73 +322,17 @@
       transition: background 0.4s, border-color 0.4s;
     }
 
-    /* ══ LIQUID GLASS ══════════════════════════════════════════════════
-       What sells the look is the *edge*, not the blur: a bright specular
-       hairline along the top lip, a soft dark bounce along the bottom,
-       and a fill that's lighter at the top than the bottom. All three are
-       box-shadow/gradient work, which the compositor handles for free —
-       so `.lg` can go on as many elements as we like.
-
-       `backdrop-filter` is the expensive half: it forces its own
-       compositing layer AND a readback of everything painted beneath it,
-       every frame the backdrop moves. So it is deliberately NOT part of
-       `.lg`. It's opted into separately by `.lg-blur`, and only ever by
-       surfaces that are (a) few, (b) overlaying scrolling content — which
-       is the only place it's visible anyway. It must never land on
-       anything repeated per-row (posts, presence cards, track rows): 40
-       blurred layers in a scroller is exactly how a snappy page dies.
-
-       The sheen is a background LAYER, not a ::before. A pseudo-element
-       would need z-index to sit over the fill, and that reorders every
-       absolutely-positioned child underneath it — .header-right holds the
-       overflow menu and the toast flyout, both of which would have been
-       dragged under the sheen (or forced to position:relative) by a
-       `.lg > * { position: relative }` companion rule. A gradient layer
-       has none of that reach. It does mean any rule setting `background`
-       on an .lg element must restate the layer; see .lg-fill.
-
-       These define the layer. The list of surfaces that opt INTO it lives
-       in "GLASS SURFACES" at the very end of this file, by selector
-       rather than by adding classes in index.html (markup surgery on that
-       file has a bad track record, and the later position is what lets
-       those rules beat each surface's own existing `background`). */
-    .lg {
-      border: 1px solid var(--glass-border);
-      box-shadow:
-        inset 0 1px 0 0 var(--glass-spec),
-        inset 0 -1px 0 0 var(--glass-inner-b),
-        0 1px 2px var(--shadow-20);
-    }
-    .lg-fill {
-      background:
-        linear-gradient(180deg,
-          rgba(255,255,255,0.07) 0%,
-          rgba(255,255,255,0.02) 45%,
-          rgba(255,255,255,0) 100%),
-        var(--glass-fill);
-    }
 
     /* Overlay surfaces only — count them: the dock, the two menus, a
        toast, a modal, the emoji picker, the message-action bar. Never
        more than two or three on screen at once. */
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-      .lg-blur {
-        background:
-          linear-gradient(180deg,
-            rgba(255,255,255,0.07) 0%,
-            rgba(255,255,255,0.02) 45%,
-            rgba(255,255,255,0) 100%),
-          var(--modal-glass);
-        -webkit-backdrop-filter: blur(24px) saturate(1.7);
-        backdrop-filter: blur(24px) saturate(1.7);
-      }
     }
     /* Both of these mean "the viewer has asked for less of this" — the
        blur is the costly, motion-sickness-adjacent part, so drop it and
        fall back to the opaque panel. The specular edges stay; they're
        static and cost nothing. */
     @media (prefers-reduced-transparency: reduce) {
-      .lg-blur { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
     }
 
     /* Shared content-width scale — drives both .dash and the player dock so
@@ -479,7 +423,6 @@
        much .dash-body actually has left after the header/nav took their
        share is exactly what was ballooning the whole page past 100vh
        (mostly empty, since there's rarely enough listeners to fill it). */
-    body.tab-chat-active .presence-rail { align-self: stretch; max-height: 100%; }
     body.tab-chat-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-chat-active .sec[data-sec="klabsocial"] { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
     body.tab-chat-active .chat-shell { flex: 1; min-height: 0; }
@@ -516,7 +459,6 @@
        content column), Music already has its own left sidebar — a right
        rail too would make three competing columns in exactly the layout
        the user asked to widen, so it's hidden here instead of stretched. */
-    body.tab-music-active .presence-rail { display: none; }
     body.tab-music-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-music-active .music-shell { flex: 1; min-height: 0; }
     /* min-height:0 is the actual fix here, not just flex-shrink:0 — a flex
@@ -579,7 +521,6 @@
       scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
     }
     .music-sidebar .picker-search { margin-bottom: 8px; }
-    .music-sidebar-divider { height: 1px; background: var(--glass-border); margin: 10px 6px; flex-shrink: 0; }
     .music-sidebar-label {
       font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
       color: var(--text-faint); padding: 4px 10px 6px; flex-shrink: 0;
@@ -828,11 +769,14 @@
       background: var(--text);
       margin-left: 2px;
       vertical-align: middle;
-      animation: blink-cursor 1.1s step-end infinite;
       opacity: 0;
     }
 
-    .prompt-cursor.visible { opacity: 1; }
+    /* Blinks once it's shown (the animation used to override opacity:0,
+       so it blinked all through the intro). */
+    .prompt-cursor.visible { opacity: 1; animation: blink-cursor 1.1s step-end infinite; }
+    @media (prefers-reduced-motion: reduce) { .prompt-cursor.visible { animation: none; } }
+    html[data-fx="low"] .prompt-cursor.visible { animation: none; }
 
     @keyframes blink-cursor {
       0%,100% { opacity: 1; }
@@ -899,12 +843,6 @@
       opacity: 0; transform: translateX(20px) scale(0.96);
       max-height: 0; margin-bottom: 0; padding-block: 0;
     }
-    .toast-item-icon {
-      font-size: 16px; color: rgba(var(--accent-rgb),1); flex-shrink: 0;
-    }
-    .toast-item-avatar {
-      width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
-    }
     .toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
     @media (prefers-reduced-motion: reduce) {
       .toast-item { transition: opacity 0.15s ease; transform: none !important; max-height: none; }
@@ -933,49 +871,11 @@
     .dash-body { display: flex; align-items: flex-start; gap: 2.2rem; }
     .dash-main { flex: 1; min-width: 0; }
 
-    .presence-rail {
-      width: 240px; flex-shrink: 0;
-      position: sticky; top: 1.5rem;
-      /* Fallback only — PRESENCE RAIL SCROLL BOUNDS (JS, near the end of
-         the document) sets an explicit inline max-height instead. This
-         calc() assumes the rail's sticky top offset (1.5rem) is also how
-         far down the page it starts, which is only true once already
-         scrolled enough for position:sticky to engage; at the top of the
-         page it actually starts lower, below the header/tab-nav. With
-         enough listeners to actually reach this cap, the rail's box
-         extended past the viewport bottom even before any scrolling,
-         making the whole PAGE scrollable by that overshoot rather than
-         just the rail scrolling internally — same "measure the real
-         available space instead of guessing" fix the Chat tab layout
-         and the scroll-clearance logic elsewhere already use. */
-      max-height: calc(100vh - 3rem); overflow-y: auto; overflow-x: hidden;
-      overscroll-behavior: contain; /* scrolling the rail to its end shouldn't hand off to the page scroll */
-      /* No visible scrollbar. It only ever appeared once the roster got
-         long enough, so it flickered in and out as people came and went,
-         and it cut into the cards' right edge. The .presence-rail-more
-         chevron already signals "there's more below" — that's the whole
-         reason it exists. Same treatment .tab-nav and .ap-scroll get. */
-      scrollbar-width: none; -ms-overflow-style: none;
-    }
-    .presence-rail::-webkit-scrollbar { display: none; }
-    .sec-global-presence { margin-bottom: 0; }
-    .sec-global-presence .sec-head { margin-bottom: 0.7rem; }
-    .presence-rail .presence-grid { grid-template-columns: 1fr; }
 
     /* "More below" hint — shown only while there's actually more to
        scroll to (see PRESENCE RAIL SCROLL BOUNDS), and hidden again once
        scrolled to the true bottom, rather than the list just cutting off
        with no indication anything's below the fold. */
-    .presence-rail-more {
-      position: sticky; bottom: 0; left: 0; right: 0;
-      height: 28px; margin-top: -28px; /* overlay the last row instead of adding scroll height of its own */
-      display: flex; align-items: flex-end; justify-content: center;
-      padding-bottom: 2px;
-      background: linear-gradient(transparent, var(--bg) 75%);
-      color: var(--text-faint); font-size: 13px;
-      pointer-events: none;
-    }
-    .presence-rail-more[hidden] { display: none; }
 
     @media (max-width: 880px) {
       /* align-items:flex-start comes from the base rule, where it keeps the
@@ -985,17 +885,7 @@
          posts rendered at roughly half the screen. The chat tab hid the
          bug by setting align-self:stretch on .dash-main itself. */
       .dash-body { flex-direction: column; gap: 0; align-items: stretch; }
-      .presence-rail {
-        width: 100%; position: static; max-height: none; overflow: visible;
-        margin-top: 2.5rem;
-        /* The rail is first in .dash-body so it's the LEFT column on wide
-           viewports. Stacked, that would put the roster above the tab
-           content, which is the wrong priority on a phone — order pushes
-           it back underneath without changing the DOM. */
-        order: 2;
-      }
       .dash-main { order: 1; }
-      .presence-rail .presence-grid { grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); }
     }
 
     /* ══ TAB NAV — top-level Feed/Apps/Chat/Music/KLABCRAFT switcher ══ */
@@ -1387,10 +1277,6 @@
        load, or while filtered to mentions-only (see loadMoreEl.hidden's
        own assignment). Pre-existing, not something from this session. */
     .feed-load-more[hidden] { display: none; }
-    @media (max-width: 560px) {
-      .feed-post { flex-direction: column; }
-      .feed-post-avatar { width: 36px; height: 36px; }
-    }
 
     /* ══ KLAB SOCIAL — Matrix chat ══ */
     .chat-shell {
@@ -1464,7 +1350,6 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       transition: background 0.15s;
     }
-    .chat-channel-item i { font-size: 13px; color: var(--tile-icon); flex-shrink: 0; }
     .chat-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* Which channel/DM has something unread — the Chat tab's own badge
        only ever said how many, not which. Sits right after the (possibly
@@ -1475,11 +1360,6 @@
     .chat-channel-unread-dot {
       flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
       background: rgba(var(--accent-rgb),1); box-shadow: 0 0 5px rgba(var(--accent-rgb),0.6);
-    }
-    .chat-channel-invited {
-      margin-left: auto; flex-shrink: 0;
-      font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: rgba(var(--accent-rgb),1);
     }
     .chat-channel-online-dot {
       margin-left: auto; flex-shrink: 0;
@@ -1496,11 +1376,8 @@
     .chat-channel-close:hover { color: var(--danger-color); background: var(--glass-fill-h); }
     /* The close button takes over the same right-hand slot on hover
        instead of sitting next to the status badge in a cramped row. */
-    .chat-channel-item:hover .chat-channel-online-dot,
-    .chat-channel-item:hover .chat-channel-invited { display: none; }
     .chat-channel-item:hover { background: var(--glass-fill); }
     .chat-channel-item.active { background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1); }
-    .chat-channel-item.active i { color: rgba(var(--accent-rgb),1); }
     .chat-channel-empty { font-size: 10px; color: var(--text-faint); padding: 0.8rem; line-height: 1.6; }
 
     .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -1700,28 +1577,11 @@
     .rail-tabs { display: none; align-items: center; gap: 4px; margin-bottom: 0.7rem; }
     body.tab-chat-active .rail-tabs { display: flex; }
     body.tab-chat-active #railPaneUsers > .sec-head { display: none; }
-    .rail-tab {
-      flex: 1; height: 28px; border-radius: var(--radius-md); cursor: pointer;
-      font-family: var(--font-ui); font-size: var(--fs-10);
-      letter-spacing: 0.12em; text-transform: uppercase;
-      background: var(--tile-bg); border: 1px solid var(--tile-border);
-      color: var(--text-dim);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .rail-tab:hover { background: var(--tile-bg-h); color: var(--text); }
-    .rail-tab.active {
-      background: rgba(var(--accent-rgb),0.16);
-      border-color: rgba(var(--accent-rgb),0.35);
-      color: rgba(var(--accent-rgb),1);
-    }
     /* The browse/create buttons belong to the channels pane, so they only
        make sense while it's showing. */
     .rail-tabs .chat-channels-toolbar { display: none; }
-    .presence-rail.show-channels .rail-tabs .chat-channels-toolbar { display: flex; }
 
     .rail-channels { display: none; }
-    body.tab-chat-active .presence-rail.show-channels .rail-channels { display: block; }
-    body.tab-chat-active .presence-rail.show-channels #railPaneUsers { display: none; }
     .chat-channels-toolbar {
       display: flex; justify-content: flex-start; gap: 2px;
       flex-shrink: 0;
@@ -1731,19 +1591,6 @@
        Collapsed behind a count by default. Offline people are most of the
        list and carry almost no information — a full card each buried the
        few people actually around. */
-    .presence-offline-toggle {
-      display: flex; align-items: center; gap: 6px; width: 100%;
-      margin-top: 0.7rem; padding: 6px 4px;
-      background: none; border: none; cursor: pointer;
-      font-family: var(--font-ui); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--text-dimmer);
-      transition: color 0.15s;
-    }
-    .presence-offline-toggle:hover { color: var(--text-dim); }
-    .presence-offline-toggle i { font-size: 11px; transition: transform 0.18s ease; }
-    .presence-offline-toggle.is-open i { transform: rotate(90deg); }
-    .presence-offline-list { display: flex; flex-direction: column; gap: 1px; }
-    .presence-offline-list[hidden] { display: none; }
 
     /* One-line variant of a presence card, for the offline list only. */
     .presence-row {
@@ -1770,12 +1617,6 @@
     .presence-row.has-unread { opacity: 1; }
     /* The collapsed header carries the signal when the unread person is
        hidden inside it. */
-    .presence-offline-toggle.has-unread { color: var(--danger-color); }
-    .presence-offline-toggle.has-unread::after {
-      content: ''; width: 7px; height: 7px; border-radius: 50%;
-      background: var(--danger-color);
-      box-shadow: 0 0 7px rgba(248,113,113,0.65); margin-left: auto;
-    }
 
     /* Unread DM marker on a person's card. The rail is the DM list now, so
        without this an unread DM from someone would be invisible. */
@@ -1800,17 +1641,6 @@
     /* Same fading-line language as .sec-line (the "// users" header etc.)
        — a thin gradient strip under the label instead of a hard rule,
        narrow sidebar so it rides under the text rather than beside it. */
-    .chat-channel-section-label {
-      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-faint); padding: 10px 10px 6px; position: relative;
-    }
-    .chat-channel-section-label::after {
-      content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 1px;
-      background: linear-gradient(90deg,
-        rgba(var(--accent-rgb),0.2) 0%,
-        rgba(var(--accent-rgb),0.04) 60%,
-        transparent 100%);
-    }
 
     /* Browse/create/DM modal — rows and inputs shared across all three modes.
        Same .picker-search language: boxy radius, tile background, and a
@@ -2082,7 +1912,6 @@
     .ctx-item i { font-size: 15px; }
     .ctx-item.warn { color: var(--warn-color); }
     .ctx-item.warn:hover { color: var(--warn-color); background: var(--warn-bg); transform: translateX(2px); }
-    .ctx-item.active-warn { color: var(--warn-color); }
     /* .ctx-item sets display:flex above, which always wins over the
        browser's own [hidden]{display:none} default regardless of
        specificity (author CSS beats UA styles) — without this, a
@@ -2518,15 +2347,6 @@
       transition: color 0.15s, background 0.15s;
     }
     .add-app-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    /* .add-app-label is still used by the klabcraft backup-browser
-       modal, which reuses this modal chrome — kept. The rest of the
-       old custom-app-builder styling (inputs, icon picker, group
-       picker, add/edit/delete tile controls, the group restriction
-       badge) was removed along with that feature. */
-    .add-app-label {
-      font-size: 9px; letter-spacing: 0.2em;
-      color: var(--text-dimmer); text-transform: uppercase;
-    }
 
     /* Keyboard-shortcuts hints panel (see #keyHintsBackdrop). */
     .key-hints-group { margin-bottom: 14px; }
@@ -2725,7 +2545,7 @@
        in both themes now). */
     [data-theme="light"] .user-badge   { color: var(--text-dimmer) !important; }
     [data-theme="light"] .picker-section-label { color: var(--text-dimmer); }
-    [data-theme="light"] .picker-empty  { color: var(--text-faint); }
+    [data-theme="light"] .picker-empty  { color: var(--text-dimmer); }
     [data-theme="light"] .picker-tab    { color: var(--text-dim); }
     [data-theme="light"] .picker-tab.active { color: rgba(var(--accent-rgb),1); background: rgba(var(--accent-rgb),0.14); border-color: rgba(var(--accent-rgb),0.35); }
     [data-theme="light"] .picker-search input::placeholder { color: var(--text-faint); }
@@ -2745,9 +2565,6 @@
     [data-theme="light"] .s-toggle::after { background: var(--text-dimmer); }
     [data-theme="light"] .s-toggle.on { background: rgba(var(--accent-rgb),0.45); border-color: rgba(var(--accent-rgb),0.6); }
     [data-theme="light"] .s-toggle.on::after { background: #fff; }
-    [data-theme="light"] .settings-title   { color: var(--text-dimmer); }
-    [data-theme="light"] .add-app-label  { color: var(--text-dimmer); }
-    [data-theme="light"] .add-app-title  { color: var(--text-dimmer); }
 
     /* ── Album expand panel ── */
 
@@ -2896,9 +2713,7 @@
       transition: color 0.3s ease, transform 0.3s ease, text-shadow 0.3s ease;
       transform-origin: left center;
     }
-    .lyric-line:hover {
-      color: rgba(255,252,248,0.68) !important;
-    }
+    .lyric-line:not(.active):hover { color: rgba(255,252,248,0.68); }
     .lyric-line.active {
       color: rgba(255,252,248,1);
       transform: scale(1.03);
@@ -3151,10 +2966,6 @@
        real note, without needing separate copy for the two states. */
     .presence-card-note-empty { color: var(--text-faint); border-style: dashed; background: transparent; }
 
-    .presence-section-label {
-      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-faint); padding: 10px 4px 4px;
-    }
     .presence-card.is-offline { opacity: 0.55; }
     .presence-card.is-offline .presence-card-avatar { filter: grayscale(0.6); }
 
@@ -3618,8 +3429,8 @@
     .picker-action.fav-active { color: var(--danger-color); }
 
     .picker-empty {
-      font-size: 10px; letter-spacing: 0.15em; color: var(--text-dimmer);
-      text-transform: uppercase; text-align: center; padding: 2rem;
+      font-size: var(--fs-13); color: var(--text-dimmer);
+      text-align: center; padding: 2rem;
     }
 
     ::selection {
@@ -3776,12 +3587,10 @@
       input[type="text"], input[type="search"], input[type="password"],
       input:not([type]), textarea { font-size: 16px; }
 
-      .presence-rail { margin-top: 1.5rem; }
       /* The rail stacks *below* the chat at this width (see the 880px
          rule), so on the chat tab it's a strip of dead height under the
          composer that squeezes the timeline for something you can't even
          see. Chat owns the screen here; the roster is still on Feed. */
-      body.tab-chat-active .presence-rail { display: none; }
       .grid { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); }
 
       /* ── Chat: one pane at a time ──
@@ -3795,9 +3604,6 @@
       /* The "rooms" screen is the presence rail now (people + channels),
          which lives outside #chatApp — so the pane switch keys off a body
          class rather than a class on the chat app itself. */
-      body.tab-chat-active.chat-rooms-view .presence-rail {
-        display: block; margin-top: 0; order: 1;
-      }
       body.tab-chat-active.chat-rooms-view .dash-main { display: none; }
       .rail-channels { margin-top: 1.2rem; }
 
@@ -3861,7 +3667,7 @@
          so only "Home" was visible. */
       .picker-tab { flex: 0 0 auto; width: auto; white-space: nowrap; padding: 0.4rem 0.7rem; gap: 6px; }
       .picker-tab span { flex: 0 0 auto; }
-      .music-sidebar-divider, .music-sidebar-label { display: none; }
+      .music-sidebar-label { display: none; }
 
       /* A song row carries a "SONG" badge and five actions (favorite, set
          login song, queue, add to playlist, play). At this width that left
@@ -3885,7 +3691,7 @@
     }
 
     /* ── Narrow phones ── */
-    @media (max-width: 480px) {
+    @media (max-width: 480px) and (pointer: coarse) {
       /* Below ~400px the wordmark (nowrap) and the icon row both want more
          room than exists and the two drew on top of each other. The player
          toggle goes because the dock it toggles is right there on screen. */
@@ -3899,7 +3705,6 @@
          rules above): the seek bar's 80px minimum is what tips the dock
          into overflowing at this width. Seeking is still in the fullscreen
          player. */
-      .player-dock .player-progress { display: none !important; }
 
       .dash { padding: 1.1rem 0.7rem 1.25rem; }
       .grid { grid-template-columns: repeat(auto-fill, minmax(132px,1fr)); }
@@ -3976,8 +3781,7 @@
        dock is the only one that's persistently on screen; the other six
        are open for a few seconds at a time. */
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item,
-      .modal-box, .chat-emoji-picker, .chat-msg-actions {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-emoji-picker, .chat-msg-actions {
         background:
           linear-gradient(180deg,
             rgba(255,255,255,0.07) 0%,
@@ -4000,8 +3804,7 @@
       }
     }
     @media (prefers-reduced-transparency: reduce) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item,
-      .modal-box, .chat-emoji-picker, .chat-msg-actions {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-emoji-picker, .chat-msg-actions {
         background: var(--modal-bg);
         -webkit-backdrop-filter: none; backdrop-filter: none;
       }
@@ -4017,7 +3820,6 @@
     /* Small controls that had drifted to their own sizes/radii. .ctrl-btn
        keeps 32px — it's inside the dock, on its own line, and sizing it to
        34 crowds the dock's height for no alignment gain. */
-    .rail-tab      { height: var(--control-h); }
     .chat-icon-btn { border-radius: var(--radius-sm); }
     .ctrl-btn      { border-radius: var(--radius-md); }
     .toast-item    { border-radius: var(--radius-lg); }
@@ -4041,11 +3843,6 @@
           rgba(255,255,255,0) 100%),
         var(--glass-fill);
     }
-    .rail-tab {
-      height: var(--control-h-sm);
-      background: transparent; border-color: transparent;
-    }
-    .rail-tab:hover:not(.active) { background: var(--glass-fill-h); }
 
     /* Stacked, the tab tray spans the full width, so the segments should
        divide it rather than huddle at the left edge with dead tray to
@@ -4098,7 +3895,6 @@
     }
     body.tab-photos-active .dash-body { flex: 1; min-height: 0; }
     body.tab-photos-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
-    body.tab-photos-active .presence-rail { display: none; }
     body.tab-photos-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     body.tab-photos-active .player-dock {
       transform: translateX(-50%) translateY(calc(100% + 2.5rem)) !important;
@@ -4341,12 +4137,6 @@
     .ph-side-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
     .ph-original { font-size: var(--fs-12); color: var(--text-dim); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
     .ph-original:hover { color: var(--text); }
-    .ph-delete {
-      background: none; border: none; padding: 0; color: var(--danger-color); cursor: pointer;
-      font: 500 var(--fs-12) var(--font-ui); display: inline-flex; align-items: center; gap: 5px; opacity: .85;
-    }
-    .ph-delete:hover { opacity: 1; }
-    .ph-delete[hidden] { display: none; }
 
     /* Filmstrip: no bar of its own, it floats on the backdrop and fades out
        at the edges. */
@@ -5003,7 +4793,6 @@
       font: 700 22px/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text);
     }
     .dash .sec-head .sec-line { display: none; }
-    #presenceRail .sec-head .sec-label { font-size: 15px; font-weight: 600; color: var(--text-dim); }
 
     /* Composer: one soft surface, the send button is the primary pill. */
     #feedComposer {
@@ -5058,7 +4847,6 @@
     @media (hover: none) { #feedList .feed-post-delete { opacity: 1; } }
 
     /* People rail: the cards keep their own background and border. */
-    #presenceRail .presence-card-name { font-size: 14px; font-weight: 600; }
 
     /* Chat: rows light up on hover, grouped lines sit close, pill composer. */
     #chatShell .chat-msg { border-radius: 8px; padding: 6px 10px; margin: 0 -10px; transition: background-color var(--m-fast) ease; }
@@ -5072,9 +4860,6 @@
     #chatShell #chatComposerInput:focus { border-color: var(--glass-border-h); }
     #chatShell .chat-msg-reaction-pill { border-radius: 8px; background: var(--glass-fill-h); }
     #chatShell .chat-msg-reaction-pill.mine { border-color: rgba(var(--accent-rgb),0.45); box-shadow: 0 0 12px rgba(var(--accent-rgb),0.14); }
-    #presenceRail .chat-channel-item { border-radius: 10px; height: 38px; font-size: 14px; }
-    #presenceRail .chat-channel-item.active { background: var(--glass-fill-h); color: var(--text); }
-    #presenceRail .chat-channel-unread-dot { box-shadow: 0 0 8px rgba(255,248,236,0.5); }
 
     /* Settings: grouped lists (one rounded block per section, hairlines
        between rows) rather than a stack of separately-boxed rows. */
@@ -5114,7 +4899,6 @@
     #chatShell .chat-msg.grouped { margin-top: 0; }
     #chatShell .chat-msg-avatar.grouped { height: 0; min-height: 0; visibility: hidden; }
     /* Users / Channels: sentence case, like the rest of the site's switches. */
-    #presenceRail .rail-tab { text-transform: none; letter-spacing: 0; font: 500 13px var(--font-ui); border-radius: 9px; }
     #chatShell .chat-msg-avatar { width: 36px; min-width: 36px; }
     #chatShell .chat-msg-avatar:not(.grouped) { height: 36px; }
     #chatShell .chat-msg:has(+ .chat-msg.grouped) { padding-bottom: 1px; }
@@ -5282,8 +5066,7 @@
     /* Big editor: the composer lifts out into a centered sheet, writing on
        the left and the rendered post on the right. */
     .feed-composer-scrim {
-      position: fixed; inset: 0; z-index: 380; background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      position: fixed; inset: 0; z-index: 380; background: rgba(0,0,0,0.6);
       animation: mdScrimIn var(--m-med) ease both;
     }
     #feedComposer.expanded {
@@ -5434,7 +5217,6 @@
     body.tab-home-active:not(.player-hidden) .dash { padding-bottom: calc(1.1rem + 88px); }
     body.tab-home-active .dash-body { flex: 1; min-height: 0; }
     body.tab-home-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
-    body.tab-home-active .presence-rail { display: none; }
     body.tab-home-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
     /* hidden (not just transparent) off its tab, so its blurred layers aren't composited */
@@ -5505,7 +5287,7 @@
     .hm-big.long { font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; -webkit-line-clamp: 7; }
     .hm-cap { margin: 10px 0 12px; font: 700 21px/1.25 var(--font-ui); letter-spacing: -0.02em; max-width: 90%; }
     .hm-exif { display: flex; gap: 6px; flex-wrap: wrap; }
-    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 4px; background: rgba(0,0,0,.4); backdrop-filter: blur(10px); color: rgba(255,255,255,.88); }
+    .hm-exif span { font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 4px; background: rgba(0,0,0,.55); color: rgba(255,255,255,.88); }
     .hm-album { display: flex; align-items: flex-end; gap: 22px; margin-top: 14px; }
     .hm-cv { width: min(40%, 280px); aspect-ratio: 1; flex-shrink: 0; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 24px 50px rgba(0,0,0,.6); }
     .hm-album b { display: block; font: 800 clamp(22px, 2.2vw, 34px)/1.1 var(--font-ui); letter-spacing: -0.03em; }
@@ -5540,20 +5322,7 @@
 
     /* listening */
     .hm-listen { grid-column: 8 / span 5; grid-row: 1 / span 2; } /* the tall one: nobody gets cut off */
-    .hm-lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; align-content: start; }
-    .hm-pcard { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 4px; border-radius: 6px; }
-    .hm-art { position: relative; width: 42px; height: 42px; flex-shrink: 0; border-radius: 5px; background: var(--tile-bg-h) center / cover; }
-    .hm-art .hm-av { position: absolute; right: -6px; bottom: -6px; width: 20px; height: 20px; font-size: 9px; box-shadow: 0 0 0 2px var(--bg); }
-    .hm-art .hm-av.on::after { display: none; }
-    .hm-pc-tx { min-width: 0; line-height: 1.3; flex: 1; }
-    .hm-pc-tx small { display: block; font-size: 11.5px; font-weight: 600; }
-    .hm-pc-tx b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-    .hm-pc-tx span { display: block; font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hm-eq { position: absolute; top: 9px; right: 10px; display: inline-flex; gap: 2px; align-items: flex-end; height: 11px; }
-    .hm-eq i { width: 2.5px; height: 100%; transform-origin: bottom; border-radius: 2px; background: rgb(var(--accent-rgb)); animation: hmEq .9s ease-in-out infinite; }
-    .hm-eq i:nth-child(2) { animation-delay: -.3s; } .hm-eq i:nth-child(3) { animation-delay: -.6s; }
     @keyframes hmEq { 0%, 100% { transform: scaleY(.27); } 50% { transform: scaleY(1); } }
-    .hm-quiet { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--text-dimmer); opacity: .5; }
 
     /* new music */
     .hm-music { grid-column: 1 / span 3; grid-row: 3; padding: 0; }
@@ -5599,8 +5368,6 @@
     .hm-photos .hm-lbl { position: absolute; top: 12px; left: 14px; margin: 0; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
     .hm-quiet { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-dimmer); font-size: 13.5px; text-align: center; }
     .hm-quiet i { font-size: 24px; opacity: .6; }
-    .hm-lgrid + .hm-quiet { flex: 0; margin-top: 14px; flex-direction: row; font-size: 13px; }
-    .hm-lgrid + .hm-quiet i { font-size: 16px; }
 
     /* Posts as markdown: full size in the spotlight, compact in the list. */
     .hm-content > .hm-big.md { flex-shrink: 1; }
@@ -5638,12 +5405,11 @@
       .hm-grid > .hm-tile { grid-column: 1 / -1; }
       .hm-posts, .hm-listen, .hm-chat { min-height: 0; height: auto; }
       .hm-plist { max-height: 300px; }
-      .hm-lgrid { grid-template-columns: 1fr; }
       .hm-content { left: 18px; right: 18px; bottom: 18px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .hm-img, .hm-slide, .hm-fc { transition: none; }
-      .hm-live-dot, .hm-eq i, .hm-bars b.run i { animation: none; }
+      .hm-live-dot, .hm-bars b.run i { animation: none; }
     }
 
     /* ══ CHAT — laid out like Music: a sidebar and the conversation on the
@@ -5878,7 +5644,7 @@
     .hm-spot { touch-action: pan-y; }
     .hm-spot .hm-slide { transition: opacity .9s ease, transform .3s var(--m-ease); }
     .hm-flick { position: absolute; top: 50%; z-index: 6; width: 34px; height: 34px; margin-top: -17px; border-radius: 8px; border: 1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.35); backdrop-filter: blur(10px); color: #fff; font-size: 18px; cursor: pointer; opacity: 0; transition: opacity var(--m-fast), background-color var(--m-fast); }
+      background: rgba(0,0,0,.5); color: #fff; font-size: 18px; cursor: pointer; opacity: 0; transition: opacity var(--m-fast), background-color var(--m-fast); }
     .hm-flick.prev { left: 12px; } .hm-flick.next { right: 12px; }
     .hm-spot:hover .hm-flick { opacity: 1; }
     .hm-flick:hover { background: rgba(0,0,0,.55); }
@@ -6032,11 +5798,9 @@
     html[data-fx="low"] .boot-glow,
     html[data-fx="low"] .boot-logo,
     html[data-fx="low"] .motd,
-    html[data-fx="low"] .presence-card.is-playing .presence-card-online,
     html[data-fx="low"] #socialUnreadBadge:not(:empty),
     html[data-fx="low"] .ph-song.playing .ph-eq b,
     html[data-fx="low"] .hm-live-dot,
-    html[data-fx="low"] .hm-eq i,
     html[data-fx="low"] .chat-face-eq i,
     html[data-fx="low"] .chat-head-eq i,
     html[data-fx="low"] .hm-lcd-colon,
@@ -6503,7 +6267,7 @@
       html.app-titlebar[data-platform="win32"] #socialUnreadBadge:not(:empty) { top: 1px; right: 2px; }
 
       /* Collapsed (idle): just the current tab, with its bar. */
-      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
+      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; max-width: 0; }
       html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active {
         background: transparent; border-color: transparent; padding: 0 12px; gap: 8px;
       }
@@ -6942,8 +6706,8 @@
 
     /* ── Section labels ── */
     .picker-section-label, .ap-sec-label, #musicShell .picker-section-label,
-    .settings-section-label, .chat-lbl, .chat-channel-section-label, .presence-section-label,
-    .sec-label, .key-hints-group-label, .add-app-label, .music-sidebar-label, #musicShell .music-sidebar-label,
+    .settings-section-label, .chat-lbl,
+    .sec-label, .key-hints-group-label, .music-sidebar-label, #musicShell .music-sidebar-label,
     .hm-lbl, .profile-modal-label, .ctx-label, .feed-composer-live-label, .chat-date-sep-label, .ph-side-head {
       font-family: var(--font-ui); font-size: var(--fs-10); font-weight: 600;
       letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer);
@@ -6955,8 +6719,7 @@
 
     /* ── Sentence case for everything you press ── */
     .ctx-item, .feed-load-more, .chat-connect-btn, .chat-modal-row-btn, .fb-type-btn, .update-banner button,
-    .ap-btn-play, .ap-btn-queue, .ap-read-more, .ap-sim-chip, .picker-sort-btn, .picker-back,
-    .presence-offline-toggle, .rail-tab, .chat-channel-invited {
+    .ap-btn-play, .ap-btn-queue, .ap-read-more, .ap-sim-chip, .picker-sort-btn, .picker-back {
       text-transform: none; letter-spacing: 0;
     }
 
@@ -7177,7 +6940,7 @@
     * { scrollbar-width: none; }
     *::-webkit-scrollbar { display: none; width: 0; height: 0; }
     /* A cover in the viewer sits on the page like a record sleeve. */
-    .img-view-backdrop.framed { background: rgba(0,0,0,0.86); -webkit-backdrop-filter: blur(28px) saturate(1.3); backdrop-filter: blur(28px) saturate(1.3); }
+    .img-view-backdrop.framed { background: rgba(0,0,0,0.92); }
     .img-view-backdrop.framed .img-view-img { border-radius: 6px; box-shadow: 0 30px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06); }
     html[data-fx="low"] .img-view-backdrop.framed { background: rgba(0,0,0,0.94); }
 
@@ -7808,3 +7571,49 @@
     /* Settings and dialogs read in the system font, like System Settings. */
     html.klabnet-app[data-platform="darwin"] :is(.settings-row-label, .settings-row-sub, .app-seg button, .app-btn) { font-family: var(--mac-font); }
     html.klabnet-app[data-platform="darwin"] :is(.ctx-menu, .hdr-more-menu) a.ctx-item { text-decoration: none; }
+
+    /* ══ Audit fixes (CSS pass, Sep 2026) ══ */
+    /* Rows the app hides (Settings → App on the wrong platform, the
+       notifications row without the Notification API) stay hidden. */
+    .settings-row[hidden], .feed-md-toolbar[hidden] { display: none; }
+    /* The full player is always dark: its links stay light on hover, and
+       its progress fill isn't the light theme's accent. */
+    #fsPlayer .player-link:hover { color: #fff !important; }
+    [data-theme="light"] .fs-player .slider-fill { background: rgba(255,255,255,.65); }
+    /* Status text is read, not a label: sentence case. */
+    .ap-loading, .ap-error, .lyrics-status, .ap-topbar-title, .chat-app-header {
+      text-transform: none; letter-spacing: 0;
+    }
+    .ap-loading, .ap-error, .lyrics-status { font-size: var(--fs-13); }
+    .img-crop-title { font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text); }
+    @media (min-width: 761px), (pointer: fine) {
+      body.nav-mini .header .tab-nav .tab-nav-btn.active { text-transform: none; letter-spacing: 0; font: 500 var(--fs-13)/1 var(--font-ui); }
+    }
+    /* Touch screens: the DM close button shows (it was invisible but still
+       tappable), and the row's text leaves it room. */
+    @media (hover: none) {
+      #chatSide .chat-channel-close { opacity: 1; }
+      #chatSide .chat-conv:has(.chat-channel-close) .chat-conv-tx { padding-right: 26px; }
+    }
+    /* Performance mode: the "listening" ring runs on ::after now. */
+    html[data-fx="low"] .presence-card.is-playing .presence-card-online::after { animation: none !important; opacity: 0; }
+    /* Performance mode (and reduced transparency) on a Mac: no blur on the
+       toolbar capsule and the segmented tabs either. */
+    html[data-fx="low"].app-titlebar[data-platform="darwin"] .header-right,
+    html[data-fx="low"].app-titlebar[data-platform="darwin"] .header .tab-nav {
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--modal-bg) !important;
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      html.app-titlebar[data-platform="darwin"] .header-right,
+      html.app-titlebar[data-platform="darwin"] .header .tab-nav {
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--modal-bg) !important;
+      }
+    }
+    /* Mac: the focus ring is the field's frame's, not a second box around
+       the borderless input inside it. */
+    html.klabnet-app[data-platform="darwin"] :is(.chat-composer textarea, .chat-composer input, .feed-composer-text,
+      .chat-search input, .picker-search input, .chat-modal-search input, .gif-search input, .ph-tags-box input):focus-visible { outline: none; }
+    /* In the app, menus and dialogs over the title bar are clicked, not
+       dragged by. */
+    html.app-titlebar :is(.ctx-menu, .klab-menu, .hdr-more-menu, .gif-picker, .feed-composer-scrim,
+      .add-app-backdrop, .settings-backdrop, .img-view-backdrop, .toast-item) { -webkit-app-region: no-drag; }

@@ -189,7 +189,12 @@ const MatrixChat = (function () {
     // cache-clear; everyone else's stayed stale with no invalidation path
     // at all).
     client.on('RoomState.events', event => {
-      if (event.getType() === 'm.room.member') emit('memberProfileChanged', event.getStateKey());
+      // Only a changed picture: joins, leaves and renames (and the whole
+      // member list arriving at startup) each threw the avatar away and
+      // downloaded it again.
+      if (event.getType() === 'm.room.member' && event.getContent()?.avatar_url !== event.getPrevContent()?.avatar_url) {
+        emit('memberProfileChanged', event.getStateKey());
+      }
     });
     // gitea#2 listening-party sync — plain to-device messages, no room/
     // timeline involved at all, so nothing here ever shows up as a chat
@@ -3224,6 +3229,9 @@ document.getElementById('chatTimeline')?.addEventListener('click', e => {
   const say = e.target.closest('[data-say]');
   if (say) {
     const input = document.getElementById('chatComposerInput');
+    // Something's already typed or attached: the chip would send it along
+    // (or throw the draft away), so it just leaves you in the composer.
+    if (input.value.trim() || _pendingChatImage) { input.focus(); return; }
     input.value = say.dataset.say; sendChatMessage(); return;
   }
   if (e.target.closest('[data-share-np]')) { shareNowPlaying(); return; }
