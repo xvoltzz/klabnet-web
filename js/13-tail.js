@@ -260,6 +260,13 @@ function sampleImageColor(imgUrl) {
   const bg       = document.getElementById('apBg');
   const scroll   = document.getElementById('apScroll');
   const titleEl  = document.getElementById('apTopbarTitle');
+  // Top right, across from Back: the album's star. Artist pages have none.
+  const starEl   = document.getElementById('apStar');
+  const setStar  = albumId => {
+    starEl.hidden = !albumId;
+    if (albumId) { starEl.dataset.star = 'album:' + albumId; window.klabStars?.paint(starEl); }
+    else delete starEl.dataset.star;
+  };
   const backBtn  = document.getElementById('apBack');
   if (!panel) return;
 
@@ -413,6 +420,7 @@ function sampleImageColor(imgUrl) {
       // naming the album you'd just stepped back from.
       titleEl.textContent = artistName || '';
       titleEl.classList.remove('vis');
+      setStar(null);
       loading();
       const myLoadToken = ++_apLoadToken;
       try {
@@ -533,6 +541,7 @@ function sampleImageColor(imgUrl) {
     const renderFn = async () => {
       titleEl.textContent = albumName || '';
       titleEl.classList.remove('vis');
+      setStar(albumId);
       loading();
       const myLoadToken = ++_apLoadToken;
       try {
@@ -569,7 +578,7 @@ function sampleImageColor(imgUrl) {
             : `<div class="ap-hero-img-ph square"><i class="ti ti-vinyl"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Album</span>
-            <div class="ap-hero-name">${esc(album.name||album.title)}${klabStars.button('album', album.id, 'ap-hero-star')}</div>
+            <div class="ap-hero-name">${esc(album.name||album.title)}</div>
             <div class="ap-hero-artist-link" data-artist-id="${esc(album.artistId)}" data-artist-name="${esc(album.artist)}">${esc(album.artist)}</div>
             <div class="ap-hero-sub">${[album.year, `${songs.length} track${songs.length!==1?'s':''}`, durStr].filter(Boolean).join(' · ')}</div>
           </div>`;
