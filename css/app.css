@@ -5684,9 +5684,11 @@
     #feedList .feed-post.is-song.playing .feed-rec-disc { transform: translateX(24px); animation: feedSpin 2.4s linear infinite; }
     @keyframes feedSpin { from { transform: translateX(24px) rotate(0); } to { transform: translateX(24px) rotate(360deg); } }
 
-    /* a photo runs edge to edge */
-    #feedList .feed-post.is-photo .feed-post-image { display: block; width: calc(100% + 72px + 18px); max-width: none; max-height: 620px; object-fit: cover;
-      margin: 12px -18px 0 -72px; border-radius: 0; }
+    /* a photo runs edge to edge, whole: its own shape, never cropped. One
+       taller than the screen allows is shown entire, on a dark band. */
+    #feedList .feed-post.is-photo .feed-post-image { display: block; width: calc(100% + 72px + 18px); max-width: none; height: auto; max-height: 80vh; object-fit: contain;
+      margin: 12px -18px 0 -72px; border-radius: 0; background: rgba(0,0,0,.28); }
+    [data-theme="light"] #feedList .feed-post.is-photo .feed-post-image { background: rgba(0,0,0,.05); }
 
     /* days are chapters */
     #feedList .feed-day { position: sticky; top: 0; z-index: 5; display: flex; align-items: baseline; gap: 10px; margin: 18px -12px 2px; padding: 12px 12px 8px;
