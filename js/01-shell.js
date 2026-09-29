@@ -57,24 +57,65 @@ function retypePrompt(target) {
 
 // The desktop app's header has no room for the splash, so the prompt types
 // it instead, after the cursor: "klabnet>_ go touch grass". A new MOTD
-// backspaces the old one and types itself in.
+// backspaces the old one and types itself in, like someone at a keyboard:
+// now and then a finger lands on the next key over, gets a letter or two
+// further, stops, backspaces and fixes it (sometimes fumbling it again),
+// and once in a while the period key gets held down at the end.
 const promptMotdEl = document.getElementById('promptMotd');
 let _promptMotdTimer = 0;
+const KEY_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+function nearKey(ch) {
+  const lower = ch.toLowerCase();
+  for (let r = 0; r < KEY_ROWS.length; r++) {
+    const i = KEY_ROWS[r].indexOf(lower);
+    if (i < 0) continue;
+    const near = [KEY_ROWS[r][i - 1], KEY_ROWS[r][i + 1], KEY_ROWS[r - 1]?.[i], KEY_ROWS[r + 1]?.[i]].filter(Boolean);
+    const k = near[Math.floor(Math.random() * near.length)];
+    return ch === lower ? k : k.toUpperCase();
+  }
+  return null; // not a letter: nothing next to it worth hitting
+}
+// The keystrokes from what's shown to `target`: a character to type, or
+// null for backspace, each with how long before the next one.
+function motdKeystrokes(cur, target) {
+  const keys = [];
+  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+  let keep = cur;
+  while (!target.startsWith(keep)) keep = keep.slice(0, -1);
+  for (let n = cur.length - keep.length; n > 0; n--) keys.push({ key: null, wait: rand(18, 32) });
+  if (keys.length) keys[keys.length - 1].wait = 260;
+  for (let i = keep.length; i < target.length; i++) {
+    const ch = target[i];
+    for (let slips = 0; slips < 3 && Math.random() < (slips ? 0.3 : 0.03); slips++) {
+      const wrong = nearKey(ch);
+      if (!wrong) break;
+      const run = [wrong, ...target.slice(i + 1, i + 1 + Math.floor(Math.random() * 3))];
+      run.forEach(c => keys.push({ key: c, wait: rand(38, 80) }));
+      keys[keys.length - 1].wait = rand(260, 560); // ...wait, that's wrong
+      run.forEach(() => keys.push({ key: null, wait: rand(40, 70) }));
+    }
+    keys.push({ key: ch, wait: rand(38, 80) });
+  }
+  if (target && Math.random() < 0.12) {
+    keys.push({ key: '.', wait: rand(300, 500) }); // a beat, then the key's held down
+    for (let n = Math.floor(rand(3, 10)); n > 0; n--) keys.push({ key: '.', wait: 33 });
+  }
+  return keys;
+}
 function typePromptMotd(text) {
   if (!promptMotdEl || !document.documentElement.classList.contains('klabnet-app')) return;
   clearTimeout(_promptMotdTimer);
-  const target = text ? ' ' + text : '';
+  // _settings (js/06-prefs.js) isn't there yet while this file first runs.
+  const on = typeof _settings === 'undefined' || _settings.motdTyping !== false;
+  const target = text && on ? ' ' + text : '';
   if (!(window.klabMotionOk?.() ?? true)) { promptMotdEl.textContent = target; return; }
+  const keys = motdKeystrokes(promptMotdEl.textContent, target);
+  let i = 0;
   const step = () => {
-    const cur = promptMotdEl.textContent;
-    if (cur === target) return;
-    if (!target.startsWith(cur)) {
-      promptMotdEl.textContent = cur.slice(0, -1);
-      _promptMotdTimer = setTimeout(step, cur.length === 1 ? 260 : 18 + Math.random() * 14);
-    } else {
-      promptMotdEl.textContent = target.slice(0, cur.length + 1);
-      _promptMotdTimer = setTimeout(step, 38 + Math.random() * 42);
-    }
+    const k = keys[i++];
+    if (!k) return;
+    promptMotdEl.textContent = k.key === null ? promptMotdEl.textContent.slice(0, -1) : promptMotdEl.textContent + k.key;
+    _promptMotdTimer = setTimeout(step, k.wait);
   };
   step();
 }

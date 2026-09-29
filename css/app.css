@@ -768,8 +768,10 @@
       opacity: 0;
     }
 
-    /* The MOTD typed after the prompt, in the desktop app only (typePromptMotd). */
+    /* The MOTD typed after the prompt, in the desktop app only (typePromptMotd),
+       and its switch in the header. */
     .prompt-motd { display: none; }
+    html:not(.klabnet-app) #motdToggle { display: none; }
     html.klabnet-app .prompt-motd {
       display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
       white-space: pre; vertical-align: middle; line-height: 1.2;

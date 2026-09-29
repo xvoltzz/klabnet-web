@@ -161,6 +161,24 @@ document.getElementById('desktopNotifToggle')?.addEventListener('click', async e
   if (perm === 'granted') showToast("You'll get desktop notifications for DMs, mentions and replies", 'ti-bell');
 }, true);
 
+// The shell button: the desktop app's typed MOTD, on or off. Off, it
+// backspaces itself away; on again, it types the current one back in.
+function syncMotdToggle() {
+  const b = document.getElementById('motdToggle');
+  if (!b) return;
+  const on = _settings.motdTyping !== false;
+  b.classList.toggle('active', !on);
+  b.setAttribute('aria-pressed', on);
+  b.title = on ? 'Stop typing the MOTD' : 'Type the MOTD';
+}
+document.getElementById('motdToggle')?.addEventListener('click', () => {
+  _settings.motdTyping = _settings.motdTyping === false;
+  saveSettings();
+  syncMotdToggle();
+  typePromptMotd(_motdCurrent);
+  SFX && SFX.play('click');
+});
+
 // Away status: the desktop app knows when the computer's in use; Chrome
 // can too, once the site's allowed to (Idle Detection). Other browsers
 // only see klabnet's own window, which can't tell away from busy elsewhere.

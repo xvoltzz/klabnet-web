@@ -427,6 +427,7 @@ let _settings = {
   loginSong:     true,
   desktopNotif:  false,   // per device; turning it on asks the browser
   awayStatus:    true,    // per device: tell others when you've stepped away (js/11-presence.js)
+  motdTyping:    true,    // the desktop app types the MOTD after the prompt (js/01-shell.js)
 };
 
 function loadSettings() {
