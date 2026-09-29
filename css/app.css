@@ -7325,6 +7325,33 @@
     .ph-sidebar .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }
 
 
+    /* ══ @MENTION SUGGESTIONS (js/20-mentions.js) ══
+       Under the cursor while typing @name: Music's panel (hairline,
+       radius 10, glass) with a row per person. */
+    .mention-suggest {
+      position: fixed; z-index: 4000; min-width: 200px; max-width: 280px; padding: 4px;
+      display: flex; flex-direction: column; gap: 2px;
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--modal-bg);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+      box-shadow: 0 14px 36px var(--shadow-40);
+    }
+    .mention-suggest[hidden] { display: none; }
+    .mention-suggest button {
+      display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px 0 6px; border-radius: 8px;
+      border: 1px solid transparent; background: none; color: var(--text-dim); cursor: pointer; text-align: left;
+      font: 500 var(--fs-13) var(--font-ui);
+    }
+    .mention-suggest button.hi { background: var(--glass-fill-h); border-color: var(--glass-border); color: var(--text); }
+    .mention-suggest-av {
+      width: 22px; height: 22px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); font: 700 11px var(--font-ui);
+    }
+    .mention-suggest-av img { width: 100%; height: 100%; object-fit: cover; }
+    .mention-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mention-suggest-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--success-color); }
+    .mention-suggest-dot.away { background: var(--away-color); }
+
+
     /* ══ AWAY (js/11-presence.js) ══
        klabnet's open but they haven't used their computer in 5 minutes, or
        it's locked: an amber dot where the green one was, and their face a

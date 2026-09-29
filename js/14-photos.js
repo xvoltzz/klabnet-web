@@ -560,7 +560,7 @@
     shotEl.innerHTML = post.shot_at
       ? `<i class="ti ti-camera"></i> Shot on ${esc(fmtShot(post.shot_at))}`
       : `Posted ${esc(new Date(post.created.replace(' ', 'T') + 'Z').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }))}`;
-    $('phCaption').textContent = post.text || '';
+    $('phCaption').innerHTML = window.klabMentionsHTML ? klabMentionsHTML(post.text) : esc(post.text || '');
     $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
 
     // The slot stays even without a song, so every post has the same shape.
@@ -830,12 +830,20 @@
     const list = $('phReplies');
     list._repliesFor = post.id;
     list.innerHTML = replies.length ? replies.map(rep =>
-      `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${esc(rep.text)}</span>` +
+      `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${window.klabMentionsHTML ? klabMentionsHTML(rep.text) : esc(rep.text)}</span>` +
         ((rep.username === me() || window.KLAB_USER?.is_admin)
           ? `<button type="button" class="ph-reply-del" data-reply-id="${rep.id}" title="Delete"><i class="ti ti-x"></i></button>` : '') +
       `</div>`).join('') : '<div class="ph-replies-empty">No comments yet.</div>';
     list._replies = replies;
   }
+
+  // The people list arrived: redraw the mentions in what's showing.
+  window.addEventListener('klab:people', () => {
+    const it = items[sel];
+    if (!it) return;
+    $('phCaption').innerHTML = klabMentionsHTML(it.post.text);
+    if ($('phReplies')._repliesFor === it.post.id) renderReplies(it.post, $('phReplies')._replies || []);
+  });
 
   $('phReplyForm').addEventListener('submit', async e => {
     e.preventDefault();

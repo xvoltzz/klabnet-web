@@ -135,15 +135,17 @@
       let last = 0, m;
       MENTION_RE.lastIndex = 0;
       while ((m = MENTION_RE.exec(text))) {
-        const at = m.index + m[1].length, name = m[2];
+        // Only a real person (js/11-presence.js); "@bob." is bob and a dot.
+        const at = m.index + m[1].length, u = window.klabUserFor?.(m[2]);
+        if (!u) continue;
         frag.append(text.slice(last, at));
         const span = document.createElement('span');
-        span.className = 'feed-post-mention' + (me && name.toLowerCase() === me.toLowerCase() ? ' is-me' : '');
-        span.dataset.username = name.toLowerCase();
-        if (typeof profileColor === 'function') span.style.color = profileColor(name.toLowerCase());
-        span.textContent = '@' + name;
+        span.className = 'feed-post-mention' + (me && u === me.toLowerCase() ? ' is-me' : '');
+        span.dataset.username = u;
+        if (typeof profileColor === 'function') span.style.color = profileColor(u);
+        span.textContent = '@' + m[2].slice(0, u.length);
         frag.append(span);
-        last = at + 1 + name.length;
+        last = at + 1 + u.length;
       }
       if (!last) continue;
       frag.append(text.slice(last));
@@ -264,8 +266,8 @@
         h = '<span class="mdx-mark">' + esc(t.slice(0, t[0] === '!' ? 2 : 1)) + '</span><span class="mdx-link">' + esc(t.slice(t[0] === '!' ? 2 : 1, mid)) +
           '</span><span class="mdx-mark">' + esc(t.slice(mid)) + '</span>';
       } else if (t[0] === '@') {
-        const name = t.slice(1).toLowerCase();
-        h = '<span class="feed-post-mention" style="color:' + (typeof profileColor === 'function' ? profileColor(name) : 'inherit') + '">' + esc(t) + '</span>';
+        const u = window.klabUserFor?.(t.slice(1));
+        h = u ? '<span class="feed-post-mention" style="color:' + (typeof profileColor === 'function' ? profileColor(u) : 'inherit') + '">' + esc(t.slice(0, u.length + 1)) + '</span>' + esc(t.slice(u.length + 1)) : esc(t);
       } else h = '<span class="mdx-link">' + esc(t) + '</span>';
       out += h;
       last = m.index + t.length;

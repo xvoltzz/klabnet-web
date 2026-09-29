@@ -129,15 +129,15 @@
     tick();
   })();
 
-  // @mentions — plain "@name" tokens, not validated against a real user
-  // directory (matching Twitter's own composer: it highlights syntactically
-  // as you type, same idea here). Shared between the composer's live
-  // highlight overlay and rendered post text so both stay in sync.
+  // @mentions: only a real person's name (window.klabUserFor), in the
+  // composer's live highlight and in posts alike. Anything else stays text.
   function mentionHTML(rawText, me) {
     const escaped = esc(rawText);
     return escaped.replace(/(^|[^\w@])@([a-zA-Z0-9_][\w.-]*)/g, (m, pre, name) => {
-      const isMe = !!me && name.toLowerCase() === me.toLowerCase();
-      return pre + '<span class="feed-post-mention' + (isMe ? ' is-me' : '') + '" data-username="' + esc(name.toLowerCase()) + '" style="color:' + profileColor(name.toLowerCase()) + '">@' + name + '</span>';
+      const u = window.klabUserFor?.(name);
+      if (!u) return m;
+      const isMe = !!me && u === me.toLowerCase();
+      return pre + '<span class="feed-post-mention' + (isMe ? ' is-me' : '') + '" data-username="' + esc(u) + '" style="color:' + profileColor(u) + '">@' + name.slice(0, u.length) + '</span>' + name.slice(u.length);
     });
   }
 
@@ -783,6 +783,8 @@
   // color/bio/banner — renderFeed/listEl are private to this IIFE, same
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
+  // The people list arrived or grew: mentions that are real now get coloured.
+  window.addEventListener('klab:people', () => { renderFeed(); if (textEl.value) autoGrowComposer(); });
 
   // Exposed so anything outside this IIFE showing a plain klabnet username
   // (not a full Matrix ID) can resolve its avatar without duplicating the

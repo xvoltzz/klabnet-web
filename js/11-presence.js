@@ -434,6 +434,41 @@
   // waits on Matrix.
   let _serverRoster = null;
 
+  // ── People, for @mentions ──
+  // Only a real person's name turns into a mention (coloured, and offered
+  // by the @ suggestions in js/20-mentions.js); any other @word stays
+  // text. Everyone the API has seen, plus whoever's online.
+  let _people = new Set(), _peopleKey = '';
+  function people() {
+    const key = (_serverRoster ? _serverRoster.length : 0) + ':' + (window.KLAB_ONLINE_USERNAMES ? window.KLAB_ONLINE_USERNAMES.size : 0);
+    if (key !== _peopleKey) {
+      _peopleKey = key;
+      _people = new Set([...(_serverRoster || []).map(p => p.username), ...(window.KLAB_ONLINE_USERNAMES || [])]
+        .filter(u => u && u !== 'anonymous').map(u => u.toLowerCase()));
+    }
+    return _people;
+  }
+  // The real username an "@name" means, or null. "@bob." is bob.
+  window.klabUserFor = function(name) {
+    const set = people();
+    let n = String(name || '').toLowerCase();
+    while (n) {
+      if (set.has(n)) return n;
+      if (!/[.-]$/.test(n)) return null;
+      n = n.slice(0, -1);
+    }
+    return null;
+  };
+  window.klabPeople = () => [...people()];
+  // Plain text with its real mentions coloured (photo captions, comments).
+  window.klabMentionsHTML = function(text) {
+    return esc(text || '').replace(/(^|[^\w@])@([a-zA-Z0-9_][\w.-]*)/g, (m, pre, name) => {
+      const u = window.klabUserFor(name);
+      if (!u) return m;
+      return pre + '<span class="feed-post-mention" data-username="' + esc(u) + '" style="color:' + profileColor(u) + '">@' + name.slice(0, u.length) + '</span>' + name.slice(u.length);
+    });
+  };
+
   function _matrixIdFor(username) {
     const myId = MatrixChat.client?.getUserId();
     const server = myId ? myId.split(':')[1] : 'klab.gg';
@@ -988,6 +1023,10 @@
       // current user itself, so a poll that beats /api/me can't poison the
       // cached array (see its own comment).
       renderList(data.listeners || []);
+      // Someone new to mention (or the first poll): mentions redraw.
+      const before = _peopleKey;
+      people();
+      if (_peopleKey !== before && _people.size) window.dispatchEvent(new Event('klab:people'));
     } catch(e) {
       // A single timed-out/failed poll shouldn't blank out everyone who was
       // online a moment ago — keep showing the last-known roster and let
