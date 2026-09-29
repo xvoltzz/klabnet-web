@@ -2144,9 +2144,23 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
 // midpoint rather than a fixed centre, and the image is allowed to be
 // smaller than the stage (it centres instead of clamping to an edge).
 let _imgViewerOpen = false;
+// A link's download name only counts for our own origin (and blobs), so
+// anything else is fetched into a blob first; a server that won't allow
+// that gets opened in a tab instead.
+async function saveImage(url, name) {
+  if (url.startsWith('blob:') || new URL(url, location.href).origin === location.origin) { _dlAnchor(url, name); return; }
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    const blob = URL.createObjectURL(await r.blob());
+    _dlAnchor(blob, name);
+    setTimeout(() => URL.revokeObjectURL(blob), 10000);
+  } catch { window.open(url, '_blank', 'noopener'); }
+}
 // thumbSrc shows at once; the full image replaces it when it arrives, from
 // Matrix (mxc) or a plain URL (fullSrc: album covers, at their original size).
-function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false } = {}) {
+// `download` is the file name the download button saves it as.
+function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, download = '' } = {}) {
   if (_imgViewerOpen || !thumbSrc) return;
   _imgViewerOpen = true;
 
@@ -2159,6 +2173,7 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false } = 
     '<div class="img-view-bar">' +
       '<button type="button" class="img-view-btn" data-act="zoomout" title="Zoom out" aria-label="Zoom out"><i class="ti ti-minus"></i></button>' +
       '<button type="button" class="img-view-btn" data-act="zoomin" title="Zoom in" aria-label="Zoom in"><i class="ti ti-plus"></i></button>' +
+      '<button type="button" class="img-view-btn" data-act="download" title="Download" aria-label="Download"><i class="ti ti-download"></i></button>' +
       '<button type="button" class="img-view-btn" data-act="open" title="Open original in a new tab" aria-label="Open original in a new tab"><i class="ti ti-external-link"></i></button>' +
       '<button type="button" class="img-view-btn" data-act="close" title="Close (Esc)" aria-label="Close"><i class="ti ti-x"></i></button>' +
     '</div>' +
@@ -2349,6 +2364,7 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false } = 
     if (act === 'zoomin')  { zoomAt(scale * 1.3, vw / 2, vh / 2); return; }
     if (act === 'zoomout') { zoomAt(scale / 1.3, vw / 2, vh / 2); return; }
     if (act === 'open') { window.open(ownedUrl || fullSrc || thumbSrc, '_blank', 'noopener'); return; }
+    if (act === 'download') { saveImage(ownedUrl || fullSrc || thumbSrc, download || (alt || 'image').slice(0, 60) + '.jpg'); return; }
     // A click that lands on the backdrop itself (not the image) closes —
     // but only if it wasn't the tail end of a drag.
     if (e.target === backdrop) close();

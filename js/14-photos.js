@@ -754,7 +754,14 @@
   }, { passive: false });
 
   // Swipe on the photo flips one photo; double-tap hearts it.
-  let swipe = null, lastTap = 0;
+  let swipe = null, lastTap = 0, zoomTimer = 0;
+  function openZoom() {
+    if (sel < 0 || !mainImg.src) return;
+    const { post, ph } = items[sel];
+    SFX && SFX.play('open');
+    openImageViewer({ thumbSrc: mainImg.currentSrc || mainImg.src, fullSrc: fileUrl(ph.id, 'original'),
+      alt: post.text || '', download: `${post.username}-${ph.id}.jpg` });
+  }
   // Only the photo itself: taps and selections in the rails beside it aren't swipes.
   frame.addEventListener('pointerdown', e => { swipe = e.target.closest('.ph-rail') ? null : { x: e.clientX, y: e.clientY }; });
   frame.addEventListener('pointerup', e => {
@@ -763,9 +770,15 @@
     swipe = null;
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { goTo(sel + (dx < 0 ? 1 : -1)); return; }
     if (Math.abs(dx) > 8 || Math.abs(dy) > 8) return;
+    // One click on the photo opens it full size to zoom around; a second
+    // one soon after makes it a double-click, which hearts it instead.
     const now = Date.now();
+    clearTimeout(zoomTimer);
     if (now - lastTap < 320) { lastTap = 0; heartBurst(e); }
-    else lastTap = now;
+    else {
+      lastTap = now;
+      if (e.target === mainImg) zoomTimer = setTimeout(openZoom, 320);
+    }
   });
 
   function heartBurst(e) {

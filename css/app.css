@@ -3956,6 +3956,8 @@
       transition: filter .3s ease;
     }
     .ph-frame > img.lowres { filter: blur(8px); }
+    /* Click opens it full size (js/14-photos.js openZoom). */
+    .ph-frame > #phImg { cursor: zoom-in; }
     .ph-frame > img:not([src]) { visibility: hidden; }
     .ph-actions { position: absolute; top: 0; right: 0; z-index: 3; display: flex; gap: 8px; transition: right .28s ease; }
     .ph-btn {
