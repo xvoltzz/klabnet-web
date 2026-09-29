@@ -79,6 +79,7 @@ function renderAlbumList(albums, appendMode) {
     const item = document.createElement('div');
     item.className = 'picker-item';
     item._album = album; // right-click menu (09-music-extras.js)
+    item.dataset.star = 'album:' + album.id;
 
     // Always show placeholder immediately — swap with art when loaded
     const ph = document.createElement('div');
@@ -117,7 +118,9 @@ function renderAlbumList(albums, appendMode) {
     queueBtn.className = 'picker-action'; queueBtn.title = 'Queue';
     queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i>';
 
-    acts.append(badge, playBtn, queueBtn);
+    const starTpl = document.createElement('template');
+    starTpl.innerHTML = klabStars.button('album', album.id, 'picker-action');
+    acts.append(badge, starTpl.content, playBtn, queueBtn);
     item.append(ph, info, acts);
 
     const fetchTracks = async () => {

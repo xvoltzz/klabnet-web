@@ -786,11 +786,12 @@ function renderSongItem(song, container) {
     ${song.duration ? `<span class="picker-item-dur">${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, '0')}</span>` : ''}
     <div class="picker-item-actions">
       <span class="type-badge song">song</span>
+      ${klabStars.button('song', song.id, 'picker-action')}
       <button class="picker-action ${isFav ? 'fav-active' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}" data-fav>
         <i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i>
       </button>
       <button class="picker-action ${isLogin ? 'login-active' : ''}" title="${isLogin ? 'Clear login song' : 'Set as login song'}" data-login>
-        <i class="ti ${isLogin ? 'ti-star-filled' : 'ti-star'}"></i>
+        <i class="ti ti-door-enter"></i>
       </button>
       <button class="picker-action" title="Add to queue" data-queue>
         <i class="ti ti-playlist-add"></i>
@@ -808,6 +809,7 @@ function renderSongItem(song, container) {
   // from an album/artist row, which share the .picker-item class but keep
   // their own wiring.
   item._song = song;
+  item.dataset.star = 'song:' + song.id;
   container.appendChild(item);
 }
 
@@ -883,7 +885,6 @@ function ensureSongRowDelegation() {
         if (!b) return;
         b.classList.toggle('login-active', on);
         b.title = on ? 'Clear login song' : 'Set as login song';
-        const i = b.querySelector('i'); if (i) i.className = 'ti ' + (on ? 'ti-star-filled' : 'ti-star');
       });
       return;
     }

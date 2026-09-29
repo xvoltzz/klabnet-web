@@ -587,9 +587,13 @@
   function renderLikes(post, pop) {
     const liked = !!post.reactions?.[LIKE]?.mine;
     const n = post.reactions?.[LIKE]?.count || 0;
+    const star = post.reactions?.[KLAB_STAR] || { count: 0, mine: false };
+    stage.classList.toggle('gold', star.count >= KLAB_GOLD_AT);
     $('phReacts').innerHTML =
       `<button type="button" class="ph-like${liked ? ' mine' : ''}${pop ? ' pop' : ''}" data-like="1" title="${liked ? 'Unlike' : 'Like'}" aria-pressed="${liked}">` +
         `<i class="ti ${liked ? 'ti-heart-filled' : 'ti-heart'}"></i>${n ? `<span>${n}</span>` : ''}</button>` +
+      `<button type="button" class="ph-star${star.mine ? ' mine' : ''}" data-star-react="1" title="${star.mine ? 'Unstar' : 'Star'}" aria-pressed="${!!star.mine}">` +
+        `<i class="ti ${star.mine ? 'ti-star-filled' : 'ti-star'}"></i>${star.count ? `<span>${star.count}</span>` : ''}</button>` +
       `<button type="button" class="ph-cmt" data-comments="1" title="Comments (c)" aria-pressed="${shell.classList.contains('side-open')}">` +
         `<i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
     const who = post.likers || [];
@@ -800,7 +804,7 @@
     if (!b || sel < 0) return;
     SFX && SFX.play('click');
     if (b.dataset.comments) { setSide(!shell.classList.contains('side-open')); return; }
-    toggleReaction(items[sel].post, LIKE);
+    toggleReaction(items[sel].post, b.dataset.starReact ? KLAB_STAR : LIKE);
   });
 
   async function loadReplies(post) {

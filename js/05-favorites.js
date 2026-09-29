@@ -124,8 +124,18 @@ loadPickerTab = async function(tab) {
 let _shuffleOn = false;
 let _repeatOn  = false;
 
+// The dock's and full-screen player's stars follow the song that's playing.
+function syncPlayingStar(id) {
+  const song = playerState.currentSong;
+  const b = document.getElementById(id);
+  if (!b) return;
+  if (song?.id) { b.dataset.star = 'song:' + song.id; window.klabStars?.paint(b); }
+  else delete b.dataset.star;
+}
+
 function updateFSFavBtn() {
   const song = playerState.currentSong;
+  syncPlayingStar('fsStar');
   const icon = document.getElementById('fsFavIcon');
   const btn  = document.getElementById('fsFav');
   if (!icon || !btn || !song) return;
@@ -199,6 +209,7 @@ nextSong = async function() {
 // ══════════════════════════════════════════
 function updateDockFavBtn() {
   const song = playerState.currentSong;
+  syncPlayingStar('dockStar');
   const icon = document.getElementById('dockFavIcon');
   const btn  = document.getElementById('dockFav');
   if (!icon || !btn) return;

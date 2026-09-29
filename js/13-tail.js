@@ -359,6 +359,7 @@ function sampleImageColor(imgUrl) {
     const row = document.createElement('div');
     row.className = 'ap-track' + (isNow ? ' ap-now' : '');
     row.dataset.songId = song.id;
+    row.dataset.star = 'song:' + song.id;
     row.innerHTML = `
       <span class="ap-track-num">${idx + 1}</span>
       ${artUrl ? `<img class="ap-track-art" src="${artUrl}" loading="lazy" onerror="this.style.display='none'" />` : ''}
@@ -367,6 +368,7 @@ function sampleImageColor(imgUrl) {
         ${song.artist ? `<div class="ap-track-sub">${esc(song.artist)}</div>` : ''}
       </div>
       ${song.duration ? `<span class="ap-track-dur">${fmtDur(song.duration)}</span>` : ''}
+      ${klabStars.button('song', song.id, 'ap-track-star')}
       <button class="ap-track-play"><i class="ti ti-player-play"></i></button>`;
     row.addEventListener('click', () => {
       playerState.playlist = songs;
@@ -560,6 +562,7 @@ function sampleImageColor(imgUrl) {
         // Compact hero card — same picker aesthetic
         const hero = document.createElement('div');
         hero.className = 'ap-hero';
+        hero.dataset.star = 'album:' + album.id;
         hero.innerHTML = `
           ${artSm
             ? `<img class="ap-hero-img square" src="${artSm}" data-cover="${esc(album.coverArt)}" data-album-id="${esc(albumId)}" data-artist="${esc(album.artist || '')}" data-album="${esc(album.name || album.title || '')}" alt="${esc(album.name || album.title || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph square','ti-vinyl')" />`
@@ -643,7 +646,9 @@ function sampleImageColor(imgUrl) {
           downloadAlbumZip(albumId, album.name || album.title);
           SFX && SFX.play('click');
         });
-        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn);
+        const starBtn = document.createElement('template');
+        starBtn.innerHTML = klabStars.button('album', album.id, 'ap-btn-queue', 'Star');
+        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn, starBtn.content);
         body.appendChild(actions);
 
         // Tracks

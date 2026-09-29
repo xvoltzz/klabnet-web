@@ -540,3 +540,9 @@ function klabCleanSong(s) {
   for (const k of ['title', 'artist', 'album']) if (out[k] != null) out[k] = String(out[k]).slice(0, 300);
   return out;
 }
+
+// Stars (js/21-stars.js): anything can be starred, and five people starring
+// it turns it gold. Chat, feed posts and photos store a star as this
+// reaction; songs and albums keep theirs in the API's stars table.
+const KLAB_STAR = '⭐';
+const KLAB_GOLD_AT = 5;

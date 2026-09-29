@@ -656,14 +656,19 @@ function showSongCtx(x, y, song, contextSongs) {
     SFX.play('star');
   };
 
+  const starItem = document.getElementById('songCtxStar');
+  const starred = klabStars.get('song:' + song.id).mine;
+  starItem.innerHTML = `<i class="ti ${starred ? 'ti-star-filled' : 'ti-star'}"></i> ${starred ? 'Unstar' : 'Star'}`;
+  starItem.onclick = () => { hideSongCtx(); klabStars.toggle('song:' + song.id); };
+
   const loginItem = document.getElementById('songCtxLogin');
   const existingLogin = getLoginSong();
   const isLogin = existingLogin && existingLogin.id === song.id;
-  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-star-filled' : 'ti-star'}"></i> ${isLogin ? 'Clear Login Song' : 'Set as Login Song'}`;
+  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-door-exit' : 'ti-door-enter'}"></i> ${isLogin ? 'Clear Login Song' : 'Set as Login Song'}`;
   loginItem.onclick = () => {
     hideSongCtx();
-    if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-star-off'); }
-    else { setLoginSong(song); showToast(`"${song.title}" set as login song ★`, toastArt(song.coverArt)); }
+    if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-door-exit'); }
+    else { setLoginSong(song); showToast(`"${song.title}" set as login song`, toastArt(song.coverArt)); }
   };
 
   // Label the original with what it actually is ("Download FLAC"), since
