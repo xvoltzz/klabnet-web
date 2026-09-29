@@ -569,7 +569,7 @@ function sampleImageColor(imgUrl) {
             : `<div class="ap-hero-img-ph square"><i class="ti ti-vinyl"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Album</span>
-            <div class="ap-hero-name">${esc(album.name||album.title)}</div>
+            <div class="ap-hero-name">${esc(album.name||album.title)}${klabStars.button('album', album.id, 'ap-hero-star')}</div>
             <div class="ap-hero-artist-link" data-artist-id="${esc(album.artistId)}" data-artist-name="${esc(album.artist)}">${esc(album.artist)}</div>
             <div class="ap-hero-sub">${[album.year, `${songs.length} track${songs.length!==1?'s':''}`, durStr].filter(Boolean).join(' · ')}</div>
           </div>`;
@@ -646,9 +646,7 @@ function sampleImageColor(imgUrl) {
           downloadAlbumZip(albumId, album.name || album.title);
           SFX && SFX.play('click');
         });
-        const starBtn = document.createElement('template');
-        starBtn.innerHTML = klabStars.button('album', album.id, 'ap-btn-queue', 'Star');
-        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn, starBtn.content);
+        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn);
         body.appendChild(actions);
 
         // Tracks

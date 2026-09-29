@@ -7540,6 +7540,17 @@
     :is(.picker-item, .ap-track).gold :is(.picker-item-title, .ap-track-title) { color: var(--gold); text-shadow: 0 0 12px var(--gold-dim); }
     .ap-hero.gold .ap-hero-img { box-shadow: 0 0 0 1px var(--gold-dim), var(--bloom-gold); }
     .ap-hero.gold .ap-hero-name { color: var(--gold); text-shadow: 0 0 18px var(--gold-dim); }
+    /* The album's star: just the glyph after the title, dim until it's
+       hovered or starred. */
+    .ap-hero-star {
+      margin-left: .3em; padding: 0; border: none; background: none; cursor: pointer;
+      vertical-align: .12em; font-size: .42em; letter-spacing: 0; color: var(--text-dimmer);
+      opacity: .7; transition: opacity .15s, color .15s;
+    }
+    .ap-hero-star .klab-star-n { font-size: .62em; }
+    .ap-hero-star:hover { opacity: 1; color: var(--text); }
+    .ap-hero-star.on, .ap-hero-star.has { opacity: 1; }
+    .ap-hero.gold .ap-hero-star { text-shadow: none; color: var(--gold); }
     .ap-hero.gold .ap-hero-kicker::after { content: ' · ★ gold'; color: var(--gold); }
 
     /* Feed posts */
