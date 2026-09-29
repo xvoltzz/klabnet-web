@@ -557,7 +557,7 @@ function applyChatSearch() {
   const found = (window.klabRoster ? window.klabRoster() : []).filter(u => u && u !== me && u.toLowerCase().includes(q) && ![...dmWith].some(d => d.split(' ').includes(u.toLowerCase()))).slice(0, 8);
   people.hidden = !found.length;
   people.innerHTML = found.length ? '<div class="chat-lbl">People</div>' + found.map(u =>
-    `<button type="button" class="chat-conv chat-person" data-person="${esc(u)}"><span class="chat-conv-face" style="--c:${profileColor(u)}">${esc(u[0].toUpperCase())}${window.KLAB_ONLINE_USERNAMES?.has(u) ? '<span class="chat-channel-online-dot"></span>' : ''}</span>` +
+    `<button type="button" class="chat-conv chat-person" data-person="${esc(u)}"><span class="chat-conv-face" style="--c:${profileColor(u)}">${esc(u[0].toUpperCase())}${window.KLAB_ONLINE_USERNAMES?.has(u) ? `<span class="chat-channel-online-dot${window.KLAB_AWAY?.has(u) ? ' away' : ''}"></span>` : ''}</span>` +
     `<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name" style="color:${profileColor(u)}">${esc(u)}</span></span><span class="chat-conv-last">Message ${esc(u)}</span></span></button>`).join('') : '';
 }
 document.getElementById('chatSearch')?.addEventListener('input', applyChatSearch);
@@ -604,7 +604,7 @@ function buildChannelItem(room, icon) {
   if (invited) lead = '<span class="chat-conv-lead"><i class="ti ti-mail"></i></span>';
   else if (isDm) {
     const face = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(other) : null;
-    lead = `<span class="chat-conv-face" style="--c:${profileColor(other || room.name || '')}">${face ? `<img src="${esc(face)}" alt="" />` : esc(((other || room.name || '?')[0] || '?').toUpperCase())}${dmOnline ? '<span class="chat-channel-online-dot"></span>' : ''}</span>`;
+    lead = `<span class="chat-conv-face" style="--c:${profileColor(other || room.name || '')}">${face ? `<img src="${esc(face)}" alt="" />` : esc(((other || room.name || '?')[0] || '?').toUpperCase())}${dmOnline ? `<span class="chat-channel-online-dot${window.KLAB_AWAY?.has(other) ? ' away' : ''}"></span>` : ''}</span>`;
   } else lead = '<span class="chat-conv-lead">#</span>';
   const last = roomLastMessage(room);
   item.innerHTML = lead +
@@ -2870,12 +2870,12 @@ function syncChatHead() {
         `<span>${esc(p.song)}${p.artist ? ' · ' + esc(p.artist) : ''}</span>`;
       img = p.songId ? coverUrl(p.songId, 400) : null;
     } else {
-      sub = `<span>${p.online ? 'online' : 'offline'}</span>` + (p.note ? `<span class="chat-head-note">“${esc(p.note)}”</span>` : '');
+      sub = `<span>${p.away ? esc(p.away.toLowerCase()) : p.online ? 'online' : 'offline'}</span>` + (p.note ? `<span class="chat-head-note">“${esc(p.note)}”</span>` : '');
     }
     if (p.song && p.note) sub += `<span class="chat-head-note">“${esc(p.note)}”</span>`;
     tint = color;
     html = back +
-      `<span class="chat-head-face" style="--c:${color}">${face ? `<img src="${esc(face)}" alt="" />` : esc((other[0] || '?').toUpperCase())}${p.online ? '<span class="chat-channel-online-dot"></span>' : ''}</span>` +
+      `<span class="chat-head-face" style="--c:${color}">${face ? `<img src="${esc(face)}" alt="" />` : esc((other[0] || '?').toUpperCase())}${p.online ? `<span class="chat-channel-online-dot${p.away ? ' away' : ''}"></span>` : ''}</span>` +
       `<div class="chat-head-who"><h2 style="color:${color}">${esc(room.name || other)}</h2><div class="chat-head-sub">${sub}</div></div>` +
       (p.song ? `<button type="button" class="chat-head-btn" data-listen="${esc(other)}"><i class="ti ti-headphones"></i>Listen along</button>` : '') +
       `<button type="button" class="chat-icon-btn" data-profile="${esc(other)}" title="Profile"><i class="ti ti-user-circle"></i></button>`;

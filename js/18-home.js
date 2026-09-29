@@ -51,7 +51,7 @@
   function avatarHTML(u) {
     const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u) : null;
     const online = window.KLAB_ONLINE_USERNAMES?.has?.(u);
-    return '<span class="hm-av' + (online ? ' on' : '') + '">' +
+    return '<span class="hm-av' + (online ? ' on' : '') + (online && window.KLAB_AWAY?.has?.(u) ? ' away' : '') + '">' +
       (url ? '<img src="' + esc(url) + '" alt="" />' : esc((u || '?')[0].toUpperCase())) + '</span>';
   }
   const nameHTML = u => '<span class="hm-name" style="color:' + color(u) + '">' + esc(u) + '</span>';

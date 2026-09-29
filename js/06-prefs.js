@@ -426,6 +426,7 @@ let _settings = {
   notifSound:    true,
   loginSong:     true,
   desktopNotif:  false,   // per device; turning it on asks the browser
+  awayStatus:    true,    // per device: tell others when you've stepped away (js/11-presence.js)
 };
 
 function loadSettings() {

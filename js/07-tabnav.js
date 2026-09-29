@@ -119,6 +119,7 @@ function openSettings() {
     if (el) el.classList.toggle('on', !!_settings[key]);
   });
   syncDesktopNotifRow();
+  syncAwayRow();
   syncLowFxRow();
   window.syncAppSettings?.(); // inside klabnet for Windows only
 
@@ -158,6 +159,38 @@ document.getElementById('desktopNotifToggle')?.addEventListener('click', async e
   saveSettings();
   syncDesktopNotifRow();
   if (perm === 'granted') showToast("You'll get desktop notifications for DMs, mentions and replies", 'ti-bell');
+}, true);
+
+// Away status: the desktop app knows when the computer's in use; Chrome
+// can too, once the site's allowed to (Idle Detection). Other browsers
+// only see klabnet's own window, which can't tell away from busy elsewhere.
+async function syncAwayRow() {
+  const row = document.getElementById('awayRow');
+  if (!row) return;
+  const app = !!window.klabnetDesktop?.idle, chrome = !window.klabnetDesktop && 'IdleDetector' in window;
+  row.hidden = !app && !chrome;
+  if (row.hidden) return;
+  let perm = 'granted';
+  if (chrome) { try { perm = (await navigator.permissions.query({ name: 'idle-detection' })).state; } catch (e) { perm = 'prompt'; } }
+  document.getElementById('awayToggle').classList.toggle('on', _settings.awayStatus !== false && perm === 'granted');
+  document.getElementById('awaySub').textContent = perm === 'denied'
+    ? 'Blocked by your browser. Allow idle detection for this site, then flip this on'
+    : "Shows you as away after 5 minutes without using your computer, or when it's locked";
+}
+document.getElementById('awayToggle')?.addEventListener('click', async e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  const on = document.getElementById('awayToggle').classList.contains('on');
+  if (on) { _settings.awayStatus = false; saveSettings(); syncAwayRow(); return; }
+  if (!window.klabnetDesktop && 'IdleDetector' in window) {
+    let perm = 'denied';
+    try { perm = await IdleDetector.requestPermission(); } catch (err) {}
+    if (perm !== 'granted') { syncAwayRow(); return; }
+  }
+  _settings.awayStatus = true;
+  saveSettings();
+  window.klabStartIdleDetector?.();
+  syncAwayRow();
 }, true);
 
 // Performance mode: the <head> script already applied it at load. Left

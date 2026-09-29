@@ -7325,6 +7325,22 @@
     .ph-sidebar .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }
 
 
+    /* ══ AWAY (js/11-presence.js) ══
+       klabnet's open but they haven't used their computer in 5 minutes, or
+       it's locked: an amber dot where the green one was, and their face a
+       little faded. Listening still shows (the music's still playing). */
+    :root { --away-color: #f5b93f; }
+    .presence-card.is-away .presence-card-online,
+    #presenceList .chat-face.is-away .presence-card-online,
+    .chat-channel-online-dot.away,
+    .hm-av.on.away::after { background: var(--away-color); animation: none; }
+    .presence-card.is-away .presence-card-online { box-shadow: none; }
+    .chat-channel-online-dot.away { box-shadow: 0 0 0 2px var(--bg); }
+    .presence-card.is-away .presence-card-avatar > :not(.presence-card-online),
+    .chat-face.is-away .chat-face-av > img { opacity: .6; }
+    .presence-card.is-away:not(.is-playing) .presence-card-track { color: color-mix(in srgb, var(--away-color) 75%, var(--text-dim)); }
+
+
     /* ══════════════════════════════════════════════════════════════════
        PHOTOS SLIDESHOW (js/19-slideshow.js)
        Full screen and always dark, whatever the theme: the photo whole

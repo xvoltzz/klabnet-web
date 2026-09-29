@@ -243,6 +243,72 @@
   }
   window.klabPlatformIcon = platformIcon;
 
+  // ── Away ──
+  // Someone with klabnet open who hasn't used their computer in 5 minutes,
+  // or whose screen is locked. Each beat says how long since this device
+  // was last used and whether it can see the whole computer (the desktop
+  // app asks the OS; Chrome can, once allowed) or only input inside
+  // klabnet; the API (klabnet-api routers/presence.py) takes it from there
+  // across all of their devices and sends back away + awaySince.
+  const _away = new Map();   // username -> when they were last active (ms)
+  function awayLabel(username) {
+    const since = _away.get(username);
+    if (since == null) return '';
+    const m = Math.max(0, Math.floor((Date.now() - since) / 60000));
+    return 'Away ' + (m < 60 ? m + 'm' : m < 1440 ? Math.floor(m / 60) + 'h' : Math.floor(m / 1440) + 'd');
+  }
+  window.KLAB_AWAY = _away;   // read by chat and Home for their dots
+
+  let _lastInput = Date.now();
+  const pageAgo = () => Math.round((Date.now() - _lastInput) / 1000);
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(t => addEventListener(t, () => {
+    const was = Date.now() - _lastInput;
+    _lastInput = Date.now();
+    if (was > 60000) postPresence();   // back: everyone sees it now, not at the next beat
+  }, { capture: true, passive: true }));
+
+  // Chrome's Idle Detection (the whole computer, once the site's allowed
+  // it: Settings -> Away status asks). Noticed a minute in, its minimum.
+  let _sysIdle = null;       // { idleSince, lockedSince } in ms, 0 when not
+  async function startIdleDetector() {
+    if (_sysIdle || window.klabnetDesktop || !('IdleDetector' in window) || _settings.awayStatus === false) return;
+    try {
+      if ((await navigator.permissions.query({ name: 'idle-detection' })).state !== 'granted') return;
+      const det = new IdleDetector(), s = { idleSince: 0, lockedSince: 0 };
+      det.addEventListener('change', () => {
+        const now = Date.now();
+        s.idleSince = det.userState === 'idle' ? (s.idleSince || now - 60000) : 0;
+        s.lockedSince = det.screenState === 'locked' ? (s.lockedSince || now) : 0;
+        postPresence();
+      });
+      await det.start({ threshold: 60000 });
+      _sysIdle = s;
+    } catch (e) {}
+  }
+  window.klabStartIdleDetector = startIdleDetector;
+  startIdleDetector();
+
+  async function awayFields() {
+    if (_settings.awayStatus === false) return {};
+    const d = window.klabnetDesktop;
+    if (d && d.idle) {
+      try {
+        const r = await d.idle();
+        if (r && typeof r.seconds === 'number') {
+          return Object.assign({ activeAgo: Math.min(Math.round(r.seconds), pageAgo()), idleKnown: true },
+            r.lockedFor != null ? { lockedFor: r.lockedFor } : {});
+        }
+      } catch (e) {}
+    }
+    if (_sysIdle) {
+      const now = Date.now();
+      return Object.assign({ activeAgo: _sysIdle.idleSince ? Math.round((now - _sysIdle.idleSince) / 1000) : 0, idleKnown: true },
+        _sysIdle.lockedSince ? { lockedFor: Math.round((now - _sysIdle.lockedSince) / 1000) } : {});
+    }
+    // Only klabnet's own input: enough to say they're here, never that they've gone.
+    return { activeAgo: pageAgo(), idleKnown: false };
+  }
+
   function cardHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
@@ -283,6 +349,7 @@
     // so someone who stops listening just drops back to "Online" rather
     // than looking like they left.
     const showTrack = playing && song;
+    const away = isMe ? '' : awayLabel(username);
     // Only knowable because both sides of a party report it through their
     // own regular presence post (see postPresence()) — there's no other
     // channel a third viewer could learn this from, since the actual sync
@@ -306,13 +373,13 @@
           (note ? esc(note) : 'Add a note…') +
         '</div>'
       : (note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '');
-    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (bannerUrl ? ' has-banner' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + '"' + attrs + cardStyle + '>' +
+    return '<div class="presence-card' + (isMe ? ' is-me' : '') + (bannerUrl ? ' has-banner' : '') + (playable ? ' is-playable' : '') + (playing ? ' is-playing' : '') + (away ? ' is-away' : '') + '"' + attrs + cardStyle + '>' +
       '<div class="presence-card-avatar">' + avatarInner +
-        '<span class="presence-card-online" title="Online" aria-label="Online"></span>' +
+        '<span class="presence-card-online" title="' + (away || 'Online') + '" aria-label="' + (away || 'Online') + '"></span>' +
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span class="presence-card-you">(you)</span>' : '') + platformIcon(isMe ? PLATFORM : platform) + '</div>' +
-        '<div class="presence-card-track">' + (showTrack ? esc(song) : 'Online') + '</div>' +
+        '<div class="presence-card-track">' + (showTrack ? esc(song) : away || 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
         noteLine +
@@ -338,8 +405,9 @@
     // presence cards (where yours is set). Leaving a listening party is a
     // control, not a note, so that one stays.
     const bubble = isMe && partyHost ? '<span class="chat-face-note presence-card-party-leave" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>' : '';
-    const tip = (isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username))) + (note ? ' · “' + esc(note) + '”' : '');
-    return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
+    const away = isMe ? '' : awayLabel(username);
+    const tip = (isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username))) + (away ? ' · ' + away.toLowerCase() : '') + (note ? ' · “' + esc(note) + '”' : '');
+    return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (away ? ' is-away' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
       ' style="--name-color:' + profileColor(username) + '" title="' + tip + '">' + bubble +
       '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +
         (playing && song ? '<span class="chat-face-eq"><i></i><i></i><i></i></span>' : '') + '</span>' +
@@ -446,6 +514,7 @@
     const l = (_lastOthers || []).find(x => x && x.username === username);
     return {
       online: !!(window.KLAB_ONLINE_USERNAMES && window.KLAB_ONLINE_USERNAMES.has(username)),
+      away: awayLabel(username),
       song: l && l.playing ? l.song : '', artist: l && l.playing ? l.artist : '', songId: l && l.playing ? l.songId : '',
       note: _notesCache.get(username) || '', avatar: _avatarCache.get(username) || null,
     };
@@ -455,8 +524,7 @@
   window.klabPresenceCardsHTML = function() {
     const me = window.KLAB_USER?.username;
     const mySong = playerState.currentSong;
-    const others = (_lastOthers || []).filter(l => l && l.username !== me)
-      .sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0));
+    const others = (_lastOthers || []).filter(l => l && l.username !== me).sort(byActivity);
     let html = '';
     if (me && me !== 'anonymous') html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     others.forEach(l => { html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform); });
@@ -472,6 +540,8 @@
     const card = document.querySelector('#presenceList .presence-card.is-playable[data-username="' + CSS.escape(username) + '"]');
     if (card) playFromCard(card);
   };
+  // Listening first, then everyone else here, then whoever's away.
+  const byActivity = (a, b) => ((b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0)) || ((a.away ? 1 : 0) - (b.away ? 1 : 0));
   function renderList(rawOthers) {
     _lastOthers = rawOthers;
     const me = window.KLAB_USER?.username;
@@ -484,13 +554,15 @@
     // known, drawing the "you" card AND your stale entry: two of yourself,
     // until the next poll 8s later rebuilt the array correctly.
     const others = (rawOthers || []).filter(l => l && l.username !== me);
+    _away.clear();
+    others.forEach(l => { if (l.away) _away.set(l.username, l.awaySince ? Date.parse(l.awaySince.replace(' ', 'T') + 'Z') : Date.now()); });
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
       html += faceHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     }
     // Listening first, then everyone else online.
-    [...others].sort((a, b) => (b.playing && b.song ? 1 : 0) - (a.playing && a.song ? 1 : 0)).forEach(l => {
+    [...others].sort(byActivity).forEach(l => {
       html += faceHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
@@ -884,6 +956,7 @@
   async function postPresence() {
     if (!window.KLAB_USER?.username || window.KLAB_USER.username === 'anonymous') return;
     const song = playerState.currentSong;
+    const away = await awayFields();
     try {
       await fetchTimeout(API, {
         method: 'POST',
@@ -896,6 +969,7 @@
           playing:  !!song && playerState.playing,
           partyHost: _partyHostLabel || '',
           platform:  PLATFORM,
+          ...away,
         })
       }, 6000);
     } catch(e) {}
