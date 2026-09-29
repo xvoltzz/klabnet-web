@@ -5585,6 +5585,10 @@
     }
     #chatApp #chatTimeline .chat-msg.mine.starred .chat-msg-text::after { right: auto; left: -7px; }
     #chatApp #chatTimeline .chat-msg.starred .chat-msg-reaction-pill:not(.mine) { border-color: var(--gold-dim); }
+    #chatApp #chatTimeline .chat-msg-star-btn { font-size: 17px; color: var(--text-dim); }
+    #chatApp #chatTimeline .chat-msg-star-btn:hover, #chatApp #chatTimeline .chat-msg-star-btn.on { color: var(--gold); text-shadow: 0 0 10px var(--gold-dim); }
+    #chatApp #chatTimeline .chat-msg-reaction-pill.star { color: var(--gold); border-color: var(--gold-dim); }
+    #chatApp #chatTimeline .chat-msg-reaction-pill.star.mine { background: var(--gold-fill); box-shadow: var(--bloom-gold); }
     #chatApp .chat-typing { padding: 2px 8px; font-size: 12px; color: var(--text-dimmer); min-height: 18px; }
 
     /* a shared song */

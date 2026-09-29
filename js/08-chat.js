@@ -786,6 +786,9 @@ let _forceScrollBottomOnNextRender = false;
 // instead of tracking incremental add/remove state, which is simple to
 // reason about at this app's message volume and self-corrects from
 // whatever the SDK's local timeline currently holds.
+// Starboard: five people starring a message turns it gold. The star is an
+// ordinary ⭐ reaction, so other Matrix clients see (and can add) it too.
+const STAR = '⭐';
 const STARBOARD_AT = 5;
 function computeReactions(room) {
   const map = new Map(); // targetEventId -> Map(emoji -> {senders:Set, mine:eventId|null})
@@ -889,7 +892,7 @@ function chatMessageMenu(e) {
   const inDmWithThem = getDmRoomIds().has(room.roomId);
   klabMenu(e, [
     { header: ev.sender?.name || user },
-    { reacts: [...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
+    { reacts: [STAR, ...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
     { label: 'Reply', icon: 'ti-arrow-back-up', hidden: !alive, action: () => startReply(id) },
     { label: 'Edit', icon: 'ti-pencil', hidden: !(mine && isText), action: () => editChatMessage(id) },
     { label: 'Copy text', icon: 'ti-copy', hidden: !isText, action: () => klabCopy(content.body, 'Message') },
@@ -1178,7 +1181,8 @@ function renderTimeline() {
       actions.className = 'chat-msg-actions';
       actions.innerHTML = QUICK_REACTIONS.map(e =>
         `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}">${e}</button>`
-      ).join('') + `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
+      ).join('') + `<button type="button" class="chat-msg-action-btn chat-msg-star-btn${reactions.get(ev.getId())?.get(STAR)?.mine ? ' on' : ''}" data-action="react" data-emoji="${STAR}" title="Star">★</button>` +
+        `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
       row.appendChild(actions);
     }
 
@@ -1270,21 +1274,18 @@ function renderTimeline() {
       msgReactions.forEach((entry, emoji) => {
         const pill = document.createElement('button');
         pill.type = 'button';
-        pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '');
+        pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '') + (emoji === STAR ? ' star' : '');
         pill.dataset.targetId = ev.getId();
         pill.dataset.emoji = emoji;
         // The key is whatever a remote client sent; it's text, never markup.
-        pill.innerHTML = `${esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+        pill.innerHTML = `${emoji === STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
         pills.appendChild(pill);
       });
       body.appendChild(pills);
-      // Starboard: five different people reacting (any emoji) turns a
-      // message gold. People, not reactions, so one person can't gild it.
-      const people = new Set();
-      msgReactions.forEach(entry => entry.senders.forEach(s => people.add(s)));
-      if (people.size >= STARBOARD_AT && !ev.isRedacted()) {
+      const stars = msgReactions.get(STAR)?.senders.size || 0;
+      if (stars >= STARBOARD_AT && !ev.isRedacted()) {
         row.classList.add('starred');
-        row.title = `${people.size} people reacted`;
+        row.title = `${stars} stars`;
       }
     }
 
