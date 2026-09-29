@@ -768,6 +768,14 @@
       opacity: 0;
     }
 
+    /* The MOTD typed after the prompt, in the desktop app only (typePromptMotd). */
+    .prompt-motd { display: none; }
+    html.klabnet-app .prompt-motd {
+      display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
+      white-space: pre; vertical-align: middle; line-height: 1.2;
+      font: 500 0.82rem 'JetBrains Mono', monospace; letter-spacing: 0; color: var(--text-dimmer);
+    }
+
     /* Blinks once it's shown (the animation used to override opacity:0,
        so it blinked all through the intro). */
     .prompt-cursor.visible { opacity: 1; animation: blink-cursor 1.1s step-end infinite; }

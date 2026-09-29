@@ -23,6 +23,7 @@ function typeNext() {
   } else {
     cursorEl.classList.add('visible');
     if (document.body.classList.contains('tab-chat-active')) promptEl.textContent = CHAT_PROMPT_TEXT;
+    setTimeout(() => typePromptMotd(_motdCurrent), 700);
   }
 }
 setTimeout(typeNext, 400);
@@ -49,6 +50,30 @@ function retypePrompt(target) {
     } else {
       promptEl.textContent = target.slice(0, cur.length + 1);
       _retypeTimer = setTimeout(step, 55 + Math.random() * 45);
+    }
+  };
+  step();
+}
+
+// The desktop app's header has no room for the splash, so the prompt types
+// it instead, after the cursor: "klabnet>_ go touch grass". A new MOTD
+// backspaces the old one and types itself in.
+const promptMotdEl = document.getElementById('promptMotd');
+let _promptMotdTimer = 0;
+function typePromptMotd(text) {
+  if (!promptMotdEl || !document.documentElement.classList.contains('klabnet-app')) return;
+  clearTimeout(_promptMotdTimer);
+  const target = text ? ' ' + text : '';
+  if (!(window.klabMotionOk?.() ?? true)) { promptMotdEl.textContent = target; return; }
+  const step = () => {
+    const cur = promptMotdEl.textContent;
+    if (cur === target) return;
+    if (!target.startsWith(cur)) {
+      promptMotdEl.textContent = cur.slice(0, -1);
+      _promptMotdTimer = setTimeout(step, cur.length === 1 ? 260 : 18 + Math.random() * 14);
+    } else {
+      promptMotdEl.textContent = target.slice(0, cur.length + 1);
+      _promptMotdTimer = setTimeout(step, 38 + Math.random() * 42);
     }
   };
   step();
@@ -118,6 +143,7 @@ function rerollMotd(auto) {
   if (!motdEl) return;
   _motdCurrent = pickMotd();
   if (!auto) SFX && SFX.play('star');
+  typePromptMotd(_motdCurrent);
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reducedMotion) {
