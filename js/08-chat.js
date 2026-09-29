@@ -786,6 +786,7 @@ let _forceScrollBottomOnNextRender = false;
 // instead of tracking incremental add/remove state, which is simple to
 // reason about at this app's message volume and self-corrects from
 // whatever the SDK's local timeline currently holds.
+const STARBOARD_AT = 5;
 function computeReactions(room) {
   const map = new Map(); // targetEventId -> Map(emoji -> {senders:Set, mine:eventId|null})
   const me = MatrixChat.client.getUserId();
@@ -1277,6 +1278,14 @@ function renderTimeline() {
         pills.appendChild(pill);
       });
       body.appendChild(pills);
+      // Starboard: five different people reacting (any emoji) turns a
+      // message gold. People, not reactions, so one person can't gild it.
+      const people = new Set();
+      msgReactions.forEach(entry => entry.senders.forEach(s => people.add(s)));
+      if (people.size >= STARBOARD_AT && !ev.isRedacted()) {
+        row.classList.add('starred');
+        row.title = `${people.size} people reacted`;
+      }
     }
 
     row.append(avatar, body);

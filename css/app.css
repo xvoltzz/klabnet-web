@@ -1456,6 +1456,12 @@
     }
     .chat-msg-action-btn:hover { background: var(--tile-bg-h); color: var(--text); }
 
+    /* Starboard — five people reacted, so the message goes gold. */
+    :root { --gold: #f3c969; --gold-dim: rgba(243,201,105,0.35); --gold-fill: rgba(243,201,105,0.07);
+            --bloom-gold: 0 0 16px rgba(243,201,105,0.18), 0 0 40px rgba(243,201,105,0.08); }
+    [data-theme="light"] { --gold: #9a6a00; --gold-dim: rgba(154,106,0,0.35); --gold-fill: rgba(214,160,40,0.10);
+            --bloom-gold: 0 2px 12px rgba(154,106,0,0.14); }
+
     /* Reactions — aggregated pills below the message body */
     .chat-msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     .chat-msg-reaction-pill {
@@ -5567,6 +5573,18 @@
     #chatApp #chatTimeline .chat-date-sep-line { display: none; }
     #chatApp #chatTimeline .chat-date-sep-label { font-size: 10px; font-weight: 600; letter-spacing: .12em; color: var(--text-dimmer); }
     #chatApp #chatTimeline .chat-msg-seen { align-self: flex-end; margin: 4px 2px 0; }
+    /* Starboard: the bubble itself goes gold (colour tokens up by .chat-msg-reactions). */
+    #chatApp #chatTimeline .chat-msg.starred :is(.chat-msg-text:not(.deleted), .chat-msg-song, .chat-msg-image) {
+      background: var(--gold-fill); color: var(--gold); outline: 1px solid var(--gold-dim); outline-offset: -1px; box-shadow: var(--bloom-gold);
+    }
+    #chatApp #chatTimeline .chat-msg.starred .chat-msg-text:not(.deleted) { position: relative; text-shadow: 0 0 12px var(--gold-dim); }
+    #chatApp #chatTimeline .chat-msg.starred .chat-msg-text:not(.deleted)::after {
+      content: '★'; position: absolute; top: -7px; right: -7px; width: 15px; height: 15px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; text-shadow: none;
+      background: var(--gold); color: var(--bg); box-shadow: var(--bloom-gold);
+    }
+    #chatApp #chatTimeline .chat-msg.mine.starred .chat-msg-text::after { right: auto; left: -7px; }
+    #chatApp #chatTimeline .chat-msg.starred .chat-msg-reaction-pill:not(.mine) { border-color: var(--gold-dim); }
     #chatApp .chat-typing { padding: 2px 8px; font-size: 12px; color: var(--text-dimmer); min-height: 18px; }
 
     /* a shared song */
