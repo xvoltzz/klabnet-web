@@ -69,6 +69,8 @@
 
   // shot_at is local wall time with no zone, so it's parsed as local.
   const shotDate = shotAt => new Date(shotAt.slice(0, 10) + 'T12:00:00');
+  // Today here, not in UTC: east of it, before UTC's midnight, today couldn't be picked.
+  const localToday = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
   const fmtShot = shotAt => shotDate(shotAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
 
   // ── Data ──
@@ -83,7 +85,7 @@
   // The big title over the photo, the way Music titles its views.
   function renderViewHead() {
     $('phViewTitle').textContent = order === 'posted' ? "What's new" : 'Timeline';
-    const n = total ?? items.length;
+    const n = Math.max(total ?? 0, items.length);
     $('phViewSub').textContent = n ? `${n.toLocaleString()}${total == null && hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
   }
   // The first photo of the newest post: where the tab opens, and what G/End
@@ -108,8 +110,13 @@
       // Merge: the newest page replaces whatever overlaps it; older pages
       // already loaded by scrubbing left stay put.
       const last = fresh[fresh.length - 1];
-      const merged = fresh.concat(last ? posts.filter(p => before(p, last)) : []);
-      if (!loadedOnce) hasOlder = fresh.length === PAGE;
+      // Not one that's in the fresh page too: a post re-dated from another
+      // device arrives there with its new place, and its old copy went in twice.
+      const freshIds = new Set(fresh.map(p => p.id));
+      const merged = fresh.concat(last ? posts.filter(p => !freshIds.has(p.id) && before(p, last)) : []);
+      // A short page isn't the end if the count says there are more: the
+      // API leaves out a photo post that lost its photos after taking 40.
+      if (!loadedOnce) hasOlder = fresh.length === PAGE || (fresh.length > 0 && total != null && fresh.reduce((n, p) => n + p.photos.length, 0) < total);
       if (last && (!cursor || before(last, cursor))) cursor = { sort_at: last.sort_at, id: last.id };
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
@@ -135,7 +142,7 @@
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       if (g !== gen) return;
-      hasOlder = older.length === PAGE;
+      hasOlder = older.length === PAGE || (older.length > 0 && total != null && items.length + older.reduce((n, p) => n + p.photos.length, 0) < total);
       if (older.length) {
         const last = older[older.length - 1];
         cursor = { sort_at: last.sort_at, id: last.id };
@@ -157,7 +164,9 @@
     const prevKey = structureKey(posts);
     const keepId = keepSelection ? selectedPhotoId() : null;
     const keepX = keepId ? centers[sel] : 0;
-    const wasAtNewest = sel >= 0 && items[sel]?.post === posts[0] && items[sel].k === 0;
+    // Not with the comments open: a new post arriving took the photo away
+    // mid-sentence, and the comment went on the new one.
+    const wasAtNewest = sel >= 0 && items[sel]?.post === posts[0] && items[sel].k === 0 && !shell.classList.contains('side-open');
     posts = next;
     if (!focusPostId && structureKey(posts) === prevKey && items.length) {
       rebuildItems();
@@ -166,7 +175,16 @@
     }
     rebuildItems();
     layoutStrip();
-    if (!items.length) { sel = -1; showEmpty(); return; }
+    if (!items.length) {
+      sel = -1;
+      // Nothing of the last photo stays behind the empty message.
+      bdUrl = '';
+      bdLayers.forEach(l => { l.style.backgroundImage = ''; l.classList.remove('on'); });
+      mainImg.removeAttribute('src');
+      stage.classList.remove('gold');
+      showEmpty();
+      return;
+    }
     hideEmpty();
     // Stay on the photo you were looking at (it may have shifted right as
     // older pages loaded in), unless you were sitting on the newest one —
@@ -349,7 +367,9 @@
   function preload(i) {
     if (i < 0 || i >= items.length) return;
     const u = fileUrl(items[i].ph.id, sizeFor(items[i].ph));
-    if (preloaded.has(u)) return;
+    // Used again: to the back of the line, so the one that goes is the one
+    // looked at longest ago (it could be the photo on screen otherwise).
+    if (preloaded.has(u)) { const im = preloaded.get(u); preloaded.delete(u); preloaded.set(u, im); return; }
     const im = new Image(); im.decoding = 'async'; im.src = u;
     // Decoded ahead of time too, not just downloaded: decoding a 2560px JPEG
     // takes ~35ms, and left until first paint it lands inside a frame.
@@ -613,7 +633,9 @@
     if (warmed) return;
     warmed = true;
     const idle = window.requestIdleCallback || (f => setTimeout(f, 200));
-    setTimeout(() => idle(() => { if (!isActive() && sel >= 0) preload(sel); }), 5000);
+    // Downloaded, not held decoded: any tab switch lets go of what's
+    // preloaded, so a decoded copy (~17MB) was nearly always thrown away.
+    setTimeout(() => idle(() => { if (!isActive() && sel >= 0) new Image().src = fileUrl(items[sel].ph.id, sizeFor(items[sel].ph)); }), 5000);
   }
   function settle() {
     // Nothing big loads while the tab is hidden (it used to warm up ~1MB of
@@ -763,7 +785,7 @@
       alt: post.text || '', download: `${post.username}-${ph.id}.jpg` });
   }
   // Only the photo itself: taps and selections in the rails beside it aren't swipes.
-  frame.addEventListener('pointerdown', e => { swipe = e.target.closest('.ph-rail') ? null : { x: e.clientX, y: e.clientY }; });
+  frame.addEventListener('pointerdown', e => { swipe = (e.button !== 0 || e.target.closest('.ph-rail')) ? null : { x: e.clientX, y: e.clientY }; });
   frame.addEventListener('pointerup', e => {
     if (!swipe) return;
     const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
@@ -809,7 +831,7 @@
         if (mine) post.likers.push(me());
       }
       if (sel >= 0 && items[sel].post === post) renderLikes(post, emoji === LIKE && !!post.reactions[LIKE]?.mine);
-    } catch (e) { showToast('couldn’t react — try again', 'ti-alert-triangle'); }
+    } catch (e) { showToast('Couldn’t react. Try again', 'ti-alert-triangle'); }
   }
 
   $('phReacts').addEventListener('click', e => {
@@ -824,7 +846,7 @@
     const list = $('phReplies');
     if (list.dataset.postId === String(post.id)) return;
     list.dataset.postId = String(post.id);
-    list.innerHTML = '<div class="ph-replies-empty">loading…</div>';
+    list.innerHTML = '<div class="ph-replies-empty">Loading…</div>';
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}/replies`, {}, 8000);
       if (!r.ok) throw new Error();
@@ -834,7 +856,7 @@
     } catch (e) {
       // Only if it's still this post's list: another post's may be loading.
       if (list.dataset.postId === String(post.id)) {
-        list.innerHTML = '<div class="ph-replies-empty">couldn’t load comments</div>';
+        list.innerHTML = '<div class="ph-replies-empty">Couldn’t load comments</div>';
         list.dataset.postId = '';
       }
     }
@@ -879,7 +901,7 @@
       post.reply_count = (post.reply_count || 0) + 1;
       if (showingReplies(post)) renderReplies(post, shownReplies(post).concat(reply));
       renderPost('refresh');
-    } catch (err) { showToast('couldn’t post that comment', 'ti-alert-triangle'); }
+    } catch (err) { showToast('Couldn’t post that comment', 'ti-alert-triangle'); }
     finally { input.disabled = false; input.focus(); }
   });
 
@@ -893,7 +915,7 @@
       post.reply_count = Math.max(0, (post.reply_count || 1) - 1);
       if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => String(x.id) !== del.dataset.replyId));
       renderPost('refresh');
-    } catch (err) { showToast('couldn’t delete that comment', 'ti-alert-triangle'); }
+    } catch (err) { showToast('Couldn’t delete that comment', 'ti-alert-triangle'); }
   });
 
   // Names open the profile popover, same as the feed and chat.
@@ -911,9 +933,13 @@
       if (!r.ok) throw new Error();
       if (clipPostId === post.id) stopClip();
       // By id: a poll during the confirm or the request swaps in new objects.
-      applyPosts(posts.filter(p => p.id !== post.id), { keepSelection: false });
-      showToast('post deleted', 'ti-trash');
-    } catch (e) { showToast('couldn’t delete that post', 'ti-alert-triangle'); }
+      // On to its neighbour, not back to the newest photo.
+      const pi = posts.findIndex(p => p.id === post.id);
+      const next = posts.filter(p => p.id !== post.id);
+      if (total != null && pi >= 0) total = Math.max(0, total - posts[pi].photos.length);
+      applyPosts(next, { focusPostId: (next[pi] || next[pi - 1])?.id });
+      showToast('Post deleted', 'ti-trash');
+    } catch (e) { showToast('Couldn’t delete that post', 'ti-alert-triangle'); }
   });
 
   // ── Edit your own post ──
@@ -930,7 +956,7 @@
     editing = items[sel].post;
     loadRoster();
     $('phEditDate').value = editDate0 = (editing.shot_at || '').slice(0, 10);
-    $('phEditDate').max = new Date().toISOString().slice(0, 10);
+    $('phEditDate').max = localToday();
     $('phEditCaption').value = editing.text || '';
     editTags.set(editing.tags || []);
     $('phEditError').hidden = true;
@@ -954,7 +980,7 @@
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }, 10000);
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || 'couldn’t save');
+      if (!r.ok) throw new Error(klabCap(data.error) || 'Couldn’t save that');
       // A new date can move the post along the timeline: re-slot it and follow it there.
       if (order === 'posted') data.sort_at = data.created;
       const next = posts.filter(p => p.id !== data.id);
@@ -963,9 +989,9 @@
       next.splice(at, 0, data);
       closeEdit();
       applyPosts(next, { focusPostId: data.id });
-      showToast('post updated', 'ti-check');
+      showToast('Post updated', 'ti-check');
     } catch (e) {
-      $('phEditError').textContent = e.message || 'couldn’t save';
+      $('phEditError').textContent = e.message || 'Couldn’t save that';
       $('phEditError').hidden = false;
     } finally { btn.disabled = false; }
   });
@@ -995,13 +1021,13 @@
       { label: 'Show', icon: 'ti-eye', hidden: i === sel, action: () => goTo(i) },
       { label: liked ? 'Unlike' : 'Like', icon: liked ? 'ti-heart-off' : 'ti-heart', action: () => toggleReaction(post, LIKE) },
       { label: 'Comments', icon: 'ti-message-circle', action: onStage(() => setSide(true)) },
-      { label: infoOn ? 'Hide details' : 'Show details', icon: 'ti-info-circle', hidden: i !== sel, action: () => setInfo(!infoOn) },
+      { label: infoOn ? 'Hide photo info' : 'Show photo info', icon: 'ti-info-circle', hidden: i !== sel, action: () => setInfo(!infoOn) },
       '-',
       { label: 'Open original', icon: 'ti-external-link', action: () => window.open(original, '_blank', 'noopener') },
       { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(fileUrl(ph.id, sizeFor(ph))) },
       { label: 'Copy image link', icon: 'ti-link', action: () => klabCopy(new URL(original, location.href).href, 'Link') },
       '-',
-      { label: 'Play song', icon: 'ti-player-play', hidden: !klabCleanSong(post.song), action: () => playSong(klabCleanSong(post.song)) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !klabPostSong(post.song), action: () => playSong(klabPostSong(post.song)) },
       '-',
       { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(post.username) },
       { label: 'Message', icon: 'ti-message-2-plus', hidden: post.username === me(), action: () => messageUser(post.username) },
@@ -1010,7 +1036,11 @@
       { label: 'Delete post', icon: 'ti-trash', warn: true, hidden: !own, action: onStage(() => $('phDelete').click()) },
     ]);
   }
-  stage.addEventListener('contextmenu', e => { if (sel >= 0 && !e.target.closest('button, a')) photoMenu(e, sel); });
+  stage.addEventListener('contextmenu', e => {
+    // A long press on a touch screen is a menu, not also a tap to zoom.
+    clearTimeout(zoomTimer); swipe = null;
+    if (sel >= 0 && !e.target.closest('button, a')) photoMenu(e, sel);
+  });
   strip.addEventListener('contextmenu', e => {
     const t = e.target.closest('.ph-thumb');
     const i = t ? thumbEls.indexOf(t) : -1;
@@ -1080,6 +1110,10 @@
   clip.addEventListener('timeupdate', () => {
     if (clip.currentTime > clipStart + CLIP_LEN_S) clip.currentTime = clipStart;
   });
+  // A short track ends before the window does: round again. One that won't
+  // load isn't "playing" (the song box took two clicks to try again).
+  clip.addEventListener('ended', () => { if (clipPostId !== null) { clip.currentTime = clipStart; clip.play().catch(() => {}); } });
+  clip.addEventListener('error', () => { if (clipPostId !== null && clip.getAttribute('src')) { clipPostId = null; markSongPlaying(); } });
 
   function scheduleClip() {
     clearTimeout(clipTimer);
@@ -1152,7 +1186,14 @@
     if (sel < 0 || !items[sel].post.song) return;
     const post = items[sel].post;
     if (clipPostId === post.id) { clipSuppressed = post.id; stopClip(); }
-    else { clipSuppressed = null; if (!soundOn) { soundOn = true; renderSoundBtn(); } playClip(post.song, post.id); }
+    else {
+      clipSuppressed = null;
+      if (!soundOn) { soundOn = true; renderSoundBtn(); }
+      // Not over your own music (a media key, or a slideshow that left it on).
+      window.klabPhotos.holdMusic();
+      if (playerState.audio.paused) playClip(post.song, post.id);
+      else showToast('Leave the listening party to hear this photo’s song', 'ti-headphones');
+    }
   });
 
   // Called by setActiveTab() on every tab change. Arriving pauses your
@@ -1216,7 +1257,7 @@
     // A right-click menu too: this handler runs before the menu's own (window
     // capture beats document capture), so ↑/↓ moved the photo instead of the
     // menu's highlight, under a menu still about the old one.
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible, .fs-player.open, .ss.open');
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop, .klab-menu.visible, .fs-player.open, .ss.open');
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;
@@ -1257,7 +1298,7 @@
     backdrop.classList.add('open');
     SFX && SFX.play('open');
     loadRoster();
-    $('phShotDate').max = new Date().toISOString().slice(0, 10);
+    $('phShotDate').max = localToday();
     if (files && files.length) addFiles(files);
     else if (!drafts.length) fileInput.click();
   }
@@ -1337,14 +1378,14 @@
         finishTile(d);
       } else {
         d.status = 'error';
-        d.error = body.error || (xhr.status === 413 ? 'too large' : 'upload failed');
+        d.error = klabCap(body.error) || (xhr.status === 413 ? 'Too large' : 'Upload failed');
         renderDraftTile(d);
       }
       draftChanged(d);
       autoShotDate();
       pumpUploads();
     };
-    xhr.onerror = () => { d.xhr = null; d.status = 'error'; d.error = 'upload failed'; renderDraftTile(d); draftChanged(d); pumpUploads(); };
+    xhr.onerror = () => { d.xhr = null; d.status = 'error'; d.error = 'Upload failed'; renderDraftTile(d); draftChanged(d); pumpUploads(); };
     const fd = new FormData();
     fd.append('file', d.file, d.file.name);
     xhr.send(fd);
@@ -1422,13 +1463,13 @@
     const box = $('phComposeExif');
     const d = activeDraft;
     if (!d || d.status !== 'done') {
-      box.innerHTML = d ? '<div class="ph-compose-hint">Reading camera details…</div>' : '';
+      box.innerHTML = d && d.status !== 'error' ? '<div class="ph-compose-hint">Reading camera details…</div>' : '';
       return;
     }
     const idx = drafts.indexOf(d) + 1;
     const label = f => f === 'film' ? 'Film' : f === 'iso' ? 'ISO' : f[0].toUpperCase() + f.slice(1);
     box.innerHTML =
-      `<div class="ph-compose-hint">${drafts.length > 1 ? `Photo ${idx} of ${drafts.length} · ` : ''}camera details (read from the file, edit freely)</div>` +
+      `<div class="ph-compose-hint">${drafts.length > 1 ? `Photo ${idx} of ${drafts.length} · ` : ''}Camera details (read from the file, edit freely)</div>` +
       `<div class="ph-exif-grid">` + EDIT_FIELDS.map(f =>
         `<label class="ph-field${f === 'camera' || f === 'lens' || f === 'film' ? ' wide' : ''}"><span>${label(f)}</span>` +
         `<input type="text" data-field="${f}" value="${esc(d.edited[f] || '')}" placeholder="${f === 'film' ? 'e.g. Portra 400' : ''}" maxlength="120" /></label>`
@@ -1447,7 +1488,7 @@
     if (shotEdited) { hint.textContent = ''; return; }
     const taken = drafts.filter(d => d.status === 'done' && d.exif?.taken).map(d => d.exif.taken).sort()[0];
     $('phShotDate').value = taken ? taken.slice(0, 10) : '';
-    hint.textContent = taken ? 'from the photos' : drafts.some(d => d.status === 'done') ? 'not in the files — set it for old photos' : '';
+    hint.textContent = taken ? 'From the photos' : drafts.some(d => d.status === 'done') ? 'Not in the files. Set it for old photos' : '';
   }
   $('phShotDate').addEventListener('input', () => { shotEdited = true; $('phShotHint').textContent = ''; });
 
@@ -1554,7 +1595,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       }, 15000);
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || 'couldn’t post');
+      if (!r.ok) throw new Error(klabCap(data.error) || 'Couldn’t post that');
       // resetComposer() drops the local previews (the posted uploads stay),
       // and stops any photo added while this was posting, which isn't in it.
       resetComposer();
@@ -1567,10 +1608,11 @@
       let at = next.findIndex(p => before(p, data));
       if (at < 0) at = next.length;
       next.splice(at, 0, data);
+      if (total != null) total += (data.photos || []).length;
       applyPosts(next, { focusPostId: data.id });
       SFX && SFX.play('success');
     } catch (e) {
-      showComposeError(e.message || 'couldn’t post');
+      showComposeError(e.message || 'Couldn’t post that');
     } finally {
       btn.dataset.posting = '';
       updateSubmit();
@@ -1632,10 +1674,10 @@
     $('phSongPickedArt').src = pickedSong.coverArt ? artUrl(pickedSong.coverArt, 80) : '';
     $('phSongPickedTitle').textContent = pickedSong.title;
     $('phSongPickedArtist').textContent = pickedSong.artist || '';
-    $('phSongStartLabel').textContent = 'starts at ' + fmtSecs($('phSongStart').value);
+    $('phSongStartLabel').textContent = 'Starts at ' + fmtSecs($('phSongStart').value);
   }
   $('phSongStart').addEventListener('input', () => {
-    $('phSongStartLabel').textContent = 'starts at ' + fmtSecs($('phSongStart').value);
+    $('phSongStartLabel').textContent = 'Starts at ' + fmtSecs($('phSongStart').value);
     if (!previewAudio.paused) { try { previewAudio.currentTime = Number($('phSongStart').value); } catch (e) {} }
   });
   $('phSongRemove').addEventListener('click', () => { pickedSong = null; renderSongPick(); });
@@ -1665,6 +1707,7 @@
   previewAudio.addEventListener('timeupdate', () => {
     if (previewAudio.currentTime > Number($('phSongStart').value) + CLIP_LEN_S) previewAudio.currentTime = Number($('phSongStart').value);
   });
+  previewAudio.addEventListener('ended', stopPreview);
 
   // ── Start ──
   renderSoundBtn();
@@ -1672,4 +1715,7 @@
   renderSongPick();
   fetchLatest();
   setInterval(() => { if (isActive()) fetchLatest(); }, POLL_MS);
+  // Loaded straight onto #photos: the tabs were set up before this file
+  // defined its hook, so nothing has said Photos is showing.
+  if (isActive()) window.klabPhotosTabChanged(true);
 })();

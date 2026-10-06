@@ -111,7 +111,8 @@
         queued = false;
         place();
       });
-      const release = () => setTimeout(() => { pressed = null; schedule(); }, 0);
+      // Only a press that started on one of these: every pointerup anywhere re-placed every pill.
+      const release = () => { if (pressed) setTimeout(() => { pressed = null; schedule(); }, 0); };
       window.addEventListener('pointerup', release, true);
       window.addEventListener('pointercancel', release, true);
     }

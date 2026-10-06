@@ -159,13 +159,34 @@ let _motdCurrent = null;
 // Minecraft shrinks long splash text to keep it inside a fixed box; we do
 // the same by measuring the rendered width and scaling the font down until
 // it fits, instead of letting long quotes run off the edge of the screen.
+//
+// It's tilted up from its left end, so a long one also climbs: at the full
+// 14 degrees anything over about 30 characters ran off the top of the
+// window. A long splash tilts less (down to 6 degrees) and only then shrinks.
+const MOTD_TILT = 14, MOTD_MIN_TILT = 6, MOTD_PULSE = 1.12;
 function fitMotdText(text) {
   if (!motdEl) return;
   const baseRem = 0.62;
   motdEl.style.fontSize = baseRem + 'rem';
+  motdEl.style.removeProperty('--motd-tilt');
   motdEl.textContent = text;
-  const maxWidth = Math.min(window.innerWidth * 0.5, 460);
-  const width = motdEl.scrollWidth;
+  const parent = motdEl.offsetParent;
+  if (!parent) return; // not shown (the app, a phone): nothing to fit
+  let maxWidth = Math.min(window.innerWidth * 0.5, 460);
+  const width = motdEl.scrollWidth, height = motdEl.offsetHeight;
+  // How far its far end may rise: from its bottom-left corner (which the
+  // tilt turns about) to just under the top of the window, at the pulse's
+  // biggest. Layout px throughout: offsetTop isn't scaled by the page zoom.
+  let originY = motdEl.offsetTop + height;
+  for (let el = parent; el; el = el.offsetParent) originY += el.offsetTop;
+  const room = (originY - window.scrollY - 6) / MOTD_PULSE - height;
+  const rad = d => d * Math.PI / 180;
+  let tilt = MOTD_TILT;
+  if (width * Math.sin(rad(tilt)) > room) {
+    tilt = Math.max(MOTD_MIN_TILT, Math.asin(Math.max(0, Math.min(1, room / width))) * 180 / Math.PI);
+    maxWidth = Math.min(maxWidth, Math.max(60, room / Math.sin(rad(tilt))));
+    motdEl.style.setProperty('--motd-tilt', (-tilt).toFixed(1) + 'deg');
+  }
   if (width > maxWidth) {
     const scale = Math.max(maxWidth / width, 0.32);
     motdEl.style.fontSize = (baseRem * scale) + 'rem';
@@ -186,8 +207,12 @@ function rerollMotd(auto) {
   if (!auto) SFX && SFX.play('star');
   typePromptMotd(_motdCurrent);
 
+  // No flip where there's no animation to end it (reduced motion,
+  // performance mode, or the splash isn't shown at all: the app, a phone).
+  // The listener below then never fired, and one more was left behind on
+  // every reroll.
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reducedMotion) {
+  if (reducedMotion || motdEl.offsetParent === null || window.KLAB_FX?.on()) {
     fitMotdText(_motdCurrent);
     return;
   }
@@ -411,9 +436,14 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   // artist page, which is a view, not a dialog: with one open, Tab went
   // back to hopping between buttons.
   function dialogOpen() {
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop')
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible')
       || document.body.classList.contains('feed-composer-open');
   }
+  // Something that fills the window is over the page: keys that move
+  // around the page would do it unseen (Tab behind the full-screen player
+  // switched to Photos, which paused the music).
+  const slideshowOpen = () => !!document.querySelector('.ss.open');
+  const covered = () => slideshowOpen() || !!document.querySelector('.fs-player.open');
   function flipPage(dir) {
     const P = pages(), i = P.indexOf(currentPage());
     setActiveTab(P[(i + dir + P.length) % P.length]);
@@ -426,7 +456,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   // something else"). What you typed stays where it is.
   document.addEventListener('keydown', e => {
     // defaultPrevented: someone already used this Tab (list indenting in the markdown editor).
-    if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || dialogOpen()) return;
+    if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || dialogOpen() || covered()) return;
     e.preventDefault();
     flipPage(e.shiftKey ? -1 : 1);
   });
@@ -441,16 +471,21 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     // Not behind a dialog: a number switched tabs and "n" skipped the song
     // under an open "Delete this?". "?" still closes the shortcuts panel.
     if (dialogOpen() && !(e.key === '?' && document.getElementById('keyHintsBackdrop')?.classList.contains('open'))) return;
+    // The slideshow has its own keys; under the full-screen player only
+    // the ones that aren't about the page still make sense.
+    if (slideshowOpen() || (covered() && !['n', 'p', '?'].includes(e.key))) return;
 
     if (awaitingG) {
       clearTimeout(awaitingGTimer);
       awaitingG = false;
-      if (e.key === 'g') { e.preventDefault(); scrollPaneToEdge(true); return; } // gg -> top
-      if (GO_TO_TAB[e.key]) { e.preventDefault(); setActiveTab(GO_TO_TAB[e.key]); return; }
+      // Stopped here: the second key is part of this chord, not also a
+      // shortcut of its own ("g m" went to Music and muted it).
+      if (e.key === 'g') { e.preventDefault(); e.stopImmediatePropagation(); scrollPaneToEdge(true); return; } // gg -> top
+      if (GO_TO_TAB[e.key]) { e.preventDefault(); e.stopImmediatePropagation(); setActiveTab(GO_TO_TAB[e.key]); return; }
       return; // unrecognized second key — drop the pending g silently, vim does the same
     }
 
-    if (/^[1-9]$/.test(e.key) && !document.body.classList.contains('tab-photos-active')) {
+    if (/^[1-9]$/.test(e.key)) {
       const P = pages(), target = P[+e.key - 1];
       if (target) { e.preventDefault(); setActiveTab(target); }
       return;

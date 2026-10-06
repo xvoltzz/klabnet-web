@@ -413,17 +413,28 @@ setLoginSong = function(song) { SFX.play('star'); _origSetLoginSong(song); };
 //    works everywhere through seekto.
 // ══════════════════════════════════════════
 const MEDIA_ART_SIZES = [96, 256, 512, 1024];
+let _mediaSong = null; // the song the metadata was last built for
 function updateMediaSession(song) {
   if (!('mediaSession' in navigator)) return;
   const ms = navigator.mediaSession;
   if (!song) {
+    _mediaSong = null;
     ms.metadata = null;
     ms.playbackState = 'none';
     return;
   }
+  // Each track asks twice (the 'play' event, then playSong once play()
+  // resolves): the second time only the state needs saying again, not new
+  // metadata and, on iOS, a second 1024px cover.
+  if (song === _mediaSong && ms.metadata) {
+    ms.playbackState = 'playing';
+    syncMediaPosition();
+    return;
+  }
+  _mediaSong = song;
   ms.metadata = new MediaMetadata({
     title:  song.title  || 'Unknown',
-    artist: song.artist || 'Unknown Artist',
+    artist: song.artist || 'Unknown artist',
     album:  song.album  || '',
     artwork: song.coverArt ? MEDIA_ART_SIZES.map(px => ({
       src: `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=${px}&${subsonicParams()}`,

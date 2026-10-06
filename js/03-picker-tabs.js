@@ -20,11 +20,14 @@ loadPickerTab = async function(tab) {
   return _origLoadPickerTab(tab);
 };
 
-let _albumsCache = null;
+// Kept for ten minutes, like Genres: kept for the whole session, an album
+// added since never showed up here in an app left running for days.
+const LIBRARY_TTL_MS = 10 * 60 * 1000;
+let _albumsCache = null, _albumsAt = 0;
 async function loadAlbums() {
-  pickerList.innerHTML = '<div class="picker-empty">loading albums...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading albums…</div>';
   try {
-    if (!_albumsCache) {
+    if (!_albumsCache || Date.now() - _albumsAt > LIBRARY_TTL_MS) {
       const allAlbums = [];
       let offset = 0;
       const pageSize = 500;
@@ -38,25 +41,26 @@ async function loadAlbums() {
         allAlbums.push(...page);
         if (page.length < pageSize) break; // no more pages
         offset += pageSize;
-        if (page_i === 49) showToast('album list may be incomplete — hit the page limit', 'ti-list-details');
+        if (page_i === 49) showToast('The album list may be incomplete: it hit the page limit', 'ti-list-details');
       }
       _albumsCache = allAlbums;
+      _albumsAt = Date.now();
     }
     // Moved on to another view while this loaded: it isn't ours to draw on.
     if (pickerTab !== 'albums') return;
     renderAlbumList(applySort(_albumsCache, 'albums'));
     showSortBtn('albums');
-  } catch(e) { if (pickerTab === 'albums') pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
+  } catch(e) { if (pickerTab === 'albums') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 
 async function loadArtists() {
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   try {
     const res = await fetchTimeout(`${ND_URL}/rest/getArtists?${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     if (pickerTab !== 'artists') return;
     renderArtistList(data['subsonic-response']?.artists?.index || []);
-  } catch(e) { if (pickerTab === 'artists') pickerList.innerHTML = '<div class="picker-empty">failed to load</div>'; }
+  } catch(e) { if (pickerTab === 'artists') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 
 const _albumArtIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
@@ -66,7 +70,7 @@ const _albumArtIO = 'IntersectionObserver' in window ? new IntersectionObserver(
 }), { rootMargin: '400px 0px' }) : null;
 
 function renderAlbumList(albums, appendMode) {
-  if (!albums.length) { if (!appendMode) pickerList.innerHTML = '<div class="picker-empty">no albums</div>'; return; }
+  if (!albums.length) { if (!appendMode) pickerList.innerHTML = '<div class="picker-empty">No albums</div>'; return; }
   if (!appendMode) {
     pickerList.innerHTML = '';
     const hdr = document.createElement('div');
@@ -102,7 +106,7 @@ function renderAlbumList(albums, appendMode) {
       '<div class="picker-item-title">' + (esc(album.name) || 'Unknown') + '</div>' +
       '<div class="picker-item-artist">' + esc(album.artist || '') +
         (album.year ? ' · ' + esc(album.year) : '') +
-        ' · ' + (album.songCount || 0) + ' tracks</div>';
+        ' · ' + klabCount(album.songCount || 0, 'track') + '</div>';
 
     const acts = document.createElement('div');
     acts.className = 'picker-item-actions';
@@ -142,7 +146,7 @@ function renderAlbumList(albums, appendMode) {
       e.stopPropagation();
       const t = await fetchTracks();
       queue.push(...t); updateQueueBadge();
-      showToast('Queued ' + t.length + ' tracks', toastArt(album.coverArt || album.id));
+      showToast('Queued ' + klabCount(t.length, 'track'), toastArt(album.coverArt || album.id));
     });
 
     item.addEventListener('click', e => {
@@ -157,14 +161,14 @@ function renderAlbumList(albums, appendMode) {
 function renderArtistSearchResults(artists) {
   artists.forEach(artist => {
     const artistId = artist.id || artist.artistId || '';
-    const artistName = artist.name || artist.artist || 'Unknown Artist';
+    const artistName = artist.name || artist.artist || 'Unknown artist';
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
       ${artistPlaceholderHTML(artist.name)}
       <div class="picker-item-info">
         <div class="picker-item-title">${esc(artistName)}</div>
-        <div class="picker-item-artist">${artist.albumCount || 0} albums</div>
+        <div class="picker-item-artist">${klabCount(artist.albumCount || 0, 'album')}</div>
       </div>
       <div class="picker-item-actions">
         <span class="type-badge artist">artist</span>
@@ -245,7 +249,7 @@ function artistPlaceholderHTML(name) {
 
 function renderArtistList(indexes) {
   pickerList.innerHTML = '';
-  if (!indexes.length) { pickerList.innerHTML = '<div class="picker-empty">no artists found</div>'; return; }
+  if (!indexes.length) { pickerList.innerHTML = '<div class="picker-empty">No artists found</div>'; return; }
   indexes.forEach(idx => {
     if (!idx.artist?.length) return;
     const label = document.createElement('div');
@@ -260,7 +264,7 @@ function renderArtistList(indexes) {
         ${artistPlaceholderHTML(artist.name)}
         <div class="picker-item-info">
           <div class="picker-item-title">${esc(artist.name)||'Unknown'}</div>
-          <div class="picker-item-artist">${artist.albumCount||0} albums</div>
+          <div class="picker-item-artist">${klabCount(artist.albumCount || 0, 'album')}</div>
         </div>
         <div class="picker-item-actions">
           <button class="picker-action" title="Browse"><i class="ti ti-chevron-right"></i></button>
@@ -276,12 +280,12 @@ function renderArtistList(indexes) {
 
 async function loadArtistView(artist) {
   if (window.openArtistPage) { goToMusicDetail(() => window.openArtistPage(artist.id, artist.name)); return; }
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   try {
     const res = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artist.id)}&${subsonicParams()}`, {}, 8000);
     const data = await res.json();
     const info = data['subsonic-response']?.artist;
-    if (!info) { pickerList.innerHTML = '<div class="picker-empty">failed</div>'; return; }
+    if (!info) { pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; return; }
     pickerList.innerHTML = '';
     // Back button
     const back = document.createElement('button');
@@ -325,7 +329,7 @@ async function loadArtistView(artist) {
       const info = document.createElement('div');
       info.className = 'picker-item-info';
       info.innerHTML = '<div class="picker-item-title">' + (esc(album.name)||'Unknown') + '</div>' +
-                       '<div class="picker-item-artist">' + esc(album.year||'') + ' · ' + (album.songCount||0) + ' tracks</div>';
+                       '<div class="picker-item-artist">' + esc(album.year||'') + ' · ' + klabCount(album.songCount || 0, 'track') + '</div>';
       const actions = document.createElement('div');
       actions.className = 'picker-item-actions';
       actions.innerHTML = '<span class="type-badge album">album</span>' +
@@ -349,27 +353,26 @@ async function loadArtistView(artist) {
         e.stopPropagation();
         const t = await getTracks();
         queue.push(...t); updateQueueBadge();
-        showToast(`Queued ${t.length} tracks`, toastArt(album.coverArt || album.id));
+        showToast('Queued ' + klabCount(t.length, 'track'), toastArt(album.coverArt || album.id));
       });
       item.addEventListener('click', () => {
         loadAlbumView(album.id, album.name, () => loadArtistView(artist));
       });
       pickerList.appendChild(item);
     });
-  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">failed to load artist</div>'; }
+  } catch(e) { pickerList.innerHTML = '<div class="picker-empty">Couldn’t load that artist</div>'; }
 }
 
 function renderQueueList() {
   updateQueueBadge();
-  if (!queue.length) { pickerList.innerHTML = '<div class="picker-empty">queue is empty — add albums or songs</div>'; return; }
+  if (!queue.length) { pickerList.innerHTML = '<div class="picker-empty">The queue is empty. Add albums or songs</div>'; return; }
   pickerList.innerHTML = '';
   const clearRow = document.createElement('div');
   clearRow.style.cssText = 'display:flex;justify-content:flex-end;padding:0 2px 6px;';
   const clearBtn = document.createElement('button');
-  clearBtn.style.cssText = "font-size:8.5px;letter-spacing:0.14em;text-transform:uppercase;padding:4px 12px;border-radius:100px;cursor:pointer;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--danger-color);transition:background 0.15s;";
-  clearBtn.textContent = 'clear all';
-  clearBtn.addEventListener('mouseenter', () => { clearBtn.style.background = 'rgba(248,113,113,0.22)'; });
-  clearBtn.addEventListener('mouseleave', () => { clearBtn.style.background = 'rgba(248,113,113,0.1)'; });
+  clearBtn.type = 'button';
+  clearBtn.className = 'app-btn'; // a secondary button like any other (it was a tiny red all-caps pill)
+  clearBtn.innerHTML = '<i class="ti ti-trash"></i> Clear queue';
   clearBtn.addEventListener('click', () => { queue = []; updateQueueBadge(); renderQueueList(); SFX.play('click'); });
   clearRow.appendChild(clearBtn);
   pickerList.appendChild(clearRow);

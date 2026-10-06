@@ -128,7 +128,7 @@
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       hi = (hi + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length;
       render();
-    } else if ((e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) || e.key === 'Tab') {
+    } else if ((e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.isComposing) || e.key === 'Tab') {
       pick(matches[hi]);
     } else if (e.key === 'Escape') {
       close();

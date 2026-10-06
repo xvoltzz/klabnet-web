@@ -190,6 +190,9 @@
   // Same text renders the same way every time, and the feed re-renders a
   // post whenever its reactions or replies change — so keep the results.
   const cache = new Map();
+  // Mentions are baked into the HTML, and who counts as a person changes
+  // when the roster arrives (after the first posts, on a slow start).
+  window.addEventListener('klab:people', () => cache.clear());
   window.klabMarkdown = function(raw, me, opts) {
     const inline = !!(opts && opts.inline);
     const key = (inline ? 'i' : 'b') + (me || '') + '\u0000' + raw;

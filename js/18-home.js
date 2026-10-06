@@ -121,19 +121,24 @@
   }
 
   // ── what just happened ──
-  // On first load it shows the newest thing across every source. After
-  // that, anything Home hasn't seen before is shown the moment it arrives:
-  // the sources poll at different rates, so comparing times across them
-  // would quietly skip a post that landed between two presence polls.
-  let liveT = 0, liveReady = false;
-  const liveSeen = new Set();
-  setTimeout(() => { liveReady = true; }, 8000);
-  function live(key, t, html) {
-    const fresh = !liveSeen.has(key);
+  // Each source's first answer shows only if it's the newest thing across
+  // all of them. After that, anything Home hasn't seen before is shown the
+  // moment it arrives: the sources poll at different rates, so comparing
+  // times across them would quietly skip a post that landed between two
+  // presence polls. (Per source, not "8s after the page loaded": a slow
+  // start, or opening Home later, announced weeks-old things as news.)
+  // `also`: everything else that source loaded, so deleting its newest
+  // doesn't make the one under it look new.
+  let liveT = 0;
+  const liveSeen = new Set(), livePrimed = new Set();
+  function live(src, key, t, html, also) {
+    const fresh = !liveSeen.has(key), first = !livePrimed.has(src);
+    livePrimed.add(src);
     liveSeen.add(key);
+    if (also) for (const k of also) liveSeen.add(k);
     // A screen meant to be left open: forget the oldest, like plainCache.
-    if (liveSeen.size > 500) liveSeen.delete(liveSeen.values().next().value);
-    if (liveReady ? !fresh : t < liveT) return;
+    while (liveSeen.size > 500) liveSeen.delete(liveSeen.values().next().value);
+    if (first ? t < liveT : !fresh) return;
     liveT = Math.max(liveT, t);
     liveEl.hidden = false;
     liveEvEl.classList.remove('swap');
@@ -162,7 +167,9 @@
     }
     const img = p.image_mxc && window.klabResolveFeedImage ? window.klabResolveFeedImage(p.image_mxc) : null;
     if (img) {
-      return { key: 'p' + p.id + 'i', t, img, go, dark: true, kind: 'Post',
+      // The same key as before its picture resolved, or the picture landing
+      // looked like a new arrival (a flash, and back to the first slide).
+      return { key: 'p' + p.id, t, img, go, dark: true, kind: 'Post',
         html: '<div class="hm-img" style="background-image:url(&quot;' + esc(img) + '&quot;)"></div>' +
           '<div class="hm-content">' + who + (text ? '<div class="hm-cap">' + esc(text) + '</div>' : '') + '</div>' };
     }
@@ -242,7 +249,7 @@
     const s = slides[i];
     if (s && active) setBackdrop(s.img, s.tint);
     clearTimeout(slideTimer);
-    if (active && slides.length > 1) slideTimer = setTimeout(() => showSlide((cur + 1) % slides.length), SLIDE_MS);
+    if (active && !document.hidden && slides.length > 1) slideTimer = setTimeout(() => showSlide((cur + 1) % slides.length), SLIDE_MS);
   }
   spotEl.style.setProperty('--hm-slide', SLIDE_MS + 'ms');
   // Flicking through: arrows, a two-finger swipe, or a drag / touch swipe.
@@ -387,7 +394,7 @@
   });
   function restartFlow() {
     clearInterval(flowTimer);
-    if (active && (S.albums || []).length > 1) flowTimer = setInterval(() => { flowI = (flowI + 1) % Math.min(9, S.albums.length); layoutFlow(); }, 4000);
+    if (active && !document.hidden && (S.albums || []).length > 1) flowTimer = setInterval(() => { flowI = (flowI + 1) % Math.min(9, S.albums.length); layoutFlow(); }, 4000);
   }
   function openAlbum(a) {
     if (!a) return;
@@ -415,7 +422,7 @@
     const html = M.map(m =>
       '<div class="hm-cm" data-room="' + esc(m.roomId) + '">' + avatarHTML(m.u) +
         '<div>' + nameHTML(m.u) + '<span class="hm-cm-body">' + esc(m.body) + '</span></div></div>').join('');
-    if (html === chatSig && chatSig) return;
+    if (html === chatSig && chatEl.firstChild) return;
     chatSig = html;
     chatEl.innerHTML = lbl('Chat') + (html ? '<div class="hm-clist">' + html + '</div>' : '<div class="hm-quiet"><i class="ti ti-message-circle"></i></div>');
   }
@@ -438,8 +445,8 @@
     klabMenu(e, [
       { header: p.username },
       { label: 'Open in feed', icon: 'ti-news', action: () => openPost(p.id) },
-      { label: 'Play song', icon: 'ti-player-play', hidden: !klabCleanSong(p.song), action: () => playSong(klabCleanSong(p.song)) },
-      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !klabCleanSong(p.song), action: () => addToQueue(klabCleanSong(p.song)) },
+      { label: 'Play song', icon: 'ti-player-play', hidden: !klabPostSong(p.song), action: () => playSong(klabPostSong(p.song)) },
+      { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !klabPostSong(p.song), action: () => addToQueue(klabPostSong(p.song)) },
       { label: 'Copy text', icon: 'ti-copy', hidden: !p.text, action: () => klabCopy(p.text, 'Post') },
       ...person(p.username),
     ]);
@@ -477,7 +484,7 @@
       const d = await getJSON('/api/posts?limit=8');
       S.posts = d.posts || [];
       const p = S.posts[0];
-      if (p) live('post' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''));
+      if (p) live('post', 'post' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''), S.posts.map(x => 'post' + x.id));
       renderPosts(); renderSpot();
     } catch (e) {}
   }
@@ -486,7 +493,7 @@
       const d = await getJSON('/api/posts/photos?order=posted&limit=6');
       S.photoPosts = d.posts || [];
       const p = S.photoPosts[0];
-      if (p) live('photos' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted ' + (p.photos.length > 1 ? p.photos.length + ' photos' : 'a photo'));
+      if (p) live('photos', 'photos' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted ' + (p.photos.length > 1 ? p.photos.length + ' photos' : 'a photo'), S.photoPosts.map(x => 'photos' + x.id));
       renderPhotos(); renderSpot();
     } catch (e) {}
   }
@@ -504,7 +511,7 @@
     if (lastSongs) now.forEach((song, u) => {
       if (lastSongs.get(u) !== song) {
         const l = L.find(x => x.username === u);
-        live('play' + u + ':' + song, Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
+        live('play', 'play' + u + ':' + song, Date.now(), '<b>' + esc(u) + '</b> is listening to ' + esc(l.song));
       }
     });
     lastSongs = now;
@@ -517,7 +524,7 @@
       const d = await r.json();
       S.albums = d['subsonic-response']?.albumList2?.album || [];
       const a = S.albums[0];
-      if (a && a.created) live('album' + a.id, new Date(a.created).getTime(), '<b>' + esc(a.name || '') + '</b> by ' + esc(a.artist || '') + ' was added');
+      if (a && a.created) live('album', 'album' + a.id, new Date(a.created).getTime(), '<b>' + esc(a.name || '') + '</b> by ' + esc(a.artist || '') + ' was added', S.albums.map(x => 'album' + x.id));
       renderFlow(); renderSpot(); restartFlow();
     } catch (e) {}
   }
@@ -529,7 +536,8 @@
   }
   function readChat() {
     const client = window.MatrixChat?.client;
-    if (!client) return;
+    // Not connected: the tile still says what it is, rather than sitting blank.
+    if (!client) { S.chat = []; renderChat(); return; }
     const dms = typeof getDmRoomIds === 'function' ? getDmRoomIds() : new Set();
     const out = [];
     client.getRooms().forEach(room => {
@@ -545,7 +553,7 @@
     out.sort((a, b) => a.t - b.t);
     S.chat = out.slice(-6);
     const m = S.chat[S.chat.length - 1];
-    if (m) live('msg' + m.id, m.t, '<b>' + esc(m.u) + '</b> in ' + esc(m.room || 'chat') + ': ' + esc(m.body.slice(0, 80)));
+    if (m) live('msg', 'msg' + m.id, m.t, '<b>' + esc(m.u) + '</b> in ' + esc(m.room || 'chat') + ': ' + esc(m.body.slice(0, 80)), S.chat.map(x => 'msg' + x.id));
     renderChat();
   }
   if (window.MatrixChat?.on) {
@@ -585,7 +593,16 @@
       stopPolling();
     }
   };
-  document.addEventListener('visibilitychange', () => { if (active && !document.hidden) refreshAll(); });
+  // Hidden (minimized, in the tray, another tab): the spotlight and the
+  // albums stop turning over, and pick up again when it's back.
+  document.addEventListener('visibilitychange', () => {
+    if (!active) return;
+    clearTimeout(slideTimer); clearInterval(flowTimer);
+    if (document.hidden) return;
+    refreshAll();
+    if (slides.length) showSlide(cur);
+    restartFlow();
+  });
   tickClock();
   if (panel.classList.contains('active')) window.klabHomeTabChanged(true);
 })();

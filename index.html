@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.09.28.22" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.06.3" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.09.28.22" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.06.3" />
 </head>
 <body>
 
@@ -286,7 +286,7 @@ window.KLAB_BOOT = (function() {
   <!-- Right: lyrics (hidden until toggled) -->
   <div class="fs-lyrics-col">
     <div class="lyrics-scroll" id="lyricsScroll">
-      <div class="lyrics-status" id="lyricsStatus">loading...</div>
+      <div class="lyrics-status" id="lyricsStatus">Loading…</div>
     </div>
   </div>
 </div>
@@ -295,8 +295,8 @@ window.KLAB_BOOT = (function() {
 
 <div class="ctx-menu" id="presenceCtxMenu">
   <div class="ctx-label" id="presenceCtxLabel">User</div>
-  <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen Party</div>
-  <div class="ctx-item" id="presenceCtxProfile"><i class="ti ti-user-circle"></i> View Profile</div>
+  <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen along</div>
+  <div class="ctx-item" id="presenceCtxProfile"><i class="ti ti-user-circle"></i> View profile</div>
   <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
 </div>
 
@@ -323,16 +323,16 @@ window.KLAB_BOOT = (function() {
 
 <div class="ctx-menu" id="songCtxMenu">
   <div class="ctx-label" id="songCtxLabel">Song</div>
-  <div class="ctx-item" id="songCtxPlay"><i class="ti ti-player-play"></i> Play Now</div>
-  <div class="ctx-item" id="songCtxQueue"><i class="ti ti-playlist-add"></i> Add to Queue</div>
-  <div class="ctx-item" id="songCtxAddPl"><i class="ti ti-playlist"></i> Add to Playlist</div>
+  <div class="ctx-item" id="songCtxPlay"><i class="ti ti-player-play"></i> Play now</div>
+  <div class="ctx-item" id="songCtxQueue"><i class="ti ti-playlist-add"></i> Add to queue</div>
+  <div class="ctx-item" id="songCtxAddPl"><i class="ti ti-playlist"></i> Add to playlist</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-item" id="songCtxArtist"><i class="ti ti-microphone-2"></i> View Artist</div>
-  <div class="ctx-item" id="songCtxAlbum"><i class="ti ti-disc"></i> View Album</div>
+  <div class="ctx-item" id="songCtxArtist"><i class="ti ti-microphone-2"></i> Go to artist</div>
+  <div class="ctx-item" id="songCtxAlbum"><i class="ti ti-disc"></i> Go to album</div>
   <div class="ctx-divider"></div>
-  <div class="ctx-item" id="songCtxFav"><i class="ti ti-heart"></i> Add to Favorites</div>
+  <div class="ctx-item" id="songCtxFav"><i class="ti ti-heart"></i> Add to favorites</div>
   <div class="ctx-item" id="songCtxStar"><i class="ti ti-star"></i> Star</div>
-  <div class="ctx-item" id="songCtxLogin"><i class="ti ti-door-enter"></i> Set as Login Song</div>
+  <div class="ctx-item" id="songCtxLogin"><i class="ti ti-door-enter"></i> Set as login song</div>
   <div class="ctx-divider"></div>
   <div class="ctx-item" id="songCtxDownload"><i class="ti ti-download"></i> Download</div>
   <div class="ctx-item" id="songCtxDownloadMp3"><i class="ti ti-file-music"></i> Download as MP3</div>
@@ -512,7 +512,7 @@ window.KLAB_BOOT = (function() {
         <div class="chat-connect-error" id="chatConnectError" hidden></div>
       </div>
       <div class="chat-app" id="chatApp" hidden>
-        <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">connecting…</span></div>
+        <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">Connecting…</span></div>
         <div class="chat-body">
           <!-- Laid out like Music: a sidebar and the conversation, straight
                on the page over a backdrop, no panel around them. -->
@@ -616,7 +616,7 @@ window.KLAB_BOOT = (function() {
       <div class="picker-backdrop" id="pickerBackdrop">
         <div class="music-view-head" id="musicViewHead"><h2 id="musicViewTitle">Home</h2><span id="musicViewSub"></span></div>
         <div class="picker-list" id="pickerList">
-          <div class="picker-empty">loading tracks...</div>
+          <div class="picker-empty">Loading tracks…</div>
         </div>
       </div>
       <div class="ap-panel" id="apPanel">
@@ -707,7 +707,7 @@ window.KLAB_BOOT = (function() {
       </div>
       <div class="ph-empty" id="phEmpty" hidden>
         <i class="ti ti-photo"></i>
-        <div id="phEmptyText">loading photos…</div>
+        <div id="phEmptyText">Loading photos…</div>
         <button type="button" class="ph-btn ph-btn-post" id="phEmptyPost"><i class="ti ti-plus"></i><span>Post photos</span></button>
       </div>
       <aside class="ph-side" id="phSide">
@@ -735,7 +735,7 @@ window.KLAB_BOOT = (function() {
   </div>
 
     <div class="player-dock" id="playerDock">
-      <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Fullscreen">
+      <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Full-screen player">
         <i class="ti ti-music"></i>
       </div></div>
       <div class="player-main">
@@ -748,11 +748,11 @@ window.KLAB_BOOT = (function() {
           <div class="player-controls">
             <button class="ctrl-btn dock-extra" id="dockShuffle" title="Shuffle"><i class="ti ti-arrows-shuffle"></i></button>
             <button class="ctrl-btn" id="btnPrev" title="Previous"><i class="ti ti-player-skip-back"></i></button>
-            <button class="ctrl-btn play-btn" id="btnPlay" title="Play/Pause"><i class="ti ti-player-play" id="playIcon"></i></button>
+            <button class="ctrl-btn play-btn" id="btnPlay" title="Play" aria-label="Play"><i class="ti ti-player-play" id="playIcon"></i></button>
             <button class="ctrl-btn" id="btnNext" title="Next"><i class="ti ti-player-skip-forward"></i></button>
             <button class="ctrl-btn dock-extra" id="dockFav" title="Favorite"><i class="ti ti-heart" id="dockFavIcon"></i></button>
             <button class="ctrl-btn dock-extra klab-star" id="dockStar" title="Star"><i class="ti ti-star"></i><span class="klab-star-n"></span></button>
-            <button class="ctrl-btn dock-extra" id="dockShare" title="Share to Feed"><i class="ti ti-share-2"></i></button>
+            <button class="ctrl-btn dock-extra" id="dockShare" title="Share to feed"><i class="ti ti-share-2"></i></button>
           </div>
         </div>
         <div class="player-scrub-row">
@@ -775,7 +775,7 @@ window.KLAB_BOOT = (function() {
             <div class="slider-dot" id="volDot"></div>
           </div>
         </div>
-        <button class="ctrl-btn" id="btnFS" title="Fullscreen player"><i class="ti ti-arrows-maximize"></i></button>
+        <button class="ctrl-btn" id="btnFS" title="Full-screen player"><i class="ti ti-arrows-maximize"></i></button>
       </div>
     </div>
 
@@ -788,7 +788,7 @@ window.KLAB_BOOT = (function() {
   <div class="add-app-modal">
     <div class="add-app-title">
       <span id="chatModalTitle">Chat</span>
-      <button class="add-app-close" id="chatModalClose"><i class="ti ti-x"></i></button>
+      <button class="add-app-close" id="chatModalClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div id="chatModalBody"></div>
   </div>
@@ -801,7 +801,7 @@ window.KLAB_BOOT = (function() {
   <div class="add-app-modal ph-compose">
     <div class="add-app-title">
       <span>New photo post</span>
-      <button class="add-app-close" id="phComposeClose"><i class="ti ti-x"></i></button>
+      <button class="add-app-close" id="phComposeClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="ph-compose-body">
       <input type="file" id="phComposeFile" accept="image/*,.heic,.heif" multiple hidden />
@@ -843,7 +843,7 @@ window.KLAB_BOOT = (function() {
   <div class="add-app-modal ph-compose ph-edit">
     <div class="add-app-title">
       <span>Edit post</span>
-      <button class="add-app-close" id="phEditClose"><i class="ti ti-x"></i></button>
+      <button class="add-app-close" id="phEditClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="ph-compose-body">
       <label class="ph-field ph-date-field"><span>Shooting date</span><input type="date" id="phEditDate" /><em class="ph-compose-hint">Leave it empty to use the date saved in the photos.</em></label>
@@ -864,7 +864,7 @@ window.KLAB_BOOT = (function() {
   <div class="add-app-modal" style="width:min(560px, calc(100vw - 2rem));">
     <div class="add-app-title">
       <span>Keyboard shortcuts</span>
-      <button class="add-app-close" id="keyHintsClose"><i class="ti ti-x"></i></button>
+      <button class="add-app-close" id="keyHintsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="key-hints-body">
       <div class="key-hints-group">
@@ -878,8 +878,8 @@ window.KLAB_BOOT = (function() {
       </div>
       <div class="key-hints-group">
         <div class="key-hints-group-label">Playback</div>
-        <div class="key-hints-row"><span>Play / Pause</span><span class="key-hints-keys"><kbd class="key-hint-key">Space</kbd></span></div>
-        <div class="key-hints-row"><span>Next / Previous track</span><span class="key-hints-keys"><kbd class="key-hint-key">n</kbd><kbd class="key-hint-key">p</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
+        <div class="key-hints-row"><span>Play / pause</span><span class="key-hints-keys"><kbd class="key-hint-key">Space</kbd></span></div>
+        <div class="key-hints-row"><span>Next / previous track</span><span class="key-hints-keys"><kbd class="key-hint-key">n</kbd><kbd class="key-hint-key">p</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
         <div class="key-hints-row"><span>Mute</span><span class="key-hints-keys"><kbd class="key-hint-key">m</kbd></span></div>
       </div>
       <div class="key-hints-group">
@@ -887,6 +887,8 @@ window.KLAB_BOOT = (function() {
         <div class="key-hints-row"><span>Previous / next photo</span><span class="key-hints-keys"><kbd class="key-hint-key">h</kbd><kbd class="key-hint-key">l</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
         <div class="key-hints-row"><span>Older / newer post</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">↓</kbd><kbd class="key-hint-key">↑</kbd></span></div>
         <div class="key-hints-row"><span>Comments</span><span class="key-hints-keys"><kbd class="key-hint-key">c</kbd></span></div>
+        <div class="key-hints-row"><span>Photo info</span><span class="key-hints-keys"><kbd class="key-hint-key">i</kbd></span></div>
+        <div class="key-hints-row"><span>Slideshow</span><span class="key-hints-keys"><kbd class="key-hint-key">s</kbd></span></div>
         <div class="key-hints-row"><span>Back to the newest</span><span class="key-hints-keys"><kbd class="key-hint-key">G</kbd></span></div>
       </div>
       <div class="key-hints-group">
@@ -904,7 +906,7 @@ window.KLAB_BOOT = (function() {
   <div class="settings-modal">
     <div class="settings-header">
       <span class="settings-title">Settings</span>
-      <button class="settings-close" id="settingsClose"><i class="ti ti-x"></i></button>
+      <button class="settings-close" id="settingsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
     <div class="settings-body">
 
@@ -1038,33 +1040,33 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.09.28.22';</script>
-<script defer src="js/00-util.js?v=v2026.09.28.22"></script>
-<script defer src="js/01-shell.js?v=v2026.09.28.22"></script>
-<script defer src="js/02-player.js?v=v2026.09.28.22"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.09.28.22"></script>
-<script defer src="js/04-sfx.js?v=v2026.09.28.22"></script>
-<script defer src="js/05-favorites.js?v=v2026.09.28.22"></script>
-<script defer src="js/06-prefs.js?v=v2026.09.28.22"></script>
-<script defer src="js/07-tabnav.js?v=v2026.09.28.22"></script>
-<script defer src="js/08-chat.js?v=v2026.09.28.22"></script>
-<script defer src="js/09-music-extras.js?v=v2026.09.28.22"></script>
-<script defer src="js/10-lyrics.js?v=v2026.09.28.22"></script>
-<script defer src="js/11-presence.js?v=v2026.09.28.22"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.09.28.22"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.09.28.22"></script>
-<script defer src="js/11b-markdown.js?v=v2026.09.28.22"></script>
-<script defer src="js/11c-gifs.js?v=v2026.09.28.22"></script>
-<script defer src="js/12-feed.js?v=v2026.09.28.22"></script>
-<script defer src="js/13-tail.js?v=v2026.09.28.22"></script>
-<script defer src="js/14-photos.js?v=v2026.09.28.22"></script>
-<script defer src="js/15-music-home.js?v=v2026.09.28.22"></script>
-<script defer src="js/16-motion.js?v=v2026.09.28.22"></script>
-<script defer src="js/17-history.js?v=v2026.09.28.22"></script>
-<script defer src="js/18-home.js?v=v2026.09.28.22"></script>
-<script defer src="js/19-slideshow.js?v=v2026.09.28.22"></script>
-<script defer src="js/20-mentions.js?v=v2026.09.28.22"></script>
-<script defer src="js/21-stars.js?v=v2026.09.28.22"></script>
+<script>const KLABNET_VERSION = 'v2026.10.06.3';</script>
+<script defer src="js/00-util.js?v=v2026.10.06.3"></script>
+<script defer src="js/01-shell.js?v=v2026.10.06.3"></script>
+<script defer src="js/02-player.js?v=v2026.10.06.3"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.06.3"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.06.3"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.06.3"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.06.3"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.06.3"></script>
+<script defer src="js/08-chat.js?v=v2026.10.06.3"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.06.3"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.06.3"></script>
+<script defer src="js/11-presence.js?v=v2026.10.06.3"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.06.3"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.06.3"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.06.3"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.06.3"></script>
+<script defer src="js/12-feed.js?v=v2026.10.06.3"></script>
+<script defer src="js/13-tail.js?v=v2026.10.06.3"></script>
+<script defer src="js/14-photos.js?v=v2026.10.06.3"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.06.3"></script>
+<script defer src="js/16-motion.js?v=v2026.10.06.3"></script>
+<script defer src="js/17-history.js?v=v2026.10.06.3"></script>
+<script defer src="js/18-home.js?v=v2026.10.06.3"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.06.3"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.06.3"></script>
+<script defer src="js/21-stars.js?v=v2026.10.06.3"></script>
 
 </body>
 </html>

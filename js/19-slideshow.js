@@ -57,21 +57,30 @@
   // Photos that turned up since (a new post, an older page): new posts
   // straight after the current one, older pages mixed into what's to come.
   function mergeNew() {
-    const fresh = pool().map(it => it.ph.id).filter(id => !known.has(id));
-    if (!fresh.length) return;
-    fresh.forEach(id => known.add(id));
-    const newest = pool().slice(-1)[0]?.ph.id;
-    for (const id of fresh.reverse()) {
-      if (id === newest || !opts.shuffle) deck.splice(at + 1, 0, id);
-      else deck.splice(at + 1 + Math.floor(Math.random() * (deck.length - at)), 0, id);
-    }
+    const ids = pool().map(it => it.ph.id); // oldest first
+    if (ids.every(id => known.has(id))) return;
+    let lastKnown = -1;
+    ids.forEach((id, i) => { if (known.has(id)) lastKnown = i; });
+    const newer = [], older = [];
+    ids.forEach((id, i) => { if (!known.has(id)) (i > lastKnown ? newer : older).push(id); });
+    ids.forEach(id => known.add(id));
+    deck.splice(at + 1, 0, ...newer.reverse());
+    // In order, an older page carries on after what's there (it used to
+    // jump the queue: slide two was the oldest photo loaded so far).
+    if (!opts.shuffle) deck.push(...older.reverse());
+    else for (const id of older) deck.splice(at + 1 + newer.length + Math.floor(Math.random() * (deck.length - at - newer.length)), 0, id);
   }
   // Keeps the rest of the library coming, a page at a time, in the background.
   async function loadRest() {
     const t = ++loading;
+    let wait = 1500;
     while (isOpen && t === loading && P().hasOlder()) {
+      const had = P().items().length;
       await P().loadOlder();
-      await new Promise(r => setTimeout(r, 1500));
+      // Nothing came (the API is down): asked less and less often, not
+      // every 1.5s for as long as it's left on a TV.
+      wait = P().items().length > had ? 1500 : Math.min(wait * 2, 60000);
+      await new Promise(r => setTimeout(r, wait));
     }
   }
 
@@ -100,7 +109,7 @@
         '</div>' +
         '<span class="ss-sep"></span>' +
         '<button type="button" data-act="shuffle" title="Shuffle" aria-label="Shuffle"><i class="ti ti-arrows-shuffle"></i></button>' +
-        '<button type="button" data-act="info" title="Details (I)" aria-label="Details"><i class="ti ti-info-circle"></i></button>' +
+        '<button type="button" data-act="info" title="Photo info (i)" aria-label="Photo info"><i class="ti ti-info-circle"></i></button>' +
         '<button type="button" data-act="songs" title="Play the photos’ songs" aria-label="Play the photos’ songs"><i class="ti ti-music"></i></button>' +
         '<span class="ss-sep"></span>' +
         '<button type="button" data-act="close" title="Exit (Esc)" aria-label="Exit"><i class="ti ti-x"></i></button>' +
@@ -223,6 +232,13 @@
   async function step(dir) {
     clearTimeout(timer);
     mergeNew();
+    // "Mine", every page is in, and none of them is yours: back to everyone's.
+    if (!deck.length && opts.mine && !P().hasOlder()) {
+      opts.mine = false; save(); syncBar();
+      showToast('You haven\u2019t posted any photos yet', 'ti-photo');
+      buildDeck(lastId);
+      if (deck[0] === lastId) at = 0;
+    }
     if (!deck.length) { restartTimer(); return; }
     // Up to three tries: a photo that won't load (deleted since) is skipped.
     for (let tries = 0; tries < 3; tries++) {
@@ -231,6 +247,7 @@
       if (at < 0) at = 0;
       if (await show(deck[at])) break;
     }
+    if (!isOpen) return; // closed while that one loaded
     restartTimer();
     preloadNext();
   }
@@ -283,7 +300,12 @@
   document.addEventListener('visibilitychange', () => { if (isOpen && !document.hidden) keepAwake(); });
 
   async function keepAwake() {
-    try { wake = await navigator.wakeLock?.request('screen'); } catch (e) { wake = null; }
+    try {
+      const w = await navigator.wakeLock?.request('screen');
+      // Closed while it was being asked for: nobody would ever release it.
+      if (!isOpen) { w?.release(); return; }
+      wake = w;
+    } catch (e) { wake = null; }
   }
 
   // ── Open / close ──

@@ -289,21 +289,27 @@
   startIdleDetector();
 
   async function awayFields() {
-    if (_settings.awayStatus === false) return {};
+    // Switched off, this device never says you've gone, but using klabnet
+    // on it still says you're here (or another device's idle PC could show
+    // you as away while you're busy on this one).
+    if (_settings.awayStatus === false) return { activeAgo: pageAgo(), idleKnown: false };
+    // A locked computer hasn't been used since it locked. Said outright,
+    // with a little slack on when: the system's idle time lags the lock by
+    // a second or two (Chrome's by a minute), which read as "used after
+    // locking" and showed a locked screen as online.
+    const known = (ago, lockedFor) => lockedFor == null ? { activeAgo: ago, idleKnown: true }
+      : { activeAgo: Math.max(ago, lockedFor), idleKnown: true, lockedFor: Math.max(0, lockedFor - 2) };
     const d = window.klabnetDesktop;
     if (d && d.idle) {
       try {
         const r = await d.idle();
-        if (r && typeof r.seconds === 'number') {
-          return Object.assign({ activeAgo: Math.min(Math.round(r.seconds), pageAgo()), idleKnown: true },
-            r.lockedFor != null ? { lockedFor: r.lockedFor } : {});
-        }
+        if (r && typeof r.seconds === 'number') return known(Math.min(Math.round(r.seconds), pageAgo()), r.lockedFor);
       } catch (e) {}
     }
     if (_sysIdle) {
       const now = Date.now();
-      return Object.assign({ activeAgo: _sysIdle.idleSince ? Math.round((now - _sysIdle.idleSince) / 1000) : 0, idleKnown: true },
-        _sysIdle.lockedSince ? { lockedFor: Math.round((now - _sysIdle.lockedSince) / 1000) } : {});
+      return known(_sysIdle.idleSince ? Math.round((now - _sysIdle.idleSince) / 1000) : 0,
+        _sysIdle.lockedSince ? Math.round((now - _sysIdle.lockedSince) / 1000) : null);
     }
     // Only klabnet's own input: enough to say they're here, never that they've gone.
     return { activeAgo: pageAgo(), idleKnown: false };
@@ -702,7 +708,7 @@
       }
       if (!song) { showToast(`Couldn't sync with ${username}`, toastPerson(username)); SFX && SFX.play('error'); return; }
       await playSong(song);
-      showToast(`Sync'd with ${username}! 🎶`, toastPerson(username));
+      showToast(`Listening along with ${username}`, toastPerson(username));
       SFX && SFX.play('play');
       // gitea#2: this was previously a one-shot "copy their track, play it
       // from 0, never sync again" — startParty() below layers continuous
@@ -886,6 +892,8 @@
       if (_partyHostId !== host) return;
       showToast(`${label} stopped the listening party`, toastPerson(label));
       leaveParty(false);
+      // Your song ran out while waiting for theirs: carry on with your own.
+      if (playerState.audio.ended) nextSong();
     }, wait);
   }
 
@@ -917,6 +925,14 @@
     if (_partyHostId && _partyPlay === 0) leaveParty();
     await _origPlaySongParty(song);
     broadcastPartyTick();
+  };
+  // Following along, a song that ends waits for the host's next one (their
+  // tick brings it). Moving on by itself counted as picking something, and
+  // quietly left the party whenever your copy finished a moment before theirs.
+  const _origNextSongParty = nextSong;
+  nextSong = async function() {
+    if (_partyHostId && playerState.audio.ended) return;
+    return _origNextSongParty.apply(this, arguments);
   };
   playerState.audio.addEventListener('play',  broadcastPartyTick);
   playerState.audio.addEventListener('pause', broadcastPartyTick);
@@ -1056,7 +1072,7 @@
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;
-    const text = await showInputDialog('// share a note', 'Visible to everyone for 24h (max 60 characters).', 'Note text', _notesCache.get(me) || '');
+    const text = await showInputDialog('// share a note', 'Visible to everyone for 24h (max 60 characters).', 'Note text', _notesCache.get(me) || '', { maxLength: 60 });
     if (text === null) return; // cancelled
     try {
       const r = await fetchTimeout('/api/notes', {

@@ -103,7 +103,7 @@ document.addEventListener('keydown', e => {
   // song behind "Delete this?"), and Space on a focused button presses
   // that button rather than playing or pausing the music.
   if (e.code !== 'Escape' && (document.body.classList.contains('feed-composer-open') ||
-      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .klab-menu.visible'))) return;
+      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible, .ss.open'))) return;
   if (e.code === 'Space' && document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary')) return;
 
   if (e.code === 'Space') {
@@ -142,6 +142,8 @@ document.addEventListener('keydown', e => {
   target.addEventListener('wheel', e => {
     e.preventDefault();
     e.stopPropagation();
+    // The slider has its own wheel handler; this one is for the icon beside it.
+    if (volArea.contains(e.target)) return;
     const step = e.deltaY < 0 ? 0.05 : -0.05;
     const pct  = Math.max(0, Math.min(1, playerState.audio.volume + step));
     // Mirror the volSlider/fsVolSlider drag callbacks so a wheel-adjusted
@@ -150,7 +152,8 @@ document.addEventListener('keydown', e => {
     clearInterval(_loginFadeInterval);
     playerState.volume = pct;
     playerState.audio.volume = pct;
-    localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
+    if (pct > 0) playerState.audio.muted = false;
+    try { localStorage.setItem(VOLUME_KEY, pct.toFixed(3)); } catch (err) {}
     volSlider.setPct(pct);
     fsVolSlider.setPct(pct);
     SFX && SFX.play('hover');
@@ -239,7 +242,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (!lines.length) {
       const s = document.createElement('div');
       s.className = 'lyrics-status';
-      s.textContent = 'no lyrics found';
+      s.textContent = 'No lyrics found';
       scroll.appendChild(s);
       return;
     }
@@ -315,7 +318,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     scroll.innerHTML = '';
     const st = document.createElement('div');
     st.className = 'lyrics-status';
-    st.textContent = 'searching...';
+    st.textContent = 'Searching…';
     scroll.appendChild(st);
 
     const myLyricsToken = ++_lyricsToken;
@@ -327,19 +330,34 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       _isSynced    = true;
       renderLines(_syncedLines, true);
       if (lyricsVisible()) startSync();
+      syncOnce();
     } else if (data && data.plainLyrics) {
       _plainLines = data.plainLyrics.split('\n').filter(l => l.trim());
       _isSynced   = false;
       renderLines(_plainLines, false);
     } else {
       _isSynced = false;
-      scroll.innerHTML = '<div class="lyrics-status">no lyrics found</div>';
+      scroll.innerHTML = '<div class="lyrics-status">No lyrics found</div>';
     }
   }
 
+  // Only while it plays: a paused song's line doesn't move, so there is
+  // nothing to redraw sixty times a second.
   function startSync() {
     if (_rafId) cancelAnimationFrame(_rafId);
-    _rafId = requestAnimationFrame(syncLoop);
+    _rafId = playerState.audio.paused ? null : requestAnimationFrame(syncLoop);
+  }
+  // The line for where the song is now, or -1 before the first one.
+  function lineAt(t) {
+    let idx = -1;
+    for (let i = 0; i < _syncedLines.length; i++) {
+      if (_syncedLines[i].time <= t) idx = i; else break;
+    }
+    return idx;
+  }
+  // One pass, for when the song is paused (opening the lyrics, a seek).
+  function syncOnce() {
+    if (lyricsVisible() && _isSynced && _syncedLines.length) setActiveLine(Math.max(0, lineAt(playerState.audio.currentTime)));
   }
   function stopSync() {
     if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
@@ -352,7 +370,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (!lyricsVisible()) { stopSync(); return; }
     const song = playerState.currentSong;
     if (song && song.id !== _currentSongId) loadLyrics(song);
-    else if (_isSynced && !playerState.audio.paused) startSync();
+    else if (_isSynced) { startSync(); syncOnce(); }
   }).observe(fsPlayer2, { attributes: true, attributeFilter: ['class'] });
   document.addEventListener('visibilitychange', () => { if (lyricsVisible() && _isSynced && !playerState.audio.paused) startSync(); });
 
@@ -360,12 +378,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function toggleLyrics() {
     _lyricsOpen = !_lyricsOpen;
     lyricsBtn.classList.toggle('lyrics-active', _lyricsOpen);
+    lyricsBtn.setAttribute('aria-pressed', _lyricsOpen);
     if (fsPlayer2) fsPlayer2.classList.toggle('lyrics-open', _lyricsOpen);
 
     if (_lyricsOpen) {
       const song = playerState.currentSong;
       if (song && song.id !== _currentSongId) loadLyrics(song);
-      if (_isSynced) startSync();
+      else if (_isSynced) { startSync(); syncOnce(); }
       SFX && SFX.play('open');
     } else {
       stopSync();
@@ -394,6 +413,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // Stop/start sync loop with playback state
   playerState.audio.addEventListener('play',  () => { if (lyricsVisible() && _isSynced) startSync(); });
   playerState.audio.addEventListener('pause', () => stopSync());
+  playerState.audio.addEventListener('seeked', () => { if (playerState.audio.paused) syncOnce(); });
 
   // Expose for external use — getActiveLine() lets the "share to feed"
   // flow (defined much later in the script) offer whatever lyric line is
@@ -402,7 +422,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   window._klabLyrics = {
     toggle: toggleLyrics,
     load: loadLyrics,
-    getActiveLine: () => (_isSynced && _activeIdx >= 0 && _syncedLines[_activeIdx]) ? _syncedLines[_activeIdx].text : null,
+    // Worked out when asked: with the lyrics closed nothing keeps
+    // _activeIdx moving, and the lines may still be the previous song's.
+    getActiveLine: () => {
+      if (!_isSynced || !_currentSongId || _currentSongId !== playerState.currentSong?.id) return null;
+      return _syncedLines[lineAt(playerState.audio.currentTime)]?.text || null;
+    },
   };
 })();
 

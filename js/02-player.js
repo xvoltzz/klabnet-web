@@ -189,12 +189,12 @@ function updatePlayerUI(song) {
   if (song.artistId) {
     const aLink = document.createElement('span');
     aLink.className = 'player-link';
-    aLink.textContent = song.artist || 'Unknown Artist';
+    aLink.textContent = song.artist || 'Unknown artist';
     aLink.title = 'View artist';
     aLink.addEventListener('click', () => goToMusicDetail(() => loadArtistView({ id: song.artistId, name: song.artist })));
     artistEl.appendChild(aLink);
   } else {
-    artistEl.textContent = song.artist || 'Unknown Artist';
+    artistEl.textContent = song.artist || 'Unknown artist';
   }
   if (song.album) {
     const sep = document.createElement('span');
@@ -244,6 +244,8 @@ function setPlayIcon(playing) {
   }
   const fsi = document.getElementById('fsPlayIcon');
   if (fsi) fsi.className = playing ? 'ti ti-player-pause-filled' : 'ti ti-player-play-filled';
+  // The buttons say what pressing them does now.
+  for (const b of [btn, fsi?.closest('button')]) if (b) { b.title = playing ? 'Pause' : 'Play'; b.setAttribute('aria-label', b.title); }
 }
 
 async function loadRandomSongs() {
@@ -519,7 +521,8 @@ const volSlider = makeSlider(
     clearInterval(_loginFadeInterval);
     playerState.volume = pct;
     playerState.audio.volume = pct;
-    localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
+    if (pct > 0) playerState.audio.muted = false; // turning it up is asking to hear it
+    try { localStorage.setItem(VOLUME_KEY, pct.toFixed(3)); } catch (e) {}
     // fsVolSlider isn't defined yet at setup time (declared further down),
     // but is by the time a user can actually drag this and trigger the
     // callback — same forward-reference pattern as fsProgSlider/progSlider
@@ -548,8 +551,9 @@ const fsVolSlider = makeSlider(
     clearInterval(_loginFadeInterval);
     playerState.volume = pct;
     playerState.audio.volume = pct;
+    if (pct > 0) playerState.audio.muted = false;
     volSlider.setPct(pct);
-    localStorage.setItem(VOLUME_KEY, pct.toFixed(3));
+    try { localStorage.setItem(VOLUME_KEY, pct.toFixed(3)); } catch (e) {}
   }
 );
 fsVolSlider.setPct(playerState.volume);
@@ -576,8 +580,23 @@ function getLoginSong() {
 }
 
 function setLoginSong(song) {
-  localStorage.setItem(LOGIN_SONG_KEY, JSON.stringify(song));
+  try { localStorage.setItem(LOGIN_SONG_KEY, JSON.stringify(song)); } catch (e) {}
   invalidateLoginSongCache();
+}
+// Just the rows' door buttons, however the login song was changed (a row's
+// own button or the song menu). Re-rendering the list threw away whatever
+// else the view had (search sections, a playlist's controls, infinite scroll).
+function syncLoginSongRows() {
+  const nowId = getLoginSong()?.id;
+  document.querySelectorAll('.picker-item').forEach(r => {
+    if (!r._song) return;
+    const on = r._song.id === nowId;
+    r.classList.toggle('is-login-song', on);
+    const b = r.querySelector('[data-login]');
+    if (!b) return;
+    b.classList.toggle('login-active', on);
+    b.title = on ? 'Clear login song' : 'Set as login song';
+  });
 }
 
 function clearLoginSong() {
@@ -682,7 +701,7 @@ function goToMusicDetail(openFn) {
 
 async function loadPickerTab(tab) {
   pickerTab = tab;
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   const myLoadToken = ++_pickerLoadToken;
 
   let songs = [];
@@ -742,16 +761,16 @@ async function loadPickerTab(tab) {
         renderSongItems(foundSongs, pickerList);
       }
       if (!foundArtists.length && !foundAlbums.length && !foundSongs.length) {
-        pickerList.innerHTML = '<div class="picker-empty">no results</div>';
+        pickerList.innerHTML = '<div class="picker-empty">No results</div>';
       }
       return;
     } else if (tab === 'search') {
-      pickerList.innerHTML = '<div class="picker-empty">type to search</div>';
+      pickerList.innerHTML = '<div class="picker-empty">Type to search</div>';
       return;
     }
   } catch(e) {
     if (myLoadToken !== _pickerLoadToken) return;
-    pickerList.innerHTML = '<div class="picker-empty">failed to load</div>';
+    pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>';
     return;
   }
 
@@ -763,7 +782,7 @@ async function loadPickerTab(tab) {
     window.klabRenderMusicHome(pickerList, songs, () => loadPickerTab('random'));
     return;
   }
-  const tabLabels = {random:'Songs',recent:'Recently Played',search:'Search Results'};
+  const tabLabels = {random:'Songs',recent:'Recently played',search:'Search results'};
   renderPickerList(songs, tabLabels[pickerTab] || 'Songs');
 }
 
@@ -781,7 +800,7 @@ function renderSongItem(song, container) {
     <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
     <div class="picker-item-info">
       <div class="picker-item-title">${esc(song.title) || 'Unknown'}</div>
-      <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown Artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
+      <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
     </div>
     ${song.duration ? `<span class="picker-item-dur">${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, '0')}</span>` : ''}
     <div class="picker-item-actions">
@@ -874,18 +893,7 @@ function ensureSongRowDelegation() {
       // this is still right after another row changed the login song.
       const cur = getLoginSong();
       if (cur && cur.id === song.id) clearLoginSong(); else setLoginSong(song);
-      // Just the stars. Re-rendering the list threw away whatever else the
-      // view had (search sections, a playlist's controls, infinite scroll).
-      const nowId = getLoginSong()?.id;
-      document.querySelectorAll('.picker-item').forEach(r => {
-        if (!r._song) return;
-        const on = r._song.id === nowId;
-        r.classList.toggle('is-login-song', on);
-        const b = r.querySelector('[data-login]');
-        if (!b) return;
-        b.classList.toggle('login-active', on);
-        b.title = on ? 'Clear login song' : 'Set as login song';
-      });
+      syncLoginSongRows();
       return;
     }
 
@@ -926,7 +934,7 @@ function renderSongItems(songs, container) {
 
 function renderPickerList(songs, label) {
   if (!songs.length) {
-    pickerList.innerHTML = '<div class="picker-empty">no tracks found</div>';
+    pickerList.innerHTML = '<div class="picker-empty">No tracks found</div>';
     return;
   }
   pickerList.innerHTML = '';
@@ -1208,10 +1216,10 @@ function updateFSUI(song) {
   if (song.artistId) {
     const al = document.createElement('span');
     al.className = 'player-link fs-link';
-    al.textContent = song.artist || 'Unknown Artist';
+    al.textContent = song.artist || 'Unknown artist';
     al.addEventListener('click', () => { closeFS(); goToMusicDetail(() => loadArtistView({ id: song.artistId, name: song.artist })); });
     fsArtistEl.appendChild(al);
-  } else { fsArtistEl.textContent = song.artist || 'Unknown Artist'; }
+  } else { fsArtistEl.textContent = song.artist || 'Unknown artist'; }
 
   // Album — clickable
   const fsAlbumEl = document.getElementById('fsAlbum');

@@ -191,8 +191,8 @@ async function saveServerPrefs() {
       // then a PUT got cut off after the GET). It answers with the merged
       // whole. An API without PATCH yet: the GET-merge-PUT it replaced.
       let server = null;
+      const changes = {};
       if (!_prefsNoPatch) {
-        const changes = {};
         for (const n of mine) changes[n] = localPref(n);
         const body = JSON.stringify(changes);
         // keepalive lets it outlive the tab, but browsers refuse (throw) one
@@ -210,7 +210,10 @@ async function saveServerPrefs() {
       const sent = {};
       if (server) {
         for (const n of PREF_NAMES) {
-          merged[n] = mine.includes(n) ? localPref(n) : (n in server ? server[n] : localPref(n));
+          // What was sent, not what it is by now: a field edited again
+          // while this was in flight was marked as saved, never went up,
+          // and the next sync took the edit away.
+          merged[n] = mine.includes(n) ? changes[n] : (n in server ? server[n] : localPref(n));
           sent[n] = encPref(merged[n]);
         }
       } else {

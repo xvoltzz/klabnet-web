@@ -12,6 +12,7 @@ window.klabStars = (function() {
   const FRESH_MS = 60000;
   const cache = new Map();                          // 'song:id' -> { count, mine, at }
   const wanted = new Set();
+  const NONE = { count: 0, mine: false };
   let timer = 0;
 
   function paintEl(el, s) {
@@ -37,47 +38,82 @@ window.klabStars = (function() {
       const key = el.dataset.star;
       if (!key || !KINDS.includes(key.split(':')[0])) continue;
       const s = cache.get(key);
-      if (s) paintEl(el, s);
+      // Not known yet: blank, so a reused button (the dock's, the album
+      // page's) doesn't keep showing the last item's stars meanwhile.
+      paintEl(el, s || NONE);
       if (!s || now - s.at > FRESH_MS) wanted.add(key);
     }
     if (wanted.size && !timer) timer = setTimeout(load, 30);
   }
 
-  async function load() {
+  // One request for up to 300 ids of a kind. False if it didn't land.
+  async function fetchChunk(kind, chunk) {
+    const started = Date.now();
+    try {
+      const r = await fetchTimeout(`/api/posts/stars?kind=${kind}&ids=${chunk.map(encodeURIComponent).join(',')}`, {}, 8000);
+      if (!r.ok) return false;
+      const got = (await r.json()).stars || {};
+      const at = Date.now();
+      for (const id of chunk) {
+        const key = kind + ':' + id;
+        // Starred or unstarred while this was on its way: that answer is newer.
+        if (cache.get(key)?.at > started) continue;
+        cache.set(key, { ...NONE, ...got[id], at });
+      }
+      return true;
+    } catch { return false; }
+  }
+
+  async function load(retry = true) {
     timer = 0;
     const keys = [...wanted]; wanted.clear();
+    const failed = [];
     for (const kind of KINDS) {
       const ids = keys.filter(k => k.startsWith(kind + ':')).map(k => k.slice(kind.length + 1));
       for (let i = 0; i < ids.length; i += 300) {
         const chunk = ids.slice(i, i + 300);
-        try {
-          const r = await fetchTimeout(`/api/posts/stars?kind=${kind}&ids=${chunk.map(encodeURIComponent).join(',')}`, {}, 8000);
-          if (!r.ok) continue;
-          const got = (await r.json()).stars || {};
-          const at = Date.now();
-          for (const id of chunk) cache.set(kind + ':' + id, { count: 0, mine: false, ...got[id], at });
-        } catch {}
+        if (!await fetchChunk(kind, chunk)) failed.push(...chunk.map(id => kind + ':' + id));
       }
     }
     repaint(keys);
+    // One more go for what didn't load, or that page stays blank until it's rebuilt.
+    if (failed.length && retry) setTimeout(() => {
+      failed.forEach(k => wanted.add(k));
+      if (!timer) load(false);
+    }, 10000);
   }
 
   function repaint(keys) {
     const set = new Set(keys);
     document.querySelectorAll('[data-star]').forEach(el => {
-      const s = set.has(el.dataset.star) && cache.get(el.dataset.star);
-      if (s) paintEl(el, s);
+      if (set.has(el.dataset.star)) paintEl(el, get(el.dataset.star));
     });
   }
 
-  function get(key) { return cache.get(key) || { count: 0, mine: false }; }
+  function get(key) { return cache.get(key) || NONE; }
+
+  // The stars of one item, asked for now if they aren't known (a song met
+  // somewhere that draws no star: the wheel, Cover Flow, Up next).
+  async function ensure(key) {
+    const s = cache.get(key);
+    if (s && Date.now() - s.at <= FRESH_MS) return s;
+    const [kind, ...rest] = key.split(':');
+    const id = rest.join(':');
+    if (KINDS.includes(kind) && id && await fetchChunk(kind, [id])) repaint([key]);
+    return get(key);
+  }
 
   // Shows the change at once, then settles on what the server says.
-  async function toggle(key) {
+  // `want` (true to star, false to unstar) is for a caller that showed a
+  // label: the server only flips, so without it a "Star" drawn before the
+  // item's stars were known could take yours away.
+  async function toggle(key, want) {
     const [kind, ...rest] = key.split(':');
     const id = rest.join(':');
     if (!KINDS.includes(kind) || !id) return;
+    if (!cache.has(key)) await ensure(key);
     const before = get(key);
+    if (typeof want === 'boolean' && before.mine === want) { repaint([key]); return; }
     cache.set(key, { count: Math.max(0, before.count + (before.mine ? -1 : 1)), mine: !before.mine, at: Date.now() });
     repaint([key]);
     SFX && SFX.play('star');
@@ -88,8 +124,9 @@ window.klabStars = (function() {
       if (!r.ok) throw new Error();
       cache.set(key, { ...(await r.json()), at: Date.now() });
     } catch {
-      cache.set(key, before);
-      showToast('couldn’t star that — try again', 'ti-alert-triangle');
+      // Back to what was known; if nothing was, it's asked for again.
+      if (before.at) cache.set(key, before); else cache.delete(key);
+      showToast('Couldn’t star that. Try again', 'ti-alert-triangle');
     }
     repaint([key]);
   }
@@ -119,5 +156,5 @@ window.klabStars = (function() {
       `<i class="ti ti-star"></i>${label ? `<span class="klab-star-label">${label}</span>` : ''}<span class="klab-star-n"></span></button>`;
   }
 
-  return { paint, toggle, get, button };
+  return { paint, toggle, get, ensure, button };
 })();

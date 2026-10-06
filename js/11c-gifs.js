@@ -101,10 +101,10 @@ window.klabGifPicker = (function() {
     io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) load(false); }, { root: grid, rootMargin: '200px' });
 
     document.addEventListener('pointerdown', e => {
-      if (panel.hidden || panel.contains(e.target) || anchorEl?.contains(e.target) || e.target.closest?.('.modal-backdrop, .klab-modal, [role="dialog"]')) return;
+      if (panel.hidden || panel.contains(e.target) || anchorEl?.contains(e.target) || e.target.closest?.('.add-app-backdrop, .klab-menu')) return; // its own "Remove this GIF?" dialog
       close();
     }, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden && !document.querySelector('.modal-backdrop.open')) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden && !document.querySelector('.add-app-backdrop.open')) close(); });
     window.addEventListener('resize', () => { if (!panel.hidden) place(); });
   }
 
@@ -201,27 +201,27 @@ window.klabGifPicker = (function() {
 
   async function add(req) {
     addBtn.disabled = true;
-    addMsg.textContent = 'grabbing it…';
+    addMsg.textContent = 'Grabbing it…';
     try {
       const res = await fetch(req.url, req.init);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { addMsg.textContent = data.error || "couldn't add that one"; return; }
+      if (!res.ok) { addMsg.textContent = klabCap(data.error) || 'Couldn’t add that one'; return; }
       linkEl.value = ''; nameEl.value = '';
       showAdd(false);
       pick(data);
     } catch (e) {
-      addMsg.textContent = "couldn't add that one";
+      addMsg.textContent = 'Couldn’t add that one';
     } finally {
       addBtn.disabled = false;
     }
   }
   function addLink() {
     const url = linkEl.value.trim();
-    if (!url) { addMsg.textContent = 'paste a link first'; return; }
+    if (!url) { addMsg.textContent = 'Paste a link first'; return; }
     add({ url: '/api/gifs/link', init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, name: nameEl.value.trim() }) } });
   }
   function addFile(f) {
-    if (!/gif$/i.test(f.type) && !/\.gif$/i.test(f.name)) { showAdd(true); addMsg.textContent = 'that isn’t a .gif'; return; }
+    if (!/gif$/i.test(f.type) && !/\.gif$/i.test(f.name)) { showAdd(true); addMsg.textContent = 'That isn’t a .gif'; return; }
     if (addForm.hidden) showAdd(true);
     const fd = new FormData();
     fd.append('file', f);

@@ -47,7 +47,7 @@ function addFavorite(song) {
 }
 function removeFavorite(id) {
   const favs = getFavorites().filter(s => s.id !== id);
-  localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
   invalidateFavCache();
   updateFavBadge();
 }
@@ -84,7 +84,10 @@ function addToPlayHistory(song) {
   if (!song) return;
   let hist = getPlayHistory().filter(s => s.id !== song.id); // dedupe
   hist.unshift(song);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 50)));
+  // Slim records, like favourites: this list is saved to prefs after every
+  // song, and 50 whole Navidrome records were ~50KB each time. A full
+  // store mustn't throw either: this runs inside playSong.
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 50).filter(Boolean).map(slimSong))); } catch (e) {}
 }
 
 // ══════════════════════════════════════════
@@ -101,7 +104,7 @@ loadPickerTab = async function(tab) {
     _pickerLoadToken++;
     const favs = getFavorites();
     if (!favs.length) {
-      pickerList.innerHTML = '<div class="picker-empty">no favorites yet — hit the heart on any song</div>';
+      pickerList.innerHTML = '<div class="picker-empty">No favorites yet. Hit the heart on any song</div>';
       return;
     }
     const sorted = applySort(favs, 'favorites');
@@ -143,6 +146,7 @@ function updateFSFavBtn() {
   icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
   btn.classList.toggle('is-fav', fav);
   btn.setAttribute('aria-pressed', fav);
+  btn.title = fav ? 'Remove from favorites' : 'Add to favorites';
 }
 
 document.getElementById('fsFav').addEventListener('click', () => {
@@ -216,6 +220,7 @@ function updateDockFavBtn() {
   if (!song) { icon.className = 'ti ti-heart'; btn.style.opacity = '0.45'; btn.style.color = ''; return; }
   const fav = isFavorite(song.id);
   icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
+  btn.title = fav ? 'Remove from favorites' : 'Add to favorites';
   btn.style.color  = fav ? 'var(--danger-color)' : '';
   btn.style.opacity = fav ? '0.9' : '0.45';
 }

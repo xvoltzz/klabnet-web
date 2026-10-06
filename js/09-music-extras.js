@@ -82,7 +82,7 @@ function openGenreView(genre) {
   });
   pickerList.appendChild(back);
   setMusicViewTitle('genres', genre.value);
-  document.getElementById('musicViewSub').textContent = `${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${genre.songCount} songs`;
+  document.getElementById('musicViewSub').textContent = `${klabCount(genre.albumCount, 'album')} · ${klabCount(genre.songCount, 'song')}`;
   renderAlbumList(applySort(genre.albums, 'albums'), true);
 }
 
@@ -98,7 +98,7 @@ window.klabOpenGenre = async value => {
 };
 
 async function loadGenres() {
-  pickerList.innerHTML = '<div class="picker-empty">loading genres...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading genres…</div>';
   try {
     if (!_genresCache || Date.now() - _genresAt > GENRE_TTL_MS) {
       _genresCache = await buildGenres();
@@ -107,7 +107,7 @@ async function loadGenres() {
     if (pickerTab !== 'genres') return; // moved on while the library was read
     const genres = applySort(_genresCache, 'genres');
 
-    if (!genres.length) { pickerList.innerHTML = '<div class="picker-empty">no genres found</div>'; return; }
+    if (!genres.length) { pickerList.innerHTML = '<div class="picker-empty">No genres found</div>'; return; }
 
     pickerList.innerHTML = '';
     const hdr = document.createElement('div');
@@ -140,18 +140,18 @@ async function loadGenres() {
         busy = true;
         let songs;
         try { songs = await genreSongs(genre); } finally { busy = false; }
-        if (!songs.length) { showToast('nothing to play in ' + genre.value, 'ti-alert-triangle'); return; }
+        if (!songs.length) { showToast('Nothing to play in ' + genre.value, 'ti-alert-triangle'); return; }
         for (let i = songs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [songs[i], songs[j]] = [songs[j], songs[i]]; }
         playerState.playlist = songs; playerState.playlistIndex = 0;
         playSong(songs[0]);
-        showToast(`${genre.value} — shuffling ${songs.length} songs`, 'ti-arrows-shuffle');
+        showToast(`${genre.value}: shuffling ${klabCount(songs.length, 'song')}`, 'ti-arrows-shuffle');
       };
 
       item.querySelector('[title="Play genre"]').addEventListener('click', e => { e.stopPropagation(); play(); SFX && SFX.play('click'); });
       item.addEventListener('click', open);
       pickerList.appendChild(item);
     });
-  } catch(e) { if (pickerTab === 'genres') pickerList.innerHTML = '<div class="picker-empty">failed to load genres</div>'; }
+  } catch(e) { if (pickerTab === 'genres') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load genres</div>'; }
 }
 
 // ══════════════════════════════════════════
@@ -163,7 +163,11 @@ function getPlaylists() {
   try { return JSON.parse(localStorage.getItem(PLAYLISTS_KEY) || '[]'); } catch(e) { return []; }
 }
 function savePlaylists(pls) {
-  localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(pls));
+  // Slim records, like favourites (a playlist of whole Navidrome records
+  // is ~1KB a song, and it all goes to prefs).
+  for (const pl of pls) if (Array.isArray(pl.songs)) pl.songs = pl.songs.filter(Boolean).map(slimSong);
+  try { localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(pls)); }
+  catch (e) { showToast?.('Couldn’t save that playlist: storage is full', 'ti-alert-triangle'); }
   scheduleSave();
   // Single touch point for every mutation (create/delete/add-song all
   // funnel through here) — the sidebar just stays in sync automatically
@@ -251,7 +255,7 @@ function addSongToPlaylist(plId, song) {
 function loadPlaylistView(pl) {
   _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
   hideSortBtn();
-  pickerList.classList.remove('picker-list-grid'); // a track list, not a grid — in case Albums/Artists left it on
+  pickerList.classList.remove('picker-list-grid', 'mh-home'); // a track list, not a grid or Home — in case one of them left its class on
   pickerList.innerHTML = '';
   // Playlists are always one click away in the sidebar now (no more
   // generic "Playlists" tab to go back to) — this just clears the active
@@ -269,7 +273,7 @@ function loadPlaylistView(pl) {
 
   const lbl = document.createElement('div');
   lbl.className = 'picker-section-label';
-  lbl.textContent = `${pl.name} · ${pl.songs.length} songs`;
+  lbl.textContent = `${pl.name} · ${klabCount(pl.songs.length, 'song')}`;
   pickerList.appendChild(lbl);
 
   if (!pl.songs.length) {
@@ -304,7 +308,7 @@ function loadPlaylistView(pl) {
       pl.songs = target.songs; // keep local ref in sync
       savePlaylists(pls);
       item.remove();
-      lbl.textContent = `${pl.name} · ${target.songs.length} songs`;
+      lbl.textContent = `${pl.name} · ${klabCount(target.songs.length, 'song')}`;
       SFX && SFX.play('click');
     });
     actions.appendChild(removeBtn);
@@ -474,7 +478,7 @@ function klabAlbumMenu(e, album) {
     { label: 'Add to queue', icon: 'ti-playlist-add', action: withSongs(s => {
       queue.push(...s); updateQueueBadge(); SFX && SFX.play('queue');
       if (pickerTab === 'queue') renderQueueList(); // this menu can open over the Queue view
-      showToast('Queued ' + s.length + ' tracks', toastArt(album.coverArt || album.id));
+      showToast('Queued ' + klabCount(s.length, 'track'), toastArt(album.coverArt || album.id));
     }) },
     '-',
     { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
@@ -579,7 +583,7 @@ function klabPlaylistMenu(e, pl, row) {
     { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: () => {
       queue.push(...pl.songs); updateQueueBadge(); SFX && SFX.play('queue');
       if (pickerTab === 'queue') renderQueueList(); // the sidebar is beside the Queue view
-      showToast('Queued ' + n + ' tracks', 'ti-playlist-add');
+      showToast('Queued ' + klabCount(n, 'track'), 'ti-playlist-add');
     } },
     '-',
     { label: 'Open', icon: 'ti-playlist', action: () => row.click() },
@@ -623,8 +627,10 @@ function hideSongCtx() { songCtxMenu.classList.remove('visible'); }
 // song list. The album/artist detail view's own track rows pass their
 // local `songs` array instead, since those tracks were never in
 // pickerSongs to begin with.
+let _songCtxFor = null; // the song the menu was last opened on
 function showSongCtx(x, y, song, contextSongs) {
   if (!song) return;
+  _songCtxFor = song;
   document.getElementById('songCtxLabel').textContent = song.title || 'Song';
 
   document.getElementById('songCtxPlay').onclick = async () => {
@@ -648,7 +654,7 @@ function showSongCtx(x, y, song, contextSongs) {
 
   const favItem = document.getElementById('songCtxFav');
   const isFav = isFavorite(song.id);
-  favItem.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i> ${isFav ? 'Remove from Favorites' : 'Add to Favorites'}`;
+  favItem.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i> ${isFav ? 'Remove from favorites' : 'Add to favorites'}`;
   favItem.onclick = () => {
     hideSongCtx();
     if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
@@ -657,18 +663,26 @@ function showSongCtx(x, y, song, contextSongs) {
   };
 
   const starItem = document.getElementById('songCtxStar');
-  const starred = klabStars.get('song:' + song.id).mine;
-  starItem.innerHTML = `<i class="ti ${starred ? 'ti-star-filled' : 'ti-star'}"></i> ${starred ? 'Unstar' : 'Star'}`;
-  starItem.onclick = () => { hideSongCtx(); klabStars.toggle('song:' + song.id); };
+  const starKey = 'song:' + song.id;
+  const labelStar = mine => {
+    starItem.innerHTML = `<i class="ti ${mine ? 'ti-star-filled' : 'ti-star'}"></i> ${mine ? 'Unstar' : 'Star'}`;
+    // Does what the label says, whatever the server turns out to hold.
+    starItem.onclick = () => { hideSongCtx(); klabStars.toggle(starKey, !mine); };
+  };
+  labelStar(klabStars.get(starKey).mine);
+  // A song from the wheel or Cover Flow has no star drawn, so nothing has
+  // asked for its stars yet.
+  klabStars.ensure(starKey).then(s => { if (_songCtxFor === song) labelStar(s.mine); });
 
   const loginItem = document.getElementById('songCtxLogin');
   const existingLogin = getLoginSong();
   const isLogin = existingLogin && existingLogin.id === song.id;
-  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-door-exit' : 'ti-door-enter'}"></i> ${isLogin ? 'Clear Login Song' : 'Set as Login Song'}`;
+  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-door-exit' : 'ti-door-enter'}"></i> ${isLogin ? 'Clear login song' : 'Set as login song'}`;
   loginItem.onclick = () => {
     hideSongCtx();
     if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-door-exit'); }
     else { setLoginSong(song); showToast(`"${song.title}" set as login song`, toastArt(song.coverArt)); }
+    syncLoginSongRows();
   };
 
   // Label the original with what it actually is ("Download FLAC"), since
@@ -677,7 +691,7 @@ function showSongCtx(x, y, song, contextSongs) {
   // costs quality.
   const suffix = (song.suffix || '').toLowerCase();
   const dlItem = document.getElementById('songCtxDownload');
-  dlItem.innerHTML = `<i class="ti ti-download"></i> Download${suffix ? ' ' + suffix.toUpperCase() : ''}`;
+  dlItem.innerHTML = `<i class="ti ti-download"></i> Download${suffix ? ' ' + esc(suffix.toUpperCase()) : ''}`;
   dlItem.onclick = () => { hideSongCtx(); downloadSongOriginal(song); };
 
   const dlMp3Item = document.getElementById('songCtxDownloadMp3');
@@ -722,7 +736,7 @@ const _origLoadPickerTabNew = loadPickerTab;
 const _SONGS_PER_PAGE = 100;
 let _songsOffset = 0;
 let _songsObserver = null;
-let _songsCache = null;
+let _songsCache = null, _songsAt = 0;
 
 async function _fetchSongsPage(offset) {
   const res  = await fetchTimeout(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`, {}, 8000);
@@ -732,13 +746,13 @@ async function _fetchSongsPage(offset) {
 
 async function loadAllSongs() {
   if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
-  pickerList.innerHTML = '<div class="picker-empty">loading songs...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading songs…</div>';
   showSortBtn('songs');
   try {
     if (getSort('songs') === 'default') {
       await loadSongsIncremental();
     } else {
-      if (!_songsCache) {
+      if (!_songsCache || Date.now() - _songsAt > LIBRARY_TTL_MS) {
         const all = [];
         let offset = 0;
         // Capped for the same reason as loadAlbums() above — 200 pages is
@@ -748,14 +762,15 @@ async function loadAllSongs() {
           all.push(...page);
           if (page.length < _SONGS_PER_PAGE) break;
           offset += _SONGS_PER_PAGE;
-          if (page_i === 199) showToast('song list may be incomplete — hit the page limit', 'ti-list-details');
+          if (page_i === 199) showToast('The song list may be incomplete: it hit the page limit', 'ti-list-details');
         }
         _songsCache = all;
+        _songsAt = Date.now();
       }
       if (pickerTab !== 'songs') return;
       renderSongsTabSorted();
     }
-  } catch(e) { if (pickerTab === 'songs') pickerList.innerHTML = '<div class="picker-empty">failed to load songs</div>'; }
+  } catch(e) { if (pickerTab === 'songs') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load songs</div>'; }
 }
 
 // Fast path — one page at a time, straight from the network, in server order.
@@ -904,7 +919,7 @@ async function fetchMusicRequests() {
 
 async function loadMusicRequestsTab() {
   _reqAvatarTries = 0;
-  pickerList.innerHTML = '<div class="picker-empty">loading...</div>';
+  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   await fetchMusicRequests();
   if (pickerTab !== 'requests') return;
   renderMusicRequestsList();
@@ -951,14 +966,14 @@ function musicRequestRowHTML(req, avatarUrl) {
 function renderMusicRequestsList() {
   updateRequestsBadge();
   if (pickerTab !== 'requests') return;
-  const newBtnHTML = `<button class="music-new-playlist-btn" id="musicNewRequestBtn" type="button" style="margin-bottom:10px;"><i class="ti ti-plus"></i> New Request</button>`;
+  const newBtnHTML = `<button class="music-new-playlist-btn" id="musicNewRequestBtn" type="button" style="margin-bottom:10px;"><i class="ti ti-plus"></i> New request</button>`;
   let anyUnresolvedAvatar = false;
   const rowsHTML = _musicRequests.map(req => {
     const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(req.username) : null;
     if (!avatarUrl) anyUnresolvedAvatar = true;
     return musicRequestRowHTML(req, avatarUrl);
   }).join('');
-  pickerList.innerHTML = newBtnHTML + (_musicRequests.length ? rowsHTML : '<div class="picker-empty">no requests yet</div>');
+  pickerList.innerHTML = newBtnHTML + (_musicRequests.length ? rowsHTML : '<div class="picker-empty">No requests yet</div>');
   document.getElementById('musicNewRequestBtn')?.addEventListener('click', openMusicRequestModal);
   pickerList.querySelectorAll('[data-req-status]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -970,7 +985,7 @@ function renderMusicRequestsList() {
         if (!res.ok) throw new Error('failed');
         SFX && SFX.play('click');
         await loadMusicRequestsTab();
-      } catch (e) { showToast('Failed to update request', 'ti-alert-triangle'); }
+      } catch (e) { showToast('Couldn’t update that request', 'ti-alert-triangle'); }
     });
   });
   pickerList.querySelectorAll('[data-req-delete]').forEach(btn => {
@@ -981,7 +996,7 @@ function renderMusicRequestsList() {
         const res = await fetchTimeout(`/api/music-requests/${btn.dataset.reqDelete}`, { method: 'DELETE' }, 8000);
         if (!res.ok) throw new Error('failed');
         await loadMusicRequestsTab();
-      } catch (e) { showToast('Failed to delete request', 'ti-trash-x'); }
+      } catch (e) { showToast('Couldn’t delete that request', 'ti-trash-x'); }
     });
   });
   // window.klabResolveUserAvatar only re-renders the FEED module on a cache
@@ -1000,7 +1015,7 @@ function openMusicRequestModal() {
       <button type="button" class="music-req-type-btn active" data-req-type="album">Album</button>
       <button type="button" class="music-req-type-btn" data-req-type="song">Song</button>
     </div>
-    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="musicReqSearch" placeholder="search musicbrainz..." autocomplete="off" /></div>
+    <div class="chat-modal-search"><i class="ti ti-search"></i><input type="text" id="musicReqSearch" placeholder="Search MusicBrainz…" autocomplete="off" /></div>
     <div class="chat-modal-list" id="musicReqResults"></div>
   `);
   const searchEl = document.getElementById('musicReqSearch');
@@ -1019,7 +1034,7 @@ function openMusicRequestModal() {
 
   async function doSearch(q) {
     const myToken = ++searchToken;
-    listEl.innerHTML = '<div class="picker-empty">searching...</div>';
+    listEl.innerHTML = '<div class="picker-empty">Searching…</div>';
     try {
       const res = await fetchTimeout(`/api/music-requests/search?q=${encodeURIComponent(q)}&type=${reqType}`, {}, 8000);
       const data = await res.json();
@@ -1035,12 +1050,12 @@ function openMusicRequestModal() {
       renderResults(data.results || []);
     } catch (e) {
       if (myToken !== searchToken) return;
-      listEl.innerHTML = '<div class="picker-empty">search failed — try again in a moment</div>';
+      listEl.innerHTML = '<div class="picker-empty">Search failed. Try again in a moment</div>';
     }
   }
 
   function renderResults(results) {
-    if (!results.length) { listEl.innerHTML = '<div class="picker-empty">no results</div>'; return; }
+    if (!results.length) { listEl.innerHTML = '<div class="picker-empty">No results</div>'; return; }
     listEl.innerHTML = '';
     const typeIcon = reqType === 'song' ? 'ti-music' : 'ti-disc';
     results.forEach(r => {
@@ -1069,7 +1084,7 @@ function openMusicRequestModal() {
           SFX && SFX.play('star');
           await loadMusicRequestsTab();
         } catch (e) {
-          showToast('Failed to submit request', 'ti-music-x');
+          showToast('Couldn’t send that request', 'ti-music-x');
           btn.disabled = false;
         }
       });
@@ -1091,11 +1106,11 @@ function openMusicRequestModal() {
 // ══════════════════════════════════════════
 const SORT_KEY = 'klabnet_picker_sort';
 const SORT_OPTIONS = {
-  songs:     [['default','Library Order'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)'], ['album-asc','Album (A–Z)']],
-  favorites: [['added-desc','Recently Added'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)']],
+  songs:     [['default','Library order'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)'], ['album-asc','Album (A–Z)']],
+  favorites: [['added-desc','Recently added'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)']],
   albums:    [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['artist-asc','Artist (A–Z)'], ['year-desc','Year (Newest)'], ['year-asc','Year (Oldest)']],
-  playlists: [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['created-desc','Recently Created']],
-  genres:    [['name-asc','Name (A–Z)'], ['count-desc','Most Songs']],
+  playlists: [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['created-desc','Recently created']],
+  genres:    [['name-asc','Name (A–Z)'], ['count-desc','Most songs']],
 };
 
 let _pickerSortState = {};
@@ -1108,7 +1123,7 @@ function getSort(tab) {
 }
 function setSort(tab, val) {
   _pickerSortState[tab] = val;
-  localStorage.setItem(SORT_KEY, JSON.stringify(_pickerSortState));
+  try { localStorage.setItem(SORT_KEY, JSON.stringify(_pickerSortState)); } catch (e) {}
 }
 
 function applySort(items, tab) {

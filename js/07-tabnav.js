@@ -188,6 +188,8 @@ async function syncAwayRow() {
   const app = !!window.klabnetDesktop?.idle, chrome = !window.klabnetDesktop && 'IdleDetector' in window;
   row.hidden = !app && !chrome;
   if (row.hidden) return;
+  // The app can't tell on Wayland (it says null): no switch that can't work.
+  if (app) { try { if ((await window.klabnetDesktop.idle()) == null) { row.hidden = true; return; } } catch (e) {} }
   let perm = 'granted';
   if (chrome) { try { perm = (await navigator.permissions.query({ name: 'idle-detection' })).state; } catch (e) { perm = 'prompt'; } }
   document.getElementById('awayToggle').classList.toggle('on', _settings.awayStatus !== false && perm === 'granted');
@@ -266,6 +268,10 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   // Clear localStorage
   Object.values(PREF_KEYS).forEach(k => localStorage.removeItem(k));
   localStorage.removeItem(SETTINGS_KEY);
+  // And the Navigation choice made in this same panel, and what the sync
+  // thought the server had.
+  localStorage.removeItem('klabnet_nav');
+  localStorage.removeItem('klabnet_prefs_base');
   // Clear server prefs
   try {
     await fetchTimeout('/api/prefs', {
@@ -273,7 +279,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
       body: JSON.stringify({})
     }, 8000);
   } catch(e) {}
-  showToast('preferences reset — reloading...', 'ti-restore');
+  showToast('Preferences reset. Reloading…', 'ti-restore');
   setTimeout(() => location.reload(), 1500);
 });
 
@@ -334,7 +340,10 @@ document.getElementById('settingsBackdrop').addEventListener('click', e => {
 // Had click-outside but no Escape — every other backdrop-modal in the app
 // already closes on Escape, this one just got missed.
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('open')) closeSettings();
+  // Not under a dialog opened from here (the background colours, "Reset?"):
+  // Escape closed that and Settings with it.
+  if (e.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('open')
+      && !document.querySelector('.add-app-backdrop.open, .img-view-backdrop, .klab-menu.visible')) closeSettings();
 });
 trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),
@@ -589,7 +598,9 @@ window.klabSideNav = (function() {
   burger.addEventListener('click', () => {
     SFX && SFX.play('click');
     if (mode() === 'side' && roomy.matches) set('rail');
-    else if (mode() === 'rail') set('side');
+    // Only with room for it: in a narrow window "side" looks the same as
+    // "rail", so the click did nothing but change the saved choice.
+    else if (mode() === 'rail' && roomy.matches) set('side');
     else {
       root.classList.toggle('nav-flyout');
       burger.setAttribute('aria-expanded', String(root.classList.contains('nav-flyout')));
@@ -736,6 +747,7 @@ window.klabSideNav = (function() {
   function renderUpdate(u) {
     const sub = $('appVersionSub'), btn = $('appUpdateBtn');
     if (!sub || !btn || !settings) return;
+    u = u || {};
     const v = `Version ${settings.version}`;
     const lines = {
       checking: [`${v} · checking for updates…`, 'Checking…', true],

@@ -540,6 +540,17 @@ function klabCleanSong(s) {
   for (const k of ['title', 'artist', 'album']) if (out[k] != null) out[k] = String(out[k]).slice(0, 300);
   return out;
 }
+// A message from the API ("too large") as a sentence ("Too large").
+function klabCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+// "1 track", "12 tracks".
+function klabCount(n, word, plural) {
+  return `${Number(n || 0).toLocaleString()} ${n === 1 ? word : (plural || word + 's')}`;
+}
+// The song on a post or a photo, as one the player takes: the API stores
+// its id as `songId`.
+function klabPostSong(s) {
+  return s && typeof s === 'object' ? klabCleanSong({ ...s, id: s.id ?? s.songId }) : null;
+}
 
 // Stars (js/21-stars.js): anything can be starred, and five people starring
 // it turns it gold. Chat, feed posts and photos store a star as this

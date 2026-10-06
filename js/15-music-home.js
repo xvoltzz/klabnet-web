@@ -30,7 +30,7 @@
       playerState.playlist = songs; playerState.playlistIndex = 0;
       playSong(songs[0]);
       SFX && SFX.play('click');
-    } catch (e) { showToast('couldn’t play that album', 'ti-alert-triangle'); }
+    } catch (e) { showToast('Couldn’t play that album', 'ti-alert-triangle'); }
   }
   const openAlbum = a => window.openAlbumPage && window.openAlbumPage(a.id, a.name || a.title);
 
@@ -308,7 +308,13 @@
       drag = null;
     };
     stage.addEventListener('pointerup', end);
-    stage.addEventListener('pointercancel', end);
+    // A cancelled press (the page took the touch to scroll) is never a tap.
+    stage.addEventListener('pointercancel', () => {
+      if (!drag) return;
+      el.classList.remove('dragging');
+      if (drag.moved) go(target);
+      drag = null;
+    });
 
     // Arrow keys while it has focus. Stopped here so they don't also skip
     // tracks, which is what ←/→ do everywhere else.
@@ -757,7 +763,7 @@
     let wheel = null;
     if (songs.length >= 3) list.appendChild(wheel = shuffleWheel(songs));
     else if (songs.length) renderSongItems(songs, list);
-    else list.insertAdjacentHTML('beforeend', '<div class="picker-empty">no tracks found</div>');
+    else list.insertAdjacentHTML('beforeend', '<div class="picker-empty">No tracks found</div>');
     // Reshuffle swaps just the wheel for a fresh one; the rest of Home
     // (Cover Flow, the album rows) stays exactly where it was.
     const btn = shuffleLabel.querySelector('button');
@@ -778,7 +784,7 @@
           next.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
         }
       } catch (e) {
-        showToast('couldn’t reshuffle', 'ti-alert-triangle');
+        showToast('Couldn’t reshuffle', 'ti-alert-triangle');
       } finally {
         btn.classList.remove('busy');
       }

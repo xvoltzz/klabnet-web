@@ -172,7 +172,7 @@
     if (!text.toLowerCase().includes('@' + lc)) return false; // the usual case, no regex at all
     if (_mentionReFor !== lc) {
       _mentionReFor = lc;
-      _mentionRe = new RegExp('(^|[^\\w@])@' + lc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w.-])', 'i');
+      _mentionRe = new RegExp('(^|[^\\w@])@' + lc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![.-]*\\w)', 'i');
     }
     return _mentionRe.test(text.replace(MENTION_SKIP_RE, ' '));
   }
@@ -472,7 +472,7 @@
     const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
     const songArt = post.song && post.song.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(post.song.coverArt)}&size=300&${subsonicParams()}` : '';
     const kind = post.song ? ' is-song' : post.image_mxc ? ' is-photo' : (isShout(post.text) && !ytId ? ' is-shout' : '');
-    return '<div class="feed-post' + kind + (star.count >= KLAB_GOLD_AT ? ' gold' : '') + '" data-post-id=""' + post.id + '"' +
+    return '<div class="feed-post' + kind + (star.count >= KLAB_GOLD_AT ? ' gold' : '') + '" data-post-id="' + post.id + '"' +
       (post.song ? ' data-song-id="' + esc(post.song.songId || '') + '"' : '') +
       ((imgUrl || songArt) ? ' data-amb="' + esc(imgUrl || songArt) + '"' : '') +
       ' style="--name-color:' + profileColor(post.username) + '">' +
@@ -507,6 +507,7 @@
   // _lastChannelListKey and renderTimeline()'s _lastTimelineRenderKey — the
   // feed was the one list without it.
   let _lastFeedRenderKey = null;
+  let _peopleVer = 0; // bumped when the roster changes: mentions are drawn from it
   // Per-post so the renderer can tell WHICH posts changed, not just that
   // something did. Everything postHTML() reads about one post goes in here.
   function postRenderKey(p, me) {
@@ -527,12 +528,15 @@
           ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
-            : '-');
+            : '-') +
+          // Only posts that could hold a mention follow the roster.
+          ((p.text || '').includes('@') || replies?.some(r => (r.text || '').includes('@')) ? ':' + _peopleVer : '');
     }
   }
   // Takes the per-post keys already worked out, so each render builds them once.
   function feedRenderKey(keys, me) {
-    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' + keys.join(',');
+    // The date too: "Today" and "Yesterday" are in the day headers.
+    return (me || '') + '|' + (_mentionsOnly ? '1' : '0') + '|' + (_feedHasMore ? '1' : '0') + '|' + _dayFmt.format(new Date()) + '|' + keys.join(',');
   }
 
   // Relative times are text in place, not part of any key: updated here on
@@ -788,8 +792,18 @@
   // color/bio/banner — renderFeed/listEl are private to this IIFE, same
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
+  // A new profile picture: this cache still had the old one, so feed
+  // posts, Home, the mention list and the request list kept the old face
+  // until a reload. The old blob goes once nothing is showing it.
+  window.klabFeedForgetAvatar = username => {
+    const old = _feedAvatarCache.get(username);
+    _feedAvatarCache.delete(username);
+    _feedAvatarFailedAt.delete(username);
+    ensureFeedAvatar(username);
+    if (old) setTimeout(() => URL.revokeObjectURL(old), 5000);
+  };
   // The people list arrived or grew: mentions that are real now get coloured.
-  window.addEventListener('klab:people', () => { renderFeed(); if (textEl.value) autoGrowComposer(); });
+  window.addEventListener('klab:people', () => { _peopleVer++; renderFeed(); if (textEl.value) autoGrowComposer(); });
 
   // Exposed so anything outside this IIFE showing a plain klabnet username
   // (not a full Matrix ID) can resolve its avatar without duplicating the
@@ -829,7 +843,9 @@
     // Was polled every 30s unconditionally, including in a backgrounded
     // tab — matches the visibility-guard pattern already used for
     // presence/notes/profiles polling elsewhere in the app.
-    if (document.hidden) return;
+    // Except for someone who asked to be told about mentions while klabnet
+    // is in the background: the poll is the only thing that finds them.
+    if (document.hidden && !(_settings.desktopNotif && 'Notification' in window && Notification.permission === 'granted')) return;
     _feedPending = true;
     // Derived from _feedPosts.length before, which isn't "first load" — it's
     // "empty right now". An empty feed, or one whose first load failed,
@@ -842,7 +858,7 @@
     // (picker, requests) already shows a "loading…" state;
     // the feed just never got one.
     if (isFirstLoad) {
-      listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
+      listEl.innerHTML = '<div class="feed-empty">Loading feed…</div>';
       _lastFeedRenderKey = null; // we just clobbered the DOM out from under the key
     }
     const startedAt = performance.now();
@@ -918,7 +934,7 @@
         // Shows it's trying again; otherwise a retry that failed redrew the
         // identical error and looked like the button did nothing.
         document.getElementById('feedRetryBtn')?.addEventListener('click', () => {
-          listEl.innerHTML = '<div class="feed-empty">loading feed…</div>';
+          listEl.innerHTML = '<div class="feed-empty">Loading feed…</div>';
           fetchFeed();
         });
         _lastFeedRenderKey = null;
@@ -1143,7 +1159,7 @@
       }, 15000);
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        throw new Error(d.error || 'Failed to post');
+        throw new Error(klabCap(d.error) || 'Couldn’t post that');
       }
       // Anything typed while it was sending stays; only what was sent goes.
       // This used to leave the sent text in the box along with the new
@@ -1166,7 +1182,7 @@
       for (let i = 0; i < 40 && _feedPending; i++) await new Promise(r => setTimeout(r, 100));
       await fetchFeed();
     } catch (e) {
-      errEl.textContent = e.message || 'Failed to post';
+      errEl.textContent = e.message || 'Couldn’t post that';
       errEl.hidden = false;
     } finally {
       postBtnEl.disabled = false;
@@ -1194,6 +1210,12 @@
   function attachFeedImage(file) {
     if (!file) return;
     errEl.hidden = true;
+    // "All files" in the picker, or a drop: not everything is a picture.
+    if (!/^image\//.test(file.type)) {
+      errEl.textContent = 'That isn’t an image';
+      errEl.hidden = false;
+      return;
+    }
     if (file.size > FEED_MAX_IMAGE_BYTES) {
       errEl.textContent = 'Image too large (max 8MB)';
       errEl.hidden = false;
@@ -1286,21 +1308,25 @@
       const r = await fetchTimeout(`/api/posts/${postId}/reactions`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji }),
       }, 8000);
-      if (!r.ok) return;
+      if (!r.ok) throw new Error('status ' + r.status);
       const data = await r.json();
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reactions = data.reactions || {};
       _localEditAt.set(postId, performance.now());
       renderFeed();
-    } catch (e) {}
+    } catch (e) { showToast('Couldn’t react. Try again', 'ti-alert-triangle'); }
   }
 
   async function fetchFeedReplies(postId) {
-    let ok = false;
+    let ok = false, refetch = false;
+    const startedAt = performance.now();
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/replies`, {}, 8000);
       if (!r.ok) return;
       const data = await r.json();
+      // You replied while this was on its way: it may not have yours in
+      // it, and putting it in the cache made your reply vanish. Ask again.
+      if ((_localEditAt.get(postId) || 0) > startedAt) { ok = refetch = true; return; }
       _repliesCache.set(postId, data.replies || []);
       _repliesStale.delete(postId);
       ok = true;
@@ -1308,6 +1334,7 @@
     } catch (e) {
     } finally {
       _repliesPending.delete(postId);
+      if (refetch) { _repliesPending.add(postId); fetchFeedReplies(postId); }
       // Only a rebuild of the post asks again, and nothing rebuilds it if
       // the fetch failed, so its replies would stay missing all session.
       // Not while the tab is hidden, though: then it waits to be looked at.
@@ -1515,6 +1542,11 @@
     ta.focus();
     ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
+  // A post the typing guard held back (a reply arrived while you were in
+  // its box) is redrawn when you leave the box, not on the next poll.
+  listEl.addEventListener('focusout', e => {
+    if (_lastFeedRenderKey === null && e.target.closest?.('.feed-post-reply-input')) scheduleFeedRender();
+  });
   listEl.addEventListener('contextmenu', (e) => {
     const postEl = e.target.closest('.feed-post[data-post-id]');
     const post = postEl && _feedPosts.find(p => p.id === Number(postEl.dataset.postId));
@@ -1616,8 +1648,6 @@
 
 // ── Volume icon mute toggle ──────────────
 (function() {
-  let _preMuteVol = 1;
-
   function updateVolIcons() {
     const muted = playerState.audio.muted || playerState.audio.volume === 0;
     ['fsVolIcon','volIcon'].forEach(id => {
@@ -1633,11 +1663,18 @@
     el.addEventListener('click', () => {
       const a = playerState.audio;
       if (a.muted || a.volume === 0) {
-        a.muted  = false;
-        a.volume = _preMuteVol || 0.8;
+        // Unmuting gives back the volume the sliders show. Only a slider
+        // dragged to nothing needs one picked for it, and then the sliders
+        // and the saved volume follow (the next track used to go silent again).
+        a.muted = false;
+        if (a.volume === 0) {
+          clearInterval(_loginFadeInterval);
+          playerState.volume = a.volume = 0.8;
+          volSlider.setPct(0.8); fsVolSlider.setPct(0.8);
+          try { localStorage.setItem(VOLUME_KEY, '0.800'); } catch (err) {}
+        }
       } else {
-        _preMuteVol = a.volume;
-        a.muted     = true;
+        a.muted = true;
       }
       updateVolIcons();
       SFX && SFX.play('click');

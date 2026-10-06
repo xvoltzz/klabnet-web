@@ -12,8 +12,8 @@
 // ══════════════════════════════════════════
 (function() {
   let restoring = false;
-  let depth = 0;           // entries we've pushed that Back can return through
   const current = {};      // tab -> descriptor of what that tab shows now
+  let underPanel = '';     // what Music was showing when an album/artist page opened over it
 
   const same = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
   const activeTab = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
@@ -34,15 +34,17 @@
       history.replaceState({ ...(history.state || {}), klab: current[tab] }, '', location.href);
     }
     current[tab] = desc;
-    history.pushState({ klab: desc }, '', '#' + tab);
-    depth++;
+    // klabAt: how many of our entries lie behind this one. Kept in the
+    // entry, not in a counter here: a counter went down on Forward as well
+    // as Back, and was zero again after a reload.
+    history.pushState({ klab: desc, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + tab);
   }
 
   // In-page back buttons (the album page's arrow, "← Genres") go through
   // history too when there's somewhere of ours to go back to, so the two
   // kinds of Back never disagree.
   function back() {
-    if (depth > 0 && history.state?.klab) { history.back(); return true; }
+    if (history.state?.klabAt > 0 && history.state?.klab) { history.back(); return true; }
     return false;
   }
   window.klabNav = { push, back };
@@ -60,6 +62,13 @@
   }
 
   function restoreMusic(d) {
+    // Back from an album or artist page to the list it was opened over:
+    // that list is still there underneath, as you left it (scrolled, or
+    // showing a search). Reloading it started Albums over from the top.
+    if (document.getElementById('apPanel')?.classList.contains('open') && d.kind !== 'album' && d.kind !== 'artist' && JSON.stringify(d) === underPanel) {
+      window.closeApPanel?.();
+      return;
+    }
     if (d.kind === 'section') {
       window.closeApPanel?.();
       document.querySelector(`.picker-tab[data-tab="${d.section}"]`)?.click();
@@ -87,7 +96,6 @@
 
   window.addEventListener('popstate', e => {
     const d = e.state?.klab;
-    depth = Math.max(0, depth - 1);
     if (d) restore(d);
   });
 
@@ -105,6 +113,7 @@
     const orig = window[fn];
     if (typeof orig !== 'function') continue;
     window[fn] = function(id, name) {
+      if (!restoring && !document.getElementById('apPanel')?.classList.contains('open')) underPanel = JSON.stringify(current.music);
       push({ tab: 'music', kind, id, name });
       return orig.apply(this, arguments);
     };

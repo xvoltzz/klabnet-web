@@ -21,21 +21,22 @@
       // not silently re-running the back logic (which is what button 4
       // used to fall through to here).
       if (e.button === 4) { history.forward(); return; }
+      // The full-screen player first: it's on top of everything, the
+      // album page included.
+      if (document.getElementById('fsPlayer')?.classList.contains('open')) {
+        closeFS();
+        return;
+      }
       // If the artist/album detail view is open, step back to the browse list
       if (document.getElementById('apPanel')?.classList.contains('open')) {
         document.getElementById('apBack')?.click();
         return;
       }
-      // If fullscreen is open, close it
-      if (document.getElementById('fsPlayer')?.classList.contains('open')) {
-        closeFS();
-      }
       // Anywhere else, Back is the browser's: 17-history.js gives Music's
-      // sections, genres and playlists their own entries.
-      else {
-        if (history.length > 1) history.back();
-        else window.location.href = '/';
-      }
+      // sections, genres and playlists their own entries. With nowhere to
+      // go back to it does nothing (it used to reload the whole app, which
+      // stopped the music).
+      if (history.length > 1) history.back();
     }
   });
 
@@ -191,9 +192,13 @@ function sampleImageColor(imgUrl) {
   let _last = '';
   let _sampleToken = 0; // guards against a slower, since-superseded sample() call winning a race
 
+  // The same cover arrives at several sizes as a track starts (64px from
+  // playSong, the dock's, the full player's): one sample per cover, not a
+  // download, a colour tween and a flash for each.
+  const coverKey = src => (/getCoverArt/.test(src) && (/[?&]id=([^&]+)/.exec(src) || [])[1]) || src;
   function sample(src) {
-    if (!src || src === _last) return;
-    _last = src;
+    if (!src || coverKey(src) === _last) return;
+    _last = coverKey(src);
     const mySampleToken = ++_sampleToken;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -219,15 +224,18 @@ function sampleImageColor(imgUrl) {
   }
   window._klabSampleAccent = sample;
 
+  // The high-res copy swapped in afterwards is the same cover: sampling it
+  // decoded a second 1200px image to read 24px of it.
+  const seen = src => { if (/getCoverArt/.test(src || '')) sample(src); };
   function watchNode(node) {
     if (!node) return;
     new MutationObserver(muts => {
       for (const m of muts) {
-        if (m.type === 'attributes' && m.target.tagName === 'IMG') sample(m.target.src);
-        for (const n of m.addedNodes) if (n.tagName === 'IMG' && n.src) sample(n.src);
+        if (m.type === 'attributes' && m.target.tagName === 'IMG') seen(m.target.src);
+        for (const n of m.addedNodes) if (n.tagName === 'IMG' && n.src) seen(n.src);
       }
     }).observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
-    node.querySelectorAll('img').forEach(i => sample(i.src));
+    node.querySelectorAll('img').forEach(i => seen(i.src));
   }
 
   watchNode(document.getElementById('fsArt'));
@@ -235,9 +243,15 @@ function sampleImageColor(imgUrl) {
   const da = document.querySelector('.player-art');
   if (da) new MutationObserver(() => sample(da.src)).observe(da, { attributes: true, attributeFilter: ['src'] });
 
-  // Revert to default accent when paused; re-sample on resume
+  // Revert to default accent when paused; re-sample on resume. Only when
+  // playing actually flips: body's class changes on every tab switch too,
+  // and each one started a tween to the colour it already had.
+  let wasPlaying = document.body.classList.contains('is-playing');
   new MutationObserver(() => {
-    if (!document.body.classList.contains('is-playing')) {
+    const playing = document.body.classList.contains('is-playing');
+    if (playing === wasPlaying) return;
+    wasPlaying = playing;
+    if (!playing) {
       tweenAccentRgb(_defaultAccentRgb(), 550, () => {
         document.documentElement.style.removeProperty('--accent-rgb');
       });
@@ -376,7 +390,7 @@ function sampleImageColor(imgUrl) {
       </div>
       ${song.duration ? `<span class="ap-track-dur">${fmtDur(song.duration)}</span>` : ''}
       ${klabStars.button('song', song.id, 'ap-track-star')}
-      <button class="ap-track-play"><i class="ti ti-player-play"></i></button>`;
+      <button class="ap-track-play" title="Play" aria-label="Play"><i class="ti ti-player-play"></i></button>`;
     row.addEventListener('click', () => {
       playerState.playlist = songs;
       playerState.playlistIndex = idx;
@@ -524,7 +538,7 @@ function sampleImageColor(imgUrl) {
 
       } catch(e) {
         if (myLoadToken !== _apLoadToken) return;
-        scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Failed to load artist</div>`;
+        scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Couldn’t load that artist</div>`;
       }
     };
 
@@ -644,7 +658,13 @@ function sampleImageColor(imgUrl) {
           playSong(songs[i]); SFX && SFX.play('click');
         });
         queueBtn.addEventListener('click', () => {
-          songs.forEach(s => addToQueue(s)); SFX && SFX.play('queue');
+          if (!songs.length) return;
+          // One toast for the album, not one (and a queue redraw) per track.
+          queue.push(...songs);
+          updateQueueBadge();
+          if (pickerTab === 'queue') renderQueueList();
+          SFX && SFX.play('queue');
+          showToast('Queued ' + klabCount(songs.length, 'track'), toastArt(album.coverArt || album.id));
         });
         // Original quality only, as a ZIP straight from Navidrome — see
         // downloadAlbumZip. Per-track MP3 lives in the song context menu.
@@ -697,7 +717,7 @@ function sampleImageColor(imgUrl) {
 
       } catch(e) {
         if (myLoadToken !== _apLoadToken) return;
-        scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Failed to load album</div>`;
+        scroll.innerHTML = `<div class="ap-error"><i class="ti ti-alert-triangle"></i> Couldn’t load that album</div>`;
       }
     };
 
@@ -835,7 +855,8 @@ function sampleImageColor(imgUrl) {
   // were generating essentially all of this observer's traffic.
   const dock = document.getElementById('playerDock');
   const motd = document.getElementById('motd');
-  const outOfFlow = t => (dock && dock.contains(t)) || (motd && motd.contains(t));
+  const prompt = document.querySelector('.terminal-prompt');
+  const outOfFlow = t => (dock && dock.contains(t)) || (motd && motd.contains(t)) || (prompt && prompt.contains(t));
   new MutationObserver(muts => {
     if (muts.some(m => !(m.target === dash && m.attributeName === 'class') && !outOfFlow(m.target))) schedule();
   }).observe(dash, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
@@ -846,4 +867,11 @@ function sampleImageColor(imgUrl) {
   schedule();
 })();
 
-
+// Shortcut hints are written the Mac way (⌘B); everywhere else the keys
+// are Ctrl, Alt and Shift, which is what the handlers take there.
+(function() {
+  if (/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)) return;
+  const pc = s => s.replace(/⌘/g, 'Ctrl+').replace(/⌥/g, 'Alt+').replace(/⇧/g, 'Shift+').replace(/↵/g, 'Enter');
+  document.querySelectorAll('[title*="⌘"]').forEach(el => { el.title = pc(el.title); });
+  document.querySelectorAll('kbd').forEach(el => { if (/[⌘⌥⇧↵]/.test(el.textContent)) el.textContent = pc(el.textContent); });
+})();
