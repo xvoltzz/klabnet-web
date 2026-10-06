@@ -20,7 +20,10 @@ const KLAB_DESK_MQ  = '(min-width: 761px), (pointer: fine)';
 function fetchTimeout(url, opts, ms) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms || 10000);
-  return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(t));
+  // Keep the caller's cancellation as well as the timeout. Replacing its
+  // signal made closing a viewer leave the original download running.
+  const signal = opts?.signal ? AbortSignal.any([ctrl.signal, opts.signal]) : ctrl.signal;
+  return fetch(url, { ...(opts || {}), signal }).finally(() => clearTimeout(t));
 }
 
 // Escape a string for safe interpolation into an innerHTML template —
@@ -519,7 +522,8 @@ async function klabCopyImage(src) {
       const bmp = await createImageBitmap(blob);
       const c = document.createElement('canvas');
       c.width = bmp.width; c.height = bmp.height;
-      c.getContext('2d').drawImage(bmp, 0, 0);
+      try { c.getContext('2d').drawImage(bmp, 0, 0); }
+      finally { bmp.close(); }
       return await new Promise(r => c.toBlob(r, 'image/png'));
     })();
     // Passing the promise keeps Safari's user-gesture window open.

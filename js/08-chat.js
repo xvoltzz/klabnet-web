@@ -278,7 +278,7 @@ const MatrixChat = (function () {
   async function mxcToBlobUrl(mxcUrl, opts) {
     const parts = mxcParts(mxcUrl);
     if (!parts || !client) return null;
-    const { width = 64, height = 64, method = 'crop', full = false } = opts || {};
+    const { width = 64, height = 64, method = 'crop', full = false, signal } = opts || {};
     // Synapse's default install only pre-generates a fixed handful of
     // thumbnail sizes (dynamic_thumbnails is off) and always re-encodes
     // whatever it serves at its own (fairly aggressive) JPEG quality —
@@ -290,12 +290,13 @@ const MatrixChat = (function () {
     const url = full
       ? `${MATRIX_URL}/_matrix/client/v1/media/download/${parts.server}/${parts.mediaId}`
       : `${MATRIX_URL}/_matrix/client/v1/media/thumbnail/${parts.server}/${parts.mediaId}?width=${width}&height=${height}&method=${method}`;
-    const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` } }, 8000);
+    const res = await fetchTimeout(url, { headers: { Authorization: `Bearer ${client.getAccessToken()}` }, signal }, 8000);
     if (!res.ok) throw new Error(`avatar fetch failed: HTTP ${res.status}`);
     // Only as a picture. The blob keeps whatever type the uploader gave
     // it, and "open original" navigates to it: an SVG (or HTML) sent as an
     // image would run its scripts as klabnet, with your chat session.
     const blob = await res.blob();
+    signal?.throwIfAborted();
     const picture = /^image\/(png|jpe?g|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)$/i.test(blob.type);
     return URL.createObjectURL(picture ? blob : new Blob([blob], { type: 'application/octet-stream' }));
   }
@@ -497,9 +498,10 @@ function ensureDmBookkeeping() {
   const additions = {}; // inviter -> roomIds discovered this pass
   client.getRooms().forEach(room => {
     if (_dmBookkeepingChecked.has(room.roomId) || known.has(room.roomId)) return;
-    _dmBookkeepingChecked.add(room.roomId);
+    if (!['join', 'invite'].includes(room.getMyMembership?.())) return;
     const inviter = room.getMember(myId)?.getDMInviter?.();
     if (!inviter) return;
+    _dmBookkeepingChecked.add(room.roomId);
     (additions[inviter] = additions[inviter] || []).push(room.roomId);
   });
   if (!Object.keys(additions).length) return;
@@ -510,7 +512,11 @@ function ensureDmBookkeeping() {
   });
   client.setAccountData('m.direct', updated)
     .then(renderChannelList)
-    .catch(() => {})
+    .catch(() => {
+      // A failed account-data write isn't bookkeeping completed. Retry on
+      // the next sync, including invites discovered before their member.
+      Object.values(additions).flat().forEach(id => _dmBookkeepingChecked.delete(id));
+    })
     .finally(() => { _dmBookkeepingInFlight = false; });
 }
 
@@ -761,6 +767,7 @@ function renderChannelList() {
 // are several) whenever renderTimeline() notices the room actually changed.
 const _typingUsers = new Map(); // userId -> display name, active room only
 let _typingRenderedRoomId = null;
+const _chatDrafts = new Map(); // unsent composer content, owned by its room
 
 function renderTypingLine() {
   const el = document.getElementById('chatTyping');
@@ -782,7 +789,9 @@ function renderTypingLine() {
 // needed, scroll only snaps to bottom if the user was already there (or
 // this is a fresh room switch) rather than always.
 let _lastTimelineRenderKey = null;
+let _timelineSnapshot = null;
 const _lastSentReadEventId = new Map(); // roomId -> event id we've already sent a read receipt for
+const _readReceiptPending = new Map(); // one receipt in flight per room
 // Set right before forcing a render on Chat-tab arrival (see setActiveTab)
 // — roomChanged alone doesn't catch "same room, just left it scrolled up
 // and came back", which renderTimeline()'s own wasNearBottom check would
@@ -1055,8 +1064,18 @@ function renderTimeline() {
   if (!el) return;
   const roomChanged = _chatActiveRoomId !== _typingRenderedRoomId;
   if (roomChanged) {
-    // A reply started in the last room doesn't follow you into this one.
-    if (_replyingToEventId) clearReply();
+    // A draft or an attached picture belongs to its conversation. Leaving
+    // it in the shared composer could send it to the next person instead.
+    if (_typingRenderedRoomId && input) {
+      const draft = { text: input.value, image: _pendingChatImage, reply: _replyingToEventId };
+      if (draft.text || draft.image || draft.reply) _chatDrafts.set(_typingRenderedRoomId, draft);
+      else _chatDrafts.delete(_typingRenderedRoomId);
+    }
+    clearReply(); clearChatImage();
+    const draft = _chatDrafts.get(_chatActiveRoomId);
+    if (input) { input.value = draft?.text || ''; autoGrowChatComposer(); }
+    if (draft?.image) setChatImage(draft.image);
+    if (draft?.reply) startReply(draft.reply);
     // Members load lazily (only recent speakers come with the sync), which
     // undercounted the header and left readers out of "Seen"; the rest now.
     const opening = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
@@ -1135,10 +1154,19 @@ function renderTimeline() {
   });
   reactionsDigest.sort();
 
-  const renderKey = room.roomId + '|' + events.map(ev =>
-    `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}`
-  ).join(',') + '|' + reactionsDigest.join(',');
+  const eventKeys = events.map(ev =>
+    `${ev.getId()}:${ev.isRedacted() ? 1 : 0}:${ev.replacingEvent?.()?.getId() || ''}:${ev.sender?.name || ''}`);
+  const reactionKey = reactionsDigest.join(',');
+  const renderKey = room.roomId + '|' + eventKeys.join(',') + '|' + reactionKey;
   if (!roomChanged && renderKey === _lastTimelineRenderKey) return;
+  // The usual live event only adds messages at the end. Keep the existing
+  // rows (and loaded GIFs) in that case; edits, reactions, redactions,
+  // pagination and limited timeline resets still use the full rebuild.
+  const prev = _timelineSnapshot;
+  const appendFrom = !roomChanged && _lastTimelineRenderKey && prev?.room === room &&
+    prev.reactions === reactionKey && prev.keys.length > 0 && eventKeys.length > prev.keys.length &&
+    prev.keys.every((key, i) => key === eventKeys[i]) &&
+    el.querySelectorAll('.chat-msg').length === prev.keys.length ? prev.keys.length : 0;
   const wasNearBottom = roomChanged || _forceScrollBottomOnNextRender || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   _forceScrollBottomOnNextRender = false;
   // Only meaningful in the "reading history" branch below (wasNearBottom
@@ -1161,8 +1189,10 @@ function renderTimeline() {
     }
   }
   _lastTimelineRenderKey = renderKey;
+  _timelineSnapshot = { room, keys: eventKeys, reactions: reactionKey };
 
-  el.innerHTML = '';
+  if (appendFrom) el.querySelector('.chat-msg-seen')?.remove();
+  else el.innerHTML = '';
   if (!events.length) {
     // An empty conversation says who it's with and gives you a way in.
     const other = isDmRoom ? (dmOtherUsername(room) || room.name || '') : '';
@@ -1174,9 +1204,9 @@ function renderTimeline() {
       (isDmRoom ? `<button type="button" class="chat-hello-chip" data-say="what are you listening to">🎧 Ask what they're playing</button>` : '') + '</div></div>';
     return;
   }
-  let lastSender = null;
-  let lastDayKey = null;
-  events.forEach(ev => {
+  let lastSender = appendFrom ? events[appendFrom - 1].getSender() : null;
+  let lastDayKey = appendFrom ? new Date(events[appendFrom - 1].getTs()).toDateString() : null;
+  events.slice(appendFrom).forEach(ev => {
     const evDate = new Date(ev.getTs());
     const dayKey = evDate.toDateString();
     if (dayKey !== lastDayKey) {
@@ -1409,28 +1439,29 @@ function updateSeenLine(room, events) {
 // but this skips even issuing a second one while scrolling generates a
 // burst of scroll events). room.oldState.paginationToken === null is the
 // SDK's own signal that there's no more history to page in.
-let _paginatingRoomId = null;
+const _paginatingRooms = new Set();
 async function maybeLoadOlderMessages(round) {
   round = typeof round === 'number' ? round : 0; // also a scroll listener: its argument is the event
   const el = document.getElementById('chatTimeline');
   const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
   if (!el || !room || el.scrollTop > 60) return;
-  if (_paginatingRoomId === room.roomId) return;
+  if (_paginatingRooms.has(room.roomId)) return;
   if (room.oldState.paginationToken === null) return;
-  _paginatingRoomId = room.roomId;
+  _paginatingRooms.add(room.roomId);
   const prevHeight = el.scrollHeight;
   let loaded = false;
   try {
     await MatrixChat.client.scrollback(room, 30);
     loaded = true;
-    _lastTimelineRenderKey = null; // force a rebuild — scrollback's events don't fire the 'timeline' emit (backfill is filtered out there)
+    if (_chatActiveRoomId !== room.roomId) return;
+    _lastTimelineRenderKey = null; // backfill doesn't fire the live timeline emit
     // renderTimeline() keeps the same messages on screen itself (scrolled
     // up, it restores oldScrollTop + the added height). Adding that height
     // here too threw you a page past where you were.
     renderTimeline();
   } catch (e) {
   } finally {
-    _paginatingRoomId = null;
+    _paginatingRooms.delete(room.roomId);
   }
   // A page of nothing but reactions, edits and joins adds no rows, so
   // nothing moves and no scroll event asks for the next one: history
@@ -1525,12 +1556,39 @@ function notifyTyping() {
 }
 
 let _pendingChatImage = null;
+function setChatImage(file) {
+  _pendingChatImage = file;
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (_pendingChatImage !== file) return;
+    const img = document.getElementById('chatImagePreview');
+    const wrap = document.getElementById('chatImagePreviewWrap');
+    if (img && wrap) { img.src = reader.result; wrap.hidden = false; }
+  };
+  reader.readAsDataURL(file);
+}
 function clearChatImage() {
   _pendingChatImage = null;
   const wrap = document.getElementById('chatImagePreviewWrap');
   if (wrap) wrap.hidden = true;
+  document.getElementById('chatImagePreview')?.removeAttribute('src');
   const input = document.getElementById('chatImageInput');
   if (input) input.value = '';
+}
+
+function restoreFailedChatDraft(roomId, failed) {
+  const active = roomId === _chatActiveRoomId;
+  const input = document.getElementById('chatComposerInput');
+  const draft = active ? { text: input?.value || '', image: _pendingChatImage, reply: _replyingToEventId } : (_chatDrafts.get(roomId) || {});
+  if (failed.text) draft.text = failed.text + (draft.text ? '\n' + draft.text : '');
+  draft.image ||= failed.image;
+  draft.reply ||= failed.reply;
+  _chatDrafts.set(roomId, draft);
+  if (active) {
+    if (input) { input.value = draft.text || ''; autoGrowChatComposer(); }
+    if (draft.image && !_pendingChatImage) setChatImage(draft.image);
+    if (draft.reply && !_replyingToEventId) startReply(draft.reply);
+  }
 }
 
 // Grows the composer with its content up to the CSS max-height, then lets
@@ -1551,13 +1609,15 @@ async function sendChatMessage() {
   if ((!text && !_pendingChatImage) || !_chatActiveRoomId) return;
   const roomId = _chatActiveRoomId;
   const client = MatrixChat.client;
+  if (!client) return;
   SFX && SFX.play('send');
   input.value = '';
   autoGrowChatComposer(); // back to one line, or it keeps the sent message's height
   clearTimeout(_typingStopTimers.get(roomId));
   _typingActiveRooms.delete(roomId);
   client.sendTyping(roomId, false, 4000).catch(() => {});
-  const replyRelation = _replyingToEventId ? { 'm.relates_to': { 'm.in_reply_to': { event_id: _replyingToEventId } } } : null;
+  const replyTo = _replyingToEventId;
+  const replyRelation = replyTo ? { 'm.relates_to': { 'm.in_reply_to': { event_id: replyTo } } } : null;
   clearReply();
 
   const image = _pendingChatImage;
@@ -1578,6 +1638,7 @@ async function sendChatMessage() {
       });
     } catch (e) {
       console.error('[chat] image send failed', e);
+      if (MatrixChat.client === client) restoreFailedChatDraft(roomId, { image, reply: replyTo });
       showToast('Couldn’t send that image', 'ti-photo-x');
     }
   }
@@ -1587,11 +1648,11 @@ async function sendChatMessage() {
     // typed text alongside it goes out as its own follow-up message
     // (same approach Element and other clients use for this).
     if (!image && replyRelation) Object.assign(content, replyRelation);
-    client.sendMessage(roomId, content).catch(e => {
+    await client.sendMessage(roomId, content).catch(e => {
       console.error('[chat] send failed', e);
       // Hand the text back without clobbering anything typed since.
-      input.value = input.value.trim() ? text + '\n' + input.value : text;
-      showToast("Couldn't send that message; it's back in the box", 'ti-message-x');
+      if (MatrixChat.client === client) restoreFailedChatDraft(roomId, { text, reply: !image ? replyTo : null });
+      showToast("Couldn't send that message; it's saved in that conversation", 'ti-message-x');
     });
   }
 }
@@ -1600,8 +1661,6 @@ const CHAT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 function initChatImageSend() {
   const btn        = document.getElementById('chatImageBtn');
   const input      = document.getElementById('chatImageInput');
-  const wrap       = document.getElementById('chatImagePreviewWrap');
-  const previewImg = document.getElementById('chatImagePreview');
   const removeBtn  = document.getElementById('chatImagePreviewRemove');
   const composer   = document.getElementById('chatComposerInput');
   if (!btn || !input || btn._bound) return;
@@ -1613,16 +1672,7 @@ function initChatImageSend() {
   function attachChatImage(file) {
     if (!file) return;
     if (file.size > CHAT_MAX_IMAGE_BYTES) { showToast('Image too large (max 8MB)', 'ti-photo-off'); return; }
-    _pendingChatImage = file;
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Sent (or replaced by another pick) before the read finished: showing
-      // it now would put back a preview of an image that's no longer attached.
-      if (_pendingChatImage !== file) return;
-      previewImg.src = reader.result;
-      wrap.hidden = false;
-    };
-    reader.readAsDataURL(file);
+    setChatImage(file);
     composer?.focus();
   }
   btn.addEventListener('click', () => input.click());
@@ -1997,18 +2047,22 @@ function openCreateModal() {
 // arrives, and their first message then comes in like any other. One from
 // another server still waits to be opened.
 const _dmInviteTried = new Set();
+const _dmInviteRetryAt = new Map();
 function acceptDmInvites() {
   const c = MatrixChat.client;
   if (!c || !_chatSyncSettled) return;
   const serverOf = id => String(id || '').split(':').slice(1).join(':');
   let any = false;
   for (const r of c.getRooms()) {
-    if (r.getMyMembership?.() !== 'invite' || _dmInviteTried.has(r.roomId)) continue;
-    _dmInviteTried.add(r.roomId);
+    if (r.getMyMembership?.() !== 'invite' || _dmInviteTried.has(r.roomId) || (_dmInviteRetryAt.get(r.roomId) || 0) > Date.now()) continue;
     const inviter = r.getMember(c.getUserId())?.getDMInviter?.();
     if (!inviter || serverOf(inviter) !== serverOf(c.getUserId())) continue;
+    _dmInviteTried.add(r.roomId);
     any = true;
-    c.joinRoom(r.roomId).catch(() => {});
+    c.joinRoom(r.roomId).catch(() => {
+      _dmInviteTried.delete(r.roomId);
+      _dmInviteRetryAt.set(r.roomId, Date.now() + 30000);
+    });
   }
   // On your side it's a conversation too, not a channel (see ensureDmBookkeeping).
   if (any) ensureDmBookkeeping();
@@ -2267,6 +2321,8 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
   // belongs to _feedImageCache/_chatImageCache and is still in use by the
   // timeline behind us.
   let ownedUrl = null;
+  const fullAbort = new AbortController();
+  let fullImage = null;
   const willFetchFull = !!(mxc && window.MatrixChat?.client) || !!fullSrc;
   let haveFull = false;
 
@@ -2328,11 +2384,11 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
   // leak the blob it just made.
   let closed = false;
   if (fullSrc) {
-    const full = new Image();
+    const full = fullImage = new Image();
     full.onload = () => { if (closed) return; haveFull = true; imgEl.src = fullSrc; };
     full.src = fullSrc;
   } else if (willFetchFull) {
-    MatrixChat.mxcToBlobUrl(mxc, { full: true }).then(url => {
+    MatrixChat.mxcToBlobUrl(mxc, { full: true, signal: fullAbort.signal }).then(url => {
       if (!url) return;
       if (closed) { URL.revokeObjectURL(url); return; }
       ownedUrl = url;
@@ -2416,6 +2472,8 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
   function close() {
     if (closed) return;
     closed = true;
+    fullAbort.abort();
+    if (fullImage) { fullImage.onload = null; fullImage.removeAttribute('src'); fullImage = null; }
     _imgViewerOpen = false;
     backdrop.remove();
     document.removeEventListener('keydown', onKey, true);
@@ -2817,12 +2875,25 @@ function readActiveChatRoom(room, events) {
   if (!room) return;
   markRoomRead(room.roomId);
   updateChannelUnreadDots();
-  const list = events || room.getLiveTimeline().getEvents().filter(ev => ev.getType() === 'm.room.message');
-  const lastEvent = list[list.length - 1];
-  if (lastEvent && _lastSentReadEventId.get(room.roomId) !== lastEvent.getId()) {
-    _lastSentReadEventId.set(room.roomId, lastEvent.getId());
-    MatrixChat.client.sendReadReceipt(lastEvent).catch(() => {});
-  }
+  const list = events || room.getLiveTimeline().getEvents();
+  // Same messages as the timeline: edits aren't the last thing said, and
+  // local echoes (~ ids / send status) aren't server events we can receipt.
+  const lastEvent = [...list].reverse().find(ev => ev.getType() === 'm.room.message' &&
+    ev.getRelation()?.rel_type !== 'm.replace' && !ev.status && ev.getId() && !ev.getId().startsWith('~'));
+  if (!lastEvent || _lastSentReadEventId.get(room.roomId) === lastEvent.getId() || _readReceiptPending.has(room.roomId)) return;
+  const client = MatrixChat.client;
+  const task = client.sendReadReceipt(lastEvent);
+  _readReceiptPending.set(room.roomId, task);
+  task.then(() => {
+    if (MatrixChat.client === client) _lastSentReadEventId.set(room.roomId, lastEvent.getId());
+  }).catch(() => {}).finally(() => {
+    if (_readReceiptPending.get(room.roomId) !== task) return;
+    _readReceiptPending.delete(room.roomId);
+    // A newer message may have landed during this request. Send its
+    // receipt once the first succeeds, without retrying failures in a loop.
+    if (MatrixChat.client === client && _lastSentReadEventId.get(room.roomId) === lastEvent.getId() &&
+        room.roomId === _chatActiveRoomId && chatRoomOnScreen()) maybeReadActiveChatRoom();
+  });
 }
 // Catch up the moment it is in front of someone.
 function maybeReadActiveChatRoom() { if (MatrixChat.client && _chatActiveRoomId && chatRoomOnScreen()) readActiveChatRoom(); }
@@ -3109,6 +3180,12 @@ function showChatApp() {
       _chatSyncSettled = false;
       _chatRoomChosen = false;
       _chatActiveRoomId = null;
+      _chatDrafts.clear();
+      const composer = document.getElementById('chatComposerInput');
+      if (composer) composer.value = '';
+      clearReply(); clearChatImage();
+      _lastSentReadEventId.clear(); _readReceiptPending.clear();
+      _dmInviteTried.clear(); _dmInviteRetryAt.clear(); _dmBookkeepingChecked.clear();
       // Nothing can be read while signed out, so the tab title and badge
       // shouldn't keep counting; reconnecting seeds them from the server.
       _chatUnreadRooms.clear();

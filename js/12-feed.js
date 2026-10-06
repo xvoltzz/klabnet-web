@@ -53,6 +53,8 @@
   let _lastFeedPostsSignature = null;
   let _feedHasMore   = false;
   let _feedPending   = false; // a fetch is in flight — guards overlapping polls/loads
+  let _feedRefreshPromise = null;
+  let _feedFetchedAt = 0;
   let _feedLoadedOnce = false; // fetchFeed() has completed at least once, success or not
   // Separate from the above: until one fetch has actually worked, there's
   // no feed to draw, no has-more to know, and no mention watermark to seed.
@@ -666,6 +668,7 @@
     // outside (presence's profile refresh), and drawing the empty list
     // replaced the loading or Retry message with "No posts yet".
     if (!_feedLoadedOk) return;
+    window.klabHomeFeedChanged?.(_feedPosts.slice(0, 8));
     const me = window.KLAB_USER?.username;
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
     const keys = posts.map(p => postRenderKey(p, me));
@@ -792,6 +795,8 @@
   // color/bio/banner — renderFeed/listEl are private to this IIFE, same
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
+  window.klabFeedPosts = () => _feedLoadedOk ? _feedPosts.slice(0, 8) : null;
+  window.klabLoadFeed = () => _feedLoadedOk && Date.now() - _feedFetchedAt < 30000 ? Promise.resolve() : fetchFeed();
   // A new profile picture: this cache still had the old one, so feed
   // posts, Home, the mention list and the request list kept the old face
   // until a reload. The old blob goes once nothing is showing it.
@@ -838,7 +843,13 @@
     return _feedImageCache.get(mxc) || null;
   };
 
-  async function fetchFeed() {
+  function fetchFeed() {
+    if (_feedRefreshPromise) return _feedRefreshPromise;
+    _feedRefreshPromise = fetchFeedPage().finally(() => { _feedRefreshPromise = null; });
+    return _feedRefreshPromise;
+  }
+
+  async function fetchFeedPage() {
     if (_feedPending) return;
     // Was polled every 30s unconditionally, including in a backgrounded
     // tab — matches the visibility-guard pattern already used for
@@ -866,6 +877,7 @@
       const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
       if (!r.ok) throw new Error('bad status');
       const data = await r.json();
+      _feedFetchedAt = Date.now();
       const page = data.posts || [];
       const fresh = page.filter(p => !_locallyDeleted.has(p.id));
       // Merge the newest page into whatever's already loaded instead of
@@ -1654,11 +1666,17 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.className = muted ? 'ti ti-volume-off' : 'ti ti-volume';
+      const button = el.closest('button');
+      if (button) {
+        button.title = muted ? 'Unmute' : 'Mute';
+        button.setAttribute('aria-label', button.title);
+        button.setAttribute('aria-pressed', String(muted));
+      }
     });
   }
 
   ['fsVolIcon','volIcon'].forEach(id => {
-    const el = document.getElementById(id);
+    const el = document.getElementById(id)?.closest('button');
     if (!el) return;
     el.addEventListener('click', () => {
       const a = playerState.audio;
@@ -1682,6 +1700,7 @@
   });
 
   playerState.audio.addEventListener('volumechange', updateVolIcons);
+  updateVolIcons();
 })();
 
 // ── SFX on remaining interactive elements ────

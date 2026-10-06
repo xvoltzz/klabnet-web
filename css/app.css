@@ -2056,6 +2056,7 @@
        least essential controls instead of letting that happen. */
     @media (max-width: 860px) {
       .player-dock .dock-extra { display: none; }
+      .player-dock { gap: .6rem; padding-inline: 1rem; }
     }
     @media (max-width: 760px) and (pointer: coarse) {
       .player-dock .player-vol {
@@ -2069,8 +2070,9 @@
       }
       .player-dock { padding: 0.7rem 0.9rem; gap: 0.5rem; }
       .player-dock .player-art, .player-dock .player-art-placeholder { width: 36px; height: 36px; }
-      .player-dock .player-info { min-width: 44px; }
+      .player-dock .player-info { min-width: 20px; }
       .player-dock .player-progress { min-width: 30px; }
+      .player-dock .vol-slider { width: 32px; }
       .player-dock .ctrl-btn { width: 28px; height: 28px; }
       .player-dock .ctrl-btn.play-btn { width: 32px; height: 32px; }
     }
@@ -2266,7 +2268,8 @@
       position: absolute; left: 0; height: 3px;
       top: 50%; transform: translateY(-50%);
       border-radius: 2px; background: rgba(255,255,255,0.65);
-      pointer-events: none; transition: width 0.08s linear, background 0.25s ease;
+      transform-origin: left center;
+      pointer-events: none; transition: transform 0.08s linear, background 0.25s ease;
     }
     .slider-dot {
       position: absolute; width: 14px; height: 14px;
@@ -2288,7 +2291,7 @@
     [data-theme="light"] .slider-wrap:hover .slider-track { background: rgba(90,78,62,0.28); }
     [data-theme="light"] .slider-fill {
       background: linear-gradient(90deg, rgba(var(--accent-rgb),0.4), rgba(var(--accent-rgb),0.75) 45%, rgba(var(--accent-rgb),1));
-      transition: width 0.08s linear, background 0.5s ease;
+      transition: transform 0.08s linear, background 0.5s ease;
     }
     [data-theme="light"] .slider-dot { background: #a8660a; box-shadow: 0 2px 8px var(--shadow-30), 0 0 0 2px rgba(220,170,90,0.3); }
 
@@ -2509,7 +2512,9 @@
       text-shadow: 0 0 2px rgba(0,0,0,0.7), 0 0 2px rgba(255,255,255,0.7);
     }
     /* Toggle switch */
+    #playerArtWrap { padding: 0; border: 0; }
     .s-toggle {
+      padding: 0; appearance: none;
       width: 36px; height: 20px; border-radius: 100px; flex-shrink: 0;
       background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
       cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s;
@@ -6751,7 +6756,8 @@
     .hdr-more-menu .ctx-item { font-size: var(--fs-13); }
 
     /* ── Two kinds of button ── */
-    .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button {
+    .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
+    .chat-head-btn, .chat-hello-chip, .feed-post-more, .fb-type-btn, .music-req-type-btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 7px;
       height: var(--control-h); padding: 0 16px; box-sizing: border-box;
       border-radius: var(--radius-md); cursor: pointer;
@@ -6759,12 +6765,18 @@
       transition: background-color .15s, border-color .15s, color .15s, opacity .15s, transform .12s;
     }
     /* secondary */
-    .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button {
+    .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
+    .chat-head-btn, .chat-hello-chip, .feed-post-more, .fb-type-btn, .music-req-type-btn {
       border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
     }
-    .ap-btn-queue:hover, .feed-load-more:hover, .app-btn:hover:not(:disabled), .chat-modal-row-btn:hover, .update-banner button:hover {
+    .ap-btn-queue:hover, .feed-load-more:hover, .app-btn:hover:not(:disabled), .chat-modal-row-btn:hover, .update-banner button:hover,
+    .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover, .fb-type-btn:hover, .music-req-type-btn:hover {
       border-color: var(--glass-border-h); background: var(--glass-fill-h); color: var(--text);
     }
+    .fb-type-btn.active, .music-req-type-btn.active {
+      border-color: transparent; background: var(--text); color: var(--bg);
+    }
+    .picker-sort-btn { height: var(--control-h); border-radius: var(--radius-md); }
     /* primary */
     .chat-connect-btn, .ap-btn-play {
       border: 1px solid transparent; background: var(--text); color: var(--bg);

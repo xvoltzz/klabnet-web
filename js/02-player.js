@@ -423,17 +423,26 @@ playerState.audio.addEventListener('ended', () => nextSong());
 // let go, clicked or wheeled.
 function makeSlider(trackEl, fillEl, dotEl, onChange) {
   let dragging = false;
+  let value = parseFloat(fillEl.style.width || '0') / 100;
   // Measured once at drag-start instead of on every move: the track
   // doesn't move or resize mid-drag.
   let dragRect = null;
   function getPct(e) {
     const r = (dragging && dragRect) ? dragRect : trackEl.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1)));
   }
   function show(pct) {
-    fillEl.style.width = (pct*100) + '%';
-    dotEl.style.left = (pct*100) + '%';
+    value = Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
+    fillEl.style.transform = `translateY(-50%) scaleX(${value})`;
+    trackEl.setAttribute('aria-valuenow', Math.round(value * 100));
+    dotEl.style.left = (value*100) + '%';
   }
+  fillEl.style.width = '100%';
+  trackEl.tabIndex = 0;
+  trackEl.setAttribute('role', 'slider');
+  trackEl.setAttribute('aria-valuemin', '0');
+  trackEl.setAttribute('aria-valuemax', '100');
+  show(value);
   function update(e, live) {
     const pct = getPct(e);
     show(pct);
@@ -460,10 +469,24 @@ function makeSlider(trackEl, fillEl, dotEl, onChange) {
   trackEl.addEventListener('pointermove', move);
   trackEl.addEventListener('pointerup', end);
   trackEl.addEventListener('pointercancel', end);
+  trackEl.addEventListener('lostpointercapture', end);
+  trackEl.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey || dragging) return;
+    const step = e.shiftKey ? 0.1 : 0.05;
+    let next;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = value + step;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = value - step;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = 1;
+    else return;
+    e.preventDefault(); e.stopPropagation();
+    show(next); onChange(value, false);
+  });
   trackEl.addEventListener('wheel', e => {
+    if (!e.deltaY || dragging) return;
     e.preventDefault();
     // No getBoundingClientRect here: the wheel path is scroll-blocking.
-    const cur = parseFloat(fillEl.style.width || '0') / 100;
+    const cur = value;
     const delta = e.deltaY < 0 ? 0.05 : -0.05;
     const pct = Math.max(0, Math.min(1, cur + delta));
     show(pct);
@@ -1318,8 +1341,6 @@ document.getElementById('fsNext').addEventListener('click', () => nextSong());
 // Sync FS progress bar with audio timeupdate
 if (playerState.audio) {
   const _fsPlayerEl   = document.getElementById('fsPlayer');
-  const _fsProgFillEl = document.getElementById('fsProgFill');
-  const _fsProgDotEl  = document.getElementById('fsProgDot');
   const _fsCurEl       = document.getElementById('fsCur');
   const _fsDurEl       = document.getElementById('fsDur');
   const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
@@ -1328,15 +1349,7 @@ if (playerState.audio) {
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
     // Not under a drag: the bar follows the finger until it lets go.
     if (!fsProgSlider.dragging) {
-    _fsProgFillEl.style.width = pct + '%';
-    // fsProgSlider (makeSlider()'s wrapper around this same fill+dot pair)
-    // used to be what kept the dot in sync, called from the OTHER
-    // timeupdate listener above — that one ran unconditionally on every
-    // tick regardless of whether FS was even open, duplicating this
-    // gated listener's work. Setting the dot here directly (this listener
-    // already skips all its work while FS is closed) replaces that
-    // without reintroducing the always-on duplicate.
-    _fsProgDotEl.style.left = pct + '%';
+    fsProgSlider.setPct(pct / 100);
     }
     _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
     _fsDurEl.textContent = formatTime(playerState.audio.duration);
@@ -1368,4 +1381,3 @@ function addToQueue(song) {
   if (pickerTab === 'queue') renderQueueList();
   showToast(`"${song.title}" added to queue`, toastArt(song.coverArt));
 }
-

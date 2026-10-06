@@ -6,6 +6,16 @@
 // ══════════════════════════════════════════
 const TABS = ['home', 'feed', 'chat', 'music', 'photos'];
 
+// Native switches handle Space/Enter. Mirror the existing class-based
+// settings updates in their accessible state, including desktop callbacks.
+document.querySelectorAll('#settingsBackdrop button.s-toggle').forEach(button => {
+  const label = button.closest('.settings-row')?.querySelector('.settings-row-label');
+  if (label) { label.id ||= button.id + 'Label'; button.setAttribute('aria-labelledby', label.id); }
+  const sync = () => button.setAttribute('aria-checked', String(button.classList.contains('on')));
+  sync();
+  new MutationObserver(sync).observe(button, { attributes: true, attributeFilter: ['class'] });
+});
+
 // Heavy per-tab setup waits until the switch itself has reached the screen,
 // so the tab highlight and the panel's fade start moving straight away
 // instead of after that work. The panel fades in from transparent, so a
@@ -62,7 +72,6 @@ function setActiveTab(key) {
   // straight into whatever conversation happened to be active. Anything
   // that jumps to a specific room (openChatRoom, messageUser) sets 'convo'
   // immediately AFTER its own setActiveTab call, so it wins over this.
-  if (enteringChat && typeof setChatMobileView === 'function') setChatMobileView('rooms');
   if (enteringChat && typeof renderTimeline === 'function') {
     _lastTimelineRenderKey = null;
     // Clearing the render key above only forces renderTimeline() to
@@ -81,10 +90,14 @@ function setActiveTab(key) {
   // like #apps) is corrected in place. Setting it pushed a new entry, and
   // Back to the bad hash just pushed it again: Back could never leave.
   const was = location.hash.slice(1);
-  if (was !== key) {
+  if (window.klabNav?.tab) window.klabNav.tab(key);
+  else if (was !== key) {
     if (TABS.includes(was)) location.hash = key;
     else history.replaceState(history.state, '', '#' + key);
   }
+  // Record the tab before its phone list/conversation descriptor. Doing
+  // this before the hash switch stamped Chat onto the previous tab.
+  if (enteringChat && typeof setChatMobileView === 'function') setChatMobileView('rooms');
   // Landing on Music directly (deep link, reload, or a nav-bar click — not
   // just via openPicker()) still needs its content fetched the first time.
   if (key === 'music' && typeof ensureMusicTabLoaded === 'function') afterSwitchPaints(ensureMusicTabLoaded);

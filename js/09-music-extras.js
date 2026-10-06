@@ -889,6 +889,7 @@ loadPickerTab = async function(tab) {
 // ══════════════════════════════════════════
 let _musicRequests = [];
 let _reqAvatarTries = 0;
+let _reqAvatarTimer = 0;
 
 const _origLoadPickerTabRequests = loadPickerTab;
 loadPickerTab = async function(tab) {
@@ -964,6 +965,7 @@ function musicRequestRowHTML(req, avatarUrl) {
 }
 
 function renderMusicRequestsList() {
+  clearTimeout(_reqAvatarTimer);
   updateRequestsBadge();
   if (pickerTab !== 'requests') return;
   const newBtnHTML = `<button class="music-new-playlist-btn" id="musicNewRequestBtn" type="button" style="margin-bottom:10px;"><i class="ti ti-plus"></i> New request</button>`;
@@ -1005,7 +1007,21 @@ function renderMusicRequestsList() {
   // fallback initial forever.
   // A few tries, not forever: a user with no avatar stays unresolved, and
   // this used to rebuild the list every 900ms for as long as it was open.
-  if (anyUnresolvedAvatar && _reqAvatarTries++ < 5) setTimeout(() => { if (pickerTab === 'requests') renderMusicRequestsList(); }, 900);
+  if (anyUnresolvedAvatar) _reqAvatarTimer = setTimeout(refreshRequestAvatars, 900);
+}
+
+function refreshRequestAvatars() {
+  if (pickerTab !== 'requests') return;
+  let unresolved = false;
+  pickerList.querySelectorAll('.picker-item-requester[data-username]').forEach(el => {
+    const url = window.klabResolveUserAvatar?.(el.dataset.username);
+    if (!url) { unresolved = true; return; }
+    if (el.querySelector('img')?.getAttribute('src') === url) return;
+    const img = document.createElement('img'); img.src = url; img.alt = '';
+    el.replaceChildren(img);
+  });
+  // Only swap the faces; preserve focused action buttons and the rows.
+  if (unresolved && ++_reqAvatarTries < 5) _reqAvatarTimer = setTimeout(refreshRequestAvatars, 900);
 }
 
 function openMusicRequestModal() {

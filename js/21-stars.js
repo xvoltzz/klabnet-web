@@ -12,6 +12,8 @@ window.klabStars = (function() {
   const FRESH_MS = 60000;
   const cache = new Map();                          // 'song:id' -> { count, mine, at }
   const wanted = new Set();
+  const pending = new Map(); // serialize flips of the same item
+  const changing = new Set();
   const NONE = { count: 0, mine: false };
   let timer = 0;
 
@@ -48,7 +50,7 @@ window.klabStars = (function() {
 
   // One request for up to 300 ids of a kind. False if it didn't land.
   async function fetchChunk(kind, chunk) {
-    const started = Date.now();
+    const before = new Map(chunk.map(id => [id, cache.get(kind + ':' + id)]));
     try {
       const r = await fetchTimeout(`/api/posts/stars?kind=${kind}&ids=${chunk.map(encodeURIComponent).join(',')}`, {}, 8000);
       if (!r.ok) return false;
@@ -57,7 +59,9 @@ window.klabStars = (function() {
       for (const id of chunk) {
         const key = kind + ':' + id;
         // Starred or unstarred while this was on its way: that answer is newer.
-        if (cache.get(key)?.at > started) continue;
+        // Object identity also catches changes in the same millisecond.
+        // A GET sent during an optimistic flip must not settle that flip.
+        if (changing.has(key) || cache.get(key) !== before.get(id)) continue;
         cache.set(key, { ...NONE, ...got[id], at });
       }
       return true;
@@ -108,12 +112,23 @@ window.klabStars = (function() {
   // label: the server only flips, so without it a "Star" drawn before the
   // item's stars were known could take yours away.
   async function toggle(key, want) {
+    const task = (pending.get(key) || Promise.resolve()).then(() => performToggle(key, want));
+    pending.set(key, task);
+    try { return await task; }
+    finally { if (pending.get(key) === task) pending.delete(key); }
+  }
+
+  async function performToggle(key, want) {
     const [kind, ...rest] = key.split(':');
     const id = rest.join(':');
     if (!KINDS.includes(kind) || !id) return;
-    if (!cache.has(key)) await ensure(key);
+    await ensure(key);
+    // The API flips rather than sets. Without knowing the current state,
+    // an explicit "Star" could remove a star after a failed lookup.
+    if (!cache.has(key) || Date.now() - get(key).at > FRESH_MS) { showToast('Couldn’t load those stars. Try again', 'ti-alert-triangle'); return; }
     const before = get(key);
     if (typeof want === 'boolean' && before.mine === want) { repaint([key]); return; }
+    changing.add(key);
     cache.set(key, { count: Math.max(0, before.count + (before.mine ? -1 : 1)), mine: !before.mine, at: Date.now() });
     repaint([key]);
     SFX && SFX.play('star');
@@ -125,9 +140,9 @@ window.klabStars = (function() {
       cache.set(key, { ...(await r.json()), at: Date.now() });
     } catch {
       // Back to what was known; if nothing was, it's asked for again.
-      if (before.at) cache.set(key, before); else cache.delete(key);
+      cache.set(key, { ...before, at: 0 });
       showToast('Couldn’t star that. Try again', 'ti-alert-triangle');
-    }
+    } finally { changing.delete(key); }
     repaint([key]);
   }
 

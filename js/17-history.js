@@ -33,11 +33,31 @@
     if (current[tab] && !history.state?.klab) {
       history.replaceState({ ...(history.state || {}), klab: current[tab] }, '', location.href);
     }
+    const from = history.state?.klab;
     current[tab] = desc;
     // klabAt: how many of our entries lie behind this one. Kept in the
     // entry, not in a counter here: a counter went down on Forward as well
     // as Back, and was zero again after a reload.
-    history.pushState({ klab: desc, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + tab);
+    history.pushState({ klab: desc, klabFrom: from, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + tab);
+  }
+
+  function tab(key) {
+    if (restoring) return;
+    const was = location.hash.slice(1);
+    if (key === 'chat' && was !== key) current.chat = {
+      tab: 'chat', kind: 'room', room: _chatActiveRoomId,
+      ...(matchMedia(KLAB_PHONE_MQ).matches ? { view: 'rooms' } : {}),
+    };
+    const desc = current[key] || { tab: key, kind: 'tab' };
+    if (was === key) {
+      if (!history.state?.klab) history.replaceState({ ...(history.state || {}), klab: desc }, '', location.href);
+      return;
+    }
+    if (TABS.includes(was)) {
+      const from = current[was] || { tab: was, kind: 'tab' };
+      history.replaceState({ ...(history.state || {}), klab: from }, '', location.href);
+      history.pushState({ klab: desc, klabFrom: from, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + key);
+    } else history.replaceState({ ...(history.state || {}), klab: desc }, '', '#' + key);
   }
 
   // In-page back buttons (the album page's arrow, "← Genres") go through
@@ -47,12 +67,15 @@
     if (history.state?.klabAt > 0 && history.state?.klab) { history.back(); return true; }
     return false;
   }
-  window.klabNav = { push, back };
+  window.klabNav = { push, back, tab };
 
   function restore(desc) {
     restoring = true;
     try {
       current[desc.tab] = desc;
+      // pushState changes the URL without a hashchange. Restore the tab
+      // and its screen together, before a room/list restoration can push.
+      if (activeTab() !== desc.tab) setActiveTab(desc.tab);
       if (desc.tab === 'music') restoreMusic(desc);
       else if (desc.tab === 'chat') restoreChat(desc);
     } finally {
@@ -127,15 +150,27 @@
   if (typeof setChatMobileView === 'function') {
     const orig = setChatMobileView;
     setChatMobileView = function(view) {
-      orig(view);
       // The list/conversation switch is only a screen on a phone; on a
       // desktop both are showing, and recording it made a Back press that
       // changed nothing (entering Chat says 'rooms', then a jump says 'convo').
       const phone = matchMedia(KLAB_PHONE_MQ).matches;
+      if (!restoring && phone && view === 'rooms' && current.chat?.view === 'convo' && activeTab() === 'chat') {
+        if (history.state?.klabFrom?.tab === 'chat' && history.state.klabFrom.view === 'rooms' && back()) return;
+        // No list entry behind us (a direct link): replace the conversation
+        // with its list rather than adding another forward step.
+        orig(view);
+        current.chat = { tab: 'chat', kind: 'room', room: _chatActiveRoomId, view };
+        history.replaceState({ ...(history.state || {}), klab: current.chat }, '', location.href);
+        return;
+      }
+      orig(view);
       if (activeTab() === 'chat') push({ tab: 'chat', kind: 'room', room: _chatActiveRoomId, ...(phone ? { view } : {}) });
     };
   }
 
   // What each tab shows before anything is clicked.
   current.music = { tab: 'music', kind: 'section', section: 'random' };
+  // The first page is a real destination too, so Back from a different
+  // tab can restore it without needing a hashchange side effect.
+  tab(activeTab());
 })();

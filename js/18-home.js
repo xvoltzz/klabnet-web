@@ -481,13 +481,20 @@
   // ── data ──
   async function loadPosts() {
     try {
-      const d = await getJSON('/api/posts?limit=8');
-      S.posts = d.posts || [];
-      const p = S.posts[0];
-      if (p) live('post', 'post' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''), S.posts.map(x => 'post' + x.id));
-      renderPosts(); renderSpot();
+      if (window.klabLoadFeed) {
+        await window.klabLoadFeed();
+        const posts = window.klabFeedPosts?.();
+        if (posts) adoptPosts(posts);
+      } else adoptPosts((await getJSON('/api/posts?limit=8')).posts || []);
     } catch (e) {}
   }
+  function adoptPosts(posts) {
+      S.posts = posts;
+      const p = S.posts[0];
+      if (p) live('post', 'post' + p.id, apiTime(p.created), '<b>' + esc(p.username) + '</b> posted' + (p.song ? ' a song' : ''), S.posts.map(x => 'post' + x.id));
+      if (active) { renderPosts(); renderSpot(); }
+  }
+  window.klabHomeFeedChanged = adoptPosts;
   async function loadPhotos() {
     try {
       const d = await getJSON('/api/posts/photos?order=posted&limit=6');

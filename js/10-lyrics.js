@@ -116,9 +116,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     document.getElementById('btnPrev')?.click();
   } else if (e.code === 'KeyM') {
-    const a = playerState.audio;
-    a.muted = !a.muted;
-    SFX && SFX.play('click');
+    document.getElementById('volIcon')?.closest('button')?.click();
   } else if (e.code === 'KeyF' && document.getElementById('fsPlayer')?.classList.contains('open')) {
     closeFS();
   } else if (e.code === 'Escape') {
@@ -430,4 +428,3 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     },
   };
 })();
-

@@ -192,8 +192,8 @@ function renderArtistSearchResults(artists) {
 // concurrent requests in one burst. rootMargin pre-loads just below the
 // fold so thumbnails are usually already there by the time you scroll to
 // them. One shared observer, not one per render — rows removed from the
-// DOM (tab switch, re-render) stop being tracked automatically per spec,
-// nothing to manually disconnect.
+// DOM (tab switch, re-render) must be explicitly unobserved: an observer
+// keeps its targets, including each row's images and event handlers.
 const _artistThumbObserver = window.IntersectionObserver ? new IntersectionObserver(entries => {
   entries.forEach(entry => {
     if (!entry.isIntersecting) return;
@@ -201,6 +201,13 @@ const _artistThumbObserver = window.IntersectionObserver ? new IntersectionObser
     hydrateArtistThumb(entry.target, entry.target.dataset.artistId);
   });
 }, { rootMargin: '200px 0px' }) : null;
+new MutationObserver(mutations => {
+  for (const mutation of mutations) for (const node of mutation.removedNodes) {
+    if (node.nodeType !== 1 || node.parentElement === pickerList) continue;
+    _albumArtIO?.unobserve(node);
+    _artistThumbObserver?.unobserve(node);
+  }
+}).observe(pickerList, { childList: true });
 function queueArtistThumbHydration(item, artistId) {
   if (!artistId) return;
   if (!_artistThumbObserver) { hydrateArtistThumb(item, artistId); return; } // no IO support — fall back to eager
@@ -405,4 +412,3 @@ function renderQueueList() {
     pickerList.appendChild(item);
   });
 }
-

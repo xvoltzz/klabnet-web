@@ -32,6 +32,7 @@
   let known = new Set();           // every id the deck has seen (new ones go next)
   let timer = 0, uiTimer = 0, clockTimer = 0, loading = 0, shownCount = 0;
   let paused = false, isOpen = false, wake = null, lastId = null, token = 0;
+  let stepRun = 0, wakeRequest = null;
 
   // ── The deck ──
   const byId = id => P().items().find(it => it.ph.id === id);
@@ -230,6 +231,7 @@
 
   // ── Moving along ──
   async function step(dir) {
+    const run = ++stepRun;
     clearTimeout(timer);
     mergeNew();
     // "Mine", every page is in, and none of them is yours: back to everyone's.
@@ -242,10 +244,13 @@
     if (!deck.length) { restartTimer(); return; }
     // Up to three tries: a photo that won't load (deleted since) is skipped.
     for (let tries = 0; tries < 3; tries++) {
+      if (!isOpen || run !== stepRun) return;
       at += dir;
       if (at >= deck.length) { const id = deck[deck.length - 1]; buildDeck(null); if (deck.length > 1 && deck[0] === id) deck.push(deck.shift()); at = 0; }
       if (at < 0) at = 0;
-      if (await show(deck[at])) break;
+      const shown = await show(deck[at]);
+      if (!isOpen || run !== stepRun) return;
+      if (shown) break;
     }
     if (!isOpen) return; // closed while that one loaded
     restartTimer();
@@ -300,12 +305,18 @@
   document.addEventListener('visibilitychange', () => { if (isOpen && !document.hidden) keepAwake(); });
 
   async function keepAwake() {
+    if (!isOpen || wakeRequest || (wake && !wake.released)) return;
+    const session = root;
+    const request = navigator.wakeLock?.request('screen');
+    if (!request) return;
+    wakeRequest = request;
     try {
-      const w = await navigator.wakeLock?.request('screen');
+      const w = await request;
       // Closed while it was being asked for: nobody would ever release it.
-      if (!isOpen) { w?.release(); return; }
+      if (!isOpen || root !== session) { w?.release(); return; }
       wake = w;
-    } catch (e) { wake = null; }
+    } catch (e) { if (root === session) wake = null; }
+    finally { if (wakeRequest === request) wakeRequest = null; }
   }
 
   // ── Open / close ──
@@ -315,16 +326,20 @@
     paused = false;
     shownCount = 0;
     build();
+    const session = root;
     syncBar();
     tickClock();
     clockTimer = setInterval(tickClock, 15000);
     document.body.classList.add('ss-on');
-    requestAnimationFrame(() => root.classList.add('open'));
+    requestAnimationFrame(() => { if (root === session && isOpen) session.classList.add('open'); });
     // "Mine" left on from last time, with nothing of yours to show.
     if (opts.mine && !hasMine() && !P().hasOlder()) { opts.mine = false; save(); syncBar(); }
     buildDeck(P().current());
     // Full screen where the browser allows it (it needs this click/key).
-    root.requestFullscreen?.().then(() => { root._wentFull = true; }).catch(() => {});
+    session.requestFullscreen?.().then(() => {
+      if (root === session && isOpen) session._wentFull = true;
+      else if (document.fullscreenElement === session) document.exitFullscreen?.().catch(() => {});
+    }).catch(() => {});
     keepAwake();
     step(1);
     loadRest();
@@ -336,10 +351,12 @@
     isOpen = false;
     loading++;
     token++;
+    stepRun++;
     clearTimeout(timer); clearTimeout(uiTimer); clearInterval(clockTimer);
     P().stopSong();
     try { wake?.release(); } catch (e) {}
     wake = null;
+    wakeRequest = null;
     ahead = null;
     if (document.fullscreenElement === root) document.exitFullscreen?.().catch(() => {});
     document.body.classList.remove('ss-on');

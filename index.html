@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.06.3" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.06.7" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.06.3" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.06.7" />
 </head>
 <body>
 
@@ -246,7 +246,7 @@ window.KLAB_BOOT = (function() {
       <div class="fs-quality" id="fsQuality"></div>
     </div>
     <div class="fs-prog-wrap">
-      <div class="fs-prog slider-wrap" id="fsProg">
+      <div class="fs-prog slider-wrap" id="fsProg" aria-label="Playback position">
         <div class="slider-track"></div>
         <div class="slider-fill" id="fsProgFill" style="width:0%"></div>
         <div class="slider-dot" id="fsProgDot"></div>
@@ -269,8 +269,8 @@ window.KLAB_BOOT = (function() {
       <button class="fs-btn" id="fsNext" title="Next" aria-label="Next"><i class="ti ti-player-skip-forward-filled"></i></button>
     </div>
     <div class="fs-vol">
-      <i class="ti ti-volume" id="fsVolIcon" style="cursor:pointer;" title="Mute"></i>
-      <div class="fs-vol-bar slider-wrap" id="fsVolBar">
+      <button type="button" class="fs-btn fs-btn-sm" aria-label="Mute" aria-pressed="false" title="Mute"><i class="ti ti-volume" id="fsVolIcon"></i></button>
+      <div class="fs-vol-bar slider-wrap" id="fsVolBar" aria-label="Volume">
         <div class="slider-track"></div>
         <div class="slider-fill" id="fsVolFill" style="width:80%"></div>
         <div class="slider-dot" id="fsVolDot"></div>
@@ -735,9 +735,9 @@ window.KLAB_BOOT = (function() {
   </div>
 
     <div class="player-dock" id="playerDock">
-      <div class="art-tilt-wrap"><div class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Full-screen player">
+      <div class="art-tilt-wrap"><button type="button" class="player-art-placeholder" id="playerArtWrap" style="cursor:pointer;position:relative;" title="Full-screen player" aria-label="Full-screen player">
         <i class="ti ti-music"></i>
-      </div></div>
+      </button></div>
       <div class="player-main">
         <div class="player-toprow">
           <div class="player-info">
@@ -759,7 +759,7 @@ window.KLAB_BOOT = (function() {
           <div class="player-time-wrap">
             <span class="player-time" id="playerTimeEl" title="Click to toggle remaining/elapsed">0:00</span>
           </div>
-          <div class="player-progress slider-wrap" id="playerProgress">
+          <div class="player-progress slider-wrap" id="playerProgress" aria-label="Playback position">
             <div class="slider-track"></div>
             <div class="slider-fill" id="playerProgressFill" style="width:0%"></div>
             <div class="slider-dot" id="playerProgressDot"></div>
@@ -768,8 +768,8 @@ window.KLAB_BOOT = (function() {
       </div>
       <div class="player-secondary">
         <div class="player-vol">
-          <i class="ti ti-volume" id="volIcon" style="cursor:pointer;" title="Mute"></i>
-          <div class="vol-slider slider-wrap" id="volSlider">
+          <button type="button" class="ctrl-btn" aria-label="Mute" aria-pressed="false" title="Mute"><i class="ti ti-volume" id="volIcon"></i></button>
+          <div class="vol-slider slider-wrap" id="volSlider" aria-label="Volume">
             <div class="slider-track"></div>
             <div class="slider-fill" id="volFill" style="width:80%"></div>
             <div class="slider-dot" id="volDot"></div>
@@ -925,7 +925,7 @@ window.KLAB_BOOT = (function() {
         </div>
         <div class="settings-row">
           <div><div class="settings-row-label">Performance mode</div><div class="settings-row-sub" id="lowFxSub">No blurred backgrounds, frosted glass or looping animations</div></div>
-          <div class="s-toggle" id="lowFxToggle"></div>
+          <button type="button" class="s-toggle" id="lowFxToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
@@ -934,12 +934,12 @@ window.KLAB_BOOT = (function() {
         <span class="settings-section-label">Audio</span>
         <div class="settings-row">
           <div><div class="settings-row-label">Sound effects</div><div class="settings-row-sub">Clicks, sends and other little sounds</div></div>
-          <div class="s-toggle on" id="sfxToggle"></div>
+          <button type="button" class="s-toggle on" id="sfxToggle" role="switch" aria-checked="true"></button>
         </div>
         <div class="settings-row">
           <div><div class="settings-row-label">Sound effects volume</div></div>
           <div class="s-slider-wrap">
-            <div class="slider-wrap" id="sfxVolumeSlider" style="width:76px;">
+            <div class="slider-wrap" id="sfxVolumeSlider" aria-label="Sound effects volume" style="width:76px;">
               <div class="slider-track"></div>
               <div class="slider-fill" id="sfxVolumeFill" style="width:70%"></div>
               <div class="slider-dot" id="sfxVolumeDot" style="left:70%"></div>
@@ -949,11 +949,11 @@ window.KLAB_BOOT = (function() {
         </div>
         <div class="settings-row">
           <div><div class="settings-row-label">Notification sounds</div><div class="settings-row-sub">Toast and alert sounds</div></div>
-          <div class="s-toggle on" id="notifSoundToggle"></div>
+          <button type="button" class="s-toggle on" id="notifSoundToggle" role="switch" aria-checked="true"></button>
         </div>
         <div class="settings-row" id="desktopNotifRow">
           <div><div class="settings-row-label">Desktop notifications</div><div class="settings-row-sub" id="desktopNotifSub">DMs, mentions and replies while klabnet's in the background</div></div>
-          <div class="s-toggle" id="desktopNotifToggle"></div>
+          <button type="button" class="s-toggle" id="desktopNotifToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
@@ -962,7 +962,7 @@ window.KLAB_BOOT = (function() {
         <span class="settings-section-label">Player</span>
         <div class="settings-row">
           <div><div class="settings-row-label">Login song</div><div class="settings-row-sub">Play a song on page load</div></div>
-          <div class="s-toggle on" id="loginSongToggle"></div>
+          <button type="button" class="s-toggle on" id="loginSongToggle" role="switch" aria-checked="true"></button>
         </div>
       </div>
 
@@ -975,7 +975,7 @@ window.KLAB_BOOT = (function() {
         </div>
         <div class="settings-row">
           <div><div class="settings-row-label" id="appLoginLabel">Start with Windows</div><div class="settings-row-sub" id="appLoginSub">Opens quietly in the tray when you sign in</div></div>
-          <div class="s-toggle" id="appLoginToggle"></div>
+          <button type="button" class="s-toggle" id="appLoginToggle" role="switch" aria-checked="false"></button>
         </div>
         <div class="settings-row" id="appFrameRow" hidden>
           <div><div class="settings-row-label">Window style</div><div class="settings-row-sub" id="appFrameSub">Header bar on GNOME, your desktop's own title bar elsewhere</div></div>
@@ -985,7 +985,7 @@ window.KLAB_BOOT = (function() {
         </div>
         <div class="settings-row" id="appTrayRow">
           <div><div class="settings-row-label">Close to tray</div><div class="settings-row-sub">Closing the window keeps klabnet (and your music) running</div></div>
-          <div class="s-toggle" id="appTrayToggle"></div>
+          <button type="button" class="s-toggle" id="appTrayToggle" role="switch" aria-checked="false"></button>
         </div>
         <div class="settings-row" id="appMaterialRow" hidden>
           <div><div class="settings-row-label">Window material</div><div class="settings-row-sub" id="appMaterialSub">What Windows 11 puts behind klabnet</div></div>
@@ -1008,7 +1008,7 @@ window.KLAB_BOOT = (function() {
         </div>
         <div class="settings-row" id="awayRow" hidden>
           <div><div class="settings-row-label">Away status</div><div class="settings-row-sub" id="awaySub">Shows you as away after 5 minutes without using your computer, or when it's locked</div></div>
-          <div class="s-toggle" id="awayToggle"></div>
+          <button type="button" class="s-toggle" id="awayToggle" role="switch" aria-checked="false"></button>
         </div>
         <div class="settings-row" style="cursor:pointer;" id="clearPrefsRow">
           <div><div class="settings-row-label" style="color:var(--danger-color);">Reset all preferences</div><div class="settings-row-sub">Clears local storage and server prefs</div></div>
@@ -1040,33 +1040,33 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.06.3';</script>
-<script defer src="js/00-util.js?v=v2026.10.06.3"></script>
-<script defer src="js/01-shell.js?v=v2026.10.06.3"></script>
-<script defer src="js/02-player.js?v=v2026.10.06.3"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.06.3"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.06.3"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.06.3"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.06.3"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.06.3"></script>
-<script defer src="js/08-chat.js?v=v2026.10.06.3"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.06.3"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.06.3"></script>
-<script defer src="js/11-presence.js?v=v2026.10.06.3"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.06.3"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.06.3"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.06.3"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.06.3"></script>
-<script defer src="js/12-feed.js?v=v2026.10.06.3"></script>
-<script defer src="js/13-tail.js?v=v2026.10.06.3"></script>
-<script defer src="js/14-photos.js?v=v2026.10.06.3"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.06.3"></script>
-<script defer src="js/16-motion.js?v=v2026.10.06.3"></script>
-<script defer src="js/17-history.js?v=v2026.10.06.3"></script>
-<script defer src="js/18-home.js?v=v2026.10.06.3"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.06.3"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.06.3"></script>
-<script defer src="js/21-stars.js?v=v2026.10.06.3"></script>
+<script>const KLABNET_VERSION = 'v2026.10.06.7';</script>
+<script defer src="js/00-util.js?v=v2026.10.06.7"></script>
+<script defer src="js/01-shell.js?v=v2026.10.06.7"></script>
+<script defer src="js/02-player.js?v=v2026.10.06.7"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.06.7"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.06.7"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.06.7"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.06.7"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.06.7"></script>
+<script defer src="js/08-chat.js?v=v2026.10.06.7"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.06.7"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.06.7"></script>
+<script defer src="js/11-presence.js?v=v2026.10.06.7"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.06.7"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.06.7"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.06.7"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.06.7"></script>
+<script defer src="js/12-feed.js?v=v2026.10.06.7"></script>
+<script defer src="js/13-tail.js?v=v2026.10.06.7"></script>
+<script defer src="js/14-photos.js?v=v2026.10.06.7"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.06.7"></script>
+<script defer src="js/16-motion.js?v=v2026.10.06.7"></script>
+<script defer src="js/17-history.js?v=v2026.10.06.7"></script>
+<script defer src="js/18-home.js?v=v2026.10.06.7"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.06.7"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.06.7"></script>
+<script defer src="js/21-stars.js?v=v2026.10.06.7"></script>
 
 </body>
 </html>
