@@ -285,6 +285,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   // thought the server had.
   localStorage.removeItem('klabnet_nav');
   localStorage.removeItem('klabnet_prefs_base');
+  localStorage.removeItem('klabnet_voice'); // microphone, push to talk (js/22-voice.js)
   // Clear server prefs
   try {
     await fetchTimeout('/api/prefs', {

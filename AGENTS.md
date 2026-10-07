@@ -38,6 +38,7 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 | `js/16-motion.js`, `js/17-history.js` | Sliding selection pills; browser Back/Forward through screens |
 | `js/18-home.js` | Home tab: spotlight, tiles, the "what just happened" line |
 | `js/20-mentions.js`, `js/21-stars.js` | @mention suggestions (not in chat); stars on songs and albums |
+| `js/22-voice.js` | Voice channels on LiveKit (see `CLAUDE.md`, "Voice"); `js/vendor/livekit-client.umd.js` loads on first join |
 
 ## Rules that bite
 

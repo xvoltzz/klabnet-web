@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.06.7" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.07.1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.06.7" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.07.1" />
 </head>
 <body>
 
@@ -319,6 +319,21 @@ window.KLAB_BOOT = (function() {
         <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
         <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank"><i class="ti ti-user-circle"></i> Account</a>
       </div>
+<!-- Voice channels (js/22-voice.js), under the header's headset button. -->
+<div class="hdr-more-menu vc-panel" id="voicePanel" role="dialog" aria-label="Voice">
+  <div class="vc-head">
+    <span class="vc-title">Voice</span>
+    <button type="button" class="chat-icon-btn" id="vcAddBtn" title="New channel" aria-label="New channel" hidden><i class="ti ti-plus"></i></button>
+    <button type="button" class="chat-icon-btn" id="vcSettingsBtn" title="Voice settings" aria-label="Voice settings"><i class="ti ti-settings"></i></button>
+  </div>
+  <div class="vc-list" id="vcChannels"></div>
+  <div class="vc-foot" id="vcFoot" hidden>
+    <div class="vc-status" id="vcStatus"><b id="vcStatusHead"></b><span id="vcStatusSub"></span></div>
+    <button type="button" class="vc-act" id="vcMute" aria-pressed="false" aria-label="Mute"><i class="ti ti-microphone"></i></button>
+    <button type="button" class="vc-act" id="vcDeafen" aria-pressed="false" aria-label="Deafen"><i class="ti ti-headphones"></i></button>
+    <button type="button" class="vc-act vc-leave" id="vcLeave" title="Leave" aria-label="Leave"><i class="ti ti-phone-off"></i></button>
+  </div>
+</div>
 <div class="toast-flyout" id="toastFlyout"></div>
 
 <div class="ctx-menu" id="songCtxMenu">
@@ -369,6 +384,10 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="photos" title="Photos"><i class="ti ti-photo"></i><span>Photos</span></button>
     </nav>
     <div class="header-right">
+      <!-- Voice (js/22-voice.js). Hidden until the API says voice is set
+           up; the microphone button only shows while you're in a channel. -->
+      <button class="hdr-btn" id="voiceBtn" title="Voice" aria-label="Voice" aria-haspopup="dialog" aria-expanded="false" hidden><i class="ti ti-headset"></i><span class="vc-badge" id="voiceBadge" hidden></span></button>
+      <button class="hdr-btn" id="voiceMicBtn" title="Mute" aria-label="Mute" aria-pressed="false" hidden><i class="ti ti-microphone"></i></button>
       <button class="hdr-btn" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
       <button class="hdr-btn" id="playerToggle" title="Toggle player" aria-label="Toggle player"><i class="ti ti-music" id="playerToggleIcon"></i></button>
       <button class="hdr-btn" id="motdToggle" title="Stop typing the MOTD" aria-label="Type the MOTD" aria-pressed="true"><i class="ti ti-terminal-2"></i></button>
@@ -892,6 +911,11 @@ window.KLAB_BOOT = (function() {
         <div class="key-hints-row"><span>Back to the newest</span><span class="key-hints-keys"><kbd class="key-hint-key">G</kbd></span></div>
       </div>
       <div class="key-hints-group">
+        <div class="key-hints-group-label">Voice</div>
+        <div class="key-hints-row"><span>Mute / unmute</span><span class="key-hints-keys"><kbd class="key-hint-key">Ctrl</kbd><kbd class="key-hint-key">⇧</kbd><kbd class="key-hint-key">M</kbd></span></div>
+        <div class="key-hints-row"><span>Deafen / undeafen</span><span class="key-hints-keys"><kbd class="key-hint-key">Ctrl</kbd><kbd class="key-hint-key">⇧</kbd><kbd class="key-hint-key">D</kbd></span></div>
+      </div>
+      <div class="key-hints-group">
         <div class="key-hints-group-label">General</div>
         <div class="key-hints-row"><span>Toggle this panel</span><span class="key-hints-keys"><kbd class="key-hint-key">?</kbd></span></div>
         <div class="key-hints-row"><span>Close panels &amp; dialogs</span><span class="key-hints-keys"><kbd class="key-hint-key">Esc</kbd></span></div>
@@ -954,6 +978,41 @@ window.KLAB_BOOT = (function() {
         <div class="settings-row" id="desktopNotifRow">
           <div><div class="settings-row-label">Desktop notifications</div><div class="settings-row-sub" id="desktopNotifSub">DMs, mentions and replies while klabnet's in the background</div></div>
           <button type="button" class="s-toggle" id="desktopNotifToggle" role="switch" aria-checked="false"></button>
+        </div>
+      </div>
+
+      <!-- Voice (js/22-voice.js): only once the API says voice is set up. -->
+      <div class="settings-section" id="voiceSettings" hidden>
+        <span class="settings-section-label">Voice</span>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Microphone</div><div class="settings-row-sub" id="vcInputSub">What you talk into</div></div>
+          <select class="vc-select" id="vcInput" aria-label="Microphone"></select>
+        </div>
+        <div class="settings-row" id="vcOutputRow" hidden>
+          <div><div class="settings-row-label">Speakers</div><div class="settings-row-sub">Where you hear everyone</div></div>
+          <select class="vc-select" id="vcOutput" aria-label="Speakers"></select>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Talk</div><div class="settings-row-sub" id="vcModeSub">Your microphone is on while you're in a channel</div></div>
+          <div class="app-seg" id="vcMode" role="group" aria-label="Talk">
+            <button type="button" data-v="open">Open mic</button><button type="button" data-v="ptt">Push to talk</button>
+          </div>
+        </div>
+        <div class="settings-row" id="vcPttRow" hidden>
+          <div><div class="settings-row-label">Push-to-talk key</div><div class="settings-row-sub">Hold it to talk, while klabnet is the window you're in</div></div>
+          <button type="button" class="app-btn" id="vcPttKey">Set a key</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Noise suppression</div><div class="settings-row-sub">Takes out fans, keyboards and hum</div></div>
+          <button type="button" class="s-toggle" id="vcNoiseToggle" role="switch" aria-checked="false"></button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Echo cancellation</div><div class="settings-row-sub">Keeps your speakers out of your microphone</div></div>
+          <button type="button" class="s-toggle" id="vcEchoToggle" role="switch" aria-checked="false"></button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Automatic volume</div><div class="settings-row-sub">Evens out how loud your microphone is</div></div>
+          <button type="button" class="s-toggle" id="vcGainToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
@@ -1040,33 +1099,34 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.06.7';</script>
-<script defer src="js/00-util.js?v=v2026.10.06.7"></script>
-<script defer src="js/01-shell.js?v=v2026.10.06.7"></script>
-<script defer src="js/02-player.js?v=v2026.10.06.7"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.06.7"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.06.7"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.06.7"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.06.7"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.06.7"></script>
-<script defer src="js/08-chat.js?v=v2026.10.06.7"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.06.7"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.06.7"></script>
-<script defer src="js/11-presence.js?v=v2026.10.06.7"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.06.7"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.06.7"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.06.7"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.06.7"></script>
-<script defer src="js/12-feed.js?v=v2026.10.06.7"></script>
-<script defer src="js/13-tail.js?v=v2026.10.06.7"></script>
-<script defer src="js/14-photos.js?v=v2026.10.06.7"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.06.7"></script>
-<script defer src="js/16-motion.js?v=v2026.10.06.7"></script>
-<script defer src="js/17-history.js?v=v2026.10.06.7"></script>
-<script defer src="js/18-home.js?v=v2026.10.06.7"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.06.7"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.06.7"></script>
-<script defer src="js/21-stars.js?v=v2026.10.06.7"></script>
+<script>const KLABNET_VERSION = 'v2026.10.07.1';</script>
+<script defer src="js/00-util.js?v=v2026.10.07.1"></script>
+<script defer src="js/01-shell.js?v=v2026.10.07.1"></script>
+<script defer src="js/02-player.js?v=v2026.10.07.1"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.07.1"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.07.1"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.07.1"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.07.1"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.07.1"></script>
+<script defer src="js/08-chat.js?v=v2026.10.07.1"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.07.1"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.07.1"></script>
+<script defer src="js/11-presence.js?v=v2026.10.07.1"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.07.1"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.07.1"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.07.1"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.07.1"></script>
+<script defer src="js/12-feed.js?v=v2026.10.07.1"></script>
+<script defer src="js/13-tail.js?v=v2026.10.07.1"></script>
+<script defer src="js/14-photos.js?v=v2026.10.07.1"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.07.1"></script>
+<script defer src="js/16-motion.js?v=v2026.10.07.1"></script>
+<script defer src="js/17-history.js?v=v2026.10.07.1"></script>
+<script defer src="js/18-home.js?v=v2026.10.07.1"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.07.1"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.07.1"></script>
+<script defer src="js/21-stars.js?v=v2026.10.07.1"></script>
+<script defer src="js/22-voice.js?v=v2026.10.07.1"></script>
 
 </body>
 </html>

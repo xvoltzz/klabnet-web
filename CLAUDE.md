@@ -29,6 +29,24 @@ klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome)
 - In the desktop app, each platform looks native: Windows (WinUI title bar, Acrylic, NavigationView sidebar), GNOME (libadwaita header bar), KDE (Breeze), and macOS ("KLABNET FOR MAC" at the end of css/app.css). These are keyed off `html.klabnet-app` and `data-platform`/`data-desktop`.
 - Scrollbars are hidden everywhere.
 
+## Voice (built 2026-10-06; not yet run against the real homelab)
+Drop-in voice channels, like Mumble's or Discord's, on a self-hosted **LiveKit** server (WebRTC). The owner wanted "self-hosted, low-latency voice" and first thought of Mumble; a browser can't speak Mumble's protocol, LiveKit's client is the same JavaScript in a browser and in the apps.
+- **Where things are:**
+  - `js/22-voice.js`: all of it. The headset button in the header (`#voiceBtn`) opens `#voicePanel` (channels, the people in each, mute / deafen / leave); `#voiceMicBtn` is a mute button that shows only while you're in a channel. Settings → Voice has the devices, open mic or push to talk, and the processing switches.
+  - `js/vendor/livekit-client.umd.js` (600KB) is fetched the first time someone joins, not at load. Its `?v=` is the library's version, not `KLABNET_VERSION`.
+  - **klabnet-api** `app/routers/voice.py`: channel names (SQLite), who's in each (asked of LiveKit, cached 2s) and the join token. LiveKit itself is the `livekit` service in klabnet-api's `compose.yml`. Its README's "Voice" section is the setup (DNS, Caddy, router ports, `.env`).
+- **It hides itself** until `GET /api/voice` says `enabled: true`, so the site is the same as before wherever LiveKit isn't set up. Caddy only forwards a fixed list of `/api` prefixes: `/api/voice*` has to be on it.
+- **Identity is the klabnet username**, one per person: joining on a second device takes over from the first ("Voice moved to your other device").
+- **Muted and deafened are participant attributes** (`mute`, `deaf`), not the track's mute bit, because a push-to-talk microphone is muted between words without its owner being muted. The API reads the same attributes for people outside the channel.
+- **Going quiet cuts the microphone at the source first** (`mediaStreamTrack.enabled = false` in `applyMic`), then tells LiveKit. Keep it that way: a mute that fails must never leave a microphone open.
+- Per-device settings are in `localStorage` under `klabnet_voice` (not synced prefs: device ids mean nothing on another machine).
+- `window.klabVoice` (`join`, `leave`, `toggleMute`, `toggleDeafen`, `state()`) is there for the desktop apps and for tests.
+- **Testing it locally:** LiveKit is one binary (`livekit-server --dev --node-ip <WSL address>`, key `devkey` / secret `secret`); run the API from AGENTS.md's rig with `LIVEKIT_URL=ws://localhost:7880 LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret`. Headless Chrome with `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required` gives each tab a microphone; `--use-file-for-fake-audio-capture=<wav>` with something speech-like is needed for the speaking rings (the default beep is too short for LiveKit to call it speech). Two tabs as two users covered joining, hearing each other, mute, deafen, volume, push to talk, switching, a deleted channel and the second-device takeover.
+- **Not done yet:**
+  - Phones: the buttons are hidden under the phone media query. It needs its own layout.
+  - The desktop apps: a global mute / push-to-talk key (a page only sees keys while it's focused), tray and Dock items. See klabnet-desktop's CLAUDE.md.
+  - Nothing shows who's in voice outside the panel (presence cards, Home).
+
 ## Testing without the real site
 The real site needs Authentik, so local testing uses a mock server. It serves this repo, fakes `/api/*` (photos, presence, posts, artwork) and loads index.html with a fake `window.klabnetDesktop` to preview the app layouts. Pages are screenshotted in headless Chrome (`--screenshot`, `--virtual-time-budget`) inside an iframe harness that can call into the page. Headless Chrome has no GPU, so `data-fx="low"` (reduced effects) is on there: no blur and no backdrops. Performance was measured in real Chrome windows and in the real Electron app, not headless.
 
