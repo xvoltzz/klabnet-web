@@ -155,204 +155,6 @@ async function loadGenres() {
 }
 
 // ══════════════════════════════════════════
-//  PLAYLISTS
-// ══════════════════════════════════════════
-const PLAYLISTS_KEY = 'klabnet_playlists';
-
-function getPlaylists() {
-  try { return JSON.parse(localStorage.getItem(PLAYLISTS_KEY) || '[]'); } catch(e) { return []; }
-}
-function savePlaylists(pls) {
-  // Slim records, like favourites (a playlist of whole Navidrome records
-  // is ~1KB a song, and it all goes to prefs).
-  for (const pl of pls) if (Array.isArray(pl.songs)) pl.songs = pl.songs.filter(Boolean).map(slimSong);
-  try { localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(pls)); }
-  catch (e) { showToast?.('Couldn’t save that playlist: storage is full', 'ti-alert-triangle'); }
-  scheduleSave();
-  // Single touch point for every mutation (create/delete/add-song all
-  // funnel through here) — the sidebar just stays in sync automatically
-  // rather than each call site needing to remember to refresh it.
-  if (typeof renderPlaylistNav === 'function') renderPlaylistNav();
-}
-
-// Sidebar playlist rows (see .music-playlist-nav in the Music tab-panel
-// markup) — replaces the old generic "Playlists" tab; each playlist is now
-// its own direct link, same as a real Spotify sidebar. Reuses
-// loadPlaylistView() unchanged for the actual track-list rendering.
-function renderPlaylistNav() {
-  const nav = document.getElementById('musicPlaylistNav');
-  const newBtn = document.getElementById('musicNewPlaylistBtn');
-  if (!nav || !newBtn) return;
-  nav.querySelectorAll('.music-playlist-row').forEach(row => row.remove());
-  getPlaylists().forEach(pl => {
-    const row = document.createElement('div');
-    row.className = 'music-playlist-row';
-    row.dataset.plId = pl.id;
-    row._playlist = pl;
-    const artSong = pl.songs.find(s => s.coverArt);
-    const artHTML = artSong
-      ? `<img class="music-playlist-row-art" src="${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artSong.coverArt)}&size=60&${subsonicParams()}" alt="" loading="lazy" />`
-      : `<div class="music-playlist-row-art"><i class="ti ti-playlist"></i></div>`;
-    row.innerHTML = `
-      ${artHTML}
-      <div class="music-playlist-row-info">
-        <div class="music-playlist-row-name">${esc(pl.name)}</div>
-        <div class="music-playlist-row-meta">${pl.songs.length} song${pl.songs.length === 1 ? '' : 's'}</div>
-      </div>
-      <button class="music-playlist-row-del" title="Delete playlist" type="button"><i class="ti ti-trash"></i></button>
-    `;
-    row.querySelector('.music-playlist-row-del').addEventListener('click', async e => {
-      e.stopPropagation();
-      const ok = await showConfirmDialog('// delete playlist', `Delete "${pl.name}"? This can't be undone.`, 'Delete');
-      if (!ok) return;
-      savePlaylists(getPlaylists().filter(p => p.id !== pl.id));
-      SFX && SFX.play('click');
-    });
-    row.addEventListener('click', () => {
-      window.closeApPanel?.();
-      document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
-      row.classList.add('active');
-      pickerTab = 'playlist';
-      setMusicViewTitle('playlist', pl.name);
-      loadPlaylistView(pl);
-    });
-    nav.insertBefore(row, newBtn);
-  });
-}
-document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', async () => {
-  const name = await showInputDialog('// new playlist', 'Name your new playlist.', 'Playlist name');
-  if (!name) return;
-  createPlaylist(name);
-  SFX && SFX.play('star');
-  showToast(`"${name}" created`, 'ti-playlist-add');
-});
-
-function createPlaylist(name) {
-  const pls = getPlaylists();
-  const pl = { id: Date.now().toString(), name, songs: [], created: new Date().toISOString() };
-  pls.push(pl);
-  savePlaylists(pls);
-  return pl;
-}
-
-function addSongToPlaylist(plId, song) {
-  const pls = getPlaylists();
-  const pl  = pls.find(p => p.id === plId);
-  if (!pl) return;
-  if (!pl.songs.find(s => s.id === song.id)) { pl.songs.push(song); }
-  savePlaylists(pls);
-  showToast(`Added to "${pl.name}"`, toastArt(song.coverArt));
-}
-
-// renderPlaylistList() (the old generic "Playlists" browse tab) removed —
-// unreachable dead code. renderPlaylistNav() replaced it: each playlist is
-// now its own direct link in the sidebar, and no UI path sets
-// pickerTab === 'playlists' any more (confirmed: no such tab button
-// exists, only random/recent/songs/albums/artists/genres/favorites/
-// queue/requests do).
-
-function loadPlaylistView(pl) {
-  _pickerLoadToken++; clearTimeout(pickerDebounce); // see loadPickerTab
-  hideSortBtn();
-  pickerList.classList.remove('picker-list-grid', 'mh-home'); // a track list, not a grid or Home — in case one of them left its class on
-  pickerList.innerHTML = '';
-  // Playlists are always one click away in the sidebar now (no more
-  // generic "Playlists" tab to go back to) — this just clears the active
-  // state and returns to Home, same as clicking any other sidebar item.
-  const back = document.createElement('button');
-  back.className = 'picker-back';
-  back.innerHTML = '<i class="ti ti-arrow-left"></i> Back';
-  back.addEventListener('click', () => {
-    document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
-    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-tab="random"]').classList.add('active');
-    loadPickerTab('random');
-  });
-  pickerList.appendChild(back);
-
-  const lbl = document.createElement('div');
-  lbl.className = 'picker-section-label';
-  lbl.textContent = `${pl.name} · ${klabCount(pl.songs.length, 'song')}`;
-  pickerList.appendChild(lbl);
-
-  if (!pl.songs.length) {
-    const empty = document.createElement('div');
-    empty.className = 'picker-empty';
-    empty.textContent = 'no songs — add some using the playlist button on songs';
-    pickerList.appendChild(empty);
-    return;
-  }
-  pickerSongs = pl.songs;
-  pl.songs.forEach((song, idx) => {
-    renderSongItem(song, pickerList);
-    // Append a remove-from-playlist button to this item's actions
-    const item = pickerList.lastElementChild;
-    if (!item) return;
-    const actions = item.querySelector('.picker-item-actions');
-    if (!actions) return;
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'picker-action';
-    removeBtn.title = 'Remove from playlist';
-    removeBtn.innerHTML = '<i class="ti ti-x" style="color:var(--danger-color);"></i>';
-    removeBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      // Get fresh playlist from storage (index may have shifted)
-      const pls = getPlaylists();
-      const target = pls.find(p => p.id === pl.id);
-      if (!target) return;
-      // Find by song id to be safe
-      const songIdx = target.songs.findIndex(s => s.id === song.id);
-      if (songIdx === -1) return;
-      target.songs.splice(songIdx, 1);
-      pl.songs = target.songs; // keep local ref in sync
-      savePlaylists(pls);
-      item.remove();
-      lbl.textContent = `${pl.name} · ${klabCount(target.songs.length, 'song')}`;
-      SFX && SFX.play('click');
-    });
-    actions.appendChild(removeBtn);
-  });
-}
-
-// Add to playlist — shared by the picker row button (delegated, below)
-// and the song right-click context menu (SONG CONTEXT MENU, further down).
-async function addSongToPlaylistFlow(song) {
-  const pls = getPlaylists();
-  if (!pls.length) {
-    const name = await showInputDialog('// new playlist', 'No playlists yet — name one to add this song to.', 'Playlist name');
-    if (!name) return;
-    const pl = createPlaylist(name);
-    addSongToPlaylist(pl.id, song);
-  } else {
-    const idx = await showChoiceDialog(
-      `// add "${song.title}" to...`,
-      pls.map(p => ({ label: p.name, sub: `${p.songs.length} song${p.songs.length === 1 ? '' : 's'}` }))
-    );
-    if (idx === null || idx === undefined || !pls[idx]) return;
-    addSongToPlaylist(pls[idx].id, song);
-  }
-  SFX && SFX.play('queue');
-}
-
-// Wired directly inside renderSongItem's template via event delegation on
-// the pickerList container.
-let _plDelegated = false;
-function ensurePlDelegate() {
-  if (_plDelegated) return;
-  _plDelegated = true;
-  document.getElementById('pickerList').addEventListener('click', e => {
-    const btn = e.target.closest('[data-add-pl]');
-    if (!btn) return;
-    e.stopPropagation();
-    // The row's own song object when there is one: the attribute's copy
-    // leaves out album/artist links, length and quality.
-    const row = btn.closest('.picker-item');
-    addSongToPlaylistFlow((row && row._song) || JSON.parse(decodeURIComponent(btn.dataset.addPl)));
-  });
-}
-
-// ══════════════════════════════════════════
 //  MUSIC DOWNLOADS — pull a track or a whole album out of the library
 //
 //  Two different mechanisms, because Navidrome treats the two endpoints
@@ -450,6 +252,7 @@ function downloadAlbumZip(albumId, albumName) {
 //  ALBUM / ARTIST / PLAYLIST MENUS — any element carrying _album,
 //  _artist or _playlist gets a right-click menu, wherever it's drawn
 //  (album grids, Music Home rows, an artist's discography, the sidebar).
+//  The playlist one is with the rest of playlists, in 09b-playlists.js.
 // ══════════════════════════════════════════
 async function albumSongs(albumId) {
   const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&${subsonicParams()}`, {}, 8000);
@@ -480,6 +283,7 @@ function klabAlbumMenu(e, album) {
       if (pickerTab === 'queue') renderQueueList(); // this menu can open over the Queue view
       showToast('Queued ' + klabCount(s.length, 'track'), toastArt(album.coverArt || album.id));
     }) },
+    { label: 'Add to playlist', icon: 'ti-playlist', action: withSongs(s => addSongsToPlaylistFlow(s, `"${name}"`)) },
     '-',
     { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
     { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !album.artistId, action: () => loadArtistView({ id: album.artistId, name: album.artist }) },
@@ -574,43 +378,11 @@ function klabArtistMenu(e, artist) {
   ]);
 }
 
-function klabPlaylistMenu(e, pl, row) {
-  const n = pl.songs.length;
-  klabMenu(e, [
-    { header: pl.name },
-    { label: 'Play', icon: 'ti-player-play', hidden: !n, action: () => playSongList([...pl.songs]) },
-    { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: !n, action: () => playSongList([...pl.songs], { shuffle: true }) },
-    { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: () => {
-      queue.push(...pl.songs); updateQueueBadge(); SFX && SFX.play('queue');
-      if (pickerTab === 'queue') renderQueueList(); // the sidebar is beside the Queue view
-      showToast('Queued ' + klabCount(n, 'track'), 'ti-playlist-add');
-    } },
-    '-',
-    { label: 'Open', icon: 'ti-playlist', action: () => row.click() },
-    { label: 'Rename', icon: 'ti-pencil', action: async () => {
-      const name = await showInputDialog('// rename playlist', '', 'Playlist name', pl.name);
-      if (!name || name === pl.name) return;
-      const wasActive = row.classList.contains('active');
-      const pls = getPlaylists();
-      const p = pls.find(x => x.id === pl.id);
-      if (!p) return;
-      p.name = name;
-      savePlaylists(pls); // redraws the sidebar
-      if (wasActive) {
-        document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(pl.id)}"]`)?.classList.add('active');
-        setMusicViewTitle('playlist', name);
-      }
-    } },
-    '-',
-    { label: 'Delete playlist', icon: 'ti-trash', warn: true, action: () => row.querySelector('.music-playlist-row-del')?.click() },
-  ]);
-}
-
 document.addEventListener('contextmenu', e => {
   for (let n = e.target; n && n !== document.body; n = n.parentElement) {
     if (n._album) { klabAlbumMenu(e, n._album); return; }
     if (n._artist) { klabArtistMenu(e, n._artist); return; }
-    if (n._playlist) { klabPlaylistMenu(e, n._playlist, n); return; }
+    if (n._playlist) { klabPlaylistMenu(e, n._playlist); return; }
   }
 });
 
@@ -1246,7 +1018,7 @@ async function loadAlbumView(albumId, albumName, backFn) {
 // ══════════════════════════════════════════
 const MUSIC_VIEW_TITLES = {
   recent: 'Recently played', songs: 'Songs', albums: 'Albums', artists: 'Artists', genres: 'Genres',
-  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', coverflow: 'Cover Flow',
+  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', coverflow: 'Cover Flow', playlists: 'Playlists',
 };
 function musicGreeting() {
   const h = new Date().getHours();

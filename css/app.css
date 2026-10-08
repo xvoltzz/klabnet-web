@@ -1835,6 +1835,7 @@
     .img-crop-stage:active { cursor: grabbing; }
     .img-crop-stage.is-circle { aspect-ratio: 1 / 1; border-radius: 50%; }
     .img-crop-stage.is-rect { aspect-ratio: 3.5556 / 1; }
+    .img-crop-stage.is-square { aspect-ratio: 1 / 1; }
     .img-crop-img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; pointer-events: none; }
     .img-crop-zoom { width: 100%; margin-top: 12px; }
     .img-crop-actions { display: flex; gap: 8px; margin-top: 12px; }
@@ -7589,6 +7590,137 @@
     .ph-star i { font-size: 22px; }
     .ph-star.mine i { color: var(--gold); text-shadow: 0 0 12px var(--gold-dim); }
     .ph-stage.gold .ph-frame > img { box-shadow: 0 0 0 1px var(--gold-dim), var(--bloom-gold); }
+
+
+    /* ══════════════════════════════════════════
+       PLAYLISTS (js/09b-playlists.js)
+       ══════════════════════════════════════════ */
+    /* A playlist's cover: its own picture, the first four album covers in
+       it as a 2x2, or (empty, no picture) a tile in its colour. One
+       element everywhere it's drawn; where it is sets its size. */
+    .pl-art { position: relative; flex: none; display: block; overflow: hidden; aspect-ratio: 1; background: var(--glass-fill); }
+    .pl-art img, .pl-art canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .pl-art.mosaic { display: grid; grid-template: 1fr 1fr / 1fr 1fr; }
+    .pl-art.mosaic img { min-width: 0; min-height: 0; }
+    .pl-art.ph {
+      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.86);
+      background: linear-gradient(135deg, var(--pl-c, #55555e), color-mix(in srgb, var(--pl-c, #55555e) 42%, #000));
+    }
+    .pl-art.ph > .ti { font-size: 44px; }
+    .music-playlist-row-art.pl-art.ph > .ti { font-size: 14px; }
+    .pl-art-over {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      background: rgba(0,0,0,0.5); color: #fff; font-size: 26px; opacity: 0; transition: opacity .15s;
+    }
+    .pl-art-over span { font: 600 var(--fs-12) var(--font-ui); }
+    .pl-art-edit, .pl-art-view { cursor: pointer; }
+    .pl-art-edit .pl-art-over span { display: none; }
+    .pl-art-edit:hover .pl-art-over, .pl-edit-cover:hover:not(:disabled) .pl-art-over, .pl-edit-cover:focus-visible .pl-art-over { opacity: 1; }
+
+    /* The sidebar: featured ones carry a small mark after their count. */
+    .music-playlist-row-meta .ti { margin-left: 6px; font-size: 11px; vertical-align: -1px; }
+    /* With a few playlists the sidebar is taller than the window: it
+       scrolls, rather than squeezing the search box flat. */
+    #musicShell .music-sidebar > * { flex: none; }
+
+    /* Home's shelf and Browse -> Playlists. */
+    .mh-slot { display: contents; }
+    .mh-card-art .pl-art { width: 100%; height: 100%; }
+    #musicShell .picker-list.picker-list-grid .pl-tile .pl-art { display: block; }
+    #musicShell .picker-list.picker-list-grid .pl-tile .pl-art.mosaic { display: grid; }
+    #musicShell .picker-list.picker-list-grid .pl-tile .pl-art.ph { display: flex; }
+    #musicShell .picker-list.picker-list-grid > .picker-section-label,
+    #musicShell .picker-list.picker-list-grid > .picker-empty { grid-column: 1 / -1; }
+    /* A label over its tiles, not a row of the grid a whole gap away. */
+    #musicShell .picker-list.picker-list-grid > .picker-section-label { margin-bottom: -12px; }
+    #musicShell .picker-list.picker-list-grid > .pl-tile + .picker-section-label { margin-top: 14px; }
+    #musicShell .picker-list.picker-list-grid > .picker-empty { text-align: left; padding-left: 4px; }
+
+    /* Its page: the album page, tinted in the playlist's own colour. */
+    #musicShell .pl-page { position: relative; }
+    #musicShell .pl-wash {
+      position: absolute; left: 0; right: 0; top: 0; height: 380px; border-radius: 10px; pointer-events: none;
+      background: linear-gradient(var(--pl-c), transparent); opacity: 0;
+    }
+    #musicShell .pl-page.tinted .pl-wash { opacity: .3; }
+    [data-theme="light"] #musicShell .pl-page.tinted .pl-wash { opacity: .22; }
+    #musicShell .pl-head, #musicShell .pl-page .ap-body { position: relative; }
+    #musicShell .pl-page.tinted .ap-hero-img { box-shadow: 0 18px 50px rgba(0,0,0,0.45), 0 0 70px color-mix(in srgb, var(--pl-c) 38%, transparent); }
+    #musicShell .pl-page .ap-hero-img.ph > .ti { font-size: 64px; }
+    #musicShell .pl-by { cursor: pointer; }
+    #musicShell .pl-desc {
+      max-width: 760px; padding: 4px 20px 0; font-size: var(--fs-14); line-height: 1.6; color: var(--text-dim);
+      white-space: pre-line; overflow-wrap: anywhere;
+    }
+    #musicShell .pl-desc a { color: var(--text); }
+    #musicShell .ap-btn-queue.pl-on { border-color: var(--glass-border-h); box-shadow: var(--bloom-white); }
+    #musicShell .ap-btn-queue.pl-more { width: 40px; padding: 0; justify-content: center; }
+
+    /* A narrow desktop window keeps the sidebar, which leaves this page
+       about 350px: beside a 200px cover, a name had room for two letters
+       (albums and artists too). There the hero stacks, as it does on a phone. */
+    #musicShell .ap-scroll { container-type: inline-size; }
+    @container (max-width: 560px) {
+      #musicShell .ap-hero { flex-direction: column; align-items: flex-start; gap: 16px; padding: 12px 12px 18px; }
+      #musicShell .ap-hero-img, #musicShell .ap-hero-img-ph { width: 160px; height: 160px; }
+      #musicShell .ap-hero-name { font-size: 30px; }
+      #musicShell .ap-actions, #musicShell .pl-desc { padding-left: 12px; padding-right: 12px; }
+    }
+
+    /* Songs you can drag into order (by the number) and take out. */
+    #musicShell .pl-grip { cursor: grab; }
+    #musicShell .ap-track:hover .pl-grip { color: var(--text); }
+    #musicShell .ap-track.pl-dragging { opacity: .35; }
+    #musicShell .ap-track.pl-drop-before { box-shadow: 0 -2px 0 var(--text); }
+    #musicShell .ap-track.pl-drop-after { box-shadow: 0 2px 0 var(--text); }
+    #musicShell .pl-track-x:hover { color: var(--danger-color); }
+    #musicShell .pl-added-by { color: var(--text-dimmer); }
+    #musicShell .pl-tracks .picker-empty { padding: 14px 20px 6px; text-align: left; }
+
+    /* "Add songs": a search of the library at the bottom of the page. */
+    #musicShell .pl-find-box { max-width: 460px; margin: 0 20px 8px; }
+    #musicShell .pl-find-row .pl-find-add { flex: none; height: 32px; padding: 0 12px; }
+    #musicShell .pl-find-row .pl-find-add:disabled { opacity: .6; cursor: default; }
+    #musicShell .pl-find-results .picker-empty { padding: 10px 20px; text-align: left; }
+    #musicShell .pl-find { padding-bottom: 24px; }
+
+    /* The editor (new playlist / playlist details). */
+    .pl-edit-top { display: flex; gap: 16px; align-items: flex-start; }
+    .pl-edit-coverbox { flex: none; width: 148px; }
+    .pl-edit-cover {
+      display: block; width: 148px; height: 148px; padding: 0; overflow: hidden;
+      background: none; border: 1px solid var(--glass-border); border-radius: 10px;
+    }
+    .pl-edit-cover:disabled { opacity: .6; cursor: default; }
+    .pl-edit-cover .pl-art { width: 100%; height: 100%; }
+    /* Nothing to show yet: the tile says what it's for. */
+    .pl-edit-cover .pl-art.ph > .ti { display: none; }
+    .pl-edit-cover .pl-art.ph .pl-art-over { opacity: 1; background: none; }
+    .pl-edit-cover-btns { display: flex; gap: 6px; margin-top: 8px; }
+    .pl-edit-cover-btns .ap-btn-queue {
+      flex: 1; height: 28px; padding: 0 6px; justify-content: center; border-radius: 8px;
+      font: 600 var(--fs-12) var(--font-ui); letter-spacing: 0; text-transform: none;
+    }
+    .pl-edit-cover-btns .ap-btn-queue:disabled { opacity: .5; cursor: default; }
+    .pl-edit-cover-btns [hidden] { display: none; }
+    .pl-edit-fields { flex: 1; min-width: 0; }
+    .pl-edit-fields textarea { display: block; height: 88px; resize: none; line-height: 1.45; }
+    .pl-edit-make { margin-top: 12px; }
+    .pl-edit-custom {
+      position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+      background: var(--tile-bg); color: var(--text-dim); font-size: 12px;
+    }
+    .pl-edit-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .pl-edit-switch { display: flex; align-items: center; gap: 12px; margin-top: 14px; transition: opacity .15s; }
+    .pl-edit-switch > div { flex: 1; min-width: 0; }
+    .pl-edit-switch .t { font-size: var(--fs-13); font-weight: 600; color: var(--text); }
+    .pl-edit-switch .d { margin-top: 1px; font-size: var(--fs-12); line-height: 1.4; color: var(--text-dim); }
+    .pl-edit-switch.off { opacity: .45; }
+    .pl-edit-switch .s-toggle:disabled { cursor: default; }
+    @media (max-width: 520px) {
+      .pl-edit-top { flex-direction: column; align-items: center; }
+      .pl-edit-fields { width: 100%; }
+    }
 
 
     /* ══════════════════════════════════════════════════════════════════

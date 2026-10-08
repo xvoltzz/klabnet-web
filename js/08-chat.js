@@ -2142,7 +2142,7 @@ function messageUser(username) {
 }
 
 // Pan/zoom cropper for the profile avatar (circle) and banner (wide strip)
-// uploads below — without it, an arbitrary source photo just got blindly
+// uploads below, and a playlist's cover (square, js/09b-playlists.js) — without it, an arbitrary source photo just got blindly
 // center-cropped into whatever shape the CSS forced it into, "botching"
 // anything not already framed for that exact aspect ratio. Its own
 // standalone overlay rather than the shared #chatModalBody shell (see
@@ -2160,7 +2160,7 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
       backdrop.innerHTML = `
         <div class="img-crop-dialog">
           <div class="img-crop-title">Crop image</div>
-          <div class="img-crop-stage ${shape === 'circle' ? 'is-circle' : 'is-rect'}">
+          <div class="img-crop-stage ${shape === 'circle' ? 'is-circle' : shape === 'square' ? 'is-square' : 'is-rect'}">
             <img class="img-crop-img" src="${objectUrl}" alt="" draggable="false" />
           </div>
           <input type="range" class="img-crop-zoom" min="0" max="100" value="0" />

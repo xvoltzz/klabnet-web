@@ -88,7 +88,7 @@
     // Back from an album or artist page to the list it was opened over:
     // that list is still there underneath, as you left it (scrolled, or
     // showing a search). Reloading it started Albums over from the top.
-    if (document.getElementById('apPanel')?.classList.contains('open') && d.kind !== 'album' && d.kind !== 'artist' && JSON.stringify(d) === underPanel) {
+    if (document.getElementById('apPanel')?.classList.contains('open') && !['album', 'artist', 'playlist'].includes(d.kind) && JSON.stringify(d) === underPanel) {
       window.closeApPanel?.();
       return;
     }
@@ -96,8 +96,7 @@
       window.closeApPanel?.();
       document.querySelector(`.picker-tab[data-tab="${d.section}"]`)?.click();
     } else if (d.kind === 'playlist') {
-      window.closeApPanel?.();
-      document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(d.id)}"]`)?.click();
+      window.openPlaylistPage?.(d.id, d.name);
     } else if (d.kind === 'album') {
       window.openAlbumPage?.(d.id, d.name);
     } else if (d.kind === 'artist') {
@@ -127,12 +126,10 @@
   document.addEventListener('click', e => {
     const tab = e.target.closest?.('.picker-tab');
     if (tab) setTimeout(() => push({ tab: 'music', kind: 'section', section: tab.dataset.tab }), 0);
-    const pl = e.target.closest?.('.music-playlist-row');
-    if (pl && !e.target.closest('.music-playlist-row-del')) setTimeout(() => push({ tab: 'music', kind: 'playlist', id: pl.dataset.plId }), 0);
   }, true);
 
-  // Album and artist pages.
-  for (const [fn, kind] of [['openAlbumPage', 'album'], ['openArtistPage', 'artist']]) {
+  // Album, artist and playlist pages.
+  for (const [fn, kind] of [['openAlbumPage', 'album'], ['openArtistPage', 'artist'], ['openPlaylistPage', 'playlist']]) {
     const orig = window[fn];
     if (typeof orig !== 'function') continue;
     window[fn] = function(id, name) {

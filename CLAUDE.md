@@ -47,6 +47,24 @@ Drop-in voice channels, like Mumble's or Discord's, on a self-hosted **LiveKit**
   - The desktop apps: a global mute / push-to-talk key (a page only sees keys while it's focused), tray and Dock items. See klabnet-desktop's CLAUDE.md.
   - Nothing shows who's in voice outside the panel (presence cards, Home).
 
+## Playlists (built 2026-10-08; not yet run against the real homelab)
+A playlist has a name, a description, a cover, a color and its songs, and lives on **klabnet-api** so other people can see it. They used to be a name and some songs in each person's prefs.
+- **Where things are:**
+  - `js/09b-playlists.js`: all of it (the store, the sidebar rows, the page, the editor, Add to playlist, the right-click menu, Browse → Playlists, Home's card).
+  - **klabnet-api** `app/routers/playlists.py`, under `/api/music-requests/playlists` so it rides a prefix Caddy already forwards. Covers are files on the media share (`playlists/<id[:2]>/<id>-l.jpg` 1000px, `-s.jpg` 300px); a new upload is a new id, so they're served as immutable.
+- **Private, featured, open.** A playlist is private until its owner features it. A featured one is on Home's "Featured playlists" shelf and in Browse → Playlists for everyone; anyone can play it or save it to their sidebar. "Let others add songs" (`collab`) only works on a featured one: others add, and can take back what they added; only the owner (or an admin) reorders, removes, edits or deletes. Unfeaturing takes it out of the sidebars of people who saved it.
+- **The list holds summaries, not songs** (`_pls`: count, length, the first four album covers). A playlist's songs are fetched when it's opened or played (`plGet`). The list is cached in `localStorage` under `klabnet_pl_cache` so the sidebar is there at once, and refreshed when Music opens.
+- **Its page is the album page's panel.** `window.klabApPage.open()` in `js/13-tail.js` lets another file put a page in `#apPanel` with the same Back, stack and blurred backdrop; `openPlaylistPage(id, name)` uses it, and `js/17-history.js` wraps it like `openAlbumPage`. While it's open its sidebar row is the lit one (`setNavRow`), and the section underneath gets the highlight back after.
+- **Covers:** an uploaded picture goes through the square cropper (`openImageCropper`, `shape: 'square'`); "Make one" draws an emoji or a few letters on the playlist's color (`plDrawCover`) and uploads that as a picture. With no cover it shows the first four album covers as a 2x2 (`plArt`).
+- **Two things to keep working:**
+  - *The old list.* `klabnet_playlists` (still a synced pref) is handed to `POST …/import` the first time this runs against an API with playlists, then emptied. The API remembers every old id it has taken (`playlist_imports`), so a second device holding the same list doesn't make copies and a deleted one doesn't come back.
+  - *An API without playlists* (the site is deployed separately from the API): the list answers 404 or 405, `_plServer` is `false`, and everything works on the prefs list as before, with just a name. Every store function (`plCreate`, `plAddSongs`, …) has that branch.
+- `tests/playlists.mjs` runs all of it against the local rig (two users through the `x-dev-user` header). It doesn't play anything.
+- **Not done yet:**
+  - Reordering on a phone: it's drag and drop, which touch screens don't do.
+  - Sharing a playlist to the feed or chat, and showing someone's playlists on their profile.
+  - An open playlist doesn't update live while you look at it; it's refetched when the list next refreshes.
+
 ## Testing without the real site
 The real site needs Authentik, so local testing uses a mock server. It serves this repo, fakes `/api/*` (photos, presence, posts, artwork) and loads index.html with a fake `window.klabnetDesktop` to preview the app layouts. Pages are screenshotted in headless Chrome (`--screenshot`, `--virtual-time-budget`) inside an iframe harness that can call into the page. Headless Chrome has no GPU, so `data-fx="low"` (reduced effects) is on there: no blur and no backdrops. Performance was measured in real Chrome windows and in the real Electron app, not headless.
 

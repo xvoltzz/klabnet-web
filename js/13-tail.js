@@ -313,6 +313,7 @@ function sampleImageColor(imgUrl) {
     // revealed the instant this detail view hides.
     panel.classList.remove('open');
     document.body.classList.remove('ap-open');
+    setNavRow(null);
     _stack = [];
     // A page still loading mustn't fill the closed panel (and set its
     // backdrop) when it lands.
@@ -408,6 +409,53 @@ function sampleImageColor(imgUrl) {
     return row;
   }
 
+  // ── The sidebar row for what's open ──
+  // A playlist is a sidebar destination of its own: while its page is up
+  // its row is the lit one, and the section underneath gets the highlight
+  // back when the page goes (or an album opens over it).
+  let _navId = null, _navTab = null;
+  function setNavRow(playlistId) {
+    _navId = playlistId || null;
+    document.querySelectorAll('.music-playlist-row.active').forEach(r => r.classList.remove('active'));
+    const row = _navId && document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(_navId)}"]`);
+    if (row) {
+      const tab = document.querySelector('.picker-tab.active');
+      if (tab) { _navTab = tab; tab.classList.remove('active'); }
+      row.classList.add('active');
+    } else if (_navTab) {
+      if (!document.querySelector('.picker-tab.active')) _navTab.classList.add('active');
+      _navTab = null;
+    }
+  }
+
+  // ── Pages built elsewhere ────────────────
+  // A playlist's page (js/09b-playlists.js) lives in this panel too, with
+  // the same Back, stack and backdrop. render(ctx) fills ctx.scroll, and
+  // checks ctx.alive() after anything it waited for.
+  window.klabApPage = {
+    async open({ title, navRow, render }) {
+      if (!panel.classList.contains('open')) panelOpen();
+      const renderFn = async () => {
+        titleEl.textContent = title || '';
+        titleEl.classList.remove('vis');
+        setStar(null);
+        setNavRow(navRow);
+        loading();
+        const myLoadToken = ++_apLoadToken;
+        await render({
+          scroll, buildTrack, setBg,
+          alive: () => myLoadToken === _apLoadToken,
+          clearBg: () => { bg.style.backgroundImage = ''; bg.classList.remove('soft', 'soft-grad'); delete bg.dataset.softSrc; },
+          setTitle: t => { title = t; titleEl.textContent = t || ''; },
+        });
+      };
+      _stack.push(renderFn);
+      await renderFn();
+    },
+    // The sidebar was redrawn under an open page: light its row again.
+    syncNavRow: () => setNavRow(_navId),
+  };
+
   // ── Bio expander ─────────────────────────
   function wirebio(bioEl, btnEl) {
     if (!bioEl || !btnEl) return;
@@ -435,6 +483,7 @@ function sampleImageColor(imgUrl) {
       titleEl.textContent = artistName || '';
       titleEl.classList.remove('vis');
       setStar(null);
+      setNavRow(null);
       loading();
       const myLoadToken = ++_apLoadToken;
       try {
@@ -556,6 +605,7 @@ function sampleImageColor(imgUrl) {
       titleEl.textContent = albumName || '';
       titleEl.classList.remove('vis');
       setStar(albumId);
+      setNavRow(null);
       loading();
       const myLoadToken = ++_apLoadToken;
       try {

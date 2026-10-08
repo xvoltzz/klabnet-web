@@ -27,7 +27,8 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 | `js/06-prefs.js` | Prefs sync with the API, settings, desktop notifications, update check |
 | `js/07-tabnav.js` | Tab router (`setActiveTab`), Settings panel, sidebar navigation, desktop-app integration |
 | `js/08-chat.js` | Chat on matrix-js-sdk 42.3.0 (loaded from esm.sh), dialogs (`showConfirmDialog`, `showInputDialog`), image viewer, profile modal |
-| `js/09-music-extras.js` | Genres, playlists, song menu, sorting, music requests, high-res art |
+| `js/09-music-extras.js` | Genres, song menu, sorting, music requests, high-res art |
+| `js/09b-playlists.js` | Playlists: covers, descriptions, featuring, the playlist page and editor (see `CLAUDE.md`, "Playlists") |
 | `js/10-lyrics.js` | Lyrics, playback keys (Space, arrows, M), wheel volume |
 | `js/11-presence.js` | Presence beats and polling, away status, listening parties, notes |
 | `js/11b-markdown.js`, `js/11c-gifs.js` | Markdown (marked + DOMPurify), the GIF picker |

@@ -3,6 +3,7 @@
 //  rather than a list of random songs:
 //    Recently added   a Cover Flow of the newest albums
 //    Jump back in     albums from your own play history
+//    Featured playlists  the ones people have featured (09b-playlists.js)
 //    Most played      the library's most-played albums (every visitor plays
 //                     through the one shared Navidrome account, so this is
 //                     site-wide)
@@ -398,8 +399,8 @@
   const cleanups = new Set();
   const onCleanup = fn => { const f = () => { cleanups.delete(f); fn(); }; cleanups.add(f); return f; };
 
-  // ══ Album rows ══
-  function albumRow(title, albums, note) {
+  // ══ Rows of cards ══
+  function cardRow(title, cards, note) {
     const sec = document.createElement('section');
     sec.className = 'mh-section';
     sec.innerHTML = `<div class="picker-section-label">${esc(title)}${note ? ` <span class="mh-note">${esc(note)}</span>` : ''}</div>` +
@@ -420,22 +421,24 @@
     const page = dir => row.scrollBy({ left: dir * row.clientWidth * 0.85, behavior: 'smooth' });
     sec.querySelector('.mh-row-nav.prev').addEventListener('click', () => page(-1));
     sec.querySelector('.mh-row-nav.next').addEventListener('click', () => page(1));
-    albums.forEach(a => {
-      const card = document.createElement('div');
-      card.className = 'mh-card';
-      card._album = a; // right-click menu (09-music-extras.js)
-      card.innerHTML =
-        `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, 300))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
-        `<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>` +
-        `<div class="mh-card-t">${esc(a.name || a.title || '')}</div><div class="mh-card-a">${esc(a.artist || '')}</div>`;
-      card.addEventListener('click', e => {
-        if (e.target.closest('.mh-card-play')) { playAlbum(a.id); return; }
-        openAlbum(a);
-      });
-      row.appendChild(card);
-    });
+    row.append(...cards);
     return sec;
   }
+  function albumCard(a) {
+    const card = document.createElement('div');
+    card.className = 'mh-card';
+    card._album = a; // right-click menu (09-music-extras.js)
+    card.innerHTML =
+      `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, 300))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
+      `<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>` +
+      `<div class="mh-card-t">${esc(a.name || a.title || '')}</div><div class="mh-card-a">${esc(a.artist || '')}</div>`;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.mh-card-play')) { playAlbum(a.id); return; }
+      openAlbum(a);
+    });
+    return card;
+  }
+  const albumRow = (title, albums, note) => cardRow(title, albums.map(albumCard), note);
 
   // Albums from this browser's own play history, most recent first.
   function jumpBackIn() {
@@ -749,6 +752,24 @@
 
     const recent = jumpBackIn();
     if (recent.length) list.appendChild(albumRow('Jump back in', recent));
+
+    // Playlists people have featured (js/09b-playlists.js), most recently
+    // changed first, and kept current while Home is showing.
+    const plSlot = document.createElement('div');
+    plSlot.className = 'mh-slot';
+    list.appendChild(plSlot);
+    let plShown = null;
+    const showPlaylists = () => {
+      if (!plSlot.isConnected) return;
+      const pls = (window.klabPlaylists?.featured() || []).sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 24);
+      const key = JSON.stringify(pls);
+      if (key === plShown) return;
+      plShown = key;
+      plSlot.replaceChildren(...(pls.length ? [cardRow('Featured playlists', pls.map(window.klabPlaylists.card), 'made on klabnet')] : []));
+    };
+    showPlaylists();
+    window.addEventListener('klab:playlists', showPlaylists);
+    onCleanup(() => window.removeEventListener('klab:playlists', showPlaylists));
 
     const freqSlot = document.createElement('div');
     list.appendChild(freqSlot);

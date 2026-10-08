@@ -40,6 +40,25 @@ These checks cover controlled client races and emulated layouts. A real
 Matrix session, physical phone, GPU effects, native desktop material, and
 multi-device listening parties still need separate testing.
 
+## Playlists
+
+`tests/playlists.mjs` makes a playlist and takes it through everything:
+its cover (drawn, and a picture through the cropper), description and
+color, adding, dragging and removing songs, featuring, a second person
+saving it and adding to it, Back and Forward, playlists brought over from
+prefs, and an API from before playlists. It needs the rig above with the
+two-user wrapper from "Voice" below (it acts as other people through the
+`x-dev-user` header), and `media/.klabnet-media` for covers. It reads the
+real Navidrome library and plays nothing, and it deletes the playlists of
+the users it runs as (`tester`, `alice`).
+
+```sh
+node tests/playlists.mjs
+```
+
+Not covered: a phone (songs can't be reordered by touch yet), and real
+people changing the same playlist at once.
+
 ## Voice
 
 `tests/voice.mjs` puts two people in a voice channel: two tabs of one

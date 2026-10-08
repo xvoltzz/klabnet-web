@@ -690,6 +690,8 @@ function ensureMusicTabLoaded() {
   // below) so the sidebar badge count stays reasonably current across
   // visits without a dedicated poll — cheap since it's one small GET.
   if (typeof fetchMusicRequests === 'function') fetchMusicRequests();
+  // Playlists too: other people feature and change theirs.
+  window.klabPlaylists?.refreshIfStale();
   if (_pickerLoaded) return;
   if (pickerTab !== 'search') { pickerSearchEl.value = ''; pickerQuery = ''; }
   else pickerSearchEl.value = pickerQuery;

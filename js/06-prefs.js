@@ -137,13 +137,9 @@ function afterPrefsWritten() {
     const t = localStorage.getItem(PREF_KEYS.theme);
     if (t && t !== currentTheme) _origApplyTheme(t);
   } catch (e) {}
-  // Playlists made elsewhere: the sidebar is only drawn when Music first
-  // opens and on local edits, so it kept the old list until a reload.
-  if (typeof renderPlaylistNav === 'function') {
-    const on = document.querySelector('.music-playlist-row.active')?.dataset.plId;
-    renderPlaylistNav();
-    if (on) document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(on)}"]`)?.classList.add('active');
-  }
+  // Playlists live on the API now (js/09b-playlists.js); what prefs still
+  // hold is the list from before, on its way over.
+  window.klabPlaylists?.prefsChanged();
 }
 
 async function fetchServerPrefs() {
