@@ -649,6 +649,67 @@ window.klabSideNav = (function() {
 })();
 
 // ══════════════════════════════════════════
+//  HIDING A PAGE'S SIDEBAR
+//  Music, Chat and Photos each have a sidebar of their own beside the
+//  page. The header's button (and "b") hides the current page's and brings
+//  it back, so a small window can be all music, or all conversation. Kept
+//  per page and per device: html.pane-off-<page>, set in <head> from
+//  localStorage and laid out by the CSS. Phones have no sidebars to hide.
+// ══════════════════════════════════════════
+window.klabPane = (function() {
+  const root = document.documentElement;
+  const btn = document.getElementById('paneToggle');
+  if (!btn) return null;
+  const KEY = 'klabnet_pane_off';
+  // Each page's sidebar, and where that page lays it out as one (Photos
+  // keeps its phone layout on a touch screen up to 900px).
+  const PANES = {
+    music:  { el: 'musicSidebar', mq: matchMedia(KLAB_DESK_MQ) },
+    chat:   { el: 'chatSide',     mq: matchMedia(KLAB_DESK_MQ) },
+    photos: { el: 'phSidebar',    mq: matchMedia('(min-width: 901px), (pointer: fine)') },
+  };
+  const page = () => Object.keys(PANES).find(t => document.body.classList.contains('tab-' + t + '-active') && PANES[t].mq.matches) || null;
+  const hidden = t => root.classList.contains('pane-off-' + t);
+
+  function sync() {
+    const t = page();
+    btn.hidden = !t;
+    if (!t) return;
+    const off = hidden(t);
+    btn.setAttribute('aria-pressed', String(!off));
+    btn.title = (off ? 'Show sidebar' : 'Hide sidebar') + ' (b)';
+    btn.firstElementChild.className = 'ti ' + (off ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse');
+  }
+
+  function set(t, off) {
+    if (!PANES[t] || hidden(t) === off) return;
+    root.classList.toggle('pane-off-' + t, off);
+    try { localStorage.setItem(KEY, JSON.stringify(Object.keys(PANES).filter(hidden))); } catch (e) {}
+    const el = document.getElementById(PANES[t].el);
+    if (el && !off) {
+      el.classList.add('pane-in');
+      setTimeout(() => el.classList.remove('pane-in'), 260);
+    }
+    sync();
+    // The sliding highlights and the photo measure on resize.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+  // True when there was a sidebar to toggle.
+  function toggle() {
+    const t = page();
+    if (t) set(t, !hidden(t));
+    return !!t;
+  }
+
+  btn.addEventListener('click', () => { SFX && SFX.play('click'); toggle(); });
+  // The page changed (setActiveTab's body classes), or the layout did.
+  new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  Object.values(PANES).forEach(p => p.mq.addEventListener('change', sync));
+  sync();
+  return { toggle, show: t => set(t, false), hide: t => set(t, true), hidden };
+})();
+
+// ══════════════════════════════════════════
 //  KLABNET FOR WINDOWS — what only the desktop app needs
 //  (window.klabnetDesktop comes from klabnet-desktop's preload; in a
 //  browser none of this does anything except offer the download.)

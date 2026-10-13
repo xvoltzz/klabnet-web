@@ -503,9 +503,11 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       case '/': {
         const search = document.getElementById('pickerSearch');
         const onMusic = document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active');
-        if (onMusic && search) { e.preventDefault(); search.focus(); }
+        // The search box is in Music's sidebar: bring that back if it's hidden.
+        if (onMusic && search) { e.preventDefault(); window.klabPane?.show('music'); search.focus(); }
         break;
       }
+      case 'b': if (window.klabPane?.toggle()) e.preventDefault(); break;
       case 'n': e.preventDefault(); document.getElementById('btnNext')?.click(); break;
       case 'p': e.preventDefault(); document.getElementById('btnPrev')?.click(); break;
       case '?': e.preventDefault(); toggleKeyHints(); break;

@@ -122,6 +122,13 @@
       try { v = localStorage.getItem('klabnet_nav'); } catch (e) {}
       if (!/^(side|rail|menu|top)$/.test(v || '')) v = r.classList.contains('klabnet-app') ? 'side' : 'top';
       r.setAttribute('data-nav', v);
+      // The sidebars hidden with the header's button (js/07-tabnav.js),
+      // per page: html.pane-off-music / -chat / -photos.
+      try {
+        JSON.parse(localStorage.getItem('klabnet_pane_off') || '[]').forEach(function (t) {
+          if (/^(music|chat|photos)$/.test(t)) r.classList.add('pane-off-' + t);
+        });
+      } catch (e) {}
     })();
   </script>
   <title>klabnet>_</title>
@@ -145,7 +152,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.13.1" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.13.2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -157,7 +164,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.13.1" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.13.2" />
 </head>
 <body>
 
@@ -390,6 +397,9 @@ window.KLAB_BOOT = (function() {
     <div class="header-right">
       <!-- Voice (js/22-voice.js). Hidden until the API says voice is set
            up; the microphone button only shows while you're in a channel. -->
+      <!-- Hides the page's own sidebar (Music's, Chat's, Photos') and brings
+           it back; js/07-tabnav.js shows it on those pages. -->
+      <button class="hdr-btn" id="paneToggle" title="Hide sidebar" aria-label="Sidebar" aria-pressed="true" hidden><i class="ti ti-layout-sidebar-left-collapse"></i></button>
       <button class="hdr-btn" id="voiceBtn" title="Voice" aria-label="Voice" aria-haspopup="dialog" aria-expanded="false" hidden><i class="ti ti-headset"></i><span class="vc-badge" id="voiceBadge" hidden></span></button>
       <button class="hdr-btn" id="voiceMicBtn" title="Mute" aria-label="Mute" aria-pressed="false" hidden><i class="ti ti-microphone"></i></button>
       <button class="hdr-btn" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
@@ -900,6 +910,7 @@ window.KLAB_BOOT = (function() {
         <div class="key-hints-row"><span>Go to Home / Feed / Chat / Music / Photos</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">h/f/c/m/p</kbd></span></div>
         <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
         <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
+        <div class="key-hints-row"><span>Hide / show the sidebar (Music, Chat, Photos)</span><span class="key-hints-keys"><kbd class="key-hint-key">b</kbd></span></div>
         <div class="key-hints-row"><span>Focus search (Music tab)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
       </div>
       <div class="key-hints-group">
@@ -1106,36 +1117,36 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.13.1';</script>
-<script defer src="js/00-util.js?v=v2026.10.13.1"></script>
-<script defer src="js/01-shell.js?v=v2026.10.13.1"></script>
-<script defer src="js/02-player.js?v=v2026.10.13.1"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.13.1"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.13.1"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.13.1"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.13.1"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.13.1"></script>
-<script defer src="js/08-chat.js?v=v2026.10.13.1"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.13.1"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.13.1"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.13.1"></script>
-<script defer src="js/11-presence.js?v=v2026.10.13.1"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.13.1"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.13.1"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.13.1"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.13.1"></script>
-<script defer src="js/12-feed.js?v=v2026.10.13.1"></script>
-<script defer src="js/13-tail.js?v=v2026.10.13.1"></script>
-<script defer src="js/14-photos.js?v=v2026.10.13.1"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.13.1"></script>
-<script defer src="js/16-motion.js?v=v2026.10.13.1"></script>
-<script defer src="js/17-history.js?v=v2026.10.13.1"></script>
-<script defer src="js/18-home.js?v=v2026.10.13.1"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.13.1"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.13.1"></script>
-<script defer src="js/21-stars.js?v=v2026.10.13.1"></script>
-<script defer src="js/22-voice.js?v=v2026.10.13.1"></script>
-<script defer src="js/23-session.js?v=v2026.10.13.1"></script>
+<script>const KLABNET_VERSION = 'v2026.10.13.2';</script>
+<script defer src="js/00-util.js?v=v2026.10.13.2"></script>
+<script defer src="js/01-shell.js?v=v2026.10.13.2"></script>
+<script defer src="js/02-player.js?v=v2026.10.13.2"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.13.2"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.13.2"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.13.2"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.13.2"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.13.2"></script>
+<script defer src="js/08-chat.js?v=v2026.10.13.2"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.13.2"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.13.2"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.13.2"></script>
+<script defer src="js/11-presence.js?v=v2026.10.13.2"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.13.2"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.13.2"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.13.2"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.13.2"></script>
+<script defer src="js/12-feed.js?v=v2026.10.13.2"></script>
+<script defer src="js/13-tail.js?v=v2026.10.13.2"></script>
+<script defer src="js/14-photos.js?v=v2026.10.13.2"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.13.2"></script>
+<script defer src="js/16-motion.js?v=v2026.10.13.2"></script>
+<script defer src="js/17-history.js?v=v2026.10.13.2"></script>
+<script defer src="js/18-home.js?v=v2026.10.13.2"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.13.2"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.13.2"></script>
+<script defer src="js/21-stars.js?v=v2026.10.13.2"></script>
+<script defer src="js/22-voice.js?v=v2026.10.13.2"></script>
+<script defer src="js/23-session.js?v=v2026.10.13.2"></script>
 
 </body>
 </html>

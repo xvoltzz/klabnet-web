@@ -6658,6 +6658,21 @@
       }
     }
 
+    /* ── A page's own sidebar, hidden ──
+       The header's button or "b" (window.klabPane, js/07-tabnav.js) puts
+       html.pane-off-music / -chat / -photos on, and the page takes the
+       room. Not on phones: there the same pieces are strips and screens. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.pane-off-music #musicShell #musicSidebar,
+      html.pane-off-chat #chatApp #chatSide,
+      html.pane-off-photos #phShell #phSidebar { display: none; }
+      html.pane-off-chat #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+      .pane-in { animation: pane-in .24s var(--m-ease) both; }
+      html[data-fx="low"] .pane-in { animation: none; }
+    }
+    @keyframes pane-in { from { opacity: 0; transform: translateX(-10px); } }
+    @media (prefers-reduced-motion: reduce) { .pane-in { animation: none; } }
+
     /* ── Windows: a WinUI NavigationView ──
        The pane sits on the window's Mica/Acrylic, and the page is a layer
        above it with its own faint fill, a hairline edge and a rounded
