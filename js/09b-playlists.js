@@ -985,7 +985,11 @@ window.klabPlaylists = {
   refresh: plRefresh,
   refreshIfStale: plRefreshIfStale,
   featured: () => _pls.filter(p => p.featured),
+  // The ones in your sidebar: yours, and the ones you saved.
+  mine: () => _pls.filter(p => p.mine || p.saved),
   card: plCard,
+  art: plArt,
+  play: plPlay,
   addSongs: addSongsToPlaylistFlow,
   // Prefs just arrived from the server (another device's edits).
   prefsChanged() {

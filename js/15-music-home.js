@@ -1,8 +1,11 @@
 // ══════════════════════════════════════════
 //  MUSIC HOME — the Music tab's Home view, as a front page for the library
 //  rather than a list of random songs:
+//    Jump back in     a mix of tiles: what you had on lately, artists you
+//                     play a lot, albums you haven't touched in a while,
+//                     a playlist of yours
 //    Recently added   a Cover Flow of the newest albums
-//    Jump back in     albums from your own play history
+//    Listen history   albums from your own play history, newest first
 //    Featured playlists  the ones people have featured (09b-playlists.js)
 //    Most played      the library's most-played albums (every visitor plays
 //                     through the one shared Navidrome account, so this is
@@ -440,8 +443,8 @@
   }
   const albumRow = (title, albums, note) => cardRow(title, albums.map(albumCard), note);
 
-  // Albums from this browser's own play history, most recent first.
-  function jumpBackIn() {
+  // Albums from your own play history, most recent first.
+  function listenHistory() {
     const seen = new Set(), out = [];
     for (const s of getPlayHistory()) {
       if (!s.albumId || seen.has(s.albumId)) continue;
@@ -450,6 +453,180 @@
       if (out.length >= 16) break;
     }
     return out;
+  }
+
+  // ══ Jump back in ══
+  // Play history is the last 50 songs and no more, so on its own it can
+  // only say what you had on lately. This keeps a longer memory beside it:
+  // per album, how often and when you last played it. That's what lets
+  // Jump back in bring up something you used to play and haven't in a
+  // while. Kept in this browser (it's too big to send with prefs after
+  // every song); favourites fill in until it has something to say.
+  const TALLY_KEY = 'klabnet_listen_tally', TALLY_MAX = 400;
+  const DAY = 86400000;
+  function getTally() {
+    try { const t = JSON.parse(localStorage.getItem(TALLY_KEY) || '{}'); return t && typeof t === 'object' ? t : {}; } catch (e) { return {}; }
+  }
+  const _jumpAddHistory = addToPlayHistory;
+  addToPlayHistory = function(song) {
+    _jumpAddHistory(song);
+    if (!song?.albumId) return;
+    try {
+      const t = getTally();
+      const e = t[song.albumId] || { n: 0 };
+      t[song.albumId] = { n: e.n + 1, t: Date.now(), name: song.album || '', artist: song.artist || '', artistId: song.artistId || '', coverArt: song.coverArt || song.albumId };
+      const ids = Object.keys(t);
+      if (ids.length > TALLY_MAX) ids.sort((a, b) => t[a].t - t[b].t).slice(0, ids.length - TALLY_MAX).forEach(id => delete t[id]);
+      localStorage.setItem(TALLY_KEY, JSON.stringify(t));
+    } catch (e) {}
+  };
+
+  // The mix is the same every time you come back to Home, and a new one
+  // each day and each time klabnet is opened.
+  const jumpSeed = Math.floor(Math.random() * 1e9);
+  function seeded(seed) {
+    let a = seed >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // A few of `items`, the better-scored ones more likely.
+  function pickSome(items, n, rnd) {
+    const pool = items.slice(), out = [];
+    while (pool.length && out.length < n) {
+      const total = pool.reduce((sum, x) => sum + x.w, 0);
+      let r = rnd() * total, i = 0;
+      while (i < pool.length - 1 && (r -= pool[i].w) > 0) i++;
+      out.push(pool.splice(i, 1)[0]);
+    }
+    return out;
+  }
+  function fmtAgo(ts) {
+    const days = Math.floor((Date.now() - ts) / DAY);
+    if (days < 14) return `${days} days ago`;
+    if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+    if (days < 365) return `${Math.floor(days / 30)} months ago`;
+    return 'over a year ago';
+  }
+
+  const JUMP_MAX = 8;
+  // Which kind goes where, so the tiles read as a mix and not three groups.
+  const JUMP_ORDER = ['recent', 'artist', 'old', 'recent', 'playlist', 'old', 'artist', 'recent'];
+  function jumpItems() {
+    const rnd = seeded(jumpSeed + Math.floor(Date.now() / DAY));
+    const hist = getPlayHistory().filter(Boolean), favs = getFavorites().filter(Boolean), tally = getTally();
+    const now = Date.now();
+
+    const recentAlbums = listenHistory();
+    const recentIds = new Set(recentAlbums.map(a => a.id));
+    const recent = recentAlbums.map(a => ({ kind: 'album', album: a, sub: a.artist || 'Album' }));
+
+    // Not played lately: albums you used to play (the more, and the longer
+    // ago, the likelier) and albums your favourites are from.
+    const olds = new Map();
+    for (const [id, e] of Object.entries(tally)) {
+      if (recentIds.has(id) || now - e.t < 7 * DAY) continue;
+      olds.set(id, { kind: 'album', album: { id, name: e.name, artist: e.artist, coverArt: e.coverArt },
+        sub: `Last played ${fmtAgo(e.t)}`, w: Math.min(e.n, 12) * Math.min((now - e.t) / (30 * DAY), 3) + 1 });
+    }
+    for (const s of favs) {
+      if (!s.albumId || recentIds.has(s.albumId) || (tally[s.albumId] && now - tally[s.albumId].t < 7 * DAY)) continue;
+      const o = olds.get(s.albumId);
+      if (o) o.w += 1;
+      else olds.set(s.albumId, { kind: 'album', album: { id: s.albumId, name: s.album, artist: s.artist, coverArt: s.coverArt || s.albumId }, sub: 'From your favorites', w: 1, fav: 1 });
+    }
+    // An album with a few favourites on it over one with a single song.
+    for (const o of olds.values()) if (o.fav) o.w = Math.min(o.w, 6);
+
+    // Artists: the ones your history, favourites and tally keep coming back to.
+    const artists = new Map();
+    const credit = (id, name, coverArt, w) => {
+      if (!id || !name || /^various artists$/i.test(name)) return;
+      const a = artists.get(id) || { kind: 'artist', artist: { id, name }, coverArt, sub: 'Artist', w: 0 };
+      a.w += w; a.coverArt = a.coverArt || coverArt;
+      artists.set(id, a);
+    };
+    hist.forEach(s => credit(s.artistId, s.artist, s.coverArt, 3));
+    favs.forEach(s => credit(s.artistId, s.artist, s.coverArt, 1));
+    Object.values(tally).forEach(e => credit(e.artistId, e.artist, e.coverArt, Math.min(e.n, 10)));
+    const topArtists = [...artists.values()].sort((a, b) => b.w - a.w).slice(0, 10);
+
+    const playlists = (window.klabPlaylists?.mine?.() || []).filter(p => p.count)
+      .map(p => ({ kind: 'playlist', playlist: p, sub: `Playlist · ${klabCount(p.count, 'song')}`, w: 1 }));
+
+    const from = {
+      recent: recent.slice(0, 3),
+      artist: pickSome(topArtists, 2, rnd),
+      old: pickSome([...olds.values()], 2, rnd),
+      playlist: pickSome(playlists, 1, rnd),
+    };
+    // What fills a place its kind can't: more of anything, the older stuff first.
+    const spare = [...pickSome([...olds.values()].filter(o => !from.old.includes(o)), JUMP_MAX, rnd), ...recent.slice(3),
+      ...topArtists.filter(a => !from.artist.includes(a)), ...playlists.filter(p => !from.playlist.includes(p))];
+    const out = [];
+    for (const kind of JUMP_ORDER) { const it = from[kind].shift() || spare.shift(); if (it) out.push(it); }
+    return out;
+  }
+
+  // An artist's picture, asked for once. Until it's here (and when they
+  // have none) the tile shows one of their covers.
+  const artistPics = new Map();
+  function artistPic(id) {
+    if (!artistPics.has(id)) artistPics.set(id, fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${encodeURIComponent(id)}&count=1&${subsonicParams()}`, {}, 8000)
+      .then(r => r.json()).then(j => {
+        const info = j['subsonic-response']?.artistInfo2;
+        const url = info?.mediumImageUrl || info?.largeImageUrl || '';
+        return url.includes('2a96cbd8b46e442fc41c2b86b821562f') ? '' : url; // Last.fm's blank star
+      }).catch(() => ''));
+    return artistPics.get(id);
+  }
+
+  function jumpTile(it) {
+    const tile = document.createElement('div');
+    tile.className = 'mh-jump-tile ' + it.kind;
+    tile.tabIndex = 0;
+    tile.setAttribute('role', 'button');
+    const name = it.kind === 'album' ? it.album.name : it.kind === 'artist' ? it.artist.name : it.playlist.name;
+    const coverArt = it.kind === 'album' ? it.album.coverArt || it.album.id : it.coverArt;
+    tile.innerHTML =
+      '<div class="mh-jump-art">' + (it.kind !== 'playlist' && coverArt
+        ? `<img src="${esc(art(coverArt, 150))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` : '') + '</div>' +
+      `<div class="mh-jump-tx"><div class="t">${esc(name || 'Unknown')}</div><div class="a">${esc(it.sub)}</div></div>` +
+      (it.kind === 'artist' ? '' : '<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button>');
+    const artEl = tile.querySelector('.mh-jump-art');
+    if (it.kind === 'album') tile._album = it.album; // right-click menus (09-music-extras.js)
+    else if (it.kind === 'playlist') { tile._playlist = it.playlist; artEl.appendChild(window.klabPlaylists.art(it.playlist, '', 64)); }
+    else {
+      tile._artist = it.artist;
+      if (!coverArt) artEl.innerHTML = artistPlaceholderHTML(it.artist.name);
+      artistPic(it.artist.id).then(url => {
+        if (!url || !tile.isConnected) return;
+        const img = new Image();
+        img.alt = ''; img.decoding = 'async'; img.draggable = false; img.className = 'loaded';
+        img.onload = () => { if (tile.isConnected) artEl.replaceChildren(img); };
+        img.src = url;
+      });
+    }
+    const open = () => {
+      SFX && SFX.play('nav');
+      if (it.kind === 'album') openAlbum(it.album);
+      else if (it.kind === 'artist') window.openArtistPage?.(it.artist.id, it.artist.name);
+      else window.openPlaylistPage?.(it.playlist.id, it.playlist.name);
+    };
+    tile.addEventListener('click', e => {
+      if (!e.target.closest('.mh-card-play')) { open(); return; }
+      if (it.kind === 'album') playAlbum(it.album.id); else window.klabPlaylists.play(it.playlist);
+    });
+    tile.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === tile) open(); });
+    return tile;
+  }
+  function jumpSection() {
+    const items = jumpItems();
+    // One tile alone isn't a section.
+    if (items.length < 2) return null;
+    const sec = document.createElement('section');
+    sec.className = 'mh-section mh-jump';
+    sec.innerHTML = '<div class="picker-section-label">Jump back in</div><div class="mh-jump-grid"></div>';
+    sec.querySelector('.mh-jump-grid').append(...items.map(jumpTile));
+    return sec;
   }
 
   // ══ Shuffle wheel ══
@@ -743,6 +920,9 @@
     list.classList.remove('picker-list-grid');
     list.classList.add('mh-home');
 
+    const jump = jumpSection();
+    if (jump) list.appendChild(jump);
+
     const flowLabel = document.createElement('div');
     flowLabel.className = 'picker-section-label';
     flowLabel.textContent = 'Recently added';
@@ -750,8 +930,8 @@
     list.appendChild(flow.el);
     flow.load();
 
-    const recent = jumpBackIn();
-    if (recent.length) list.appendChild(albumRow('Jump back in', recent));
+    const recent = listenHistory();
+    if (recent.length) list.appendChild(albumRow('Listen history', recent));
 
     // Playlists people have featured (js/09b-playlists.js), most recently
     // changed first, and kept current while Home is showing.
