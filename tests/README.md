@@ -19,6 +19,7 @@ node tests/browser.mjs --smoke=true --variant=light
 node tests/browser.mjs --smoke=true --variant=win
 node tests/browser.mjs --smoke=true --variant=gnome
 node tests/browser.mjs --smoke=true --variant=kde
+node tests/browser.mjs --smoke=true --variant=linux
 node tests/browser.mjs --smoke=true --variant=mac
 node tests/browser.mjs --smoke=true --variant=side
 node tests/browser.mjs --smoke=true --w=700 --h=900

@@ -781,9 +781,9 @@ window.klabSideNav = (function() {
     $('appLoginToggle')?.classList.toggle('on', !!settings.openAtLogin);
     const mac = settings.platform === 'darwin', win = settings.platform === 'win32' || !settings.platform;
     const text = (id, t) => { const el = $(id); if (el) el.textContent = t; };
-    // klabnet-kde (the native KDE app) says shell: 'kde'.
+    // klabnet-kde (the native Linux app, on any desktop) says shell: 'kde'.
     const kde = settings.shell === 'kde';
-    text('appNameLabel', mac ? 'klabnet for Mac' : win ? 'klabnet for Windows' : kde ? 'klabnet for KDE' : 'klabnet for Linux');
+    text('appNameLabel', mac ? 'klabnet for Mac' : win ? 'klabnet for Windows' : 'klabnet for Linux');
     text('appLoginLabel', win ? 'Start with Windows' : mac ? 'Open at login' : 'Start when you log in');
     text('appLoginSub', mac ? 'Opens in the Dock, without a window, when you log in' : 'Opens quietly in the tray when you sign in');
     // A Mac app always keeps running when its window closes (Cmd+Q quits).
@@ -791,15 +791,16 @@ window.klabSideNav = (function() {
     if (trayRow) trayRow.hidden = mac;
     // Materials: the Mac has one (the sidebar's vibrancy) or none.
     const mat = $('appMaterial');
-    // KDE with the Better Blur effect: a see-through window, or none; switching restarts.
+    // The native app switches live. klabnet-desktop on KDE with the Better
+    // Blur effect: a see-through window, or none; switching restarts.
     if (mat && settings.platform === 'linux' && !mat.dataset.kde) {
       mat.dataset.kde = '1';
       mat.innerHTML = '<button type="button" data-v="blur">Blur</button><button type="button" data-v="none">Solid</button>';
       text('appMaterialSub', kde
-        ? 'KWin blurs what’s behind klabnet'
+        ? (settings.desktop === 'kde' ? 'KWin blurs what’s behind klabnet' : 'A see-through window: your compositor blurs what’s behind klabnet')
         : 'Experimental: a see-through window for the Better Blur effect (add “klabnet” to its window classes). Switching restarts klabnet; if it crashes, it goes back to Solid');
     }
-    // KDE with blur: the glass tint, like a terminal's background opacity.
+    // The native app with blur: the glass tint, like a terminal's background opacity.
     const tintRow = $('appTintRow');
     if (tintRow) tintRow.hidden = !(kde && settings.material === 'blur' && typeof settings.tint === 'number');
     if (typeof settings.tint === 'number' && $('appTint') && document.activeElement !== $('appTint')) {

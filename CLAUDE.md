@@ -26,7 +26,8 @@ klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome)
 - Boxy (radius 6 to 10px), blur/glass, a soft "bloom" glow on lit things.
 - Pointer cursor on buttons. No text selection except in inputs (it's an app, not a document).
 - No phone UI on a desktop: the phone layout is only for `(max-width: 760px) and (pointer: coarse)`, and narrow desktop windows keep the desktop layout.
-- In the desktop app, each platform looks native: Windows (WinUI title bar, Acrylic, NavigationView sidebar), GNOME (libadwaita header bar), KDE (Breeze), and macOS ("KLABNET FOR MAC" at the end of css/app.css). These are keyed off `html.klabnet-app` and `data-platform`/`data-desktop`.
+- In the desktop app, Windows and the Mac look native: Windows (WinUI title bar, Acrylic, NavigationView sidebar) and macOS ("KLABNET FOR MAC" in css/app.css). These are keyed off `html.klabnet-app` and `data-platform`/`data-desktop`.
+- **Linux has a look of its own** ("KLABNET FOR LINUX" at the end of css/app.css, `data-desktop="linux"`, from the native app klabnet-kde): the owner found the Breeze look ugly and wanted one klabnet look for Plasma, GNOME and Hyprland, cleaner, borrowing from the other apps without straying far. klabnet's header is the title bar with klabnet's own window buttons; the sidebar is the window's glass and the page a deeper sheet beside it; the selection is the accent, filled. The app draws the window's rounded corners and rim itself (`html.app-round`, `--win-r`, from its bridge.js), so don't add those here. The older GNOME (libadwaita) and KDE (Breeze) skins are only for klabnet-desktop's Electron build on Linux.
 - Scrollbars are hidden everywhere.
 
 ## Voice (built 2026-10-06; not yet run against the real homelab)

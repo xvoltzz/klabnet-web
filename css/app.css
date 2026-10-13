@@ -8247,3 +8247,160 @@
     @media (max-width: 760px) and (pointer: coarse) {
       #playerDock .dock-devices { display: none !important; }
     }
+
+    /* ══════════════════════════════════════════════════════════════════
+       KLABNET FOR LINUX: klabnet's own window
+       data-desktop="linux" (klabnet-kde, the native app, on any desktop:
+       Plasma, GNOME, Hyprland…). It doesn't dress as the desktop it's on.
+       The window has no title bar or border of the desktop's: klabnet's
+       header is the title bar (44px), the app rounds the corners, draws
+       the rim and moves the window by the header (its bridge.js), and
+       klabnet draws its own window buttons where the desktop keeps them
+       (none under a tiling compositor). Taken from the other apps:
+         · the sidebar is the window's glass and the page beside it a
+           deeper sheet with a hairline between. Beside the full sidebar
+           they are two columns the height of the window, as on the Mac;
+           beside the icons the sheet starts under the title bar with a
+           rounded corner, as on Windows
+         · the whole window shows the desktop's blur, as Acrylic does on
+           Windows, under one tint (--app-tint, Settings → App → Glass);
+           the album-art backdrops stay, dimmed, so the glass takes the
+           record's colour
+         · the selected row is the accent (the cover's colour, as in the
+           phone apps), filled and borderless, sliding between rows
+         · the player stays a bar across the window
+       Type, radii and buttons are klabnet's own everywhere.
+       ══════════════════════════════════════════════════════════════════ */
+    html.klabnet-app[data-desktop="linux"] {
+      --lx-hover: rgba(255,255,255,0.07); --lx-press: rgba(255,255,255,0.12);
+      --lx-line: rgba(255,255,255,0.08); --lx-sheet: rgba(255,255,255,0.028);
+      --lx-bar: var(--bg);
+      --adw-hover: var(--lx-hover); --adw-active: var(--lx-press); --adw-checked: var(--lx-hover);
+    }
+    html.klabnet-app[data-desktop="linux"][data-theme="light"] {
+      --lx-hover: rgba(0,0,0,0.05); --lx-press: rgba(0,0,0,0.1);
+      --lx-line: rgba(0,0,0,0.09); --lx-sheet: rgba(255,255,255,0.5);
+    }
+    /* With the desktop behind: one tint over it, the sheet a shade deeper
+       so the page reads, the bars deeper still. */
+    html.klabnet-app.app-material[data-desktop="linux"] {
+      background: transparent;
+      --lx-sheet: color-mix(in srgb, var(--bg) 22%, transparent);
+      --lx-bar: color-mix(in srgb, var(--bg) calc(var(--app-tint, 40%) + 42%), transparent);
+    }
+    html.klabnet-app.app-material[data-desktop="linux"] body { background: color-mix(in srgb, var(--bg) var(--app-tint, 40%), transparent); }
+
+    /* ── The sheet: the page's part of the window ── */
+    html.klabnet-app[data-desktop="linux"] body::before {
+      content: ''; position: fixed; z-index: -1; pointer-events: none;
+      left: var(--nav-w, 0px); top: var(--nav-top, 0px); right: 0; bottom: 0;
+      background: var(--lx-sheet); border: solid var(--lx-line); border-width: 1px 0 0 1px;
+      border-top-left-radius: var(--radius-lg);
+      transition: left .28s var(--m-ease), top .28s var(--m-ease), border-radius .28s var(--m-ease);
+    }
+    html.klabnet-app[data-desktop="linux"]:is([data-nav="top"], [data-nav="menu"]) body::before { left: 0; border-left-width: 0; border-top-left-radius: 0; }
+    @media (min-width: 1100px) {
+      /* Beside the full sidebar: a column to the top of the window, and
+         klabnet's name keeps to the sidebar's. */
+      html.klabnet-app[data-desktop="linux"][data-nav="side"] body::before { top: 0; border-top-width: 0; border-top-left-radius: 0; }
+      html.app-titlebar[data-desktop="linux"][data-nav="side"] .header-left {
+        max-width: calc(var(--nav-w) - 22px); overflow: hidden;
+      }
+      html.app-titlebar[data-desktop="linux"][data-nav="side"] #promptMotd { display: none; }
+    }
+
+    /* ── The title bar ──
+       Clear, one surface with the window. Scrolled, the page's column of
+       it gets a backing; the sidebar's stays glass. */
+    html.app-titlebar[data-desktop="linux"] .header { padding-left: 10px; padding-right: 7px; }
+    html.app-titlebar[data-desktop="linux"].app-scrolled .header { background: none; box-shadow: none; }
+    html.app-titlebar[data-desktop="linux"] .header::before {
+      content: ''; position: absolute; z-index: -1; pointer-events: none;
+      left: var(--nav-w, 0px); top: 0; right: 0; bottom: 0;
+      background: var(--lx-bar); box-shadow: 0 1px 0 var(--lx-line);
+      opacity: 0; transition: opacity .2s ease, left .28s var(--m-ease);
+    }
+    html.app-titlebar[data-desktop="linux"][data-nav="top"] .header::before { left: 0; }
+    html.app-titlebar[data-desktop="linux"].app-scrolled .header::before { opacity: 1; }
+    html.app-titlebar[data-desktop="linux"] .prompt-text { font-size: 0.9rem; }
+
+    /* Its buttons: flat, squared off like everything of klabnet's, dim
+       until the pointer's on them. */
+    html.app-titlebar[data-desktop="linux"] .header-right { gap: 2px; }
+    html.app-titlebar[data-desktop="linux"] .header-right .hdr-btn,
+    html.app-titlebar[data-desktop="linux"] .header .nav-burger {
+      width: 32px; height: 32px; min-width: 32px; min-height: 32px; border: 0; border-radius: var(--radius-md);
+      background: transparent; box-shadow: none; color: var(--text-dim); font-size: 16px;
+      transition: background-color .12s ease, color .12s ease;
+    }
+    html.app-titlebar[data-desktop="linux"] .header-right .hdr-btn:hover,
+    html.app-titlebar[data-desktop="linux"] .header .nav-burger:hover { background: var(--lx-hover); color: var(--text); }
+    html.app-titlebar[data-desktop="linux"] .header-right .hdr-btn:active,
+    html.app-titlebar[data-desktop="linux"] .header .nav-burger:active { background: var(--lx-press); }
+    html.app-titlebar[data-desktop="linux"] .header-right .hdr-btn.active { background: var(--lx-hover); color: var(--text); }
+
+    /* The window buttons: the same flat squares, a hairline apart from
+       klabnet's own, close going red under the pointer. */
+    html[data-desktop="linux"] .app-wc { gap: 2px; }
+    html[data-desktop="linux"] .header-right .app-wc { margin-left: 7px; padding-left: 7px; box-shadow: -1px 0 0 var(--lx-line); }
+    html[data-desktop="linux"] .header-left .app-wc { margin-right: 4px; padding-right: 7px; box-shadow: 1px 0 0 var(--lx-line); }
+    html[data-desktop="linux"] .app-wc-btn {
+      width: 32px; height: 30px; border-radius: var(--radius-md); background: transparent; color: var(--text-dim);
+      transition: background-color .12s ease, color .12s ease;
+    }
+    html[data-desktop="linux"] .app-wc-btn svg { width: 16px; height: 16px; }
+    html[data-desktop="linux"] .app-wc-btn svg :is(path, rect[fill="none"]) { stroke-width: 1.25; }
+    html[data-desktop="linux"] .app-wc-btn svg rect:not([fill]) { height: 1.25px; }
+    html[data-desktop="linux"] .app-wc-btn:hover { background: var(--lx-hover); color: var(--text); }
+    html[data-desktop="linux"] .app-wc-btn:active { background: var(--lx-press); }
+    html[data-desktop="linux"] .app-wc-btn[data-wc="close"]:hover { background: #e5484d; color: #fff; }
+    html[data-desktop="linux"] .app-wc-btn[data-wc="close"]:active { background: #c93b40; color: #fff; }
+
+    @media (min-width: 761px), (pointer: fine) {
+      /* Tabs in the title bar (Navigation: Tabs): klabnet's type, the
+         current one filled. */
+      html.app-titlebar[data-desktop="linux"] .header .tab-nav { gap: 2px; }
+      html.app-titlebar[data-desktop="linux"] .header .tab-nav .tab-nav-btn {
+        height: 32px; border-radius: var(--radius-md); color: var(--text-dim);
+        font: 500 var(--fs-13)/1 var(--font-ui); letter-spacing: 0.01em;
+      }
+      html.app-titlebar[data-desktop="linux"] .header .tab-nav .tab-nav-btn:hover { color: var(--text); }
+      html.app-titlebar[data-desktop="linux"] .header .tab-nav .tab-nav-btn.active { color: var(--text); background: rgba(var(--accent-rgb),0.16); }
+
+      /* ── The sidebar: the window's own glass ──
+         The whole height of the window, the title bar's left end over its
+         top. Rows are klabnet's; the selection is the accent, filled. */
+      html.klabnet-app[data-desktop="linux"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+        padding: 6px 8px 10px;
+      }
+      html.klabnet-app[data-desktop="linux"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger) {
+        height: 36px; border: 0; border-radius: var(--radius-md); padding-left: 11px;
+      }
+      html.klabnet-app[data-desktop="linux"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: var(--lx-hover); }
+      html.klabnet-app[data-desktop="linux"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):active { background: var(--lx-press); }
+      html.klabnet-app[data-desktop="linux"] #sideNav .tab-nav-btn.active,
+      html.klabnet-app[data-desktop="linux"] #sideNav .tab-nav-btn.active:hover { background: none; font-weight: 600; }
+      html.klabnet-app[data-desktop="linux"] #sideNav .motion-pill-tabs {
+        border: 0; border-radius: var(--radius-md); background: rgba(var(--accent-rgb),0.2);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 0 22px rgba(var(--accent-rgb),0.12);
+      }
+      html.klabnet-app[data-desktop="linux"][data-theme="light"] #sideNav .motion-pill-tabs { background: rgba(var(--accent-rgb),0.22); box-shadow: none; }
+      html.klabnet-app[data-desktop="linux"].nav-flyout .side-nav { border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+
+      /* ── The player bar ──
+         Glass over whatever scrolls under it; without the page's blur
+         (reduced effects) mostly solid instead. */
+      html.klabnet-app[data-desktop="linux"] .player-dock { border-color: var(--lx-line); }
+      html.klabnet-app.app-material[data-desktop="linux"] .player-dock {
+        background: color-mix(in srgb, var(--bg) 18%, transparent);
+        -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+      }
+      html.klabnet-app.app-material[data-desktop="linux"][data-fx="low"] .player-dock {
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        -webkit-backdrop-filter: none; backdrop-filter: none;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html.klabnet-app[data-desktop="linux"] body::before, html.app-titlebar[data-desktop="linux"] .header::before { transition: none; }
+    }

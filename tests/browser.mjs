@@ -50,12 +50,12 @@ try {
     localStorage.removeItem('klabnet_matrix_session'); localStorage.removeItem('klabnet_login_song');
     localStorage.setItem('klabnet_settings', JSON.stringify({loginSong:false,sfxEnabled:false}));` });
   const variant = args.variant || 'dark';
-  if (['win', 'gnome', 'kde', 'mac'].includes(variant)) {
+  if (['win', 'gnome', 'kde', 'mac', 'linux'].includes(variant)) {
     const platform = variant === 'win' ? 'win32' : variant === 'mac' ? 'darwin' : 'linux';
-    const chromeStyle = { titlebar: variant === 'win' ? 40 : variant === 'gnome' ? 46 : variant === 'mac' ? 52 : 0,
+    const chromeStyle = { titlebar: variant === 'win' ? 40 : variant === 'gnome' ? 46 : variant === 'linux' ? 44 : variant === 'mac' ? 52 : 0,
       material: variant === 'win' ? 'acrylic' : variant === 'mac' ? 'vibrancy' : 'none',
       canMaterial: variant === 'win', desktop: variant === 'win' ? 'windows' : variant === 'mac' ? '' : variant,
-      accent: '#3584e4', headerbar: variant === 'gnome', buttons: { left: [], right: ['minimize', 'maximize', 'close'] } };
+      accent: '#3584e4', headerbar: variant === 'gnome' || variant === 'linux', buttons: { left: [], right: ['minimize', 'maximize', 'close'] } };
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.klabnetDesktop = {
       version:'1.3.0', platform:${JSON.stringify(platform)}, chrome:()=>(${JSON.stringify(chromeStyle)}),
       getSettings:async()=>({version:'1.3.0',platform:${JSON.stringify(platform)},update:{state:'idle'}}),
