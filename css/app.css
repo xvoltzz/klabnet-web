@@ -8180,3 +8180,34 @@
     @media (max-width: 760px) and (pointer: coarse) {
       #voiceBtn, #voiceMicBtn { display: none; }
     }
+
+    /* ══════════════════════════════════════════════════════════════════
+       ONE PLAYER ON EVERY DEVICE (js/23-session.js)
+       The Devices button in the dock and the full player, there once you
+       have klabnet open somewhere else. While another device is the one
+       playing, the dock's is a secondary button with that device's name.
+       ══════════════════════════════════════════════════════════════════ */
+    .ctrl-btn[hidden], .fs-btn[hidden] { display: none; }
+    .dock-devices { flex-shrink: 0; }
+    .dock-devices span { display: none; }
+    .dock-devices.on {
+      width: auto; max-width: 190px; padding: 0 10px; gap: 7px;
+      color: var(--text); background: var(--glass-fill-h); border-color: var(--glass-border);
+      box-shadow: var(--bloom-white);
+    }
+    .dock-devices.on i { color: rgba(var(--accent-rgb),1); }
+    .dock-devices.on span {
+      display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font: 600 var(--fs-12) var(--font-ui); letter-spacing: 0;
+    }
+    .dock-devices.on:hover { border-color: var(--glass-border-h); }
+    #fsPlayer #fsDevices.on { color: rgba(var(--accent-rgb),1) !important; opacity: 1 !important; }
+    /* Narrow: the icon alone (the name is its tooltip and in the menu). */
+    @media (max-width: 860px) {
+      .dock-devices.on { width: 32px; padding: 0; }
+      .dock-devices.on span { display: none; }
+    }
+    /* The phone's mini player has room for Play and Next; Devices is in the full player. */
+    @media (max-width: 760px) and (pointer: coarse) {
+      #playerDock .dock-devices { display: none !important; }
+    }

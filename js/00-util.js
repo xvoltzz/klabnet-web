@@ -8,6 +8,11 @@
 //  in an earlier file than the code that calls it at load time.
 // ══════════════════════════════════════════
 
+// This page, among everywhere its person has klabnet open: a new id each
+// time it loads. Presence beats and the shared player (js/23-session.js)
+// both carry it.
+const KLAB_DEVICE = (crypto.randomUUID?.() || Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('')).replace(/[^A-Za-z0-9_-]/g, '');
+
 // Fetch with a hard timeout. On LAN a hung request is basically impossible,
 // but off-site a slow/dropped connection can leave a boot-critical or
 // polling fetch pending forever with no visible failure — abort it instead

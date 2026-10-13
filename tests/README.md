@@ -59,6 +59,29 @@ node tests/playlists.mjs
 Not covered: a phone (songs can't be reordered by touch yet), and real
 people changing the same playlist at once.
 
+## One player on every device
+
+`tests/session.mjs` opens klabnet several times as one person (a window
+each) and checks they act as one player: the second follows the first's
+song and position, its buttons (play, seek, next, the queue, volume,
+shuffle, repeat) work the first, "Play here" moves the sound and where it
+had got to, a third arrives as a remote and its login song stays quiet,
+the active one closing leaves the rest paused where it was, their presence
+card shows the device that's playing, and an API without sessions leaves
+everything as it was. It needs the rig above with the two-user wrapper
+from "Voice" below.
+
+The songs are made up. Requests for their audio never reach Navidrome:
+the test answers them with a quiet WAV, and counts scrobbles instead of
+sending them.
+
+```sh
+node tests/session.mjs
+```
+
+Not covered: real devices on different networks, a phone, the desktop
+apps, and listening parties (they need Matrix).
+
 ## Voice
 
 `tests/voice.mjs` puts two people in a voice channel: two tabs of one

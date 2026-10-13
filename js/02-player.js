@@ -78,6 +78,8 @@ playerState.audio.addEventListener('pause', () => {
 let _scrobbledFor = null;
 playerState.audio.addEventListener('timeupdate', () => {
   const song = playerState.currentSong, a = playerState.audio;
+  // Another device is the one playing it (js/23-session.js): it counts it.
+  if (window.klabSession?.mirror) return;
   if (!song || _scrobbledFor === song || !a.duration) return;
   if (a.currentTime < Math.min(a.duration / 2, 240)) return;
   _scrobbledFor = song;
@@ -275,6 +277,9 @@ async function playSong(song) {
   }
   playerState.currentSong = song;
   updatePlayerUI(song);
+  // Another of your devices is the one playing (js/23-session.js): it's
+  // sent the song, and this one only shows it.
+  if (window.klabSession?.mirrorPlay(song)) return;
   const streamUrl = `${ND_URL}/rest/stream?id=${encodeURIComponent(song.id)}&${subsonicParams()}`;
   playerState.audio.src = streamUrl;
   // Picking another song mid fade-in: the fade would otherwise keep
@@ -583,7 +588,7 @@ fsVolSlider.setPct(playerState.volume);
 
 document.getElementById('btnPlay').addEventListener('click', togglePlay);
 document.getElementById('btnNext').addEventListener('click', () => nextSong());
-document.getElementById('btnPrev').addEventListener('click', prevSong);
+document.getElementById('btnPrev').addEventListener('click', () => prevSong());
 
 // ══════════════════════════════════════════
 //  LOGIN SONG
@@ -639,6 +644,10 @@ async function tryPlayLoginSong() {
   if (!_settings.loginSong) return;
   const song = getLoginSong();
   if (!song) return;
+  // Music already playing on another of your devices isn't interrupted
+  // (there, or by this) for a login song.
+  await window.klabSession?.ready;
+  if (window.klabSession?.remote) return;
   _playSilently = true;
   let p;
   try { p = playSong(song); } finally { _playSilently = false; }
@@ -1335,7 +1344,7 @@ function updateFSUI(song) {
 
 // FS controls mirror main player
 document.getElementById('fsPlay').addEventListener('click', togglePlay);
-document.getElementById('fsPrev').addEventListener('click', prevSong);
+document.getElementById('fsPrev').addEventListener('click', () => prevSong());
 document.getElementById('fsNext').addEventListener('click', () => nextSong());
 
 // FS sliders handled by makeSlider

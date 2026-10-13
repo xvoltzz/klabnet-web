@@ -16,7 +16,7 @@ function context(extra = {}) {
     document: { body: {}, documentElement: {}, createElement: () => ({ getContext: () => null }),
       addEventListener() {}, querySelectorAll: () => [] },
     MutationObserver: class { observe() {} }, addEventListener() {},
-    AbortController, AbortSignal, setTimeout, clearTimeout, URL, Blob,
+    AbortController, AbortSignal, setTimeout, clearTimeout, URL, Blob, crypto,
     SFX: { play() {} }, showToast() {}, KLAB_GOLD_AT: 5, esc: String, ...extra,
   };
   ctx.window = ctx;

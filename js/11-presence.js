@@ -221,6 +221,7 @@
       : /Safari\//.test(ua) ? 'safari' : '';
     return 'web:' + os + (br ? ':' + br : '');
   })();
+  window.KLAB_PLATFORM = PLATFORM; // the shared player names devices from it
   const OS_INFO = {
     windows: ['ti-brand-windows', 'Windows'], macos: ['ti-brand-apple', 'macOS'], linux: ['ti-terminal-2', 'Linux'],
     ios: ['ti-brand-apple', 'iPhone'], ipados: ['ti-brand-apple', 'iPad'], android: ['ti-brand-android', 'Android'],
@@ -707,6 +708,8 @@
         song = results.find(s => s.title === title && (!artist || s.artist === artist)) || results[0] || null;
       }
       if (!song) { showToast(`Couldn't sync with ${username}`, toastPerson(username)); SFX && SFX.play('error'); return; }
+      // A listening party is heard on the device it's joined on.
+      window.klabSession?.here();
       await playSong(song);
       showToast(`Listening along with ${username}`, toastPerson(username));
       SFX && SFX.play('play');
@@ -746,6 +749,10 @@
   // For the Photos tab, which pauses your music on arrival but must not
   // break a listening party you're hosting or following.
   window.klabInListeningParty = () => !!_partyHostId || _partySubscribers.size > 0;
+  // Moving your music to another device (js/23-session.js) leaves a party
+  // this one was following: the other device doesn't know to wait for the
+  // host's next song.
+  window.klabParty = { leaveIfFollowing() { if (!_partyHostId) return false; leaveParty(); return true; } };
 
   function matrixIdFor(username) {
     const client = MatrixChat.client;
@@ -1020,6 +1027,11 @@
           playing:  !!song && playerState.playing,
           partyHost: _partyHostLabel || '',
           platform:  PLATFORM,
+          // Which of your devices this is, and whether it's only showing
+          // what another one is playing: the API puts the one that's
+          // really playing on your card.
+          device:    KLAB_DEVICE,
+          remote:    !!window.klabSession?.remote,
           ...away,
         })
       }, 6000);

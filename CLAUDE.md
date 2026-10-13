@@ -65,6 +65,32 @@ A playlist has a name, a description, a cover, a color and its songs, and lives 
   - Sharing a playlist to the feed or chat, and showing someone's playlists on their profile.
   - An open playlist doesn't update live while you look at it; it's refetched when the list next refreshes.
 
+## One player on every device (built 2026-10-12; not yet run against the real homelab)
+Like Spotify: of everywhere you have klabnet open, one device makes the sound (the *active* one) and the rest show the same song, position, queue and Up next, and work as its remote. "Play here" (the Devices button in the dock and the full player) moves the sound. It replaced every tab playing its own thing, and with that a presence card that flipped between them.
+- **Where things are:**
+  - `js/23-session.js`: all of it. It loads last and wraps `playSong`, `nextSong`, `prevSong` and `updateQueueBadge`.
+  - **klabnet-api** `app/routers/session.py`, under `/api/music-requests/session` so it rides a prefix Caddy already forwards. Each page holds a stream open (`…/stream`, server-sent events). The active device reports what it's playing (`PUT …/state`); the others send their button presses (`POST …/cmd`) for the API to hand on. All of it is in the API's memory: one uvicorn process, nothing stored, and after a restart the active device says it all again.
+- **A remote doesn't play, it stands in.** The site reads and drives `playerState.audio` in a couple of hundred places. Rather than teach each one about remotes, 23-session.js makes that one element stand in for the active device's while this one is a remote (`mirror`): `currentTime`, `duration`, `paused`, `volume`, `muted` and `loop` are own properties on it that answer with the active device's, `play()`, `pause()` and seeking become commands, and `play`/`pause`/`timeupdate`/`seeked`/`loadedmetadata`/`loadstart`/`volumechange` are fired by hand as the news arrives. So code that uses the audio element just works on a remote. Code that must only run where the sound is checks `window.klabSession?.mirror` (the scrobble does).
+- **Commands** (`POST …/cmd`, `onCommand` in 23-session.js): `play`, `resume`, `pause`, `seek`, `next`, `prev`, `queue`, `set` (volume, mute, shuffle, repeat), `take` ("you play it") and `no` ("I couldn't"). `list` replaces what's lined up (the list, where it's at, the queue) without restarting the song: the site never sends it, the phone apps do, since they keep what's coming as one list.
+- **`playSong` asks first.** After setting the song and the dock, the base `playSong` (js/02-player.js) calls `klabSession.mirrorPlay(song)`; true means another device has it. A song picked on a remote goes to the active device with the list, index and queue if they changed.
+- **Roles:** `off` (no API for it: exactly as before), `idle` (nobody is playing), `active`, `remote`. Idle with nothing of its own loaded, a device is *parked* on whatever was last playing anywhere, paused where it stopped; Play carries on from there, on that device.
+- **Who is active:** playing where nobody is makes you it. Otherwise only "Play here" (or being picked in another device's Devices menu) does: picking a song on a remote plays it on the active device. The API lets go of an active device 10 seconds after its stream drops, or after 10 minutes paused, so Play on your phone doesn't start the PC in another room.
+- **Positions are on the API's clock:** "this far in, as of then". Each device works out its offset from that clock from the messages it gets. Remotes count forward from the last report; the active device reports on every change and every 10 seconds.
+- **What you ask for shows at once** (`expect()`), and news that doesn't match it is held for a moment, since it's older than the asking.
+- **Presence:** every beat carries `device` (`KLAB_DEVICE`, a new id per page load) and `remote`. The API keeps the latest beat per device and writes the card from the one that's really playing (`_shown` in routers/presence.py). The phone apps send no `device` and count together as one; `DELETE /api/presence` (they send it when put away with nothing playing) takes away only that device, so a card showing another one stays.
+- **Volume** on a remote is the active device's. Each device keeps its own, and gets it back when it plays.
+- **Listening parties** are heard on the device they're joined on (joining brings the sound there), and moving your music to another device leaves one you were following.
+- A login song doesn't play if another of your devices is already playing.
+- `window.klabSession` (`role`, `remote`, `mirror`, `ready`, `playHere()`, `moveTo(id)`, `state()`) is there for the desktop apps and for tests.
+- `tests/session.mjs` runs all of it with made-up songs and several windows as one person. Navidrome is never asked to play anything.
+- **Not done yet:**
+  - The phone apps (klabnet-ios, klabnet-android) aren't part of it: they still play their own music, don't show what's playing elsewhere, and aren't in the Devices menu. Each needs its own client for the stream, `state` and `cmd`. Until then their presence is ranked like any other device's, so they no longer take the card from a device that's playing.
+  - The session isn't stored: an API restart with nothing playing forgets what was last played.
+  - A browser tab that's in the background and has never played anything can't be started from another device (Chrome doesn't load audio there until it's shown; the desktop app isn't affected). The device that asked is told to press Play there.
+  - Devices of the same kind have the same name ("Chrome on Windows" twice). The desktop apps could send the computer's name.
+  - A list longer than 2,000 songs is sent as the 2,000 around where it's at.
+  - Two devices can't both play on purpose (a second room). Starting one stops the other.
+
 ## Testing without the real site
 The real site needs Authentik, so local testing uses a mock server. It serves this repo, fakes `/api/*` (photos, presence, posts, artwork) and loads index.html with a fake `window.klabnetDesktop` to preview the app layouts. Pages are screenshotted in headless Chrome (`--screenshot`, `--virtual-time-budget`) inside an iframe harness that can call into the page. Headless Chrome has no GPU, so `data-fx="low"` (reduced effects) is on there: no blur and no backdrops. Performance was measured in real Chrome windows and in the real Electron app, not headless.
 

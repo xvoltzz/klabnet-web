@@ -142,7 +142,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.08.8" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.12.5" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -154,7 +154,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.08.8" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.12.5" />
 </head>
 <body>
 
@@ -239,7 +239,7 @@ window.KLAB_BOOT = (function() {
   <div class="fs-content">
     <div class="fs-art-tilt-wrap"><div class="fs-art" id="fsArt" style="position:relative;"><i class="ti ti-music"></i></div></div>
     <div class="fs-meta">
-      <div class="fs-label">Now playing</div>
+      <div class="fs-label">Now playing <span id="fsDeviceNote"></span></div>
       <div class="fs-title" id="fsTitle">Nothing playing</div>
       <div class="fs-artist" id="fsArtist"></div>
       <div class="fs-album" id="fsAlbum"></div>
@@ -261,6 +261,7 @@ window.KLAB_BOOT = (function() {
       <button class="fs-btn fs-btn-sm" id="fsShare" title="Share to feed"><i class="ti ti-share-2"></i></button>
       <span class="fs-spacer"></span>
       <button class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat" aria-pressed="false"><i class="ti ti-repeat"></i></button>
+      <button class="fs-btn fs-btn-sm" id="fsDevices" title="Devices" aria-label="Devices" aria-haspopup="menu" hidden><i class="ti ti-devices"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsQueue" title="Open Music" onclick="closeFS();openPicker()"><i class="ti ti-music-search"></i></button>
     </div>
     <div class="fs-controls">
@@ -787,6 +788,8 @@ window.KLAB_BOOT = (function() {
         </div>
       </div>
       <div class="player-secondary">
+        <!-- Your other devices (js/23-session.js): shown once there is one. -->
+        <button type="button" class="ctrl-btn dock-devices" id="dockDevices" title="Devices" aria-label="Devices" aria-haspopup="menu" hidden><i class="ti ti-devices"></i><span id="dockDevicesName"></span></button>
         <div class="player-vol">
           <button type="button" class="ctrl-btn" aria-label="Mute" aria-pressed="false" title="Mute"><i class="ti ti-volume" id="volIcon"></i></button>
           <div class="vol-slider slider-wrap" id="volSlider" aria-label="Volume">
@@ -1100,35 +1103,36 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.08.8';</script>
-<script defer src="js/00-util.js?v=v2026.10.08.8"></script>
-<script defer src="js/01-shell.js?v=v2026.10.08.8"></script>
-<script defer src="js/02-player.js?v=v2026.10.08.8"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.08.8"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.08.8"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.08.8"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.08.8"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.08.8"></script>
-<script defer src="js/08-chat.js?v=v2026.10.08.8"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.08.8"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.08.8"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.08.8"></script>
-<script defer src="js/11-presence.js?v=v2026.10.08.8"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.08.8"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.08.8"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.08.8"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.08.8"></script>
-<script defer src="js/12-feed.js?v=v2026.10.08.8"></script>
-<script defer src="js/13-tail.js?v=v2026.10.08.8"></script>
-<script defer src="js/14-photos.js?v=v2026.10.08.8"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.08.8"></script>
-<script defer src="js/16-motion.js?v=v2026.10.08.8"></script>
-<script defer src="js/17-history.js?v=v2026.10.08.8"></script>
-<script defer src="js/18-home.js?v=v2026.10.08.8"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.08.8"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.08.8"></script>
-<script defer src="js/21-stars.js?v=v2026.10.08.8"></script>
-<script defer src="js/22-voice.js?v=v2026.10.08.8"></script>
+<script>const KLABNET_VERSION = 'v2026.10.12.5';</script>
+<script defer src="js/00-util.js?v=v2026.10.12.5"></script>
+<script defer src="js/01-shell.js?v=v2026.10.12.5"></script>
+<script defer src="js/02-player.js?v=v2026.10.12.5"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.12.5"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.12.5"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.12.5"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.12.5"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.12.5"></script>
+<script defer src="js/08-chat.js?v=v2026.10.12.5"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.12.5"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.12.5"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.12.5"></script>
+<script defer src="js/11-presence.js?v=v2026.10.12.5"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.12.5"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.12.5"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.12.5"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.12.5"></script>
+<script defer src="js/12-feed.js?v=v2026.10.12.5"></script>
+<script defer src="js/13-tail.js?v=v2026.10.12.5"></script>
+<script defer src="js/14-photos.js?v=v2026.10.12.5"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.12.5"></script>
+<script defer src="js/16-motion.js?v=v2026.10.12.5"></script>
+<script defer src="js/17-history.js?v=v2026.10.12.5"></script>
+<script defer src="js/18-home.js?v=v2026.10.12.5"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.12.5"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.12.5"></script>
+<script defer src="js/21-stars.js?v=v2026.10.12.5"></script>
+<script defer src="js/22-voice.js?v=v2026.10.12.5"></script>
+<script defer src="js/23-session.js?v=v2026.10.12.5"></script>
 
 </body>
 </html>

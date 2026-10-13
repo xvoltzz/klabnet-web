@@ -40,6 +40,7 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 | `js/18-home.js` | Home tab: spotlight, tiles, the "what just happened" line |
 | `js/20-mentions.js`, `js/21-stars.js` | @mention suggestions (not in chat); stars on songs and albums |
 | `js/22-voice.js` | Voice channels on LiveKit (see `CLAUDE.md`, "Voice"); `js/vendor/livekit-client.umd.js` loads on first join |
+| `js/23-session.js` | One player on every device: the active one plays, the rest are its remotes (see `CLAUDE.md`, "One player on every device"). Loads last; makes `playerState.audio` stand in for the active device's |
 
 ## Rules that bite
 
@@ -127,7 +128,6 @@ Also unrun: the listening-party change, the away-on-lock change (needs a real lo
 
 Reported by the reviews and not fixed. Each is a reasonable next thing.
 
-- **Presence is one row per user** (`klabnet-api/app/routers/presence.py`): with two klabnets open, song, platform and "playing" flip between them every few seconds. Needs a design decision (per-device rows, or don't let a non-playing beat overwrite a fresh playing one).
 - **Chat rebuilds the whole timeline on every event** (`renderTimeline`). An append-only fast path would fix it. Each GIF send re-uploads the file to Synapse; picker tiles and chat keep full-size GIFs.
 - **Chat read receipts:** `readActiveChatRoom` and `renderTimeline` disagree on which event is last (one counts edits), and `_lastSentReadEventId` is set before the receipt succeeds.
 - **Phone:** Chat's in-app back arrow pushes a history entry instead of going back (`setChatMobileView` wrapper in `js/17-history.js`).
