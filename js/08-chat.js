@@ -734,21 +734,38 @@ function renderChannelList() {
     _chatActiveRoomId = [...rooms].sort(byRecent)[0].roomId; // land where the conversation is
   }
 
-  const listKey = rooms.map(r => {
+  const rowKey = r => {
     const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? (window.KLAB_AWAY?.has(dmOtherUsername(r)) ? '2' : '1') : '0';
     const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
     const last = roomLastMessage(r);
     const face = dmIds.has(r.roomId) && window.klabResolveUserAvatar?.(dmOtherUsername(r)) ? 'a' : '';
-    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}:${last ? last.getId() + (last.isRedacted?.() ? 'r' : '') + (last.replacingEvent?.()?.getId?.() || '') : ''}${face}:${last ? shortAgo(last.getTs()) : ''}`;
-  }).join(',') + '|' + _chatActiveRoomId;
+    return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}:${last ? last.getId() + (last.isRedacted?.() ? 'r' : '') + (last.replacingEvent?.()?.getId?.() || '') : ''}${face}:${last ? shortAgo(last.getTs()) : ''}:${r.roomId === _chatActiveRoomId ? 'A' : ''}`;
+  };
+  const keys = new Map(rooms.map(r => [r.roomId, rowKey(r)]));
+  const listKey = rooms.map(r => keys.get(r.roomId)).join(',');
   if (listKey !== _lastChannelListKey) {
     _lastChannelListKey = listKey;
-    list.innerHTML = '';
-    list.append(...channelRooms.map(room => buildChannelItem(room, 'ti-hash')));
+    // Row by row: only a row whose own content changed is rebuilt, and
+    // rows are moved only when the order changed. Redrawing the whole list
+    // on every message in any room flickered the hover, and could swap the
+    // row under the pointer between a press and its release.
+    const sync = (box, rs, icon) => {
+      const old = new Map([...box.querySelectorAll(':scope > .chat-channel-item[data-room-id]')].map(el => [el.dataset.roomId, el]));
+      const want = rs.map(r => {
+        const el = old.get(r.roomId);
+        if (el && el.dataset.rowKey === keys.get(r.roomId)) return el;
+        const fresh = buildChannelItem(r, icon);
+        fresh.dataset.rowKey = keys.get(r.roomId);
+        return fresh;
+      });
+      const keep = new Set(want);
+      [...box.children].forEach(el => { if (!keep.has(el)) el.remove(); });
+      want.forEach((el, i) => { if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null); });
+    };
+    sync(list, channelRooms, 'ti-hash');
     const dmList = document.getElementById('chatDmList');
     if (dmList) {
-      dmList.innerHTML = '';
-      dmList.append(...dmRooms.map(room => buildChannelItem(room, 'ti-user')));
+      sync(dmList, dmRooms, 'ti-user');
       const lbl = document.getElementById('chatDmLbl');
       if (lbl) lbl.hidden = !dmRooms.length;
     }
@@ -1057,6 +1074,24 @@ document.fonts?.ready?.then(() => {
   const el = document.getElementById('chatTimeline');
   if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
 });
+
+// Kept at the bottom while you're there. A conversation sometimes opened
+// scrolled up a little: a picture already in the cache, an avatar, a GIF
+// still finished loading after renderTimeline() had pinned the view, and
+// only some of them re-pinned it. Whether you're "at the bottom" is
+// decided by scrolling (yours, or the pin itself), not by the content
+// growing, so anything that loads late, and the timeline getting shorter
+// (the composer growing, the window), keeps you there. Scroll up to read
+// and it leaves you alone.
+(function() {
+  const el = document.getElementById('chatTimeline');
+  if (!el) return;
+  let stuck = true;
+  const pin = () => { if (stuck && el.scrollHeight - el.scrollTop - el.clientHeight > 1) el.scrollTop = el.scrollHeight; };
+  el.addEventListener('scroll', () => { stuck = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }, { passive: true });
+  el.addEventListener('load', e => { if (/^(IMG|IFRAME|VIDEO)$/.test(e.target.tagName)) pin(); }, true);
+  if (window.ResizeObserver) new ResizeObserver(pin).observe(el);
+})();
 
 // "Today" / "Yesterday" / "Month D" (add a year only once it's not the
 // current one) — the day-divider label between chat messages, same idea as

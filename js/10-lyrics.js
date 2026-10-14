@@ -388,7 +388,21 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     _lyricsOpen = !_lyricsOpen;
     lyricsBtn.classList.toggle('lyrics-active', _lyricsOpen);
     lyricsBtn.setAttribute('aria-pressed', _lyricsOpen);
+    // The cover and the title move between the two layouts rather than
+    // jumping (the layouts can't be transitioned: a grid becomes a column
+    // and the cover's size limit goes from none to 180px). Measured,
+    // switched, then each slides from where it was.
+    const moving = fsPlayer2 && fsPlayer2.classList.contains('open') && (window.klabMotionOk?.() ?? true)
+      ? [...fsPlayer2.querySelectorAll('.fs-art-tilt-wrap, .fs-meta')].map(el => [el, el.getBoundingClientRect()]) : [];
     if (fsPlayer2) fsPlayer2.classList.toggle('lyrics-open', _lyricsOpen);
+    for (const [el, a] of moving) {
+      const b = el.getBoundingClientRect();
+      if (!b.width || !a.width) continue;
+      const art = el.classList.contains('fs-art-tilt-wrap');
+      const from = `translate(${a.left - b.left}px, ${a.top - b.top}px)` + (art ? ` scale(${a.width / b.width})` : '');
+      el.animate([{ transformOrigin: '0 0', transform: from }, { transformOrigin: '0 0', transform: 'none' }],
+        { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
 
     if (_lyricsOpen) {
       const song = playerState.currentSong;

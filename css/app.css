@@ -2671,7 +2671,7 @@
       position: relative;
       overflow: hidden;
       padding: 0;
-      animation: lyricsSlideIn 0.45s cubic-bezier(0.4,0,0.2,1) both;
+      animation: lyricsSlideIn 380ms var(--m-ease) both; /* on the cover's clock (js/10-lyrics.js) */
     }
     @keyframes lyricsSlideIn {
       from { opacity: 0; transform: translateX(28px); }
@@ -8564,4 +8564,48 @@
     @media (prefers-reduced-motion: reduce) {
       .hm-enter, .hm-arrive.go { animation: none; }
       .klab-tilt, .klab-tilt.tilting { transform: none; }
+    }
+
+    /* ── The Mac app's page, like the other apps' (2026-10-14) ──
+       The page is a sheet under the toolbar and beside the sidebar, with a
+       rounded top-left corner and a hairline edge where they meet, as on
+       Windows and Linux. It used to be cut square (Finder's shape), which
+       looked out of place next to them. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.klabnet-app[data-platform="darwin"].nav-side-on:not([data-nav="menu"]) body::before {
+        content: ''; position: fixed; z-index: -1; pointer-events: none;
+        left: var(--nav-w); top: var(--tb-h, 52px); right: 0; bottom: 0;
+        clip-path: none !important; background: color-mix(in srgb, var(--bg) 30%, transparent);
+        border: solid var(--mac-line); border-width: 1px 0 0 1px; border-top-left-radius: var(--radius-lg);
+        transition: left .28s var(--m-ease);
+      }
+      /* Without vibrancy: the toolbar and sidebar share one shade, and the
+         sheet is the page's own background. */
+      html.klabnet-app[data-platform="darwin"]:not(.app-material).nav-side-on:not([data-nav="menu"]) body { background: color-mix(in srgb, var(--bg) 88%, #808080 12%); }
+      html.klabnet-app[data-platform="darwin"]:not(.app-material).nav-side-on:not([data-nav="menu"]) body::before { background: var(--bg); }
+      /* The sheet's edge is the divider now; a straight line of the
+         sidebar's own would run through the curve. */
+      html.klabnet-app[data-platform="darwin"].nav-side-on:not([data-nav="top"]):not(.nav-flyout) .side-nav { box-shadow: none !important; }
+      html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header::before { box-shadow: none; }
+    }
+
+    /* A feed photo on its way: its room, held (js/12-feed.js). */
+    #feedList .feed-post.is-photo .feed-post-image-ph {
+      display: block; width: calc(100% + 72px + 18px); max-height: 80vh; margin: 12px -18px 0 -72px;
+      background: rgba(255,255,255,.04);
+    }
+    [data-theme="light"] #feedList .feed-post.is-photo .feed-post-image-ph { background: rgba(0,0,0,.05); }
+    @media (max-width: 760px) and (pointer: coarse) {
+      #feedList .feed-post.is-photo .feed-post-image-ph { width: calc(100% + 62px + 14px); margin: 12px -14px 0 -62px; }
+    }
+
+    /* The blurred backdrops (Home's, and Chat's and Feed's when they have
+       one) belong to the page: inside its sheet, so the rounded corner and
+       the edge beside the sidebar show on every tab. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.web-bar .hm-backdrop {
+        left: calc(var(--nav-w, 0px) + 1px); top: calc(var(--tb-h) + 1px);
+        border-top-left-radius: calc(var(--radius-lg) - 1px);
+      }
+      html.web-bar[data-nav="menu"] .hm-backdrop { left: 0; border-top-left-radius: 0; }
     }

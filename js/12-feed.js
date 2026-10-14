@@ -327,6 +327,26 @@
     })();
   }
 
+  // Each picture's shape (width / height), kept from when it loaded so it
+  // can be given its room before it arrives next time. The API doesn't
+  // store image sizes for feed posts.
+  const FEED_RATIO_KEY = 'klabnet_feed_img_ratio';
+  let _feedRatios = null;
+  function feedImageRatio(mxc) {
+    if (!_feedRatios) { try { _feedRatios = JSON.parse(localStorage.getItem(FEED_RATIO_KEY)) || {}; } catch (e) { _feedRatios = {}; } }
+    return _feedRatios[mxc] || 0;
+  }
+  listEl.addEventListener('load', e => {
+    const img = e.target;
+    if (!img.matches?.('img.feed-post-image[data-mxc]') || !img.naturalWidth || !img.naturalHeight) return;
+    const r = +(img.naturalWidth / img.naturalHeight).toFixed(4);
+    if (img.style.aspectRatio) img.style.aspectRatio = String(r);
+    if (feedImageRatio(img.dataset.mxc) === r) return;
+    _feedRatios[img.dataset.mxc] = r;
+    const keys = Object.keys(_feedRatios);
+    if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete _feedRatios[k]);
+    try { localStorage.setItem(FEED_RATIO_KEY, JSON.stringify(_feedRatios)); } catch (err) {}
+  }, true);
   function ensureFeedImage(mxc) {
     if (!mxc || _feedImagePending.has(mxc)) return;
     if (_feedImageCache.has(mxc) && !retryDue(_feedImageFailedAt, mxc)) return;
@@ -423,7 +443,14 @@
     if (post.image_mxc) {
       ensureFeedImage(post.image_mxc);
       const url = _feedImageCache.get(post.image_mxc);
-      if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" data-mxc="' + esc(post.image_mxc) + '" alt="" loading="lazy" />';
+      // Sized before it arrives, so the posts around it don't jump: the
+      // shape it had when it last loaded here, or a photo's usual 4:3.
+      const ratio = feedImageRatio(post.image_mxc);
+      // (A photo post's picture loads lazily, so even with its file in hand
+      // it has no height until it nears the screen.)
+      const shape = ratio || !post.song ? ' style="aspect-ratio:' + (ratio || '4 / 3') + '"' : '';
+      if (url) imageHTML = '<img class="feed-post-image" src="' + esc(url) + '" data-mxc="' + esc(post.image_mxc) + '" alt="" loading="lazy"' + shape + ' />';
+      else if (!post.song && url !== null && MatrixChat.client) imageHTML = '<div class="feed-post-image-ph" style="aspect-ratio:' + (ratio || '4 / 3') + '" aria-hidden="true"></div>';
     }
     let songHTML = '';
     if (post.song) {

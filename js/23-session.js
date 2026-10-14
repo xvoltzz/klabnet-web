@@ -45,6 +45,7 @@
     const OS = { windows: 'Windows', macos: 'Mac', linux: 'Linux', ios: 'iPhone', ipados: 'iPad', android: 'Android', chromeos: 'Chromebook' }[os] || '';
     const BR = { chrome: 'Chrome', edge: 'Edge', firefox: 'Firefox', safari: 'Safari', opera: 'Opera', vivaldi: 'Vivaldi', brave: 'Brave', samsung: 'Samsung Internet' }[br] || '';
     if (kind === 'app') return OS ? OS + ' app' : 'Desktop app';
+    if (kind === 'tui') return OS ? 'Terminal on ' + OS : 'Terminal';
     if (kind === 'pwa') return OS || 'Phone';
     return BR && OS ? `${BR} on ${OS}` : BR || OS || 'Browser';
   }
@@ -700,6 +701,8 @@
   // ── Devices ──
   const dockBtn = document.getElementById('dockDevices');
   const fsBtn = document.getElementById('fsDevices');
+  // What it is, by its system's or browser's mark (js/11-presence.js).
+  const iconOf = platform => window.klabPlatformIconClass?.(platform) || (isPhone(platform) ? 'ti-device-mobile' : 'ti-device-desktop');
   function render() {
     const show = role !== 'off' && (others() || remote());
     const elsewhere = remote() ? nameOf(sess.active) : '';
@@ -712,6 +715,9 @@
     }
     const name = document.getElementById('dockDevicesName');
     if (name) name.textContent = elsewhere;
+    // Playing elsewhere, the button wears that device's mark.
+    const icon = elsewhere ? iconOf(deviceOf(sess.active)?.platform) : 'ti-devices';
+    for (const b of [dockBtn, fsBtn]) { const i = b?.querySelector('i'); if (i) i.className = 'ti ' + icon; }
     const note = document.getElementById('fsDeviceNote');
     if (note) note.textContent = elsewhere ? 'on ' + elsewhere : '';
   }
@@ -720,7 +726,7 @@
       const me = d.id === ME, playing = d.id === sess.active;
       return {
         label: (me ? 'This device' : d.name) + (playing ? ' · playing' : ''),
-        icon: playing ? 'ti-volume' : isPhone(d.platform) ? 'ti-device-mobile' : 'ti-device-desktop',
+        icon: iconOf(d.platform),
         action: () => {
           if (playing) return;
           SFX && SFX.play('click');

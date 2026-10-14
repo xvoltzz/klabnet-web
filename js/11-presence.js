@@ -232,17 +232,26 @@
     edge: ['ti-brand-edge', 'Edge'], opera: ['ti-brand-opera', 'Opera'], vivaldi: ['ti-brand-vivaldi', 'Vivaldi'],
     brave: ['ti-world', 'Brave'], samsung: ['ti-world', 'Samsung Internet'],
   };
-  function platformIcon(code) {
+  // [icon, label] for a platform code. The apps and the phone apps show
+  // their system's mark, a browser its own, klabnet-tui a terminal.
+  function platformInfo(code) {
     const [kind, os, br] = String(code || '').split(':');
-    if (!kind) return '';
+    if (!kind) return null;
     const o = OS_INFO[os];
-    let icon, label;
-    if (kind === 'app') { icon = o ? o[0] : 'ti-device-desktop'; label = 'klabnet for ' + (o ? o[1] : 'desktop'); }
-    else if (kind === 'pwa') { icon = o ? o[0] : 'ti-device-mobile'; label = 'klabnet app' + (o ? ' on ' + o[1] : ''); }
-    else { const b = BROWSER_INFO[br]; icon = b ? b[0] : 'ti-world'; label = (b ? b[1] : 'A browser') + (o ? ' on ' + o[1] : ''); }
+    if (kind === 'app') return [o ? o[0] : 'ti-device-desktop', 'klabnet for ' + (o ? o[1] : 'desktop')];
+    if (kind === 'pwa') return [o ? o[0] : 'ti-device-mobile', 'klabnet app' + (o ? ' on ' + o[1] : '')];
+    if (kind === 'tui') return ['ti-terminal-2', 'klabnet in a terminal' + (o ? ' on ' + o[1] : '')];
+    const b = BROWSER_INFO[br];
+    return [b ? b[0] : 'ti-world', (b ? b[1] : 'A browser') + (o ? ' on ' + o[1] : '')];
+  }
+  function platformIcon(code) {
+    const info = platformInfo(code);
+    if (!info) return '';
+    const [icon, label] = info;
     return '<i class="ti ' + icon + ' presence-plat" title="' + esc(label) + '" aria-label="' + esc(label) + '"></i>';
   }
   window.klabPlatformIcon = platformIcon;
+  window.klabPlatformIconClass = code => platformInfo(code)?.[0] || null;
 
   // ── Away ──
   // Someone with klabnet open who hasn't used their computer in 5 minutes,
