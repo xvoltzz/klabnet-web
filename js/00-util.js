@@ -573,3 +573,11 @@ function klabPostSong(s) {
 // reaction; songs and albums keep theirs in the API's stars table.
 const KLAB_STAR = '⭐';
 const KLAB_GOLD_AT = 5;
+
+// Where the last press started. A dialog closes on a click outside it only
+// if the press started outside it too: drag-selecting text in a field and
+// letting go past the card's edge clicks the backdrop (the common ancestor
+// of the two), and closed the dialog with whatever was typed.
+let _pressedOn = null;
+document.addEventListener('pointerdown', e => { _pressedOn = e.target; }, true);
+window.klabPressedOn = el => _pressedOn === el;

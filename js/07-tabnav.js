@@ -358,7 +358,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
 document.getElementById('settingsBtn').addEventListener('click', () => { openSettings(); });
 document.getElementById('settingsClose').addEventListener('click', () => { closeSettings(); });
 document.getElementById('settingsBackdrop').addEventListener('click', e => {
-  if (e.target === document.getElementById('settingsBackdrop')) closeSettings();
+  if (e.target === document.getElementById('settingsBackdrop') && klabPressedOn(e.target)) closeSettings();
 });
 // Had click-outside but no Escape — every other backdrop-modal in the app
 // already closes on Escape, this one just got missed.

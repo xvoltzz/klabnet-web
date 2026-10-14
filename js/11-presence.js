@@ -1104,13 +1104,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.trim() }),
       }, 6000);
-      if (!r.ok) return;
+      if (!r.ok) throw new Error();
       const data = await r.json();
       if (data.text) _notesCache.set(me, data.text); else _notesCache.delete(me);
       renderList(_lastOthers);
       window.dispatchEvent(new Event('klab:me')); // the sidebar's "you" (js/24-flair.js)
       SFX && SFX.play(data.text ? 'star' : 'click');
-    } catch (e) {}
+    } catch (e) { showToast('Couldn’t save your note', 'ti-alert-triangle'); }
   }
 
   // ── Poll — runs from page load, pauses when the tab is hidden ──

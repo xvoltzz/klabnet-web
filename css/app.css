@@ -4939,7 +4939,6 @@
     /* Toasts and the header menu: rounder, same glass. */
     .toast, .toast-item { border-radius: 8px; }
     #headerMoreMenu { border-radius: 10px; }
-    #headerMoreMenu .ctx-item { border-radius: 10px; }
 
     @media (max-width: 760px) and (pointer: coarse) {
       #feedList .feed-post { padding: 14px; gap: 12px; flex-direction: row; }
@@ -8609,3 +8608,42 @@
       }
       html.web-bar[data-nav="menu"] .hm-backdrop { left: 0; border-top-left-radius: 0; }
     }
+
+    /* A menu row that's a link (Source, Account) looks like the rows around it. */
+    a.ctx-item { text-decoration: none; }
+    .add-app-modal:focus { outline: none; }
+
+    /* ══ One of each (2026-10-14) ══
+       Where the same kind of thing had drifted into several looks. */
+    /* Close buttons: one 28px square, the same hover. */
+    .add-app-close, .settings-close, .ph-side-close, .update-banner-close {
+      width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+      border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-dimmer); font-size: 16px; cursor: pointer;
+    }
+    .add-app-close:hover, .settings-close:hover, .ph-side-close:hover, .update-banner-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    /* Primary buttons share the dialogs' corner and padding. */
+    .ph-compose-submit { border-radius: var(--radius-md); padding: 0 16px; }
+    /* Section labels: Music's size and tracking, Settings included. */
+    #settingsBackdrop .settings-section-label { font-size: var(--fs-10); letter-spacing: .16em; }
+    /* Fields: a brighter hairline when you're in one, everywhere. */
+    .chat-modal-input:focus { border-color: var(--glass-border-h); box-shadow: none; }
+    .ph-field input:focus-visible, .ph-song-search input:focus-visible { outline: none; }
+    /* A field's label is a label, not a section heading. */
+    .ph-field > span { font: 500 var(--fs-12) var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dim); }
+    /* Sort reads like the other secondary buttons. */
+    .picker-sort-btn { font: 600 var(--fs-13) var(--font-ui); letter-spacing: 0; background: var(--glass-fill-h); color: var(--text); }
+    /* Small text on the site's own scale. */
+    .player-time { font-size: var(--fs-11); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+    .chat-msg-edited, .chat-msg-seen-more, .feed-post-reply-time, .s-slider-val { font-size: var(--fs-11); letter-spacing: 0; }
+    .feed-composer-error, .chat-connect-error { font-size: var(--fs-12); letter-spacing: 0; }
+    /* Tags and chips are boxy too. */
+    .fb-state { border-radius: var(--radius-sm); font: 600 var(--fs-11) var(--font-ui); letter-spacing: 0; text-transform: none; }
+    .img-view-hint { border-radius: var(--radius-sm); }
+    .profile-modal-banner-overlay { border-radius: var(--radius-sm); color: #fff; font-size: var(--fs-12); background: rgba(0,0,0,.45); }
+    .update-banner { border-radius: var(--radius-lg); }
+    /* Chat's "share what's playing" is a secondary button. */
+    .chat-share-np { background: var(--glass-fill-h); border: 1px solid var(--glass-border); font: 600 var(--fs-13) var(--font-ui); }
+    .chat-share-np:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
+    /* Small toolbar icons: one corner, one hover. */
+    .feed-md-toolbar button, .feed-md-tool { border-radius: var(--radius-md); }
+    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { background: var(--glass-fill-h); }

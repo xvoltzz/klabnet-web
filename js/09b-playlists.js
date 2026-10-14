@@ -26,6 +26,7 @@ const PL_COLORS = ['#e5484d', '#f76b15', '#ffc53d', '#46a758', '#12a594', '#0090
 let _pls = [];          // summaries: yours, then other people's featured ones
 let _plServer = null;   // true: on the API. false: an API without playlists. null: not known yet
 let _plLimits = { name: 80, description: 600, songs: 2000, covers: false };
+let _plLimitsKnown = false; // until the API's list has said what it allows
 
 // ── The prefs-era list ──
 function localPlaylists() {
@@ -131,6 +132,7 @@ function plRefresh() {
       let d = await plFetch('', { cache: 'no-store' });
       _plServer = true;
       Object.assign(_plLimits, d.limits || {});
+      _plLimitsKnown = true;
       if (await plImportLegacy()) d = await plFetch('', { cache: 'no-store' });
       plSet(d.playlists);
     } catch (e) {
@@ -380,18 +382,22 @@ async function plRenderPage(ctx, id) {
       actions.appendChild(b);
       return b;
     };
-    // While this playlist is what's playing, the button is Pause.
-    const fromHere = () => playerState.playlist === songs && !!playerState.currentSong && songs.includes(playerState.currentSong);
+    // While this playlist is what's playing, the button is Pause. By the
+    // playlist's id and the song's, not by the same objects: a page opened
+    // again (or refetched) has new ones, and its button said Play and
+    // started the playlist over.
+    const fromHere = () => playerState.playlist?._plId === pl.id && !!playerState.currentSong && songs.some(s => s.id === playerState.currentSong.id);
     const playBtn = btn('ap-btn-play', '', '', () => {
       if (!songs.length) return;
       if (fromHere()) { playerState.audio.paused ? playerState.audio.play().catch(() => {}) : playerState.audio.pause(); return; }
+      songs._plId = pl.id;
       playSongList(songs);
     });
     const syncPlay = () => { playBtn.innerHTML = fromHere() && !playerState.audio.paused ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play'; };
     const onAudio = () => { if (!playBtn.isConnected) { for (const t of ['play', 'pause', 'loadstart']) playerState.audio.removeEventListener(t, onAudio); return; } syncPlay(); };
     for (const t of ['play', 'pause', 'loadstart']) playerState.audio.addEventListener(t, onAudio);
     syncPlay();
-    btn('ap-btn-queue', '<i class="ti ti-arrows-shuffle"></i> Shuffle', '', () => playSongList(songs, { shuffle: true }));
+    btn('ap-btn-queue', '<i class="ti ti-arrows-shuffle"></i> Shuffle', '', () => { songs._plId = pl.id; playSongList(songs, { shuffle: true }); });
     btn('ap-btn-queue', '<i class="ti ti-playlist-add"></i> Queue all', '', () => plQueue(songs));
     if (pl.can_edit) {
       btn('ap-btn-queue', '<i class="ti ti-pencil"></i> Edit', pl.local ? 'Rename' : 'Name, cover, description, color', edit);
@@ -675,7 +681,7 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
     let coverBlob = null, coverGone = false, preview = '', made = '';
     let coverToSend = () => Promise.resolve(null);
 
-    openChatModal(pl ? '// playlist details' : '// new playlist', `
+    const gen = openChatModal(pl ? '// playlist details' : '// new playlist', `
       <div class="pl-edit">
         <div class="pl-edit-top">
           ${rich ? `<div class="pl-edit-coverbox">
@@ -739,8 +745,12 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
         art.insertAdjacentHTML('beforeend', '<span class="pl-art-over"><i class="ti ti-camera"></i><span>Choose a picture</span></span>');
         coverEl.replaceChildren(art);
         noCover.hidden = !(preview || made || shown.cover);
-        if (!_plLimits.covers) { coverEl.disabled = true; coverEl.title = 'Cover storage is offline right now'; $('plEditMake').disabled = true; }
+        const off = _plLimitsKnown && !_plLimits.covers;
+        coverEl.disabled = off; $('plEditMake').disabled = off;
+        coverEl.title = off ? 'Cover storage is offline right now' : '';
       };
+      // Opened before the list had loaded: find out what's allowed.
+      if (!_plLimitsKnown) plRefresh().finally?.(() => { if (coverEl.isConnected) drawCover(); });
       const paintColors = () => {
         colors.querySelectorAll('.profile-modal-color-swatch').forEach(sw => sw.classList.toggle('selected',
           sw.classList.contains('pl-edit-custom') ? !!color && !PL_COLORS.includes(color) : sw.dataset.color === color));
@@ -826,7 +836,7 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
       if (!pl) { SFX && SFX.play('star'); showToast(`"${saved.name}" created${songs.length ? ' with ' + klabCount(saved.count, 'song') : ''}`, 'ti-playlist-add'); }
       const result = saved;
       finish(result);
-      closeChatModal();
+      closeChatModal(gen); // only this one: another may have opened while it saved
     });
   });
 }
@@ -882,7 +892,7 @@ function ensurePlDelegate() {
 function klabPlaylistMenu(e, p) {
   p = plById(p.id) || p; // the row may be older than the last change
   const withSongs = fn => async () => {
-    try { fn((await plGet(p.id)).songs); }
+    try { const songs = (await plGet(p.id)).songs; songs._plId = p.id; fn(songs); }
     catch (err) { showToast(err.message, 'ti-alert-triangle'); }
   };
   const n = p.count, canEdit = p.mine || (p.can_edit && !p.local);
@@ -914,6 +924,7 @@ async function plPlay(p) {
     const songs = (await plGet(p.id)).songs;
     if (klabPickMark() !== mark) return;
     if (!songs.length) { showToast(`"${p.name}" has nothing in it yet`, 'ti-playlist'); return; }
+    songs._plId = p.id;
     playSongList(songs);
     SFX && SFX.play('click');
   } catch (e) { showToast(e.message, 'ti-alert-triangle'); }

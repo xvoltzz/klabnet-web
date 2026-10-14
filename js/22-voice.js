@@ -129,7 +129,10 @@
     const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u) : null;
     const color = typeof profileColor === 'function' ? profileColor(u) : 'inherit';
     const quiet = m.live && vol(u) === 0;
-    let html = '<div class="vc-member' + (speaking.has(u) ? ' speaking' : '') + (m.live ? ' adjustable' : '') + '" data-u="' + esc(u) + '">' +
+    // Who's speaking isn't in here: paintSpeaking() keeps it up in place,
+    // and having it in the markup made every poll rebuild the list (and
+    // drop a volume slider mid-drag) whenever someone started or stopped.
+    let html = '<div class="vc-member' + (m.live ? ' adjustable' : '') + '" data-u="' + esc(u) + '">' +
       '<span class="vc-av">' + (url ? '<img src="' + esc(url) + '" alt="" />' : esc((u || '?')[0].toUpperCase())) + '</span>' +
       '<span class="vc-name" style="color:' + color + '">' + esc(u) + '</span>' +
       (quiet ? '<i class="ti ti-volume-off" title="Muted for you"></i>' : '') +
@@ -622,6 +625,9 @@
   $('vcPttKey').addEventListener('click', () => { sfx('click'); binding = !binding; syncSettings(); });
   window.addEventListener('keydown', e => {
     if (!binding) return;
+    // Settings closed while it was waiting: stop waiting, and let this key
+    // through (it was swallowed and became the push-to-talk key).
+    if (!document.querySelector('.settings-backdrop.open')) { binding = false; syncSettings(); return; }
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.key !== 'Escape') {
       if (/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code) && e.repeat) return;

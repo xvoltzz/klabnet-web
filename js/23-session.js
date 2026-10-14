@@ -423,8 +423,24 @@
     return { ok: r.ok, status: r.status, data };
   }
   // In the order they were pressed.
+  // A press that didn't get through says so, and what's really playing
+  // shows at once (it showed working for a moment, then snapped back).
+  let _sendFailedAt = 0;
   function send(cmd, to) {
-    line = line.then(() => api('POST', '/cmd', { device: ME, cmd, ...(to ? { to } : {}) })).catch(() => null);
+    line = line.then(() => api('POST', '/cmd', { device: ME, cmd, ...(to ? { to } : {}) })).catch(() => null).then(r => {
+      if (r?.ok) return r;
+      if (hold) {
+        clearTimeout(hold.timer);
+        const late = hold.late;
+        hold = null;
+        if (late !== undefined && mirror) take(late);
+      }
+      if (Date.now() - _sendFailedAt > 5000) {
+        _sendFailedAt = Date.now();
+        showToast(`Couldn’t reach ${nameOf(to || sess.active)}`, 'ti-devices');
+      }
+      return r;
+    });
     return line;
   }
   // Volume, mute, shuffle, repeat: a drag is many of these, sent as few.

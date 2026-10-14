@@ -202,9 +202,13 @@ window.klabGifPicker = (function() {
   async function add(req) {
     addBtn.disabled = true;
     addMsg.textContent = 'Grabbing it…';
+    // For the place it was opened from: closed and opened somewhere else
+    // while the server fetched it, it doesn't land in the new place.
+    const forPick = onPick;
     try {
       const res = await fetch(req.url, req.init);
       const data = await res.json().catch(() => ({}));
+      if (onPick !== forPick) return;
       if (!res.ok) { addMsg.textContent = klabCap(data.error) || 'Couldn’t add that one'; return; }
       linkEl.value = ''; nameEl.value = '';
       showAdd(false);

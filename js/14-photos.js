@@ -978,7 +978,7 @@
   });
   const closeEdit = () => { editBackdrop.classList.remove('open'); editing = null; };
   $('phEditClose').addEventListener('click', closeEdit);
-  editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop) closeEdit(); });
+  editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop && klabPressedOn(editBackdrop)) closeEdit(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && editBackdrop.classList.contains('open')) closeEdit(); });
   trapFocusWithin(editBackdrop.querySelector('.add-app-modal'), () => editBackdrop.classList.contains('open'));
   $('phEditSave').addEventListener('click', async () => {
@@ -1230,7 +1230,7 @@
     // (Photos pauses it on arrival); one with them pauses it again.
     releaseMusic: () => { if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); } },
     holdMusic: () => {
-      if (!playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) { playerState.audio.pause(); pausedByPhotos = true; }
+      if (!playerState.audio.paused && !window.klabSession?.mirror && !(window.klabInListeningParty && window.klabInListeningParty())) { playerState.audio.pause(); pausedByPhotos = true; }
     },
   };
 
@@ -1253,7 +1253,9 @@
       if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); }
       return;
     }
-    if (arriving && !playerState.audio.paused && !(window.klabInListeningParty && window.klabInListeningParty())) {
+    // Not when the music is on another of your devices (this one's only its
+    // remote): pausing here would stop it there, in another room.
+    if (arriving && !playerState.audio.paused && !window.klabSession?.mirror && !(window.klabInListeningParty && window.klabInListeningParty())) {
       playerState.audio.pause();
       pausedByPhotos = true;
     }
@@ -1332,7 +1334,7 @@
   $('phPostBtn').addEventListener('click', () => openComposer());
   $('phEmptyPost').addEventListener('click', () => openComposer());
   $('phComposeClose').addEventListener('click', closeComposer);
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeComposer(); });
+  backdrop.addEventListener('click', e => { if (e.target === backdrop && klabPressedOn(backdrop)) closeComposer(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && backdrop.classList.contains('open')) closeComposer(); });
   trapFocusWithin(backdrop.querySelector('.add-app-modal'), () => backdrop.classList.contains('open'));
   fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });

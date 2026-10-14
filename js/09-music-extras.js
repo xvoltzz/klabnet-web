@@ -677,7 +677,7 @@ loadPickerTab = async function(tab) {
     // rather than delegating, since Requests has no sortable content and
     // is never a grid view.
     hideSortBtn();
-    pickerList.classList.remove('picker-list-grid', 'mh-home'); // Home's layout stayed on when you came from Home
+    pickerList.classList.remove('picker-list-grid', 'mh-home', 'is-stale'); // Home's layout stayed on when you came from Home
     _pickerLoadToken++; clearTimeout(pickerDebounce); // see the songs/genres wrapper
     pickerTab = tab;
     await loadMusicRequestsTab();
@@ -697,6 +697,9 @@ async function fetchMusicRequests() {
 
 async function loadMusicRequestsTab() {
   _reqAvatarTries = 0;
+  // Also called after an approve, a delete or a new request lands, by when
+  // you may have gone to another section: that one isn't blanked.
+  if (pickerTab !== 'requests') { await fetchMusicRequests(); return; }
   pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   await fetchMusicRequests();
   if (pickerTab !== 'requests') return;
@@ -803,7 +806,7 @@ function refreshRequestAvatars() {
 
 function openMusicRequestModal() {
   let reqType = 'album';
-  openChatModal('// request music', `
+  const gen = openChatModal('// request music', `
     <div class="music-req-type-toggle">
       <button type="button" class="music-req-type-btn active" data-req-type="album">Album</button>
       <button type="button" class="music-req-type-btn" data-req-type="song">Song</button>
@@ -872,7 +875,7 @@ function openMusicRequestModal() {
             body: JSON.stringify({ req_type: reqType, title: r.title, artist: r.artist, mbid: r.mbid, cover_art_url: r.cover_art_url }),
           }, 8000);
           if (!res.ok) throw new Error('failed');
-          closeChatModal();
+          closeChatModal(gen);
           showToast(`Requested "${r.title}"`, r.cover_art_url ? { art: r.cover_art_url } : 'ti-music-plus');
           SFX && SFX.play('star');
           await loadMusicRequestsTab();

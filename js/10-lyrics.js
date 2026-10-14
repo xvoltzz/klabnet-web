@@ -230,6 +230,11 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   // ── Fetch from LRCLIB ────────────────────
+  // The lyrics, null if there are none, or { failed: true } when LRCLIB
+  // couldn't be reached (said so, and tried again next time, rather than
+  // "No lyrics found" sticking for that song). An exact match needs the
+  // album's name to agree, and a library's "(Deluxe Edition)" doesn't, so
+  // a miss falls back to a search by title and artist, nearest length first.
   async function fetchLyrics(song) {
     if (!song) return null;
     try {
@@ -238,11 +243,20 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
         artist_name: song.artist || '',
         album_name:  song.album  || '',
       });
+      if (song.duration) params.set('duration', String(Math.round(song.duration)));
       const res  = await fetchTimeout(`https://lrclib.net/api/get?${params}`, {}, 8000);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data;
-    } catch(e) { return null; }
+      if (res.ok) return await res.json();
+      if (res.status !== 404) return { failed: true };
+      const q = new URLSearchParams({ track_name: song.title || '', artist_name: song.artist || '' });
+      const sr = await fetchTimeout(`https://lrclib.net/api/search?${q}`, {}, 8000);
+      if (!sr.ok) return { failed: true };
+      const hits = (await sr.json() || []).filter(h => h.syncedLyrics || h.plainLyrics);
+      if (!hits.length) return null;
+      const off = h => song.duration && h.duration ? Math.abs(h.duration - song.duration) : 0;
+      const near = hits.filter(h => off(h) <= 8);
+      near.sort((a, b) => (!!b.syncedLyrics - !!a.syncedLyrics) || off(a) - off(b));
+      return near[0] || null;
+    } catch(e) { return { failed: true }; }
   }
 
   // ── Render lines into DOM ────────────────
@@ -344,6 +358,10 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
       _plainLines = data.plainLyrics.split('\n').filter(l => l.trim());
       _isSynced   = false;
       renderLines(_plainLines, false);
+    } else if (data?.failed) {
+      _isSynced = false;
+      _currentSongId = null; // try again when they're next shown
+      scroll.innerHTML = '<div class="lyrics-status">Couldn’t reach the lyrics. Try again in a bit.</div>';
     } else {
       _isSynced = false;
       scroll.innerHTML = '<div class="lyrics-status">No lyrics found</div>';

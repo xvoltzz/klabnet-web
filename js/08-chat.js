@@ -1785,7 +1785,7 @@ function feedbackModalHTML() {
 }
 
 function openFeedbackModal() {
-  openChatModal('// report a bug or idea', feedbackModalHTML());
+  const fbGen = openChatModal('// report a bug or idea', feedbackModalHTML());
 
   const typeWrap = document.getElementById('fbType');
   const titleEl  = document.getElementById('fbTitle');
@@ -1838,7 +1838,7 @@ function openFeedbackModal() {
       }, 12000);
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'failed');
-      closeChatModal();
+      closeChatModal(fbGen);
       showToast(data.number ? `Filed as #${data.number} — thanks!` : 'Report sent — thanks!', 'ti-bug');
     } catch (e) {
       errEl.textContent = e.message === 'issue tracker not configured'
@@ -1856,21 +1856,41 @@ function openFeedbackModal() {
 // onDismiss: called when the modal closes any way other than the caller's
 // own buttons (X, Escape, the backdrop), so an awaited dialog always answers.
 let _chatModalOnDismiss = null;
+// Each dialog gets a number (returned by openChatModal). Something that
+// finishes late (a save, an upload) closes its own with closeChatModal(n),
+// which leaves alone a dialog opened since: it used to close that one.
+let _chatModalGen = 0, _chatModalReturnFocus = null;
 function openChatModal(title, bodyHTML, onDismiss) {
   const prev = _chatModalOnDismiss;
   _chatModalOnDismiss = onDismiss || null;
   if (prev) prev(); // a dialog replaced by another still gets its answer
+  const backdrop = document.getElementById('chatModalBackdrop');
+  // Where the keyboard was, to go back to when it closes.
+  if (!backdrop.classList.contains('open')) _chatModalReturnFocus = document.activeElement;
   // Titles arrive in the old "// lower case" style from all over; shown as titles.
   const t = String(title || '').replace(/^\/\/\s*/, '');
   document.getElementById('chatModalTitle').textContent = t.charAt(0).toUpperCase() + t.slice(1);
   document.getElementById('chatModalBody').innerHTML = bodyHTML;
-  document.getElementById('chatModalBackdrop').classList.add('open');
+  backdrop.classList.add('open');
+  // The keyboard goes into it: its first field, if it has one.
+  const field = backdrop.querySelector('#chatModalBody :is(input:not([type="hidden"]):not([type="file"]), textarea)');
+  if (field) field.focus({ preventScroll: true });
+  else backdrop.querySelector('.add-app-modal')?.focus?.({ preventScroll: true });
+  return ++_chatModalGen;
 }
-function closeChatModal() {
-  document.getElementById('chatModalBackdrop').classList.remove('open');
+function closeChatModal(gen) {
+  if (typeof gen === 'number' && gen !== _chatModalGen) return;
+  const backdrop = document.getElementById('chatModalBackdrop');
+  const wasOpen = backdrop.classList.contains('open');
+  backdrop.classList.remove('open');
   const f = _chatModalOnDismiss;
   _chatModalOnDismiss = null;
   if (f) f();
+  // Back to where it was, unless the dialog led somewhere else.
+  const back = _chatModalReturnFocus;
+  _chatModalReturnFocus = null;
+  if (wasOpen && back?.isConnected && !backdrop.classList.contains('open') &&
+      (!document.activeElement || document.activeElement === document.body || backdrop.contains(document.activeElement))) back.focus?.({ preventScroll: true });
 }
 trapFocusWithin(
   document.querySelector('#chatModalBackdrop .add-app-modal'),
@@ -1886,7 +1906,7 @@ document.addEventListener('visibilitychange', () => {
 // outside) did nothing.
 document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
 document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
-  if (e.target.id === 'chatModalBackdrop') closeChatModal();
+  if (e.target.id === 'chatModalBackdrop' && klabPressedOn(e.target)) closeChatModal();
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.getElementById('chatModalBackdrop')?.classList.contains('open')) closeChatModal();
@@ -1942,6 +1962,9 @@ function showConfirmDialog(title, message, confirmLabel) {
     const cleanup = result => { resolve(result); closeChatModal(); };
     document.getElementById('confirmDialogCancel').addEventListener('click', () => cleanup(false));
     document.getElementById('confirmDialogOk').addEventListener('click', () => cleanup(true));
+    // Its button has the keyboard, as in a system dialog: Enter does it,
+    // Tab goes to Cancel, Escape backs out.
+    document.getElementById('confirmDialogOk').focus({ preventScroll: true });
   });
 }
 // Pick-one-from-a-list dialog (e.g. "add this song to which playlist?") —
@@ -1957,6 +1980,10 @@ function showChoiceDialog(title, items, emptyMessage) {
       const row = document.createElement('div');
       row.className = 'chat-modal-row';
       row.style.cursor = 'pointer';
+      // Reachable from the keyboard: Tab to it, Enter or Space picks it.
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } });
       row.innerHTML =
         '<div class="chat-modal-row-info">' +
           `<div class="chat-modal-row-name">${esc(item.label)}</div>` +
@@ -1965,6 +1992,7 @@ function showChoiceDialog(title, items, emptyMessage) {
       row.addEventListener('click', () => { resolve(i); closeChatModal(); });
       listEl.appendChild(row);
     });
+    listEl.querySelector('.chat-modal-row')?.focus({ preventScroll: true });
   });
 }
 
@@ -2211,7 +2239,8 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
     const img = new Image();
     img.onload = () => {
       const backdrop = document.createElement('div');
-      backdrop.className = 'img-crop-backdrop';
+      // .open: what the other layers check for before taking keys and Escape.
+      backdrop.className = 'img-crop-backdrop open';
       backdrop.innerHTML = `
         <div class="img-crop-dialog">
           <div class="img-crop-title">Crop image</div>
@@ -2294,7 +2323,7 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
       function onEscape(e) { if (e.key === 'Escape') { e.stopImmediatePropagation(); cleanup(null); } }
       document.addEventListener('keydown', onEscape, true);
       backdrop.querySelector('#imgCropCancel').addEventListener('click', () => cleanup(null));
-      backdrop.addEventListener('click', e => { if (e.target === backdrop) cleanup(null); });
+      backdrop.addEventListener('click', e => { if (e.target === backdrop && klabPressedOn(backdrop)) cleanup(null); });
       backdrop.querySelector('#imgCropUse').addEventListener('click', () => {
         const canvas = document.createElement('canvas');
         canvas.width = outputWidth;
@@ -2310,7 +2339,7 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
         canvas.toBlob(blob => cleanup(blob), 'image/jpeg', 0.92);
       });
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); showToast('Couldn’t open that picture. Try a JPEG or PNG.', 'ti-photo-x'); resolve(null); };
     img.src = objectUrl;
   });
 }
@@ -2600,8 +2629,10 @@ async function openProfileModal() {
   if (!client) { showToast('Connect chat in the Chat tab first', 'ti-plug-connected-x'); return; }
   const myId = client.getUserId();
   const myUsername = mxIdToUsername(myId);
+  // Not loaded yet (or the last load failed): ask before filling the form.
+  if (!_profiles.has(myUsername)) await fetchProfiles();
   const myProfile = _profiles.get(myUsername) || { chat_color: '', bio: '', banner_mxc: '' };
-  openChatModal('// edit profile', `
+  const profileGen = openChatModal('// edit profile', `
     <div class="profile-modal-banner-row">
       <div class="profile-modal-banner" id="profileBannerPreview">
         <div class="profile-modal-banner-overlay"><i class="ti ti-camera"></i> Banner</div>
@@ -2714,7 +2745,10 @@ async function openProfileModal() {
       const pr = await fetchTimeout('/api/profiles/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_color: selectedColor, bio: bioEl.value.trim(), banner_mxc: bannerMxc }),
+        // Only what changed: with the profile not loaded, sending all three
+        // blanked a bio, colour and banner nobody had touched.
+        body: JSON.stringify(Object.fromEntries(Object.entries({ chat_color: selectedColor, bio: bioEl.value.trim(), banner_mxc: bannerMxc })
+          .filter(([k, v]) => v !== (myProfile[k] || '')))),
       }, 8000);
       if (!pr.ok) {
         const err = await pr.json().catch(() => null);
@@ -2726,7 +2760,7 @@ async function openProfileModal() {
       const saved = await pr.json();
       _profiles.set(myUsername, { chat_color: saved.chat_color, bio: saved.bio, banner_mxc: saved.banner_mxc });
 
-      closeChatModal();
+      closeChatModal(profileGen);
       showToast('Profile updated', 'ti-user-check');
       // Presence rail's cache is keyed by username, private to that
       // module's own IIFE — invalidated via the exposed hook. The chat
