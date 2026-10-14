@@ -1109,6 +1109,14 @@ function chatDateLabel(date) {
   return date.toLocaleDateString(undefined, opts);
 }
 
+// "Today at 2:35 PM", "Yesterday at 9:10 AM", "10/12/2026 4:02 PM".
+function chatStampLabel(d) {
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - day) / 864e5);
+  return diff === 0 ? 'Today at ' + time : diff === 1 ? 'Yesterday at ' + time : d.toLocaleDateString() + ' ' + time;
+}
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
@@ -1256,6 +1264,7 @@ function renderTimeline() {
     return;
   }
   let lastSender = appendFrom ? events[appendFrom - 1].getSender() : null;
+  let lastTs = appendFrom ? events[appendFrom - 1].getTs() : 0;
   let lastDayKey = appendFrom ? new Date(events[appendFrom - 1].getTs()).toDateString() : null;
   events.slice(appendFrom).forEach(ev => {
     const evDate = new Date(ev.getTs());
@@ -1271,8 +1280,11 @@ function renderTimeline() {
 
     const senderId   = ev.getSender();
     const senderName = ev.sender?.name || senderId;
-    const grouped    = senderId === lastSender;
+    // One person's messages stack under one name, as in Discord, until
+    // they've been quiet a while (7 minutes) or the day changes.
+    const grouped    = senderId === lastSender && ev.getTs() - lastTs < 7 * 60000;
     lastSender = senderId;
+    lastTs = ev.getTs();
 
     const row = document.createElement('div');
     const mine = senderId === MatrixChat.client.getUserId();
@@ -1292,10 +1304,14 @@ function renderTimeline() {
 
     const avatar = document.createElement('div');
     avatar.className = 'chat-msg-avatar' + (grouped ? ' grouped' : '');
-    avatar.dataset.msgAvatarFor = senderId;
-    ensureMsgAvatarResolved(senderId);
-    const cachedAvatarUrl = _msgAvatarCache.get(senderId);
-    if (cachedAvatarUrl) {
+    // A follow-on line has no picture: its time shows in that margin when
+    // you point at it.
+    if (grouped) avatar.innerHTML = `<span class="chat-msg-gutter">${esc(new Date(ev.getTs()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</span>`;
+    else avatar.dataset.msgAvatarFor = senderId;
+    if (!grouped) ensureMsgAvatarResolved(senderId);
+    const cachedAvatarUrl = grouped ? null : _msgAvatarCache.get(senderId);
+    if (grouped) { /* the time, above */ }
+    else if (cachedAvatarUrl) {
       const img = document.createElement('img');
       img.src = cachedAvatarUrl;
       img.alt = '';
@@ -1309,7 +1325,7 @@ function renderTimeline() {
     if (!grouped) {
       const head = document.createElement('div');
       head.className = 'chat-msg-head';
-      head.innerHTML = `<span class="chat-msg-sender" data-username="${esc(mxIdToUsername(senderId))}" style="color:${profileColor(senderId)}">${esc(senderName)}</span><span class="chat-msg-time">${new Date(ev.getTs()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+      head.innerHTML = `<span class="chat-msg-sender" data-username="${esc(mxIdToUsername(senderId))}" style="color:${profileColor(senderId)}">${esc(senderName)}</span><span class="chat-msg-time">${esc(chatStampLabel(evDate))}</span>`;
       body.appendChild(head);
     }
 

@@ -8661,3 +8661,69 @@
       }
       html.web-bar[data-fx="low"]:not([data-nav="menu"])::after { background: radial-gradient(circle at 100% 100%, transparent calc(var(--radius-lg) - 1px), var(--web-line) calc(var(--radius-lg) - .5px), var(--web-line) var(--radius-lg), transparent calc(var(--radius-lg) + .5px)), var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
     }
+
+    /* ══ Chat, laid out like Discord's (2026-10-14) ══
+       No bubbles and no sides: everyone's messages, yours too, run down the
+       left under a picture, a name and a time. A person's next lines stack
+       under the same name (until they've been quiet 7 minutes), each one's
+       time in the margin when you point at it. The whole line lights up
+       under the pointer, and its actions float at its right end. */
+    #chatApp #chatTimeline { padding: 8px 0 12px; }
+    #chatApp #chatTimeline .chat-msg,
+    #chatApp #chatTimeline .chat-msg.mine {
+      align-self: stretch; flex-direction: row; max-width: none; width: auto;
+      gap: 14px; margin: 14px 0 0; padding: 3px 16px 3px 14px; border-radius: 0;
+      transition: background-color 60ms linear;
+    }
+    #chatApp #chatTimeline .chat-msg.grouped { margin-top: 0; padding-top: 1px; padding-bottom: 1px; }
+    #chatApp #chatTimeline .chat-msg:has(+ .chat-msg.grouped) { padding-bottom: 1px; }
+    #chatApp #chatTimeline .chat-msg:hover { background: var(--glass-fill); }
+    /* The picture, at the head of a run of lines; the margin under it. */
+    #chatApp #chatTimeline .chat-msg-avatar,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-avatar {
+      display: flex; width: 40px; min-width: 40px; height: 40px; margin-top: 2px; font-size: 15px;
+    }
+    #chatApp #chatTimeline .chat-msg-avatar.grouped,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-avatar.grouped {
+      height: auto; min-height: 0; visibility: visible; background: none; border: 0; box-shadow: none; margin-top: 0;
+      align-items: center; justify-content: flex-end; align-self: stretch;
+    }
+    .chat-msg-gutter {
+      font: 500 var(--fs-10) var(--font-ui); color: var(--text-dimmer); white-space: nowrap; letter-spacing: 0;
+      opacity: 0; font-variant-numeric: tabular-nums; padding-top: 1px;
+    }
+    #chatApp #chatTimeline .chat-msg:hover .chat-msg-gutter { opacity: 1; }
+    /* Name and time, on every first line (yours and DMs' too). */
+    #chatApp #chatTimeline .chat-msg-body,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-body { align-items: stretch; flex: 1; }
+    #chatApp #chatTimeline .chat-msg-head,
+    #chatApp #chatTimeline.is-dm .chat-msg-head,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-head { display: flex; margin: 0 0 1px; }
+    #chatApp #chatTimeline .chat-msg-sender { font: 600 var(--fs-15) var(--font-ui); cursor: pointer; }
+    #chatApp #chatTimeline .chat-msg-sender:hover { text-decoration: underline; }
+    #chatApp #chatTimeline .chat-msg-time { opacity: 1; margin-left: 8px; font: 500 var(--fs-11) var(--font-ui); color: var(--text-dimmer); }
+    /* The words themselves: just text. */
+    #chatApp #chatTimeline .chat-msg-text,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-text,
+    #chatApp #chatTimeline .chat-msg.grouped .chat-msg-text {
+      width: auto; padding: 0; border-radius: 0; background: none;
+      font-size: var(--fs-15); line-height: 1.4; color: var(--text);
+    }
+    #chatApp #chatTimeline .chat-msg-text.deleted { color: var(--text-dimmer); }
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-song { background: var(--glass-fill-h); }
+    #chatApp #chatTimeline .chat-msg-song, #chatApp #chatTimeline .chat-msg-image { margin-top: 4px; align-self: flex-start; }
+    #chatApp #chatTimeline .chat-msg-reactions { margin-top: 4px; }
+    #chatApp #chatTimeline .chat-msg.mine.starred .chat-msg-text::after { right: -7px; left: auto; }
+    /* Its actions, at the right end of the line it belongs to. */
+    #chatApp #chatTimeline .chat-msg-actions,
+    #chatApp #chatTimeline .chat-msg.mine .chat-msg-actions { top: -14px; right: 16px; left: auto; }
+    /* Days: a line across, the date in it. */
+    #chatApp #chatTimeline .chat-date-sep { align-self: stretch; display: flex; align-items: center; gap: 10px; margin: 18px 16px 2px; }
+    #chatApp #chatTimeline .chat-date-sep-line { display: block; flex: 1; height: 1px; background: var(--glass-border); }
+    #chatApp #chatTimeline .chat-date-sep-label { font: 600 var(--fs-11) var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dimmer); }
+    #chatApp #chatTimeline .chat-msg-seen { margin-right: 16px; }
+    @media (max-width: 760px) and (pointer: coarse) {
+      #chatApp #chatTimeline .chat-msg, #chatApp #chatTimeline .chat-msg.mine { max-width: none; padding-left: 10px; padding-right: 10px; gap: 10px; }
+      #chatApp #chatTimeline .chat-msg-avatar, #chatApp #chatTimeline .chat-msg.mine .chat-msg-avatar { width: 34px; min-width: 34px; height: 34px; }
+      #chatApp #chatTimeline .chat-msg-avatar.grouped { height: auto; }
+    }
