@@ -8602,11 +8602,14 @@
        one) belong to the page: inside its sheet, so the rounded corner and
        the edge beside the sidebar show on every tab. */
     @media (min-width: 761px), (pointer: fine) {
+      /* Clipped rather than moved, so the picture keeps its size while the
+         clip follows the sidebar opening and folding. */
       html.web-bar .hm-backdrop {
-        left: calc(var(--nav-w, 0px) + 1px); top: calc(var(--tb-h) + 1px);
-        border-top-left-radius: calc(var(--radius-lg) - 1px);
+        clip-path: inset(calc(var(--tb-h) + 1px) 0 0 calc(var(--nav-w, 0px) + 1px) round calc(var(--radius-lg) - 1px) 0 0 0);
+        transition: opacity .5s ease, visibility 0s .5s, clip-path .28s var(--m-ease);
       }
-      html.web-bar[data-nav="menu"] .hm-backdrop { left: 0; border-top-left-radius: 0; }
+      html.web-bar body.tab-home-active .hm-backdrop { transition: opacity .5s ease, visibility 0s 0s, clip-path .28s var(--m-ease); }
+      html.web-bar[data-nav="menu"] .hm-backdrop { clip-path: inset(var(--tb-h) 0 0 0); }
     }
 
     /* A menu row that's a link (Source, Account) looks like the rows around it. */

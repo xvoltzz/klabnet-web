@@ -645,8 +645,29 @@ window.klabSideNav = (function() {
   }, true);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 
+  // The sidebar opening or folding: its width animates (the CSS), and the
+  // page beside it takes its new place at once, then slides there from
+  // where it was, on the same curve. A slide is drawn on the GPU; easing
+  // the page's padding re-flowed every grid on it, frame by frame.
+  function slidePage(change) {
+    const els = [document.querySelector('.dash-body'), document.getElementById('playerDock')]
+      .filter(el => el && el.getClientRects().length);
+    const before = els.map(el => el.getBoundingClientRect().left);
+    change();
+    if (!(window.klabMotionOk?.() ?? true)) return;
+    const z = typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1;
+    els.forEach((el, i) => {
+      const dx = (before[i] - el.getBoundingClientRect().left) / z;
+      if (Math.abs(dx) < 1) return;
+      el.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+  }
   function set(v, { save = true } = {}) {
     close();
+    if (save && v !== mode()) { slidePage(() => apply(v, save)); return; }
+    apply(v, save);
+  }
+  function apply(v, save) {
     root.setAttribute('data-nav', v);
     if (save) { try { localStorage.setItem('klabnet_nav', v); } catch (e) {} }
     place();
