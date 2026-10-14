@@ -725,18 +725,47 @@ window.klabPane = (function() {
     btn.firstElementChild.className = 'ti ' + (off ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse');
   }
 
-  function set(t, off) {
-    if (!PANES[t] || hidden(t) === off) return;
+  // Hiding: the sidebar fades and slides out, then what's beside it glides
+  // over into the room. Showing: it glides aside as the sidebar slides in.
+  // The content takes its new place at once and slides there from where
+  // it was (a transform), so nothing re-flows frame by frame.
+  const EASE = 'cubic-bezier(.2,.8,.2,1)';
+  let busy = false;
+  function glide(el, change) {
+    const beside = el ? [...el.parentElement.children].filter(c => c !== el && c.getClientRects().length) : [];
+    const before = beside.map(c => c.getBoundingClientRect().left);
+    change();
+    const z = typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1;
+    beside.forEach((c, i) => {
+      const dx = (before[i] - c.getBoundingClientRect().left) / z;
+      if (Math.abs(dx) > 1) c.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: 280, easing: EASE });
+    });
+  }
+  function apply(t, off) {
     root.classList.toggle('pane-off-' + t, off);
     try { localStorage.setItem(KEY, JSON.stringify(Object.keys(PANES).filter(hidden))); } catch (e) {}
-    const el = document.getElementById(PANES[t].el);
-    if (el && !off) {
-      el.classList.add('pane-in');
-      setTimeout(() => el.classList.remove('pane-in'), 260);
-    }
     sync();
     // The sliding highlights and the photo measure on resize.
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+  function set(t, off) {
+    if (!PANES[t] || hidden(t) === off || busy) return;
+    const el = document.getElementById(PANES[t].el);
+    // (A hidden sidebar has no box yet: its page being up is what counts.)
+    const motion = !!el && page() === t && (window.klabMotionOk?.() ?? true);
+    if (!motion) { apply(t, off); return; }
+    if (off) {
+      busy = true;
+      el.animate([{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-12px 0' }], { duration: 160, easing: 'ease-in', fill: 'forwards' })
+        .finished.catch(() => {}).then(() => {
+          glide(el, () => apply(t, true));
+          el.getAnimations().forEach(a => a.cancel());
+          busy = false;
+        });
+    } else {
+      glide(el, () => apply(t, false));
+      el.animate([{ opacity: 0, translate: '-12px 0' }, { opacity: 1, translate: '0 0' }], { duration: 280, easing: EASE });
+    }
   }
   // True when there was a sidebar to toggle.
   function toggle() {

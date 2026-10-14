@@ -6685,11 +6685,7 @@
       html.pane-off-chat #chatApp #chatSide,
       html.pane-off-photos #phShell #phSidebar { display: none; }
       html.pane-off-chat #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
-      .pane-in { animation: pane-in .24s var(--m-ease) both; }
-      html[data-fx="low"] .pane-in { animation: none; }
     }
-    @keyframes pane-in { from { opacity: 0; transform: translateX(-10px); } }
-    @media (prefers-reduced-motion: reduce) { .pane-in { animation: none; } }
 
     /* ── Windows: a WinUI NavigationView ──
        The pane sits on the window's Mica/Acrylic, and the page is a layer
@@ -8650,3 +8646,18 @@
     /* Small toolbar icons: one corner, one hover. */
     .feed-md-toolbar button, .feed-md-tool { border-radius: var(--radius-md); }
     .feed-mentions-btn:hover, .feed-mentions-btn.is-active { background: var(--glass-fill-h); }
+
+    /* The page's rounded corner stays rounded while things scroll under it:
+       a cap in the bar's colour fills outside the curve, with the edge's
+       hairline drawn on it, above the page and below the bar and sidebar. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.web-bar:not([data-nav="menu"])::after {
+        content: ''; position: fixed; z-index: 56; pointer-events: none;
+        left: var(--nav-w); top: var(--tb-h); width: var(--radius-lg); height: var(--radius-lg);
+        /* The bar's tint over the same background the bar sits on (the
+           page's backdrop stops at the curve), with the edge's hairline. */
+        background: radial-gradient(circle at 100% 100%, transparent calc(var(--radius-lg) - 1px), var(--web-line) calc(var(--radius-lg) - .5px), var(--web-line) var(--radius-lg), var(--web-chrome) calc(var(--radius-lg) + .5px));
+        transition: left .28s var(--m-ease);
+      }
+      html.web-bar[data-fx="low"]:not([data-nav="menu"])::after { background: radial-gradient(circle at 100% 100%, transparent calc(var(--radius-lg) - 1px), var(--web-line) calc(var(--radius-lg) - .5px), var(--web-line) var(--radius-lg), transparent calc(var(--radius-lg) + .5px)), var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    }
