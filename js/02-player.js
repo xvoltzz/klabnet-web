@@ -225,17 +225,25 @@ function updatePlayerUI(song) {
   // size=100 (~2x the 46px dock art box, 36px on mobile) — was 300,
   // fetching/decoding ~6x more pixels than this ever displays.
   const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`;
+  // The next song off the same album keeps its cover, and a new cover
+  // replaces the old one once it's loaded: the music-note placeholder
+  // used to blink in between on every track.
+  const old = artWrap.querySelector('img.player-art');
+  if (old && song.coverArt && old.dataset.cover === song.coverArt) return;
+  const myArt = ++_dockArtToken;
   const ph = document.createElement('div');
   ph.className = 'picker-item-art-ph';
   ph.innerHTML = '<i class="ti ti-music"></i>';
-  artWrap.innerHTML = '';
-  artWrap.appendChild(ph);
+  if (!old) { artWrap.innerHTML = ''; artWrap.appendChild(ph); }
   const img = new Image();
   img.className = 'player-art';
   img.alt = 'art';
-  img.onload = () => ph.replaceWith(img);
+  img.dataset.cover = song.coverArt || '';
+  img.onload = () => { if (myArt === _dockArtToken) artWrap.replaceChildren(img); };
+  img.onerror = () => { if (myArt === _dockArtToken) artWrap.replaceChildren(ph); };
   img.src = artUrl;
 }
+let _dockArtToken = 0;
 
 function setPlayIcon(playing) {
   const playBtn = document.getElementById('playIcon');
@@ -268,8 +276,15 @@ let _playSilently = false;
 // (under shuffle, or after queued songs, the playlist order isn't that).
 const _heard = [];
 let _goingBack = false;
+// Every song started by someone's choice (not the next one coming on by
+// itself). A Play that has to fetch first (an album, a genre, a playlist)
+// notes this before it waits and gives up if it changed: a song picked in
+// the meantime used to be replaced a few seconds later.
+let _picks = 0, _autoNext = false;
+window.klabPickMark = () => _picks;
 async function playSong(song) {
   if (!song) return;
+  if (!_autoNext) _picks++;
   const prev = playerState.currentSong;
   if (!_goingBack && prev && prev.id !== song.id) {
     _heard.push(prev);
@@ -419,7 +434,7 @@ playerState.audio.addEventListener('timeupdate', () => {
 
 // Arrow functions, not the function itself: shuffle (05-favorites.js)
 // replaces the global nextSong later, and a captured reference skipped it.
-playerState.audio.addEventListener('ended', () => nextSong());
+playerState.audio.addEventListener('ended', () => { _autoNext = true; try { nextSong(); } finally { _autoNext = false; } });
 
 // ── SLIDER UTILITY ──
 // Pointer events, so a finger drags it on a phone the same as a mouse
@@ -735,8 +750,20 @@ function goToMusicDetail(openFn) {
 
 async function loadPickerTab(tab) {
   pickerTab = tab;
-  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
   const myLoadToken = ++_pickerLoadToken;
+  // Home is a front page for the library (js/15-music-home.js), drawn at
+  // once: only its "Shuffle picks" wait for these random songs.
+  if (tab === 'random' && window.klabRenderMusicHome) {
+    const songs = fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`, {}, 8000)
+      .then(r => r.json()).then(d => d['subsonic-response']?.randomSongs?.song || []);
+    songs.catch(() => {});
+    window.klabRenderMusicHome(pickerList, songs, () => loadPickerTab('random'));
+    return;
+  }
+  // A new search keeps the last results up, dimmed, until its own arrive:
+  // blanking them at every pause in typing jumped the page back to the top.
+  if (tab === 'search' && pickerQuery.trim() && pickerList.querySelector('.picker-item')) pickerList.classList.add('is-stale');
+  else pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
 
   let songs = [];
   try {
@@ -772,6 +799,7 @@ async function loadPickerTab(tab) {
       const foundSongs   = result.song   || [];
       if (myLoadToken !== _pickerLoadToken) return; // superseded by a newer tab switch / search
       pickerList.innerHTML = '';
+      pickerList.classList.remove('is-stale');
       if (foundArtists.length) {
         const artLbl = document.createElement('div');
         artLbl.className = 'picker-section-label';
@@ -804,18 +832,13 @@ async function loadPickerTab(tab) {
     }
   } catch(e) {
     if (myLoadToken !== _pickerLoadToken) return;
+    pickerList.classList.remove('is-stale');
     pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>';
     return;
   }
 
   if (myLoadToken !== _pickerLoadToken) return; // superseded by a newer tab switch / search
   pickerSongs = songs;
-  // Home is a front page for the library (js/15-music-home.js); these
-  // random songs become its "Shuffle picks" section.
-  if (tab === 'random' && window.klabRenderMusicHome) {
-    window.klabRenderMusicHome(pickerList, songs, () => loadPickerTab('random'));
-    return;
-  }
   const tabLabels = {random:'Songs',recent:'Recently played',search:'Search results'};
   renderPickerList(songs, tabLabels[pickerTab] || 'Songs');
 }
@@ -997,8 +1020,12 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 // point now, so a second "Search" button right below it read as two search
 // bars); just clear whichever other row was selected, and drop out of the
 // album/artist viewer, which otherwise covers the results.
+// The section you were in before searching, to go back to when the box
+// is emptied (it used to stay on a blank "Type to search").
+let _preSearchTab = null;
 function enterPickerSearchMode() {
   if (pickerTab === 'search') return;
+  _preSearchTab = document.querySelector('.picker-tab.active')?.dataset.tab || 'random';
   window.closeApPanel?.();
   document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
@@ -1012,6 +1039,11 @@ pickerSearchEl.addEventListener('input', () => {
   // ran — "using the search bar does nothing" from anywhere but Home.
   if (pickerSearchEl.value) enterPickerSearchMode();
   pickerQuery = pickerSearchEl.value;
+  if (!pickerQuery && pickerTab === 'search') {
+    clearTimeout(pickerDebounce);
+    document.querySelector(`.picker-tab[data-tab="${_preSearchTab || 'random'}"]`)?.click();
+    return;
+  }
   if (pickerTab === 'search') {
     clearTimeout(pickerDebounce);
     pickerDebounce = setTimeout(() => loadPickerTab('search'), 400);
@@ -1129,7 +1161,9 @@ function dismissToast(item) {
   clearTimeout(item._hide);
   item.classList.remove('visible');
   item.classList.add('leaving');
-  item.addEventListener('transitionend', () => item.remove(), { once: true });
+  // Gone once its collapse is done (the fade ends first, and removing it
+  // then snapped the stack below it up mid-collapse).
+  item.addEventListener('transitionend', e => { if (e.propertyName === 'max-height') item.remove(); });
   setTimeout(() => item.remove(), 700); // fallback if transitionend never fires (fade + delayed collapse together run under this)
 }
 
@@ -1210,7 +1244,11 @@ document.getElementById('fsGrabber')?.addEventListener('click', () => closeFS())
     fs.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1), border-radius .28s ease';
     if (d.dy > window.innerHeight * 0.2 || speed > 0.6) {
       fs.style.transform = `translateY(${window.innerHeight}px)`;
-      setTimeout(() => { closeFS(); fs.style.transition = ''; reset(); }, 270);
+      // Already off the bottom: close without the usual exit replaying.
+      setTimeout(() => {
+        fs.style.transition = 'none'; closeFS(); reset();
+        requestAnimationFrame(() => requestAnimationFrame(() => { fs.style.transition = ''; }));
+      }, 270);
     } else {
       reset();
       setTimeout(() => { fs.style.transition = ''; }, 300);
@@ -1232,6 +1270,7 @@ let _fsBgActive = 'A'; // crossfade layer tracker
 let _fsBgToken = 0;    // guards against a stale, slow-loading image winning a race
 let _fsArtPending = null; // song whose artwork updateFSUI() deferred while FS was closed
 
+let _fsArtToken = 0;
 function updateFSUI(song) {
   if (!song) {
     document.getElementById('fsTitle').textContent = 'Nothing playing';
@@ -1282,6 +1321,12 @@ function updateFSUI(song) {
     return;
   }
   _fsArtPending = null;
+  // The next song off the same album: the same cover and background stay
+  // (they faded out and back in on every track). Anything still on its
+  // way for a song before this one is called off.
+  const myFsArt = ++_fsArtToken;
+  const shownArt = document.querySelector('#fsArt img');
+  if (song.coverArt && shownArt && shownArt.dataset.cover === song.coverArt) { _fsBgToken++; document.getElementById('fsArt').style.opacity = '1'; return; }
 
   // The cover is drawn up to 640px across: enough pixels for this screen.
   const artSize = Math.min(1200, Math.ceil(640 * (window.devicePixelRatio || 1) / 300) * 300);
@@ -1320,6 +1365,7 @@ function updateFSUI(song) {
   fsArt.style.opacity = '0';
   fsArt.style.transition = 'opacity 0.4s ease';
   setTimeout(() => {
+    if (myFsArt !== _fsArtToken) return; // a newer song's cover is coming
     fsArt.innerHTML = '';
     const img = document.createElement('img');
     img.src = artUrl;
@@ -1373,6 +1419,15 @@ if (playerState.audio) {
     // for the ~1 tick it'd otherwise take to catch up after opening.
     if (!_fsPlayerEl.classList.contains('open')) return;
     window._syncFSProgress();
+  });
+  // A new song starts at the start: until its length is known the bars
+  // sat where the last one was, beside a clock already saying 0:00.
+  playerState.audio.addEventListener('loadstart', () => {
+    if (typeof progSlider !== 'undefined' && !progSlider.dragging) progSlider.setPct(0);
+    if (!fsProgSlider.dragging) fsProgSlider.setPct(0);
+    _fsCurEl.textContent = '0:00';
+    const d = playerState.currentSong?.duration;
+    _fsDurEl.textContent = d ? formatTime(d) : '0:00';
   });
 }
 

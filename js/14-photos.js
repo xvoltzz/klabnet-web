@@ -601,6 +601,17 @@
       $('phReplies').dataset.postId = '';
       if (shell.classList.contains('side-open')) loadReplies(post);
     }
+    // A poll says someone commented (or deleted one) on the post whose
+    // comments are open: bring the list up to date in place, not just the
+    // count on the button. Not while you're half way through writing one.
+    const list = $('phReplies');
+    if (mode === 'refresh' && shell.classList.contains('side-open') && list.dataset.postId === String(post.id) &&
+        list._repliesFor === post.id && (post.reply_count || 0) !== list._count && !$('phReplyInput')?.value.trim()) {
+      list._count = post.reply_count || 0; // asked once per change
+      fetchTimeout(`/api/posts/${post.id}/replies`, {}, 8000).then(r => r.ok ? r.json() : null).then(d => {
+        if (d && list.dataset.postId === String(post.id)) renderReplies(post, d.replies || []);
+      }).catch(() => {});
+    }
     fitImg();
   }
 
@@ -868,6 +879,7 @@
   function renderReplies(post, replies) {
     const list = $('phReplies');
     list._repliesFor = post.id;
+    list._count = replies.length;
     list.innerHTML = replies.length ? replies.map(rep =>
       `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${window.klabMentionsHTML ? klabMentionsHTML(rep.text) : esc(rep.text)}</span>` +
         ((rep.username === me() || window.KLAB_USER?.is_admin)
@@ -1257,7 +1269,7 @@
     // A right-click menu too: this handler runs before the menu's own (window
     // capture beats document capture), so ↑/↓ moved the photo instead of the
     // menu's highlight, under a menu still about the old one.
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop, .klab-menu.visible, .fs-player.open, .ss.open');
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open, .ss.open');
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;

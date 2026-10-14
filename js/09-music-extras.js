@@ -138,8 +138,12 @@ async function loadGenres() {
       const play = async () => {
         if (busy) return;
         busy = true;
+        const mark = klabPickMark();
         let songs;
-        try { songs = await genreSongs(genre); } finally { busy = false; }
+        try { songs = await genreSongs(genre); }
+        catch (e) { showToast('Couldn’t play ' + genre.value, 'ti-alert-triangle'); return; }
+        finally { busy = false; }
+        if (klabPickMark() !== mark) return;
         if (!songs.length) { showToast('Nothing to play in ' + genre.value, 'ti-alert-triangle'); return; }
         for (let i = songs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [songs[i], songs[j]] = [songs[j], songs[i]]; }
         playerState.playlist = songs; playerState.playlistIndex = 0;
@@ -641,6 +645,7 @@ loadPickerTab = async function(tab) {
 const _origLoadPickerTabSort = loadPickerTab;
 loadPickerTab = async function(tab) {
   hideSortBtn();
+  if (tab !== 'search') pickerList.classList.remove('is-stale');
   // Outermost wrapper — every tab switch funnels through here regardless
   // of which inner layer above actually ends up rendering it, so this is
   // the one place that reliably turns grid mode on/off no matter which

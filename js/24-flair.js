@@ -176,6 +176,7 @@
   let tries = 0;
   (function again() { paint(); if (++tries < 8) setTimeout(again, tries * 1000); })();
   setInterval(() => { if (!document.hidden) paint(); }, 30000);
+  window.addEventListener('klab:me', paint); // your note or picture changed
 })();
 
 // ── Album art you can almost pick up ──

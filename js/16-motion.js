@@ -47,7 +47,7 @@
     // the whole bar could be scrolled up and down under the wheel.
     probe.style.cssText = 'position:absolute;left:0;top:0;width:100px;height:1px;visibility:hidden;pointer-events:none;z-index:-1';
     container.prepend(probe);
-    let queued = false, placed = false, baseW = 0, baseH = 0, lastT = '', cur = null;
+    let queued = false, placed = false, hidden = false, baseW = 0, baseH = 0, lastT = '', cur = null;
     // What the nudge below found an engine was off by. Kept and added to
     // every placement after, rather than applied once: the next place()
     // would otherwise recompute the uncorrected spot and slide back.
@@ -73,7 +73,7 @@
     function place() {
       queued = false;
       const el = (pressed && pressed.isConnected ? pressed : null) || container.querySelector(activeSel);
-      if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; return; }
+      if (!el || !el.offsetParent || el.offsetWidth === 0) { pill.style.opacity = '0'; hidden = true; return; }
       const o = probe.getBoundingClientRect(), r = el.getBoundingClientRect();
       const sx = o.width / 100, sy = o.height;
       if (!sx || !sy) return;
@@ -92,8 +92,17 @@
         baseW = w; baseH = h; pill.style.width = baseW + 'px'; pill.style.height = baseH + 'px';
       }
       // apply() skips a value that hasn't changed, so a re-place doesn't
-      // restart a slide mid-way.
-      apply(x, y, w, h);
+      // restart a slide mid-way. Coming back into view (its tab shown
+      // again), it's simply there: the active row may have changed while
+      // it was hidden, and it used to glide over from the old one.
+      if (hidden && placed) {
+        hidden = false;
+        pill.classList.remove('ready');
+        apply(x, y, w, h);
+        void pill.offsetWidth;
+        pill.classList.add('ready');
+      } else apply(x, y, w, h);
+      hidden = false;
       pill.style.opacity = '1';
       if (!placed) { placed = true; requestAnimationFrame(() => pill.classList.add('ready')); }
     }
@@ -155,8 +164,9 @@
       const open = ap.classList.contains('open');
       if (open === wasOpen) return;
       wasOpen = open;
-      if (open) fadeUp(ap.querySelector('.ap-card'), { dy: 12, duration: 300 });
-      else fadeUp(backdrop, { dy: -4, duration: 240 });
+      // Opening, the page's content eases in when it arrives (the CSS, on
+      // .ap-hero/.ap-body); moving the card as well made it enter twice.
+      if (!open) fadeUp(backdrop, { dy: -4, duration: 240 });
     }).observe(ap, { attributes: true, attributeFilter: ['class'] });
   }
 })();

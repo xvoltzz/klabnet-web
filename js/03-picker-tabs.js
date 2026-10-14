@@ -133,7 +133,10 @@ function renderAlbumList(albums, appendMode) {
 
     playBtn.addEventListener('click', async e => {
       e.stopPropagation();
-      const t = await fetchTracks(); if (!t.length) return;
+      const mark = klabPickMark();
+      let t;
+      try { t = await fetchTracks(); } catch (err) { showToast('Couldn’t play "' + album.name + '"', 'ti-alert-triangle'); return; }
+      if (!t.length || klabPickMark() !== mark) return;
       // The album becomes what's playing; songs you queued stay queued.
       playerState.playlist = t; playerState.playlistIndex = 0;
       await playSong(t[0]);
@@ -142,7 +145,8 @@ function renderAlbumList(albums, appendMode) {
 
     queueBtn.addEventListener('click', async e => {
       e.stopPropagation();
-      const t = await fetchTracks();
+      let t;
+      try { t = await fetchTracks(); } catch (err) { showToast('Couldn’t queue "' + album.name + '"', 'ti-alert-triangle'); return; }
       queue.push(...t); updateQueueBadge();
       showToast('Queued ' + klabCount(t.length, 'track'), toastArt(album.coverArt || album.id));
     });
@@ -387,7 +391,7 @@ function renderQueueList() {
     const item = document.createElement('div');
     item.className = 'picker-item';
     item.innerHTML = `
-      <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
+      <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
       <div class="picker-item-info" style="min-width:0;flex:1;">
         <div class="picker-item-title">${esc(song.title)||'Unknown'}</div>
         <div class="picker-item-artist">${esc(song.artist||'')} · ${esc(song.album||'')}</div>

@@ -32,11 +32,12 @@
         document.getElementById('apBack')?.click();
         return;
       }
-      // Anywhere else, Back is the browser's: 17-history.js gives Music's
-      // sections, genres and playlists their own entries. With nowhere to
-      // go back to it does nothing (it used to reload the whole app, which
-      // stopped the music).
-      if (history.length > 1) history.back();
+      // Anywhere else, back along this tab's own trail (js/17-history.js:
+      // Music's sections, genres and playlists, chat rooms), and from the
+      // start of it, the browser's Back, but never off klabnet's first
+      // screen (that left the app, or reloaded it and stopped the music).
+      if (window.klabNav?.back()) return;
+      if (history.state?.klabAt > 0) history.back();
     }
   });
 
@@ -343,12 +344,14 @@ function sampleImageColor(imgUrl) {
   backBtn.addEventListener('click', panelBack);
   // Click outside the card (on the backdrop) to close
   panel.addEventListener('click', e => { if (e.target === panel) panelClose(); });
-  document.addEventListener('keydown', e => {
-    // Not from under a dialog opened over it (a confirm, the cover viewer,
-    // settings): Escape closes that one.
+  // Before anything else hears it (capture, on window): the layer over the
+  // page (a dialog, the cover viewer, settings, a menu, the full player)
+  // closed itself first and then this found nothing open and closed the
+  // page too, so one Escape took two things away.
+  window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && panel.classList.contains('open') &&
-        !document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .klab-menu.visible')) panelClose();
-  });
+        !document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .ctx-menu.visible, .hdr-more-menu.visible, .fs-player.open, .ss.open')) panelClose();
+  }, true);
   trapFocusWithin(panel.querySelector('.ap-card'), () => panel.classList.contains('open'));
   scroll.addEventListener('scroll', () => {
     titleEl.classList.toggle('vis', scroll.scrollTop > 160);

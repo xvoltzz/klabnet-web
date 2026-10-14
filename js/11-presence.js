@@ -1099,6 +1099,7 @@
       const data = await r.json();
       if (data.text) _notesCache.set(me, data.text); else _notesCache.delete(me);
       renderList(_lastOthers);
+      window.dispatchEvent(new Event('klab:me')); // the sidebar's "you" (js/24-flair.js)
       SFX && SFX.play(data.text ? 'star' : 'click');
     } catch (e) {}
   }

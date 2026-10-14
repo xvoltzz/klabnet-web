@@ -93,6 +93,10 @@ playSong = async function(song) {
 };
 
 // ── Keyboard shortcuts ──────────────────────────
+// Whether what has the focus got it from a click or a tap, rather than Tab.
+let _focusByPointer = false, _pointerAt = 0;
+document.addEventListener('pointerdown', () => { _pointerAt = performance.now(); }, true);
+document.addEventListener('focusin', () => { _focusByPointer = performance.now() - _pointerAt < 600; }, true);
 document.addEventListener('keydown', e => {
   // Don't fire when typing in an input
   const tag = document.activeElement?.tagName;
@@ -103,11 +107,18 @@ document.addEventListener('keydown', e => {
   // song behind "Delete this?"), and Space on a focused button presses
   // that button rather than playing or pausing the music.
   if (e.code !== 'Escape' && (document.body.classList.contains('feed-composer-open') ||
-      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible, .ss.open'))) return;
-  if (e.code === 'Space' && document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary')) return;
+      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .ctx-menu.visible, .ss.open'))) return;
+  // Only one reached from the keyboard, though: Chromium and Firefox leave
+  // focus on a button you clicked, and Space then pressed Next (or the
+  // heart) again instead of pausing. (:focus-visible can't tell: Chrome
+  // turns it on for the key press itself.)
+  if (e.code === 'Space' && document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary') && !_focusByPointer) return;
 
   if (e.code === 'Space') {
     e.preventDefault();
+    // A clicked button keeps the focus, and Space's key-up would still
+    // press it (Next, a heart) after this has paused: let go of it.
+    if (document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary')) document.activeElement.blur();
     document.getElementById('btnPlay')?.click();
   } else if (e.code === 'ArrowRight' && !e.shiftKey) {
     e.preventDefault();

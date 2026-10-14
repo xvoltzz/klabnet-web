@@ -494,6 +494,12 @@ const klabMenu = (() => {
       x = r.left + 16; y = r.top + Math.min(r.height, 28);
     }
     const z = zoomFactor();
+    // A right-click while one is open (or closing) starts a fresh one,
+    // rather than the old one sliding to the new spot.
+    menu.style.transition = 'none';
+    menu.classList.remove('visible');
+    void menu.offsetWidth;
+    menu.style.transition = '';
     menu.style.left = menu.style.top = '0px';
     menu.classList.add('visible'); // measurable only once it's shown
     const w = menu.offsetWidth, h = menu.offsetHeight;
@@ -505,6 +511,7 @@ const klabMenu = (() => {
     if (top + h > vh - 8) top = Math.max(8, top - h >= 8 ? top - h : vh - h - 8);
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
+    menu.style.transformOrigin = (left < x / z ? 'right' : 'left') + ' ' + (top < y / z ? 'bottom' : 'top');
     return true;
   }
 

@@ -535,6 +535,15 @@
           ((p.text || '').includes('@') || replies?.some(r => (r.text || '').includes('@')) ? ':' + _peopleVer : '');
     }
   }
+  // The part of a post above its footer: when only reactions, replies or
+  // the reply box changed, the post keeps its body (a playing video, an
+  // opened spoiler) and just its footer and replies are swapped.
+  function postBodyKey(p, me) {
+    return p.id + ':' + (me || '') + (window.KLAB_USER?.is_admin ? 'A' : '') +
+      ':' + profileColor(p.username) + ':' + (_feedAvatarCache.get(p.username) || '') +
+      ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') + ':' + (_expandedPosts.has(p.id) ? 'x' : '') +
+      ((p.text || '').includes('@') ? ':' + _peopleVer : '');
+  }
   // Takes the per-post keys already worked out, so each render builds them once.
   function feedRenderKey(keys, me) {
     // The date too: "Today" and "Yesterday" are in the day headers.
@@ -646,10 +655,24 @@
     wrap.innerHTML = postHTML(post);
     const el = wrap.firstElementChild;
     el.dataset.postKey = key;
+    el.dataset.postBody = postBodyKey(post, window.KLAB_USER?.username);
     if (_seenPosts.has(String(post.id)) || !_entryIO || !(window.klabMotionOk?.() ?? true)) el.classList.add('seen');
     else _entryIO.observe(el);
     _visIO?.observe(el);
     return el;
+  }
+  // Only the footer and replies changed: swap those into the post that's
+  // there, and its gold edge if the stars crossed the line.
+  function patchPostEl(el, post, key) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = postHTML(post);
+    const fresh = wrap.firstElementChild;
+    for (const sel of [':scope > .feed-post-body > .feed-post-footer', ':scope > .feed-post-body > .feed-post-replies']) {
+      const a = el.querySelector(sel), b = fresh.querySelector(sel);
+      if (a && b) a.replaceWith(b);
+    }
+    el.classList.toggle('gold', fresh.classList.contains('gold'));
+    el.dataset.postKey = key;
   }
   function dropPostEl(el) {
     _entryIO?.unobserve(el);
@@ -728,6 +751,7 @@
         // the key stale means it rebuilds on the next render once focus
         // has moved on.
         if (el && typingIn && el.contains(typingIn)) { deferred = true; return el; }
+        if (el && el.dataset.postBody === postBodyKey(p, me)) { patchPostEl(el, p, k); return el; }
         return buildPostEl(p, k);
       }
 
@@ -806,6 +830,8 @@
     _feedAvatarFailedAt.delete(username);
     ensureFeedAvatar(username);
     if (old) setTimeout(() => URL.revokeObjectURL(old), 5000);
+    // The sidebar's "you" (js/24-flair.js) shows the new one once it's in.
+    if (username === window.KLAB_USER?.username) [1500, 4000].forEach(t => setTimeout(() => window.dispatchEvent(new Event('klab:me')), t));
   };
   // The people list arrived or grew: mentions that are real now get coloured.
   window.addEventListener('klab:people', () => { _peopleVer++; renderFeed(); if (textEl.value) autoGrowComposer(); });
@@ -1704,21 +1730,12 @@
 })();
 
 // ── SFX on remaining interactive elements ────
+// Only buttons with no sound of their own: the player's play, skip, heart,
+// shuffle, repeat, open and close each have one (js/04-sfx.js,
+// js/05-favorites.js), and a click on top made every press two sounds.
 [
-  ['playerArtWrap',      'click'],
-  ['dockFav',            'click'],
-  ['dockShuffle',        'click'],
-  ['fsClose',            'click'],
-  ['fsFav',              'click'],
-  ['fsShuffle',          'click'],
-  ['fsRepeat',           'click'],
   ['fsLyrics',           'click'],
   ['fsQueue',            'click'],
-  ['fsPlay',             'click'],
-  ['fsPrev',             'click'],
-  ['fsNext',             'click'],
-  ['btnFS',              'click'],
-  ['themeToggle',        'click'],
 ].forEach(([id, ev]) => {
   const el = document.getElementById(id);
   if (el && !el._sfxWired) {

@@ -27,10 +27,11 @@
   }
 
   async function playAlbum(albumId) {
+    const mark = klabPickMark();
     try {
       const r = await fetchTimeout(`${ND_URL}/rest/getAlbum?id=${encodeURIComponent(albumId)}&${subsonicParams()}`, {}, 8000);
       const songs = (await r.json())['subsonic-response']?.album?.song || [];
-      if (!songs.length) return;
+      if (!songs.length || klabPickMark() !== mark) return;
       playerState.playlist = songs; playerState.playlistIndex = 0;
       playSong(songs[0]);
       SFX && SFX.play('click');
@@ -961,10 +962,24 @@
     shuffleLabel.className = 'picker-section-label mh-shuffle-label';
     shuffleLabel.innerHTML = 'Shuffle picks <button type="button" class="mh-reshuffle" title="Reshuffle"><i class="ti ti-refresh"></i></button>';
     list.appendChild(shuffleLabel);
+    // songs can still be on its way (a promise): the rest of Home doesn't
+    // wait for it, and the wheel fills its slot when they come.
     let wheel = null;
-    if (songs.length >= 3) list.appendChild(wheel = shuffleWheel(songs));
-    else if (songs.length) renderSongItems(songs, list);
-    else list.insertAdjacentHTML('beforeend', '<div class="picker-empty">No tracks found</div>');
+    const wheelSlot = document.createElement('div');
+    wheelSlot.className = 'mh-slot';
+    list.appendChild(wheelSlot);
+    const fillWheel = songs => {
+      if (!wheelSlot.isConnected) return;
+      pickerSongs = songs;
+      if (songs.length >= 3) wheelSlot.replaceWith(wheel = shuffleWheel(songs));
+      else if (songs.length) { const box = document.createElement('div'); renderSongItems(songs, box); wheelSlot.replaceWith(...box.childNodes); }
+      else wheelSlot.innerHTML = '<div class="picker-empty">No tracks found</div>';
+    };
+    if (Array.isArray(songs)) fillWheel(songs);
+    else {
+      wheelSlot.innerHTML = '<div class="picker-empty">Loading…</div>';
+      songs.then(fillWheel, () => { if (wheelSlot.isConnected) wheelSlot.innerHTML = '<div class="picker-empty">Couldn’t load shuffle picks</div>'; });
+    }
     // Reshuffle swaps just the wheel for a fresh one; the rest of Home
     // (Cover Flow, the album rows) stays exactly where it was.
     const btn = shuffleLabel.querySelector('button');

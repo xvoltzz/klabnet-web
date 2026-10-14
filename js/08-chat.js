@@ -768,6 +768,17 @@ function renderChannelList() {
 const _typingUsers = new Map(); // userId -> display name, active room only
 let _typingRenderedRoomId = null;
 const _chatDrafts = new Map(); // unsent composer content, owned by its room
+// The text of each room's draft also outlives a reload (or the app
+// restarting for an update), like the feed's: room id -> text.
+const CHAT_DRAFTS_KEY = 'klabnet_chat_drafts';
+function savedChatDrafts() { try { return JSON.parse(localStorage.getItem(CHAT_DRAFTS_KEY)) || {}; } catch (e) { return {}; } }
+function saveChatDraftText(roomId, text) {
+  if (!roomId) return;
+  const all = savedChatDrafts();
+  if (text && text.trim()) all[roomId] = text.slice(0, 8000); else delete all[roomId];
+  try { localStorage.setItem(CHAT_DRAFTS_KEY, JSON.stringify(all)); } catch (e) {}
+}
+let _chatDraftTimer = 0;
 
 function renderTypingLine() {
   const el = document.getElementById('chatTyping');
@@ -1014,9 +1025,14 @@ function ensureChatImageResolved(mxc, animated) {
         // you're still (or again) near the bottom by the time it actually
         // loads, follow it back down; if you've since scrolled away to
         // read history, leave you alone.
+        // Measured before it loads: after, the gap is the picture's own
+        // height and the check failed for nearly every photo.
+        const el = document.getElementById('chatTimeline');
+        const pinned = el && el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        const top0 = el?.scrollTop || 0;
         img.addEventListener('load', () => {
-          const el = document.getElementById('chatTimeline');
-          if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
+          // ...unless you've scrolled up to read since.
+          if (pinned && el.isConnected && el.scrollTop >= top0 - 4) el.scrollTop = el.scrollHeight;
         }, { once: true });
       }
     });
@@ -1073,7 +1089,7 @@ function renderTimeline() {
     }
     clearReply(); clearChatImage();
     const draft = _chatDrafts.get(_chatActiveRoomId);
-    if (input) { input.value = draft?.text || ''; autoGrowChatComposer(); }
+    if (input) { input.value = draft?.text ?? (savedChatDrafts()[_chatActiveRoomId] || ''); autoGrowChatComposer(); }
     if (draft?.image) setChatImage(draft.image);
     if (draft?.reply) startReply(draft.reply);
     // Members load lazily (only recent speakers come with the sync), which
@@ -1509,7 +1525,9 @@ function initChatEmojiPicker() {
   picker.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
-    input.value += b.textContent;
+    // Where the cursor is (over any selection), not always at the end. A
+    // field keeps its selection while the picker has the focus.
+    input.setRangeText(b.textContent, input.selectionStart, input.selectionEnd, 'end');
     input.focus();
     notifyTyping();
     autoGrowChatComposer(); // setting .value directly doesn't fire 'input'
@@ -1584,6 +1602,7 @@ function restoreFailedChatDraft(roomId, failed) {
   draft.image ||= failed.image;
   draft.reply ||= failed.reply;
   _chatDrafts.set(roomId, draft);
+  saveChatDraftText(roomId, draft.text);
   if (active) {
     if (input) { input.value = draft.text || ''; autoGrowChatComposer(); }
     if (draft.image && !_pendingChatImage) setChatImage(draft.image);
@@ -1612,6 +1631,7 @@ async function sendChatMessage() {
   if (!client) return;
   SFX && SFX.play('send');
   input.value = '';
+  clearTimeout(_chatDraftTimer); saveChatDraftText(roomId, '');
   autoGrowChatComposer(); // back to one line, or it keeps the sent message's height
   clearTimeout(_typingStopTimers.get(roomId));
   _typingActiveRooms.delete(roomId);
@@ -2473,15 +2493,21 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
     if (closed) return;
     closed = true;
     fullAbort.abort();
-    if (fullImage) { fullImage.onload = null; fullImage.removeAttribute('src'); fullImage = null; }
+    if (fullImage) fullImage.onload = null;
     _imgViewerOpen = false;
-    backdrop.remove();
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
-    if (ownedUrl) URL.revokeObjectURL(ownedUrl);
-    // A full-size picture (a 3000px cover is ~36MB decoded): the desktop
-    // app hands Chromium's decoded copy back (see klabnet-desktop).
-    if (haveFull) window.klabnetDesktop?.trimMemory?.();
+    // Fades out the way it faded in, then lets go of the picture.
+    backdrop.classList.remove('open');
+    backdrop.style.pointerEvents = 'none';
+    setTimeout(() => {
+      if (fullImage) { fullImage.removeAttribute('src'); fullImage = null; }
+      backdrop.remove();
+      if (ownedUrl) URL.revokeObjectURL(ownedUrl);
+      // A full-size picture (a 3000px cover is ~36MB decoded): the desktop
+      // app hands Chromium's decoded copy back (see klabnet-desktop).
+      if (haveFull) window.klabnetDesktop?.trimMemory?.();
+    }, 200);
   }
   function onKey(e) {
     // Only the viewer: Escape used to close the full player under it too.
@@ -3189,6 +3215,7 @@ function showChatApp() {
       _chatRoomChosen = false;
       _chatActiveRoomId = null;
       _chatDrafts.clear();
+      try { localStorage.removeItem(CHAT_DRAFTS_KEY); } catch (e) {}
       const composer = document.getElementById('chatComposerInput');
       if (composer) composer.value = '';
       clearReply(); clearChatImage();
@@ -3255,6 +3282,11 @@ function showChatApp() {
         e.preventDefault();
         sendChatMessage();
       }
+    });
+    document.getElementById('chatComposerInput')?.addEventListener('input', e => {
+      const room = _chatActiveRoomId, text = e.target.value;
+      clearTimeout(_chatDraftTimer);
+      _chatDraftTimer = setTimeout(() => saveChatDraftText(room, text), 400);
     });
     document.getElementById('chatComposerInput')?.addEventListener('input', () => {
       notifyTyping();

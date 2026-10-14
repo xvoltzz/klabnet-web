@@ -461,6 +461,13 @@ async function plRenderPage(ctx, id) {
     const i = songs.indexOf(song);
     if (i < 0) return;
     songs.splice(i, 1);
+    // Playing from this list: Next goes on from the same song, not one
+    // further along (as move() does).
+    if (playerState.playlist === songs) {
+      const at = playerState.currentSong ? songs.indexOf(playerState.currentSong) : -1;
+      if (at >= 0) playerState.playlistIndex = at;
+      else if (i <= playerState.playlistIndex) playerState.playlistIndex = Math.max(-1, playerState.playlistIndex - 1);
+    }
     SFX && SFX.play('click');
     recount(); drawHead(); drawTracks();
     try { await plRemoveSong(pl.id, song.id); }
@@ -902,8 +909,10 @@ function klabPlaylistMenu(e, p) {
 //  BROWSE -> PLAYLISTS, and Home's shelf
 // ══════════════════════════════════════════
 async function plPlay(p) {
+  const mark = klabPickMark();
   try {
     const songs = (await plGet(p.id)).songs;
+    if (klabPickMark() !== mark) return;
     if (!songs.length) { showToast(`"${p.name}" has nothing in it yet`, 'ti-playlist'); return; }
     playSongList(songs);
     SFX && SFX.play('click');

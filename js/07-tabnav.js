@@ -27,8 +27,14 @@ function isTabEnabled(key) {
   return !!btn && !btn.hidden;
 }
 
+// Where each tab was scrolled to. Feed and Home scroll the window, which
+// the other tabs share (and Chat pins to 0), so coming back used to land
+// at the top: 40 posts down, a quick reply in Chat, and the place was lost.
+const _tabScroll = {};
 function setActiveTab(key) {
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
+  const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
+  if (leaving && leaving !== key) _tabScroll[leaving] = window.scrollY;
   // Captured before the tab-panel/body-class toggles below — used further
   // down to detect "just arrived on Chat" vs. "already there".
   const enteringChat = key === 'chat' && !document.body.classList.contains('tab-chat-active');
@@ -44,6 +50,9 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   document.body.classList.toggle('tab-home-active', key === 'home');
   document.body.classList.toggle('tab-feed-active', key === 'feed');
+  // Before the paint, so it never shows at the wrong spot first. Something
+  // that jumps to a particular post (klabFeedFocus) scrolls after this.
+  if (leaving !== key) window.scrollTo(0, _tabScroll[key] || 0);
   if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
@@ -357,7 +366,7 @@ document.addEventListener('keydown', e => {
   // Not under a dialog opened from here (the background colours, "Reset?"):
   // Escape closed that and Settings with it.
   if (e.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('open')
-      && !document.querySelector('.add-app-backdrop.open, .img-view-backdrop, .klab-menu.visible')) closeSettings();
+      && !document.querySelector('.add-app-backdrop.open, .img-view-backdrop.open, .klab-menu.visible')) closeSettings();
 });
 trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),

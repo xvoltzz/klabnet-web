@@ -51,8 +51,20 @@
   function avatarHTML(u) {
     const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u) : null;
     const online = window.KLAB_ONLINE_USERNAMES?.has?.(u);
-    return '<span class="hm-av' + (online ? ' on' : '') + (online && window.KLAB_AWAY?.has?.(u) ? ' away' : '') + '">' +
+    return '<span class="hm-av' + (online ? ' on' : '') + (online && window.KLAB_AWAY?.has?.(u) ? ' away' : '') + '" data-u="' + esc(u || '') + '">' +
       (url ? '<img src="' + esc(url) + '" alt="" />' : esc((u || '?')[0].toUpperCase())) + '</span>';
+  }
+  // Online and away change all the time and are kept up in place
+  // (paintAvatars); a rebuild for them restarted the spotlight mid-slide
+  // and re-hid any spoiler you'd opened. So the change checks leave them
+  // out, along with the relative times the clock updates.
+  const sigOf = html => html.replace(/<span class="hm-t"[^>]*>[^<]*<\/span>/g, '').replace(/class="hm-av[^"]*"/g, 'class="hm-av"');
+  function paintAvatars() {
+    document.querySelectorAll('[data-tab-panel="home"] .hm-av[data-u]').forEach(el => {
+      const u = el.dataset.u, online = !!window.KLAB_ONLINE_USERNAMES?.has?.(u);
+      el.classList.toggle('on', online);
+      el.classList.toggle('away', online && !!window.KLAB_AWAY?.has?.(u));
+    });
   }
   const nameHTML = u => '<span class="hm-name" style="color:' + color(u) + '">' + esc(u) + '</span>';
   // Markdown posts shown as plain text in previews.
@@ -209,8 +221,8 @@
   }
   function renderSpot() {
     const next = buildSlides();
-    const sig = next.map(s => s.key + ':' + s.html.replace(/<span class="hm-t"[^>]*>[^<]*<\/span>/g, '')).join('|');
-    if (sig === slideSig) return;
+    const sig = next.map(s => s.key + ':' + sigOf(s.html)).join('|');
+    if (sig === slideSig) { paintAvatars(); return; }
     const firstPaint = !slideSig;
     slideSig = sig;
     const prevKey = slides[cur]?.key;
@@ -323,8 +335,8 @@
     }).join('');
     // Relative times are left out: the clock updates those in place, and a
     // rebuild would re-hide any spoiler you'd opened.
-    const sig = html.replace(/<span class="hm-t"[^>]*>[^<]*<\/span>/g, '');
-    if (sig === postsSig) return;
+    const sig = sigOf(html);
+    if (sig === postsSig) { paintAvatars(); return; }
     postsSig = sig;
     postsEl.innerHTML = lbl('Feed') + '<div class="hm-plist">' + html + '</div>';
     // A post that wasn't here a moment ago slides in at the top.
@@ -508,6 +520,7 @@
   // calls klabHomePresenceChanged() whenever it has something new.
   let lastSongs = null;
   function presenceChanged() {
+    paintAvatars();
     const of = window.klabPresenceOf;
     if (!of) return;
     // klabPresenceOf only gives a song while it's playing.

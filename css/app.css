@@ -601,7 +601,6 @@
        tile" everywhere instead of two. */
     .picker-list.picker-list-grid .picker-item {
       flex-direction: column; align-items: stretch; gap: 8px; padding: 10px;
-      animation: fadeInUp 0.3s ease backwards;
       transition: transform 0.2s cubic-bezier(0.2,0.8,0.2,1), background 0.15s, border-color 0.15s;
     }
     .picker-list.picker-list-grid .picker-item:hover { transform: translateY(-2px); }
@@ -1895,19 +1894,24 @@
     .ctx-menu {
       position: fixed; z-index: 999; padding: 6px; border-radius: 8px;
       min-width: 185px; display: none;
-      animation: ctxIn 0.15s ease both;
       background: var(--modal-bg);
       border: 1px solid var(--glass-border-h);
       box-shadow: 0 8px 32px var(--shadow-40);
+      /* Grows from the corner at the pointer (transform-origin, set when it
+         opens) and fades away when it closes. */
+      opacity: 0; transform: scale(.96);
+      transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), display var(--m-fast) allow-discrete;
     }
-    .ctx-menu.visible { display: block; }
+    .ctx-menu.visible { display: block; opacity: 1; transform: none; }
+    @starting-style { .ctx-menu.visible { opacity: 0; transform: scale(.96); } }
     @keyframes ctxIn { from{opacity:0;transform:scale(0.94) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
 
     .ctx-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text-dimmer); text-transform: uppercase; padding: 4px 10px 8px; }
     .ctx-item {
       display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px;
       font-size: 11px; letter-spacing: 0.08em; color: var(--text-dim); cursor: pointer;
-      transition: background 0.2s, color 0.2s, transform 0.2s; text-transform: uppercase;
+      /* The highlight follows the pointer at once, as in a native menu. */
+      transition: color .1s, transform .2s; text-transform: uppercase;
     }
     .ctx-item:hover { background: var(--glass-fill-h); color: var(--text); transform: translateX(2px); }
     .ctx-item:active { transform: scale(0.96); }
@@ -1966,7 +1970,7 @@
       background: var(--modal-bg);
       border: 1px solid var(--glass-border);
       box-shadow: 0 20px 60px var(--shadow-50);
-      transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease;
+      transition: background 0.2s ease, border-color 0.2s ease;
       font-family: var(--font-ui);
     }
     .player-dock.hidden { transform: translateX(-50%) translateY(calc(100% + 2.5rem))!important; opacity:0!important; pointer-events:none!important; }
@@ -2131,8 +2135,15 @@
       background:#000;
       font-family: var(--font-ui);
     }
-    .fs-player.open { display:flex; animation:fsIn 0.3s ease both; }
-    @keyframes fsIn { from{opacity:0} to{opacity:1} }
+    /* Rises in and sinks away on the modals' curve (display switches off
+       once the fade is done; without allow-discrete it just closes). */
+    .fs-player {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity var(--m-med) var(--m-ease), transform var(--m-slow) var(--m-ease), display var(--m-slow) allow-discrete;
+    }
+    .fs-player.open { display:flex; opacity: 1; transform: none; }
+    @starting-style { .fs-player.open { opacity: 0; transform: translateY(24px); } }
+    @media (prefers-reduced-motion: reduce) { .fs-player, .fs-player.open { transform: none; } }
     /* Two separate causes of "artifacting" on high-res displays, both
        addressed:
        1) The cover-art source is requested at a size matched to the actual
@@ -3347,7 +3358,9 @@
       display: flex; align-items: center; gap: 0.65rem;
       padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer;
       transition: background 0.15s, border-color 0.15s; border: 1px solid transparent;
-      animation: fadeInUp 0.4s ease backwards;
+      /* No entrance of its own: the list fades in as one when it's a new
+         view (js/16-motion.js), and a redraw (the queue changing, a sort,
+         another device's news) mustn't slide every row in again. */
     }
     .picker-item:hover, .ap-track:hover {
       background: var(--tile-bg-h);
@@ -4419,7 +4432,11 @@
     .mh-jump-tx .a { margin-top: 2px; font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mh-jump-tile .mh-card-play { right: 12px; top: 50%; bottom: auto; margin-top: -18px; transform: translateX(6px); }
     .mh-jump-tile:hover .mh-card-play, .mh-jump-tile .mh-card-play:focus-visible { opacity: 1; transform: none; }
-    .mh-jump-tile:hover .mh-jump-tx:not(:last-child) { padding-right: 58px; }
+    /* The play button comes up over the text's end: it fades under the
+       button rather than re-wrapping (a padding change re-truncated it). */
+    .mh-jump-tile:hover .mh-jump-tx:not(:last-child) {
+      -webkit-mask-image: linear-gradient(to left, transparent 52px, #000 84px); mask-image: linear-gradient(to left, transparent 52px, #000 84px);
+    }
     @media (hover: none) { .mh-jump-tile .mh-card-play { display: none; } }
     @media (max-width: 760px) and (pointer: coarse) {
       .mh-jump-grid { grid-auto-rows: 56px; gap: 8px; }
@@ -6564,7 +6581,9 @@
       :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
       html.klabnet-app body:not(.player-hidden):not(.tab-photos-active) { --nav-bottom: var(--dock-h); }
 
-      html:not([data-nav="top"]) body { padding-left: var(--nav-w); transition: padding-left .28s var(--m-ease); }
+      /* The page moves over in one step while the sidebar animates: easing
+         its padding re-flowed every grid on the page, frame after frame. */
+      html:not([data-nav="top"]) body { padding-left: var(--nav-w); }
       /* Before the script has moved them, the header's tabs would flash. */
       html:not([data-nav="top"]) .header .tab-nav { visibility: hidden; }
       /* Settings lives at the foot of the sidebar, like a desktop app's. */
@@ -6951,7 +6970,7 @@
     html[data-fx="low"] .mh-refl { display: none; }
 
     /* The desktop player dock slides when hidden instead of snapping. */
-    .player-dock { transition: background 0.2s ease, border-color 0.2s ease, width 0.2s ease, transform .3s var(--m-ease), opacity .2s ease; }
+    .player-dock { transition: background 0.2s ease, border-color 0.2s ease, transform .3s var(--m-ease), opacity .2s ease; }
 
     /* In the app, things over the title bar take clicks instead of
        dragging the window. */
@@ -8532,4 +8551,17 @@
       .feed-composer:not(:focus-within):not(.has-text) :is(.feed-md-toolbar, #feedMdHelpBtn, #feedMdPreviewBtn, #feedMdExpandBtn) {
         opacity: 0; pointer-events: none;
       }
+    }
+
+    /* Search: the last results stay up, dimmed, while new ones load. */
+    .picker-list.is-stale { opacity: .45; transition: opacity var(--m-fast) ease; pointer-events: none; }
+
+    /* A dialog, the cover viewer or the full player over the page: the
+       wheel doesn't scroll the feed behind it (no scrollbars, so nothing
+       shifts), and a list inside one stops at its ends. */
+    html:has(.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .fs-player.open) { overflow: hidden; }
+    #chatModalBody, .settings-modal, .add-app-modal { overscroll-behavior: contain; }
+    @media (prefers-reduced-motion: reduce) {
+      .hm-enter, .hm-arrive.go { animation: none; }
+      .klab-tilt, .klab-tilt.tilting { transform: none; }
     }

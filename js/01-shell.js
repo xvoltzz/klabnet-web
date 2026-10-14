@@ -439,7 +439,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   // artist page, which is a view, not a dialog: with one open, Tab went
   // back to hopping between buttons.
   function dialogOpen() {
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible')
+    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible')
       || document.body.classList.contains('feed-composer-open');
   }
   // Something that fills the window is over the page: keys that move

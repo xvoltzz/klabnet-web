@@ -9,11 +9,20 @@
 //  carrying a small description of the screen ({ tab, kind, ... }), and
 //  popstate puts that screen back. Pushes are suppressed while restoring,
 //  so going back never creates new entries.
+//
+//  Each tab also keeps its own trail, like the tabs of a phone app. Every
+//  entry remembers which earlier entry its tab was showing before it
+//  (klabPrev), and klabNav.back(), which the album page's arrow and the
+//  mouse's Back button use, jumps straight there. So Back from an album
+//  goes to what Music showed before it, even after a detour through Feed;
+//  the browser's own Back still walks the whole trail.
 // ══════════════════════════════════════════
 (function() {
   let restoring = false;
   const current = {};      // tab -> descriptor of what that tab shows now
   let underPanel = '';     // what Music was showing when an album/artist page opened over it
+  const prevOf = {};       // tab -> klabPrev of the entry that last showed it
+  const at = () => history.state?.klabAt || 0;
 
   const same = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
   const activeTab = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
@@ -37,8 +46,10 @@
     current[tab] = desc;
     // klabAt: how many of our entries lie behind this one. Kept in the
     // entry, not in a counter here: a counter went down on Forward as well
-    // as Back, and was zero again after a reload.
-    history.pushState({ klab: desc, klabFrom: from, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + tab);
+    // as Back, and was zero again after a reload. klabPrev: the entry this
+    // screen was opened from, where its Back goes.
+    prevOf[tab] = at();
+    history.pushState({ klab: desc, klabFrom: from, klabAt: at() + 1, klabPrev: at() }, '', '#' + tab);
   }
 
   function tab(key) {
@@ -56,7 +67,9 @@
     if (TABS.includes(was)) {
       const from = current[was] || { tab: was, kind: 'tab' };
       history.replaceState({ ...(history.state || {}), klab: from }, '', location.href);
-      history.pushState({ klab: desc, klabFrom: from, klabAt: (history.state?.klabAt || 0) + 1 }, '', '#' + key);
+      // Coming back to a tab shows the screen it was on, so Back from here
+      // goes where Back from that screen went.
+      history.pushState({ klab: desc, klabFrom: from, klabAt: at() + 1, klabPrev: prevOf[key] }, '', '#' + key);
     } else history.replaceState({ ...(history.state || {}), klab: desc }, '', '#' + key);
   }
 
@@ -64,8 +77,10 @@
   // history too when there's somewhere of ours to go back to, so the two
   // kinds of Back never disagree.
   function back() {
-    if (history.state?.klabAt > 0 && history.state?.klab) { history.back(); return true; }
-    return false;
+    const st = history.state, to = st?.klabPrev;
+    if (!st?.klab || typeof to !== 'number' || to >= at()) return false;
+    history.go(to - at());
+    return true;
   }
   window.klabNav = { push, back, tab };
 
@@ -118,7 +133,7 @@
 
   window.addEventListener('popstate', e => {
     const d = e.state?.klab;
-    if (d) restore(d);
+    if (d) { prevOf[d.tab] = e.state.klabPrev; restore(d); }
   });
 
   // ── Where screens change ──
