@@ -8,12 +8,8 @@ loadPickerTab = async function(tab) {
   // a search, a pending search keystroke) must not draw over this one.
   _pickerLoadToken++;
   if (tab !== 'search') clearTimeout(pickerDebounce);
-  if (tab === 'coverflow') {
-    pickerTab = tab;
-    hideSortBtn?.();
-    window.klabRenderCoverFlow?.(pickerList);
-    return;
-  }
+  // Cover Flow was a view here until 2026-10-14; a saved or linked one opens Home.
+  if (tab === 'coverflow') tab = 'random';
   if (tab === 'albums') { pickerTab = tab; await loadAlbums(); return; }
   if (tab === 'artists') { pickerTab = tab; await loadArtists(); return; }
   if (tab === 'queue') { pickerTab = tab; renderQueueList(); return; }
@@ -90,7 +86,9 @@ function renderAlbumList(albums, appendMode) {
     ph.className = 'picker-item-art-ph';
     ph.innerHTML = '<i class="ti ti-vinyl"></i>';
 
-    const artUrl = ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(album.coverArt || album.id) + '&size=150&' + subsonicParams();
+    const artUrl = ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(album.coverArt || album.id) + '&size=300&' + subsonicParams();
+    // 300, like Music Home's cards: a grid tile is 130-200px wide, and the
+    // old 150 was blurry on a high-DPI screen.
     const artImg = new Image();
     artImg.className = 'picker-item-art';
     artImg.decoding = 'async';
@@ -232,7 +230,7 @@ async function hydrateArtistThumb(item, artistId) {
     let url = info?.mediumImageUrl || info?.largeImageUrl || '';
     if (url && url.includes('2a96cbd8b46e442fc41c2b86b821562f')) url = '';
     if (!url && artist?.album?.[0]?.coverArt) {
-      url = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.album[0].coverArt)}&size=150&${subsonicParams()}`;
+      url = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.album[0].coverArt)}&size=300&${subsonicParams()}`;
     }
     if (!url || !ph.isConnected) return;
     const img = new Image();

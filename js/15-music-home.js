@@ -992,14 +992,13 @@
     });
   };
 
-  // ══ Cover Flow (the view) ══
-  // What you heard, what's on and what's next, filling Music: the last
-  // songs you played to the left, the one playing facing you, then your
-  // queue and the rest of what's playing to the right (in the order they'll
-  // actually come; with shuffle on only the queue is known). It slides
-  // along as songs change. The covers are as big as the window allows.
+  // ══ What's next ══
+  // What you heard, what's on and what's next: the last songs you played,
+  // the one playing, then your queue and the rest of what's playing (in
+  // the order they'll actually come; with shuffle on only the queue is
+  // known). The full player's Up next lists it. (There was a Cover Flow
+  // view of it in Music too, taken out on 2026-10-14.)
   const NP_BEFORE = 20, NP_AFTER = 30;
-  const npAlbum = song => song.albumId ? [{ label: 'Open album', run: () => openAlbum({ id: song.albumId, name: song.album }) }] : [];
   function npJump(it) {
     if (it.kind === 'queue') {
       // Straight to that one: what was queued before it is skipped.
@@ -1019,58 +1018,6 @@
     }
     SFX && SFX.play('click');
   }
-  // Where the song's at: elapsed, a thin bar, its length. Kept up by the
-  // player's timeupdate while the current song is the one in the middle.
-  const npProg = (() => {
-    const el = document.createElement('div');
-    el.className = 'mh-flow-prog';
-    el.innerHTML = '<span class="c">0:00</span><span class="bar"><span class="fill"></span></span><span class="d">0:00</span>';
-    const c = el.querySelector('.c'), d = el.querySelector('.d'), fill = el.querySelector('.fill');
-    const fmt = t => (isFinite(t) && t > 0) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
-    function update() {
-      if (!el.isConnected) return;
-      const a = playerState.audio, dur = a.duration || playerState.currentSong?.duration || 0;
-      c.textContent = fmt(a.currentTime);
-      d.textContent = fmt(dur);
-      fill.style.transform = `scaleX(${dur ? Math.min(1, a.currentTime / dur) : 0})`;
-    }
-    return { el, update };
-  })();
-  const npFlow = makeCoverFlow({
-    label: 'Cover Flow',
-    hires: it => window.klabHiResArt?.({ albumId: it.song.albumId || '', artist: window.klabAlbumArtistOf?.(it.song) || it.song.artist || '', album: it.song.album || '' }).then(r => r && r.large),
-    coverSize: el => {
-      const w = el.clientWidth || 800, h = el.clientHeight || 600;
-      return Math.round(Math.max(170, Math.min(h - 250, w * 0.42, 600)));
-    },
-    cover: it => it.song.coverArt ? flowArt(it.song.coverArt) : '',
-    scrollbar: true,
-    caption: it => ({
-      k: it.kind === 'now' ? (playerState.playing ? 'Now playing' : 'Paused')
-        : it.kind === 'played' ? 'Played' : it.kind === 'queue' ? 'In your queue' : 'Up next',
-      eq: it.kind === 'now',
-      t: it.song.title || '',
-      a: [it.song.artist, it.song.album].filter(Boolean).join(' · '),
-      node: it.kind === 'now' ? npProg.el : null,
-    }),
-    actions: it => it.kind === 'now'
-      ? [{ label: playerState.playing ? 'Pause' : 'Play', icon: playerState.playing ? 'ti-player-pause-filled' : 'ti-player-play-filled', primary: true, run: () => togglePlay() }, ...npAlbum(it.song)]
-      : [{ label: 'Play', icon: 'ti-player-play-filled', primary: true, run: () => npJump(it) }, ...npAlbum(it.song)],
-    open: it => (it.kind === 'now' ? openFS() : npJump(it)),
-    decorate: (c, it) => {
-      c._npSong = it.song;
-      // The one playing wears the glyph on its cover too.
-      if (it.kind === 'now') { c.classList.add('is-now'); c.appendChild(eqGlyph()); }
-    },
-  });
-  npFlow.el.classList.add('np-flow');
-  // Right-click a cover: the song's own menu.
-  npFlow.el.addEventListener('contextmenu', e => {
-    const c = e.target.closest('.mh-cover');
-    if (!c?._npSong) return;
-    e.preventDefault();
-    showSongCtx(e.clientX, e.clientY, c._npSong);
-  });
 
   function npItems() {
     const cur = playerState.currentSong;
@@ -1083,61 +1030,17 @@
     const items = [...before, ...(cur ? [{ song: cur, kind: 'now' }] : []), ...after.slice(0, NP_AFTER)];
     return { items, center: cur ? before.length : 0, queued: queue.length, later: after.length - queue.length };
   }
-  let npLastSongId = null;
-  // Cover Flow stays in the page after you leave Music (or the window is
-  // minimised), and every song change rebuilt its fifty covers there and
-  // fetched and decoded the sharp art for the middle ones, unseen. Now it
-  // waits and catches up when it's back on screen. That's judged on the
-  // list it sits in: the flow itself is display:none while it's empty, and
-  // would never have been filled.
-  let npStale = false;
-  const npShown = () => !document.hidden && !!npFlow.el.parentElement?.getClientRects().length;
-  const npCatchUp = () => { if (npStale && npFlow.el.isConnected && npShown()) { npStale = false; npRender(); } };
-  new ResizeObserver(npCatchUp).observe(pickerList); // display:none to shown resizes it
-  document.addEventListener('visibilitychange', npCatchUp);
-  function npRender() {
-    if (!npFlow.el.isConnected) return;
-    if (!npShown()) { npStale = true; return; }
-    const { items, center, queued, later } = npItems();
-    // Moved on to the next song: slide over from the one before.
-    const curId = items[center]?.song.id ?? null;
-    const from = npLastSongId && curId !== npLastSongId && items[center - 1]?.song.id === npLastSongId ? center - 1 : undefined;
-    npLastSongId = curId;
-    npFlow.set(items, center, { keyOf: it => it.kind + ':' + it.song.id + ':' + (it.k ?? it.i ?? ''), from });
-    const empty = document.getElementById('npEmpty');
-    if (empty) empty.hidden = !!items.length;
-    const sub = document.getElementById('musicViewSub');
-    if (sub && pickerTab === 'coverflow') {
-      sub.textContent = [queued ? `${queued} in your queue` : '', later ? `${later} more after` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
-    }
-  }
-  window.klabRenderCoverFlow = function(list) {
-    list.classList.remove('picker-list-grid');
-    list.innerHTML = '<div class="picker-empty" id="npEmpty" hidden>Nothing playing yet. Play something and your music shows up here.</div>';
-    list.appendChild(npFlow.el);
-    npLastSongId = null;
-    npRender();
-    npProg.update();
-    requestAnimationFrame(() => npFlow.render());
-  };
-
   // ── Kept live ──
-  const a = playerState.audio;
-  a.addEventListener('loadstart', () => { npRender(); fsUpRender(); });
-  const npPlaying = () => npFlow.el.classList.toggle('is-playing', !!playerState.currentSong && playerState.playing);
-  for (const t of ['play', 'pause', 'ended']) a.addEventListener(t, () => { npPlaying(); if (npFlow.el.isConnected) { npFlow.refreshCaption(); npProg.update(); } });
-  a.addEventListener('timeupdate', npProg.update);
-  a.addEventListener('loadedmetadata', npProg.update);
-  npPlaying();
+  playerState.audio.addEventListener('loadstart', () => fsUpRender());
   // The queue and shuffle change what's next.
   const _npQueueBadge = updateQueueBadge;
-  updateQueueBadge = function() { _npQueueBadge(); npRender(); fsUpRender(); };
+  updateQueueBadge = function() { _npQueueBadge(); fsUpRender(); };
   const _npShuffle = syncShuffleBtns;
-  syncShuffleBtns = function() { _npShuffle(); npRender(); fsUpRender(); };
+  syncShuffleBtns = function() { _npShuffle(); fsUpRender(); };
 
   // ── The full player's "Up next" ──
-  // The same songs Cover Flow shows to the right of the one playing, as a
-  // list the way Music lists songs. Drawn only while the player is open.
+  // What's coming after the one playing, as a list the way Music lists
+  // songs. Drawn only while the player is open.
   const fsEl = document.getElementById('fsPlayer');
   const fsUp = document.getElementById('fsUpNext');
   const fsUpList = document.getElementById('fsUpNextList');

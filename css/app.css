@@ -7035,23 +7035,6 @@
     /* The Cover Flow view fills Music: no card around it, the album's
        colour washing the whole area, covers as big as the window allows,
        the stage and caption centred in the height there is. */
-    #pickerList:has(> .np-flow) { overflow: hidden; }
-    .np-flow {
-      --cf-top: calc((100% - var(--mh-size, 300px) - 150px) / 2);
-      height: 100%; min-height: 440px; margin: 0; border: 0; border-radius: 14px;
-      background: transparent;
-    }
-    .np-flow .mh-flow-bg { inset: -30%; filter: blur(70px) saturate(1.6); }
-    .np-flow .mh-flow-bg.on { opacity: .62; }
-    [data-theme="light"] .np-flow .mh-flow-bg.on { opacity: .4; }
-    .np-flow .mh-flow-stage { top: var(--cf-top); }
-    .np-flow .mh-flow-nav { top: calc(var(--cf-top) + var(--mh-size, 300px) / 2 - 18px); }
-    .np-flow .mh-flow-caption { bottom: auto; top: calc(var(--cf-top) + var(--mh-size, 300px) + 36px); gap: 3px; }
-    .np-flow .mh-flow-caption .t { font-size: var(--fs-22); font-weight: 700; letter-spacing: -0.01em; }
-    .np-flow .mh-flow-caption .a { font-size: var(--fs-14); }
-    .np-flow .mh-flow-actions { margin-top: 12px; }
-    .np-flow .mh-flow-actions button { height: 34px; padding: 0 16px; font-size: var(--fs-13); }
-    .np-flow .mh-cover img { border-radius: 6px; box-shadow: 0 30px 70px rgba(0,0,0,.55); }
 
     /* ══ Cover Flow, cheap to draw ══
        Every cover is its own moving layer, so what's drawn *inside* one is
@@ -7064,16 +7047,14 @@
        ("none" isn't a value -webkit-box-reflect takes: Chrome dropped every
        rule meant to turn it off, which is how each cover kept a mirror
        redrawn on every frame of every glide.) */
-    .mh-cover img, .np-flow .mh-cover img { box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+    .mh-cover img { box-shadow: 0 10px 24px rgba(0,0,0,.4); }
     .mh-cover.center img { box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
-    .np-flow .mh-cover.center img { box-shadow: 0 26px 60px rgba(0,0,0,.55); }
     .mh-cover:not(.center) img { filter: none; }
     .mh-cover::after {
       content: ''; position: absolute; inset: 0; border-radius: 4px; pointer-events: none;
       background: #000; opacity: .28; transition: opacity .25s ease;
     }
     .mh-cover.center::after { opacity: 0; }
-    .np-flow .mh-cover::after { border-radius: 6px; }
 
     /* ══ An app, not a document ══
        Dragging across the page doesn't paint it blue, and double-clicking
@@ -7097,7 +7078,6 @@
       -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.26), transparent 42%);
       mask-image: linear-gradient(to top, rgba(0,0,0,.26), transparent 42%);
     }
-    .np-flow .mh-cover .mh-refl { border-radius: 6px; }
     .mh-cover .mh-refl, .mh-cover.center .mh-refl { box-shadow: none !important; }
     .mh-cover:not(.center) .mh-refl { opacity: .72; }
 
@@ -7118,13 +7098,6 @@
 
     /* Where the current song's at. */
     .mh-flow-caption .x[hidden] { display: none; }
-    .mh-flow-prog {
-      display: flex; align-items: center; gap: 10px; width: min(380px, 60vw); margin-top: 8px;
-      font: 500 var(--fs-11) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums;
-    }
-    .mh-flow-prog .bar { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
-    [data-theme="light"] .mh-flow-prog .bar { background: rgba(0,0,0,.12); }
-    .mh-flow-prog .fill { display: block; height: 100%; background: var(--text); transform-origin: left; transform: scaleX(0); transition: transform .25s linear; }
 
     /* The scrollbar, the way iTunes drew it: a dark inset track and a
        glossy pill. As wide as the part of the list in view; drag it to fly
@@ -7144,7 +7117,6 @@
     .mh-flow-thumb:hover { background: linear-gradient(#7a7a80, #48484d 50%, #34343a 51%, #424248); }
     .mh-flow-scroll.dragging .mh-flow-thumb { cursor: grabbing; background: linear-gradient(#85858c, #505056 50%, #3a3a40 51%, #47474d); }
     /* Room for it under the caption. */
-    .np-flow { --cf-top: calc((100% - var(--mh-size, 300px) - 200px) / 2); }
 
     /* ══════════════════════════════════════════════════════════════════
        FULL PLAYER, in Music's language
@@ -8540,13 +8512,13 @@
 
     /* ── Album art that leans toward the pointer (js/24-flair.js) ── */
     .klab-tilt {
-      transform: perspective(700px) rotateY(calc(var(--tx, 0) * 14deg)) rotateX(calc(var(--ty, 0) * -14deg)) scale(var(--ts, 1));
+      transform: perspective(900px) rotateY(calc(var(--tx, 0) * 6deg)) rotateX(calc(var(--ty, 0) * -6deg)) scale(var(--ts, 1));
       transition: transform .5s var(--m-ease), box-shadow .3s ease;
     }
-    .klab-tilt.tilting { --ts: 1.035; transition: transform .12s ease-out, box-shadow .3s ease; box-shadow: 0 14px 30px var(--shadow-50); }
+    .klab-tilt.tilting { --ts: 1.015; transition: transform .2s ease-out, box-shadow .3s ease; box-shadow: 0 10px 22px var(--shadow-40); }
     .klab-tilt::after {
       content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-      background: radial-gradient(circle at calc(50% + var(--tx, 0) * 100%) calc(50% + var(--ty, 0) * 100%), rgba(255,255,255,0.22), transparent 55%);
+      background: radial-gradient(circle at calc(50% + var(--tx, 0) * 100%) calc(50% + var(--ty, 0) * 100%), rgba(255,255,255,0.08), transparent 60%);
       opacity: 0; transition: opacity .3s ease;
     }
     .klab-tilt.tilting::after { opacity: 1; }
