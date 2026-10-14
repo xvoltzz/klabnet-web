@@ -55,7 +55,14 @@
     if (!r.width || r.bottom < 0 || r.top > innerHeight) return false;
     const w = el.offsetWidth, h = el.offsetHeight;
     let x, y;
-    if (spot.at === 'top') { x = r.left + (r.width - w) * spot.x; y = r.top - h - 1; }
+    if (spot.at === 'top') {
+      x = r.left + (r.width - w) * spot.x; y = r.top - h - 1;
+      // The apps' player runs the window's width, under the sidebar: he
+      // stands on the part of it beside the sidebar, not in it.
+      const side = document.documentElement.classList.contains('nav-side-on') && document.getElementById('sideNav');
+      const sr = side && side.getBoundingClientRect();
+      if (sr && sr.width && sr.bottom > y) x = Math.max(x, sr.right + 14);
+    }
     else if (spot.at === 'end') { x = r.right - w - 10; y = r.top + (r.height - h) / 2; }
     else {
       // Past the text, not the box: a heading's box can run the row's width.
