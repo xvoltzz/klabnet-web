@@ -112,18 +112,21 @@
     spot = target = null;
     plan();
   }
-  // Between visits, one timer: the first a couple of minutes into
-  // listening, then every several minutes, and never while paused.
+  // Between visits, one timer: the first a minute or so into listening,
+  // then every few minutes. It runs on through song changes and the gaps
+  // between songs (restarting it on each play or stop meant that, with
+  // songs shorter than the wait, he never came); if nothing is playing when
+  // it's up, it waits again.
   let first = true;
   function plan() {
-    clearTimeout(next);
-    if (!playing()) return;
+    if (next) return;
     next = setTimeout(() => {
-      if (playing() && !document.hidden && !visit()) { plan(); return; }
-      first = false;
-    }, first ? rand(90e3, 240e3) : rand(240e3, 600e3));
+      next = 0;
+      if (playing() && !document.hidden && visit()) first = false;
+      else plan();
+    }, first ? rand(40e3, 100e3) : rand(180e3, 480e3));
   }
-  ['play', 'pause', 'ended', 'emptied'].forEach(e => audio.addEventListener(e, () => { if (!spot) plan(); }));
+  audio.addEventListener('play', () => { if (!spot) plan(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); });
   el.addEventListener('click', () => { SFX && SFX.play('star'); leave(true); });
   window.addEventListener('resize', () => { if (spot) place(); });
