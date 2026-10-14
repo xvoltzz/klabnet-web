@@ -2738,12 +2738,20 @@ async function openProfileView(username) {
       </div>
     </div>
     ${profile.bio ? `<div class="profile-view-bio">${esc(profile.bio)}</div>` : ''}
-    <button class="chat-connect-btn" id="profileViewMessageBtn" style="margin-top:14px;width:100%;justify-content:center;"><i class="ti ti-message-2-plus"></i> Message</button>
+    ${username === window.KLAB_USER?.username
+      // Your own (the sidebar's "you"): change it, rather than message yourself.
+      ? `<div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="chat-connect-btn" id="profileViewEditBtn" style="flex:1;justify-content:center;"><i class="ti ti-pencil"></i> Edit profile</button>
+          <button class="chat-connect-btn" id="profileViewNoteBtn" style="flex:1;justify-content:center;"><i class="ti ti-message-circle"></i> Set a note</button>
+        </div>`
+      : `<button class="chat-connect-btn" id="profileViewMessageBtn" style="margin-top:14px;width:100%;justify-content:center;"><i class="ti ti-message-2-plus"></i> Message</button>`}
   `);
   document.getElementById('profileViewMessageBtn')?.addEventListener('click', () => {
     closeChatModal();
     messageUser(username);
   });
+  document.getElementById('profileViewEditBtn')?.addEventListener('click', () => { closeChatModal(); openProfileModal(); });
+  document.getElementById('profileViewNoteBtn')?.addEventListener('click', () => { closeChatModal(); window.klabEditNote?.(); });
   if (!client) return;
   if (profile.banner_mxc) {
     MatrixChat.mxcToBlobUrl(profile.banner_mxc, { full: true })

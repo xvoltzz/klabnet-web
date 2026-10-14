@@ -556,6 +556,7 @@ window.klabSideNav = (function() {
   const header = document.querySelector('.header');
   if (!nav || !header) return null;
   const headerSlot = header.querySelector('.header-right');
+  const brand = header.querySelector('.header-left');
 
   const side = document.createElement('aside');
   side.className = 'side-nav';
@@ -586,13 +587,20 @@ window.klabSideNav = (function() {
     const sideOn = on();
     if (sideOn && nav.parentElement !== side) side.insertBefore(nav, foot);
     if (!sideOn && nav.parentElement !== header) header.insertBefore(nav, headerSlot);
+    // In a browser the header becomes a bar across the top, like the apps'
+    // title bar: ☰, the mark and the prompt typing the MOTD on the left,
+    // the buttons on the right, and the sidebar under it.
+    const bar = sideOn && !root.classList.contains('klabnet-app');
+    if (bar !== root.classList.contains('web-bar')) {
+      root.classList.toggle('web-bar', bar);
+      if (typeof _motdCurrent === 'string') { typePromptMotd(bar ? _motdCurrent : ''); fitMotdText(_motdCurrent); }
+    }
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
     // sidebar is hidden.
     if (!sideOn) burger.remove();
-    else if (root.classList.contains('app-titlebar') || mode() === 'menu') {
-      const left = header.querySelector('.header-left');
-      left.insertBefore(burger, left.querySelector('.logo'));
+    else if (root.classList.contains('app-titlebar') || bar || mode() === 'menu') {
+      brand.insertBefore(burger, brand.querySelector('.logo'));
     } else side.prepend(burger);
     // The header's ☰ was "More"; next to a real ☰ it becomes ⋯.
     const more = document.querySelector('#headerMoreBtn i');
@@ -641,6 +649,12 @@ window.klabSideNav = (function() {
     SFX && SFX.play('click');
     set(b.dataset.v);
   });
+
+  // The bar gets a backing once the page scrolls under it (the app does
+  // the same for its title bar).
+  window.addEventListener('scroll', () => {
+    if (root.classList.contains('web-bar')) root.classList.toggle('app-scrolled', window.scrollY > 2);
+  }, { passive: true });
 
   desk.addEventListener('change', () => { close(); place(); });
   roomy.addEventListener('change', () => { close(); place(); });

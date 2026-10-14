@@ -768,11 +768,11 @@
       opacity: 0;
     }
 
-    /* The MOTD typed after the prompt, in the desktop app only (typePromptMotd),
-       and its switch in the header. */
+    /* The MOTD typed after the prompt, in the apps' title bar and the
+       browser's bar (typePromptMotd), and its switch in the header. */
     .prompt-motd { display: none; }
-    html:not(.klabnet-app) #motdToggle { display: none; }
-    html.klabnet-app .prompt-motd {
+    html:not(.klabnet-app):not(.web-bar) #motdToggle { display: none; }
+    :is(html.klabnet-app, html.web-bar) .prompt-motd {
       display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
       white-space: pre; vertical-align: middle; line-height: 1.2;
       font: 500 0.82rem 'JetBrains Mono', monospace; letter-spacing: 0; color: var(--text-dimmer);
@@ -6187,7 +6187,7 @@
     html.app-material .mh-flow-bg.on { opacity: 0.4 !important; }
 
     /* ── The header is the title bar ── */
-    html.app-titlebar .header {
+    :is(html.app-titlebar, html.web-bar) .header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 58;
       height: var(--tb-h, 48px); box-sizing: border-box; margin: 0;
       padding: 0 calc(var(--wco-right, 144px) + 6px) 0 12px;
@@ -6197,36 +6197,36 @@
       transition: background-color .2s ease, box-shadow .2s ease;
     }
     /* Scrolled, it gets a backing so the page doesn't show through it. */
-    html.app-titlebar.app-scrolled .header {
+    :is(html.app-titlebar, html.web-bar).app-scrolled .header {
       background: color-mix(in srgb, var(--modal-bg) 90%, transparent);
       box-shadow: 0 1px 0 var(--glass-border);
     }
-    html.app-titlebar:not(.app-material).app-scrolled .header { background: var(--bg); }
+    :is(html.app-titlebar, html.web-bar):not(.app-material).app-scrolled .header { background: var(--bg); }
     /* Drag by the empty bar; everything you click stays clickable. */
     html.app-titlebar .header :is(button, a, input, .tab-nav, .header-right) { -webkit-app-region: no-drag; }
 
     /* Title-bar-sized identity: small mark and prompt, no splash text. */
-    html.app-titlebar .header-left { gap: 0.6rem; align-self: center; }
-    html.app-titlebar .logo { width: 24px; height: 24px; }
-    html.app-titlebar .header-text { gap: 0; }
-    html.app-titlebar .prompt-prefix,
-    html.app-titlebar .header-meta,
-    html.app-titlebar .motd { display: none; }
-    html.app-titlebar .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
-    html.app-titlebar .prompt-cursor { height: 0.9rem; }
+    :is(html.app-titlebar, html.web-bar) .header-left { gap: 0.6rem; align-self: center; }
+    :is(html.app-titlebar, html.web-bar) .logo { width: 24px; height: 24px; }
+    :is(html.app-titlebar, html.web-bar) .header-text { gap: 0; }
+    :is(html.app-titlebar, html.web-bar) .prompt-prefix,
+    :is(html.app-titlebar, html.web-bar) .header-meta,
+    :is(html.app-titlebar, html.web-bar) .motd { display: none; }
+    :is(html.app-titlebar, html.web-bar) .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
+    :is(html.app-titlebar, html.web-bar) .prompt-cursor { height: 0.9rem; }
 
     /* The page starts under the bar. */
-    html.app-titlebar .dash { padding-top: calc(var(--tb-h, 48px) + 1.1rem); }
+    :is(html.app-titlebar, html.web-bar) .dash { padding-top: calc(var(--tb-h, 48px) + 1.1rem); }
 
     /* Full player and image viewer cover the whole window: keep a strip to
        drag it by, and keep their own buttons clear of the window buttons. */
-    html.app-titlebar .fs-player::before {
+    :is(html.app-titlebar, html.web-bar) .fs-player::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--tb-h, 48px);
       -webkit-app-region: drag; z-index: 1;
     }
-    html.app-titlebar .fs-close { top: calc(var(--tb-h, 48px) + 10px); right: 16px; }
-    html.app-titlebar .fs-player .fs-grabber { top: var(--tb-h, 48px); }
-    html.app-titlebar .img-view-bar {
+    :is(html.app-titlebar, html.web-bar) .fs-close { top: calc(var(--tb-h, 48px) + 10px); right: 16px; }
+    :is(html.app-titlebar, html.web-bar) .fs-player .fs-grabber { top: var(--tb-h, 48px); }
+    :is(html.app-titlebar, html.web-bar) .img-view-bar {
       padding-top: calc(var(--tb-h, 48px) + 6px);
       padding-right: calc(var(--wco-right, 144px) + 14px);
     }
@@ -6290,8 +6290,8 @@
     /* Centred on the window, not on what's left of it: the room for the
        window buttons comes off the right-hand buttons, so the header's two
        sides stay equal and the middle column is the window's middle. */
-    html.app-titlebar .header { padding-right: 8px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
-    html.app-titlebar .header-right { margin-right: var(--wco-right, 144px); }
+    :is(html.app-titlebar, html.web-bar) .header { padding-right: 8px; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    :is(html.app-titlebar, html.web-bar) .header-right { margin-right: var(--wco-right, 144px); }
     @media (max-width: 760px) and (pointer: coarse) { html.app-titlebar .header { grid-template-columns: minmax(0, 1fr) auto; } }
 
     @media (min-width: 761px), (pointer: fine) {
@@ -6561,7 +6561,7 @@
       html[data-nav="side"] { --nav-w: 232px; }
       html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
-      html.app-titlebar { --nav-top: var(--tb-h, 48px); }
+      :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
       html.klabnet-app body:not(.player-hidden):not(.tab-photos-active) { --nav-bottom: var(--dock-h); }
 
       html:not([data-nav="top"]) body { padding-left: var(--nav-w); transition: padding-left .28s var(--m-ease); }
@@ -6711,7 +6711,7 @@
       html.klabnet-app[data-platform="win32"] #sideNav .tab-nav-btn.active i { filter: none; }
       html.klabnet-app[data-platform="win32"].nav-flyout .side-nav { border-radius: 0 8px 8px 0; }
       /* The ☰ in the title bar, flat like the buttons beside it. */
-      html.app-titlebar .header .nav-burger { width: 40px; height: 34px; min-width: 40px; margin-right: 2px; }
+      :is(html.app-titlebar, html.web-bar) .header .nav-burger { width: 40px; height: 34px; min-width: 40px; margin-right: 2px; }
       html.app-titlebar[data-platform="win32"] .header .nav-burger {
         border: 0; border-radius: 4px; background: transparent; color: var(--text); box-shadow: none;
       }
@@ -6931,7 +6931,7 @@
 
     /* In the app the title bar covers the top 48px: a pinned day label
        pins below it, not under it. */
-    html.app-titlebar #feedList .feed-day { top: var(--tb-h, 48px); }
+    :is(html.app-titlebar, html.web-bar) #feedList .feed-day { top: var(--tb-h, 48px); }
 
     /* Sizes in vh/vw ignore the short-window zoom tiers (Chromium scales
        viewport units by zoom): the photo composer ran off the screen. */
@@ -8418,4 +8418,147 @@
     }
     @media (prefers-reduced-motion: reduce) {
       html.klabnet-app[data-desktop="linux"] body::before, html.app-titlebar[data-desktop="linux"] .header::before { transition: none; }
+    }
+
+    /* ══════════════════════════════════════════
+       FRESH COAT (2026-10-14): browsers get the sidebar by default, under
+       a bar across the top like the apps' title bar (html.web-bar,
+       js/07-tabnav.js: it shares html.app-titlebar's rules above), with
+       the prompt typing the MOTD. You're at the sidebar's foot.
+       ══════════════════════════════════════════ */
+    html.web-bar { --tb-h: 52px; --wco-right: 0px; }
+    @media (min-width: 761px), (pointer: fine) {
+      html.web-bar .header { padding-left: 10px; }
+      html.web-bar .header .nav-burger { width: 36px; height: 36px; min-width: 36px; margin-right: 6px; }
+
+      /* Like the apps: the bar and the sidebar are one surface, and the page
+         is a sheet beside and under them, with a hairline edge and a
+         rounded top-left corner where they meet. */
+      html.web-bar { --web-chrome: color-mix(in srgb, var(--bg) 72%, transparent); --web-sheet: rgba(255,255,255,0.025); --web-line: rgba(255,255,255,0.08); }
+      html.web-bar[data-theme="light"] { --web-chrome: color-mix(in srgb, var(--bg) 80%, transparent); --web-sheet: rgba(255,255,255,0.45); --web-line: rgba(0,0,0,0.08); }
+      html.web-bar .header,
+      html.web-bar:not(.app-material).app-scrolled .header,
+      html.web-bar:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+        background: var(--web-chrome);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+        box-shadow: none;
+      }
+      html.web-bar body::before {
+        content: ''; position: fixed; z-index: -1; pointer-events: none;
+        left: var(--nav-w, 0px); top: var(--tb-h); right: 0; bottom: 0;
+        background: var(--web-sheet); border: solid var(--web-line); border-width: 1px 0 0 1px;
+        border-top-left-radius: var(--radius-lg);
+        transition: left .28s var(--m-ease);
+      }
+      html.web-bar[data-nav="menu"] body::before { border-left-width: 0; border-top-left-radius: 0; }
+      html.web-bar[data-fx="low"] :is(.header, .side-nav) { background: var(--bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+      /* The buttons on the right are flat, like the sidebar's rows: no tray,
+         a fill on hover, the accent when one's on. */
+      html.web-bar .header-right {
+        gap: 2px; padding: 0; border: 0; border-radius: 0;
+        background: none !important; box-shadow: none !important;
+        -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+      }
+      html.web-bar .header :is(.hdr-btn, .nav-burger) {
+        width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+        border: 1px solid transparent; border-radius: var(--radius-md);
+        background: transparent; box-shadow: none; color: var(--text-dim);
+      }
+      html.web-bar .header :is(.hdr-btn, .nav-burger) i { font-size: 18px; }
+      html.web-bar .header :is(.hdr-btn, .nav-burger):hover { color: var(--text); background: var(--glass-fill-h); border-color: transparent; }
+      html.web-bar .header .hdr-btn.active,
+      html.web-bar .header .hdr-btn:not(.nav-burger)[aria-expanded="true"] { color: var(--text); background: rgba(var(--accent-rgb),0.16); border-color: rgba(var(--accent-rgb),0.4); }
+
+      /* The prompt and the MOTD it types. */
+      html.web-bar .prompt-text { font-size: 1.02rem; }
+      html.web-bar .prompt-motd { max-width: min(46vw, 640px); }
+    }
+
+    @media (min-width: 761px), (pointer: fine) {
+      /* You, at the foot. */
+      .side-nav-foot { border-top: 1px solid var(--glass-border); margin-top: auto; padding-top: 8px; }
+      .side-me {
+        display: flex; align-items: center; gap: 10px; flex: none;
+        width: 100%; height: 50px; box-sizing: border-box; padding: 0 8px; margin-top: 2px;
+        border: 1px solid transparent; border-radius: var(--radius-lg); background: transparent;
+        color: var(--text); text-align: left; cursor: pointer; overflow: hidden;
+        transition: background-color .15s;
+      }
+      .side-me[hidden] { display: none; }
+      .side-me:hover { background: var(--glass-fill); }
+      .side-me-av {
+        position: relative; flex: none; width: 32px; height: 32px; border-radius: 50%;
+        display: grid; place-items: center; background: color-mix(in srgb, var(--modal-bg) 80%, var(--text) 20%);
+        color: var(--text-dim); font: 700 13px/1 var(--font-ui);
+        box-shadow: inset 0 0 0 1px var(--glass-border);
+      }
+      .side-me-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+      .side-me-av::after {
+        content: ''; position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%;
+        background: #3ddc84; box-shadow: 0 0 0 2.5px var(--bg);
+      }
+      .side-me-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; transition: opacity .2s ease; }
+      .side-me-name { font: 600 var(--fs-13, 13px)/1 var(--font-ui); color: var(--me-color, var(--text)); }
+      .side-me-sub {
+        font: 500 11px/1.15 var(--font-ui); color: var(--text-dimmer);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .side-me-sub.playing { color: rgb(var(--accent-rgb)); }
+      html[data-theme="light"] .side-me-sub.playing { color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, #000); }
+      html[data-nav="rail"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
+      html[data-nav="rail"]:not(.nav-flyout) .side-me-text { opacity: 0; }
+      /* The apps have a sidebar of their own design; you aren't in it yet. */
+      html.klabnet-app .side-me { display: none; }
+      html.klabnet-app .side-nav-foot { border-top: 0; }
+    }
+    @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
+      html[data-nav="side"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
+      html[data-nav="side"]:not(.nav-flyout) .side-me-text { opacity: 0; }
+    }
+
+    /* ── The dancer (js/24-flair.js): an easter egg who turns up now and
+       then while music plays. Placed with a transform; he hops in and out. ── */
+    .klab-dancer {
+      position: fixed; left: 0; top: 0; z-index: 61; display: none;
+      padding: 2px 3px; margin: 0; border: 0; background: none; cursor: pointer;
+      font: 700 11px/1 'JetBrains Mono', monospace; white-space: pre; letter-spacing: 0;
+      color: rgb(var(--accent-rgb)); text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.55);
+      -webkit-user-select: none; user-select: none;
+    }
+    .klab-dancer.on { display: block; }
+    .klab-dancer.on { animation: dancerIn .35s cubic-bezier(.3,1.6,.5,1) both; }
+    .klab-dancer.out { animation: dancerOut .35s ease-in both; }
+    .klab-dancer.asleep { color: var(--text-dimmer); text-shadow: none; }
+    html[data-theme="light"] .klab-dancer { color: color-mix(in srgb, rgb(var(--accent-rgb)) 65%, #000); text-shadow: none; }
+    html[data-theme="light"] .klab-dancer.asleep { color: var(--text-dimmer); }
+    @keyframes dancerIn { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+    @keyframes dancerOut { to { opacity: 0; translate: 0 -10px; } }
+    @media (prefers-reduced-motion: reduce) { .klab-dancer.on, .klab-dancer.out { animation: none; } }
+    /* Phones have no room for him; the apps get him later. */
+    @media (max-width: 760px) and (pointer: coarse) { .klab-dancer { display: none !important; } }
+    html.klabnet-app .klab-dancer { display: none !important; }
+
+    /* ── Album art that leans toward the pointer (js/24-flair.js) ── */
+    .klab-tilt {
+      transform: perspective(700px) rotateY(calc(var(--tx, 0) * 14deg)) rotateX(calc(var(--ty, 0) * -14deg)) scale(var(--ts, 1));
+      transition: transform .5s var(--m-ease), box-shadow .3s ease;
+    }
+    .klab-tilt.tilting { --ts: 1.035; transition: transform .12s ease-out, box-shadow .3s ease; box-shadow: 0 14px 30px var(--shadow-50); }
+    .klab-tilt::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: radial-gradient(circle at calc(50% + var(--tx, 0) * 100%) calc(50% + var(--ty, 0) * 100%), rgba(255,255,255,0.22), transparent 55%);
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .klab-tilt.tilting::after { opacity: 1; }
+
+    /* ── The feed's composer: the formatting buttons come up when you
+       start writing, not before. ── */
+    @media (hover: hover) and (pointer: fine) {
+      .feed-composer .feed-md-toolbar, .feed-composer #feedMdHelpBtn, .feed-composer #feedMdPreviewBtn, .feed-composer #feedMdExpandBtn {
+        transition: opacity .2s ease;
+      }
+      .feed-composer:not(:focus-within):not(.has-text) :is(.feed-md-toolbar, #feedMdHelpBtn, #feedMdPreviewBtn, #feedMdExpandBtn) {
+        opacity: 0; pointer-events: none;
+      }
     }

@@ -55,8 +55,8 @@ function retypePrompt(target) {
   step();
 }
 
-// The desktop app's header has no room for the splash, so the prompt types
-// it instead, after the cursor: "klabnet>_ go touch grass". A new MOTD
+// The desktop app's header, and the browser's bar like it, have no room
+// for the splash, so the prompt types it instead, after the cursor: "klabnet>_ go touch grass". A new MOTD
 // backspaces the old one and types itself in, like someone at a keyboard:
 // now and then a finger lands on the next key over, gets a letter or two
 // further, stops, backspaces and fixes it (sometimes fumbling it again),
@@ -103,7 +103,10 @@ function motdKeystrokes(cur, target) {
   return keys;
 }
 function typePromptMotd(text) {
-  if (!promptMotdEl || !document.documentElement.classList.contains('klabnet-app')) return;
+  if (!promptMotdEl) return;
+  // The apps' title bar, and the browser's bar like it (js/07-tabnav.js).
+  const root = document.documentElement;
+  if (!root.classList.contains('klabnet-app') && !root.classList.contains('web-bar')) { promptMotdEl.textContent = ''; return; }
   clearTimeout(_promptMotdTimer);
   // _settings (js/06-prefs.js) isn't there yet while this file first runs.
   const on = typeof _settings === 'undefined' || _settings.motdTyping !== false;

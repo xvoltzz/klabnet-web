@@ -1081,6 +1081,9 @@
       renderList(_lastOthers);
     } catch (e) {}
   }
+  // Your own note, for the sidebar (js/24-flair.js).
+  window.klabMyNote = () => _notesCache.get(window.KLAB_USER?.username) || '';
+  window.klabEditNote = () => editMyNote();
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;
