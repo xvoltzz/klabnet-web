@@ -8494,9 +8494,32 @@
       html[data-theme="light"] .side-me-sub.playing { color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, #000); }
       html[data-nav="rail"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
       html[data-nav="rail"]:not(.nav-flyout) .side-me-text { opacity: 0; }
-      /* The apps have a sidebar of their own design; you aren't in it yet. */
-      html.klabnet-app .side-me { display: none; }
+      /* The apps: you at the foot too, as one of their own sidebar's rows
+         (its corners, hover and type), the picture centred under the icons. */
       html.klabnet-app .side-nav-foot { border-top: 0; }
+      html.klabnet-app .side-me { border: 0; }
+      html.klabnet-app[data-platform="win32"] .side-me { height: 48px; padding: 0 7px; border-radius: 4px; }
+      html.klabnet-app[data-platform="win32"] .side-me:hover { background: var(--tb-hover, var(--glass-fill)); }
+      html.klabnet-app[data-platform="win32"] .side-me:active { background: var(--tb-press, var(--glass-fill)); }
+      html.klabnet-app[data-platform="win32"] :is(.side-me-name, .side-me-sub) { font-family: "Segoe UI Variable Text", "Segoe UI", var(--font-ui); letter-spacing: 0; }
+      html.klabnet-app[data-platform="win32"] .side-me-name { font-size: 14px; }
+      html.klabnet-app[data-platform="win32"] .side-me-sub { font-size: 12px; font-weight: 400; }
+      html.klabnet-app[data-platform="darwin"] .side-me { height: 44px; padding: 0 6px; gap: 8px; border-radius: 8px; }
+      html.klabnet-app[data-platform="darwin"] .side-me-av { width: 28px; height: 28px; font-size: 12px; }
+      html.klabnet-app[data-platform="darwin"] .side-me:hover { background: transparent; }
+      html.klabnet-app[data-platform="darwin"] .side-me:active { background: var(--mac-hover); }
+      html.klabnet-app[data-platform="darwin"] :is(.side-me-name, .side-me-sub) { font-family: var(--mac-font); letter-spacing: 0; }
+      html.klabnet-app[data-platform="darwin"] .side-me-sub { font-weight: 400; }
+      html.klabnet-app[data-platform="darwin"][data-nav="rail"]:not(.nav-flyout) .side-me { padding-left: 4px; }
+      html.klabnet-app[data-desktop="linux"] .side-me { padding: 0 5px; border-radius: var(--radius-md); }
+      html.klabnet-app[data-desktop="linux"] .side-me:hover { background: var(--lx-hover); }
+      html.klabnet-app[data-desktop="linux"] .side-me:active { background: var(--lx-press); }
+      html.klabnet-app[data-desktop="gnome"] .side-me { border-radius: 6px; }
+      html.klabnet-app[data-desktop="gnome"] .side-me:hover { background: var(--adw-row-hover); }
+      html.klabnet-app[data-desktop="gnome"] :is(.side-me-name, .side-me-sub) { font-family: var(--adw-font, "Adwaita Sans", "Cantarell", system-ui, sans-serif); letter-spacing: 0; }
+      html.klabnet-app[data-desktop="kde"] .side-me { border: 1px solid transparent; border-radius: 3px; }
+      html.klabnet-app[data-desktop="kde"] .side-me:hover { background: transparent; border-color: color-mix(in srgb, var(--de-accent, #3daee9) 70%, transparent); }
+      html.klabnet-app[data-desktop="kde"] :is(.side-me-name, .side-me-sub) { font-family: var(--breeze-font, "Noto Sans", system-ui, sans-serif); letter-spacing: 0; }
     }
     @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html[data-nav="side"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
