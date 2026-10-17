@@ -136,9 +136,6 @@
 })();
 
 (function() {
-  const audio = playerState?.audio;
-  if (!audio) return;
-
   // ── You ──
   const foot = document.querySelector('#sideNav .side-nav-foot');
   if (!foot) return;
@@ -167,11 +164,9 @@
       lastAv = url;
       av.innerHTML = url ? '<img src="' + esc(url) + '" alt="" />' : esc(user[0].toUpperCase());
     }
-    const song = playerState.currentSong;
-    sub.classList.toggle('playing', !!song && !audio.paused);
-    sub.textContent = song && !audio.paused ? song.title || '' : (window.klabMyNote?.() || (song ? 'Paused' : 'Online'));
+    // Your note, not the song: the player is right underneath.
+    sub.textContent = window.klabMyNote?.() || 'Online';
   }
-  ['play', 'pause', 'ended', 'emptied', 'loadstart'].forEach(e => audio.addEventListener(e, paint));
   // Your picture and note arrive on their own time.
   let tries = 0;
   (function again() { paint(); if (++tries < 8) setTimeout(again, tries * 1000); })();

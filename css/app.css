@@ -8490,8 +8490,6 @@
         font: 500 11px/1.15 var(--font-ui); color: var(--text-dimmer);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .side-me-sub.playing { color: rgb(var(--accent-rgb)); }
-      html[data-theme="light"] .side-me-sub.playing { color: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, #000); }
       html[data-nav="rail"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
       html[data-nav="rail"]:not(.nav-flyout) .side-me-text { opacity: 0; }
       /* The apps: you at the foot too, as one of their own sidebar's rows
