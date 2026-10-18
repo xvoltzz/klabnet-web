@@ -12,6 +12,7 @@ export default async p => {
     for (const tab of ['home','feed','chat','music','photos']) {
       await p.ev(`setActiveTab('${tab}')`); await p.sleep(1200); await p.shot(tab);
       await check('dock controls stay inside the dock on ' + tab, `
+        assert(document.documentElement.scrollWidth<=innerWidth+1,'Page wider than the window');
         const dock=document.getElementById('playerDock'), bounds=dock.getBoundingClientRect();
         for(const b of dock.querySelectorAll('button')){const r=b.getBoundingClientRect();
           if(r.width)assert(r.left>=bounds.left-1 && r.right<=bounds.right+1,'Dock button escaped: '+(b.id||b.title));}
@@ -31,6 +32,10 @@ export default async p => {
     for (const section of ['albums','artists','songs','requests']) {
       await p.ev(`document.querySelector('.picker-tab[data-tab="${section}"]').click()`);
       await p.sleep(1800); await p.shot('music-' + section);
+      if (section === 'songs') await check('song titles keep their room', `
+        const info=pickerList.querySelector('.picker-item .picker-item-info');
+        assert(info && info.getBoundingClientRect().width>=80,'Song title squeezed out of its row');
+      `);
     }
     await p.ev('openMusicRequestModal()'); await p.sleep(200); await p.shot('request-dialog');
     await check('secondary and selected button styles', `
