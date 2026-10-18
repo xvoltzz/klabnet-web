@@ -3472,7 +3472,8 @@
     a[href]:focus-visible,
     select:focus-visible,
     .slider-wrap:focus-visible,
-    [role="button"]:focus-visible {
+    [role="button"]:focus-visible,
+    [role="link"]:focus-visible {
       outline: 1px solid rgba(var(--accent-rgb),0.5);
       outline-offset: 2px;
     }

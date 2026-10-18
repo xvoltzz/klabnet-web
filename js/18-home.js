@@ -409,14 +409,14 @@
     if (window.openAlbumPage) setTimeout(() => window.openAlbumPage(a.id, a.name || a.title), 0);
   }
 
-  let photosSig = '';
+  let photosSig = null;
   function renderPhotos() {
     const tiles = [];
     (S.photoPosts || []).forEach(pp => (pp.photos || []).forEach(ph => { if (tiles.length < 5) tiles.push([pp.id, ph.id]); }));
     const html = tiles.map(([post, id], i) => '<b data-post="' + post + '" data-photo="' + id + '" style="background-image:url(&quot;' + photoFile(id, i ? 'thumb' : 'medium') + '&quot;)"></b>').join('');
     if (html === photosSig) return;
     photosSig = html;
-    photosEl.innerHTML = lbl('Photos') + '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>';
+    photosEl.innerHTML = lbl('Photos') + (html ? '<div class="hm-pgrid n' + tiles.length + '">' + html + '</div>' : '<div class="hm-quiet"><i class="ti ti-photo"></i></div>');
   }
   photosEl.addEventListener('click', e => {
     const b = e.target.closest('.hm-pgrid b') || photosEl.querySelector('.hm-pgrid b');

@@ -101,7 +101,7 @@ export default async p => {
     const slider = document.getElementById('volSlider');
     slider.focus(); slider.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true, cancelable:true}));
     assert(Math.abs(playerState.audio.volume - 0.45) < .001, 'Arrow did not adjust volume');
-    assert(document.getElementById('volDot').style.getPropertyValue('--slider-pct') === '0.45', 'Dot transform input stale');
+    assert(document.getElementById('volDot').style.getPropertyValue('--pct') === '0.45', 'Dot transform input stale');
     assert(document.getElementById('volFill').style.width === '100%', 'Fill changed layout width');
     assert(document.getElementById('volFill').style.transform.includes('scaleX(0.45)'), 'Fill transform wrong');
     playerState.volume = playerState.audio.volume = 0; volSlider.setPct(0); fsVolSlider.setPct(0);

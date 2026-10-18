@@ -126,7 +126,7 @@ async function loadGenres() {
         <div class="picker-item-art-ph" style="font-size:20px;"><i class="ti ti-music-search"></i></div>
         <div class="picker-item-info" style="min-width:0;flex:1;">
           <div class="picker-item-title">${esc(genre.value)}</div>
-          <div class="picker-item-artist">${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${genre.songCount} songs</div>
+          <div class="picker-item-artist">${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${klabCount(genre.songCount || 0, 'song')}</div>
         </div>
         <div class="picker-item-actions" style="flex-shrink:0;">
           <button class="picker-action" title="Play genre"><i class="ti ti-player-play"></i></button>
