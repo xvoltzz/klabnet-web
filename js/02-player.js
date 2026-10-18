@@ -451,11 +451,14 @@ function makeSlider(trackEl, fillEl, dotEl, onChange) {
     const r = (dragging && dragRect) ? dragRect : trackEl.getBoundingClientRect();
     return Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1)));
   }
+  // CSS can opt into a container-relative transform; older skins keep left.
+  const transformDot = getComputedStyle(trackEl).getPropertyValue('--slider-dot-transform').trim() === '1';
   function show(pct) {
     value = Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
     fillEl.style.transform = `translateY(-50%) scaleX(${value})`;
     trackEl.setAttribute('aria-valuenow', Math.round(value * 100));
-    dotEl.style.left = (value*100) + '%';
+    dotEl.style.setProperty('--slider-pct', value);
+    dotEl.style.left = transformDot ? '0px' : (value*100) + '%';
   }
   fillEl.style.width = '100%';
   trackEl.tabIndex = 0;

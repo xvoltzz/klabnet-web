@@ -80,11 +80,30 @@ export default async p => {
       await p.sleep(800);await sample(p.auditStage);
     }
     p.auditStage='hot-paths';
-    await p.send('Tracing.start',{categories:'devtools.timeline',transferMode:'ReportEvents'});
+    await p.ev("setActiveTab('music');document.querySelector('.picker-tab[data-tab=songs]').click()");await p.sleep(1500);
+    await p.send('Tracing.start',{categories:'devtools.timeline,disabled-by-default-devtools.timeline.stack',transferMode:'ReportEvents'});
     const trace=[];const untrace=p.onEvent((method,params)=>{if(method==='Tracing.dataCollected')trace.push(...params.value);});
-    await p.ev(`for(let i=0;i<100;i++){playerState.audio.dispatchEvent(new Event('timeupdate'));document.dispatchEvent(new MouseEvent('mousemove',{clientX:i,clientY:i}));pickerList.dispatchEvent(new Event('scroll'));}`);
+    await p.ev(`(() => {
+      const audio=playerState.audio;
+      if(playerState.currentSong)throw new Error('Audit requires an unloaded player');
+      const saved=['duration','currentTime'].map(key=>[key,Object.getOwnPropertyDescriptor(audio,key)]);
+      Object.defineProperty(audio,'duration',{configurable:true,value:240});
+      let at=0;Object.defineProperty(audio,'currentTime',{configurable:true,get:()=>at});
+      try {
+        console.timeStamp('audit:timeupdate');
+        for(let i=0;i<100;i++){at=i;audio.dispatchEvent(new Event('timeupdate'));}
+        console.timeStamp('audit:mousemove');
+        for(let i=0;i<100;i++)document.dispatchEvent(new MouseEvent('mousemove',{clientX:i,clientY:i,bubbles:true}));
+        console.timeStamp('audit:scroll');
+        for(let i=0;i<100;i++){pickerList.scrollTop=i*10;pickerList.dispatchEvent(new Event('scroll'));}
+        console.timeStamp('audit:end');
+      } finally {
+        for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(audio,key,descriptor);else delete audio[key];}
+        progSlider.setPct(0);
+      }
+    })()`);
     await p.sleep(400);await p.send('Tracing.end');await p.sleep(500);untrace();
-    report.layoutEvents=trace.filter(e=>['Layout','UpdateLayoutTree'].includes(e.name));
+    report.layoutEvents=trace.filter(e=>['Layout','UpdateLayoutTree','TimeStamp'].includes(e.name));
     await sample('hot-paths');
     // Same SDK fakes and assertions as the normal suite; snapshots label each check.
     p.checkpoint=async name=>{p.auditStage=name;await sample('fixture: '+name);};
