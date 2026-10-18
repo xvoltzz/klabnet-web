@@ -14,7 +14,7 @@ mkdirSync(output, { recursive: true });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const chrome = spawn(process.env.CHROME_PATH || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : 'google-chrome'), [
-  '--headless=new', `--remote-debugging-port=${port}`,
+  '--headless=new', '--no-sandbox', `--remote-debugging-port=${port}`,
   `--user-data-dir=${mkdtempSync(join(tmpdir(), 'klabnet-profile-'))}`,
   `--window-size=${width},${height}`, '--no-first-run', '--hide-scrollbars', '--mute-audio', 'about:blank',
 ], { stdio: 'ignore' });
@@ -34,16 +34,18 @@ try {
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
   let nextId = 0;
   const pending = new Map();
+  const subscribers = new Set();
   ws.onmessage = message => {
     const data = JSON.parse(message.data);
+    if (!data.id) for (const listener of subscribers) listener(data.method, data.params);
     if (data.id) { pending.get(data.id)?.(data); pending.delete(data.id); }
     else if (data.method === 'Runtime.exceptionThrown') exceptions.push(data.params.exceptionDetails.exception?.description || data.params.exceptionDetails.text);
   };
-  const send = (method, params = {}) => new Promise((resolve, reject) => {
+  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
     const id = ++nextId;
     const timer = setTimeout(() => { pending.delete(id); reject(new Error('CDP timeout: ' + method)); }, 30000);
     pending.set(id, data => { clearTimeout(timer); data.error ? reject(new Error(JSON.stringify(data.error))) : resolve(data); });
-    ws.send(JSON.stringify({ id, method, params }));
+    ws.send(JSON.stringify({ id, method, params, ...(sessionId ? {sessionId} : {}) }));
   });
   await send('Runtime.enable'); await send('Page.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.open = () => null;
@@ -65,7 +67,8 @@ try {
   }
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   const page = {
-    send, sleep, exceptions, output, variant, smoke: args.smoke === 'true',
+    onEvent(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
+    send, sleep, exceptions, output, variant, baseline: args.baseline === 'true', keyboardOnly: args['keyboard-only'] === 'true', smoke: args.smoke === 'true',
     async goto(url = args.url || 'http://localhost:8791/') { await send('Page.navigate', { url }); await sleep(4500); },
     async ev(expression) {
       const data = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true });
@@ -81,7 +84,25 @@ try {
         windowsVirtualKeyCode: ({ Enter: 13, Tab: 9, ' ': 32, Escape: 27, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 }[key] || 0) });
     },
   };
-  await steps(page);
+  // Compare uncommitted JS changes with HEAD without swapping live rig files.
+  if (args.baseline === 'true') {
+    const sources = new Map(['02-player.js','11-presence.js','13-tail.js','18-home.js'].map(name =>
+      ['/js/' + name, execFileSync('git', ['show', 'HEAD:js/' + name]).toString('base64')]));
+    subscribers.add((method, params) => {
+      if (method !== 'Fetch.requestPaused') return;
+      const body = sources.get(new URL(params.request.url).pathname);
+      send('Fetch.fulfillRequest', {requestId:params.requestId,responseCode:200,
+        responseHeaders:[{name:'Content-Type',value:'text/javascript'}],body}).catch(error=>exceptions.push(String(error)));
+    });
+    await send('Fetch.enable', {patterns:[...sources.keys()].map(path=>({urlPattern:'*'+path+'*',requestStage:'Request'}))});
+  }
+  if (args.worker === 'true') {
+    await page.goto();
+    await (await import('./service-worker.mjs')).default(page);
+  } else if (args.audit === 'true') {
+    const audit = await import('./audit.mjs');
+    await audit.default(page);
+  } else await steps(page);
   if (exceptions.length) throw new Error(exceptions.join('\n'));
   console.log('PASS browser regressions; screenshots:', output);
 } catch (error) { console.error(error); process.exitCode = 1; }
