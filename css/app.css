@@ -4639,7 +4639,8 @@
     #musicShell .picker-list .picker-item.genre-tile:hover { transform: translateY(-2px); filter: brightness(1.08); background: linear-gradient(135deg, hsl(var(--h) 55% 44%), hsl(calc(var(--h) + 40) 58% 26%)); }
     #musicShell .genre-tile .picker-item-art-ph { display: none; }
     #musicShell .genre-tile .picker-item-info { flex: none; width: 100%; }
-    #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; }
+    /* Clear of the play button in the corner: a long name wraps rather than running under it. */
+    #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; padding-right: 36px; }
     #musicShell .genre-tile .picker-item-artist { color: rgba(255,255,255,0.72); }
     #musicShell .genre-tile .picker-item-actions { position: absolute; top: 10px; right: 10px; }
     #musicShell .genre-tile .picker-action { background: rgba(255,255,255,0.92); color: #111; border-radius: 8px; width: 34px; height: 34px; }
