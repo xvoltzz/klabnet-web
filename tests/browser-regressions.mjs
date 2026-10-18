@@ -16,15 +16,30 @@ export default async p => {
     for (const tab of ['home','feed','chat','music','photos']) {
       await p.ev(`setActiveTab('${tab}')`); await p.sleep(1200); await p.shot(tab);
       await check('dock controls stay inside the dock on ' + tab, `
+        assert(document.documentElement.scrollWidth<=innerWidth+1,'Page wider than the window');
         const dock=document.getElementById('playerDock'), bounds=dock.getBoundingClientRect();
         for(const b of dock.querySelectorAll('button')){const r=b.getBoundingClientRect();
           if(r.width)assert(r.left>=bounds.left-1 && r.right<=bounds.right+1,'Dock button escaped: '+(b.id||b.title));}
       `);
     }
+    await check('dock fits with another device playing', `
+      const dock=document.getElementById('playerDock'), dev=document.getElementById('dockDevices'), name=document.getElementById('dockDevicesName');
+      const was=[dev.hidden, dev.className, name.textContent];
+      dev.hidden=false; dev.classList.add('on'); name.textContent='Chrome on Windows';
+      const bounds=dock.getBoundingClientRect();
+      for(const b of dock.querySelectorAll('button, .slider-wrap')){const r=b.getBoundingClientRect();
+        if(r.width){assert(r.left>=bounds.left-1 && r.right<=bounds.right+1,'Dock control escaped: '+(b.id||b.className));
+          assert(b.tagName!=='BUTTON' || r.width>=26,'Dock button squashed: '+(b.id||b.title));}}
+      [dev.hidden, dev.className, name.textContent]=was;
+    `);
     await p.ev("setActiveTab('music')"); await p.sleep(600);
     for (const section of ['albums','artists','songs','requests']) {
       await p.ev(`document.querySelector('.picker-tab[data-tab="${section}"]').click()`);
       await p.sleep(1800); await p.shot('music-' + section);
+      if (section === 'songs') await check('song titles keep their room', `
+        const info=pickerList.querySelector('.picker-item .picker-item-info');
+        assert(info && info.getBoundingClientRect().width>=80,'Song title squeezed out of its row');
+      `);
     }
     await p.ev('openMusicRequestModal()'); await p.sleep(200); await p.shot('request-dialog');
     await check('secondary and selected button styles', `
@@ -77,6 +92,7 @@ export default async p => {
       assert(b.tagName === 'BUTTON', 'Switch is not keyboard reachable');
       assert(b.getAttribute('aria-checked') === String(b.classList.contains('on')), 'Switch accessible state stale');
     }
+    assert(document.getElementById('clearPrefsRow').tagName === 'BUTTON', 'Reset row is not keyboard reachable');
   `);
   await p.shot('settings'); await p.ev('closeSettings()');
   await keyboard(p); await presence(p);

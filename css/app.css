@@ -46,7 +46,6 @@
          .tab-nav-btn 37 from padding, .rail-tab 28, .ctrl-btn 32), which
          is why the header's icon row and tab row visibly disagreed. */
       --control-h:    34px;
-      --control-h-sm: 28px;
       /* Section headers ("// feed", "// users") — the feed's also holds a
          button while the rail's is bare text, so without a shared floor
          the two columns' labels sat on different baselines. */
@@ -124,9 +123,7 @@
       --tile-bg:        rgba(255,252,248,0.055);
       --tile-bg-h:      rgba(255,252,248,0.11);
       --tile-icon:      rgba(237,233,224,0.5);
-      --tile-icon-h:    rgba(237,233,224,1);
       --tile-label:     rgba(237,233,224,0.3);
-      --tile-label-h:   rgba(237,233,224,0.8);
       --tile-border:    rgba(255,252,248,0.1);
       --tile-border-h:  rgba(255,252,248,0.28);
       --tile-inner-t:   rgba(255,252,248,0.16);
@@ -172,9 +169,7 @@
       --tile-bg:        rgba(255,255,253,0.55);
       --tile-bg-h:      rgba(255,255,253,0.8);
       --tile-icon:      #8a7550;
-      --tile-icon-h:    #6a5636;
       --tile-label:     #8a7550;
-      --tile-label-h:   #6a5636;
       --tile-border:    rgba(130,112,88,0.2);
       --tile-border-h:  rgba(120,108,92,0.4);
       --tile-inner-t:   rgba(255,255,253,0.85);
@@ -1254,13 +1249,17 @@
       transition: background 0.15s, border-color 0.15s;
     }
     .feed-post-reply-send:hover { background: rgba(var(--accent-rgb),0.22); }
+    /* Mentions only: a square secondary button at the end of Feed's title
+       row, filled while it's on (like the request type buttons). */
     .feed-mentions-btn {
       position: relative; display: flex; align-items: center; justify-content: center;
-      width: 24px; height: 24px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
-      color: var(--text-dimmer); font-size: var(--fs-13); background: transparent; border: none;
-      transition: color 0.15s, background 0.15s;
+      width: var(--control-h); height: var(--control-h); border-radius: var(--radius-md); cursor: pointer; flex-shrink: 0;
+      margin-left: auto; color: var(--text-dim); font-size: var(--fs-16);
+      background: var(--glass-fill-h); border: 1px solid var(--glass-border);
+      transition: color 0.15s, background-color 0.15s, border-color 0.15s;
     }
-    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { color: var(--text); background: var(--tile-bg-h); }
+    .feed-mentions-btn:hover { color: var(--text); border-color: var(--glass-border-h); }
+    .feed-mentions-btn.is-active { color: var(--bg); background: var(--text); border-color: transparent; }
     .feed-mentions-dot {
       position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
       border-radius: 50%; background: rgba(var(--accent-rgb),1);
@@ -2038,12 +2037,32 @@
     .player-vol i { font-size: 14px; color: var(--text-dimmer); }
     .vol-slider { width: 72px; background: none !important; }
 
-    /* Every control has a fixed minimum footprint, so once the window gets
-       narrow enough the sum of those minimums exceeds the dock's own width
-       and content spills out past its rounded edge. Progressively drop the
-       least essential controls instead of letting that happen. */
+    /* Every control has a fixed minimum footprint, so once the dock gets
+       narrow enough the sum of those minimums exceeds its width and content
+       spills out past its rounded edge. Progressively drop the least
+       essential controls instead. Keyed off the dock's own width, not the
+       window's: a sidebar takes 233px of a 1100px window, and the Devices
+       button (js/23-session.js) needs room of its own when it shows. The
+       widths are measured, with the dock's widest gaps. */
+    .player-dock { container: dock / inline-size; }
+    .player-dock .ctrl-btn { flex-shrink: 0; }
+    @container dock (max-width: 860px) { .player-dock .dock-extra { display: none; } }
+    @container dock (max-width: 910px) { .player-dock:has(#dockDevices:not([hidden])) .dock-extra { display: none; } }
+    @container dock (max-width: 840px) {
+      .player-dock .vol-slider { width: 48px; }
+      .player-dock .player-info { min-width: 90px; }
+    }
+    @container dock (max-width: 720px) { .player-dock .player-time-wrap { display: none; } }
+    @container dock (max-width: 600px) {
+      .player-dock .vol-slider { width: 32px; }
+      .player-dock .player-progress { min-width: 40px; }
+    }
+    /* The cover opens the full player too. */
+    @container dock (max-width: 500px) {
+      .player-dock #btnFS { display: none; }
+      .player-dock .player-info { min-width: 60px; }
+    }
     @media (max-width: 860px) {
-      .player-dock .dock-extra { display: none; }
       .player-dock { gap: .6rem; padding-inline: 1rem; }
     }
     @media (max-width: 760px) and (pointer: coarse) {
@@ -2251,6 +2270,9 @@
       position: relative; height: 20px;
       display: block; cursor: pointer; flex-shrink: 0;
       background: none !important;
+      /* Its own width is 100cqi, for the dot below. Safe: everything in
+         it is absolutely placed, so it has no content width to lose. */
+      container-type: inline-size;
     }
     .slider-track {
       position: absolute; left: 0; right: 0; height: 3px;
@@ -2270,7 +2292,9 @@
       position: absolute; width: 14px; height: 14px;
       border-radius: 50%; background: #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.3);
-      top: 50%; transform: translate(-50%, -50%);
+      /* Placed by --pct (0..1) with a transform, so moving it is no layout,
+         like the fill's scaleX. An inline style.left still works too. */
+      left: 0; top: 50%; transform: translate(calc(var(--pct, 0) * 100cqi - 50%), -50%);
       pointer-events: none;
       opacity: 0; transition: opacity 0.2s, box-shadow 0.2s;
     }
@@ -2476,6 +2500,10 @@
     .settings-row-sub {
       font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.08em; margin-top: 2px;
     }
+    /* A row that is itself the control (Reset all preferences) is a real
+       button, so the keyboard reaches it, drawn as the other rows. */
+    button.settings-row { width: 100%; box-sizing: border-box; font: inherit; letter-spacing: inherit; color: inherit; text-align: start; }
+    button.settings-row :is(.settings-row-label, .settings-row-sub) { display: block; }
     /* Background-color settings row button — shows the currently-effective
        --bg as its own fill (see applyCustomBg()) so it doubles as a live
        swatch, not just a generic icon button. */
@@ -2898,6 +2926,7 @@
       font-family: var(--font-ui);
       font-size: 12.5px; font-weight: 600; color: var(--text);
       letter-spacing: 0.01em; margin-bottom: 2px;
+      overflow-wrap: anywhere; /* a long username breaks instead of running out of the card */
     }
     .presence-card.is-me .presence-card-name { color: rgba(var(--accent-rgb),1); }
     /* Stable per-person color (gitea#3) — same idea as the chat
@@ -4559,6 +4588,20 @@
     #musicShell .picker-action.fav-active, #musicShell .picker-action.login-active { opacity: 1; }
     #musicShell .picker-action.fav-active { color: var(--danger-color); }
     @media (hover: none) { #musicShell .picker-item .picker-action { opacity: 1; } }
+    /* A narrow list (a narrow window keeps Music's sidebar beside it) left
+       a song row's title 0px wide behind six buttons. Drop them as the list
+       narrows, the way the phone does; every one is also on the row's
+       right-click menu. Song rows only: the album grid keeps its buttons. */
+    #pickerList { container: picker / inline-size; }
+    @container picker (max-width: 440px) {
+      #pickerList:not(.picker-list-grid) .picker-item-actions :is(.type-badge, [data-login], [data-add-pl]) { display: none; }
+    }
+    @container picker (max-width: 380px) {
+      #pickerList:not(.picker-list-grid) .picker-item-actions :is(.klab-star, [data-queue]) { display: none; }
+    }
+    @container picker (max-width: 320px) {
+      #pickerList:not(.picker-list-grid) .picker-item-dur { display: none; }
+    }
 
     /* Album and artist grids: Home's card, with play/queue over the art. */
     #musicShell .picker-list.picker-list-grid {
@@ -4619,7 +4662,8 @@
     #musicShell .picker-list .picker-item.genre-tile:hover { transform: translateY(-2px); filter: brightness(1.08); background: linear-gradient(135deg, hsl(var(--h) 55% 44%), hsl(calc(var(--h) + 40) 58% 26%)); }
     #musicShell .genre-tile .picker-item-art-ph { display: none; }
     #musicShell .genre-tile .picker-item-info { flex: none; width: 100%; }
-    #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; }
+    /* Clear of the play button in the corner: a long name wraps rather than running under it. */
+    #musicShell .genre-tile .picker-item-title { font-size: var(--fs-16); font-weight: 700; color: #fff; white-space: normal; padding-right: 36px; }
     #musicShell .genre-tile .picker-item-artist { color: rgba(255,255,255,0.72); }
     #musicShell .genre-tile .picker-item-actions { position: absolute; top: 10px; right: 10px; }
     #musicShell .genre-tile .picker-action { background: rgba(255,255,255,0.92); color: #111; border-radius: 8px; width: 34px; height: 34px; }
@@ -4891,7 +4935,7 @@
     #settingsBackdrop .settings-row {
       margin: 0; border-radius: 0; border: none; background: none; border-top: 1px solid var(--glass-border); padding-left: 4px; padding-right: 4px;
     }
-    #settingsBackdrop .settings-section .settings-row:first-of-type { border-top: none; }
+    #settingsBackdrop .settings-section-label + .settings-row { border-top: none; }
     #settingsBackdrop .settings-row-label { font-size: 14px; letter-spacing: 0; }
     #settingsBackdrop .settings-row-sub { font-size: 12px; letter-spacing: 0; }
 
@@ -5654,7 +5698,9 @@
     }
 
     /* Home's Who's online: the classic presence cards, two across. */
-    .hm-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
+    /* Two across while a card gets 170px; one when it wouldn't (it was
+       143px at 1100 wide, with the name and note wrapping). */
+    .hm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; align-content: start; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
     .hm-cards::-webkit-scrollbar { display: none; }
     .hm-cards .presence-card { min-width: 0; padding: 7px 10px; gap: 10px; }
     .hm-cards .presence-card-avatar { width: 32px; height: 32px; font-size: 12px; }
@@ -5854,10 +5900,6 @@
     @media (max-width: 1000px) {
       .dash, body[class*="tab-"] .dash { max-width: 100%; }
     }
-    /* Some tabs scroll the page and some lock it; with a classic (Windows)
-       scrollbar the page got ~15px narrower or wider each switch. Keep the
-       scrollbar's space either way. */
-    html { scrollbar-gutter: stable; }
 
     /* ══════════════════════════════════════════
        PHONE LAYOUT (<= 760px): a phone, the installed iPhone app, or the
@@ -7673,6 +7715,9 @@
       #musicShell .ap-hero-name { font-size: 30px; }
       #musicShell .ap-actions, #musicShell .pl-desc { padding-left: 12px; padding-right: 12px; }
     }
+    /* Narrower still, the title gets the hover Play button's room: the row
+       itself plays, and right-click has the rest. */
+    @container (max-width: 400px) { #musicShell .ap-track-play { display: none; } }
 
     /* Songs you can drag into order (by the number) and take out. */
     #musicShell .pl-grip { cursor: grab; }
@@ -8210,7 +8255,7 @@
     .dock-devices.on:hover { border-color: var(--glass-border-h); }
     #fsPlayer #fsDevices.on { color: rgba(var(--accent-rgb),1) !important; opacity: 1 !important; }
     /* Narrow: the icon alone (the name is its tooltip and in the menu). */
-    @media (max-width: 860px) {
+    @container dock (max-width: 1060px) {
       .dock-devices.on { width: 32px; padding: 0; }
       .dock-devices.on span { display: none; }
     }
@@ -8636,7 +8681,6 @@
     .chat-share-np:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
     /* Small toolbar icons: one corner, one hover. */
     .feed-md-toolbar button, .feed-md-tool { border-radius: var(--radius-md); }
-    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { background: var(--glass-fill-h); }
 
     /* The page's rounded corner stays rounded while things scroll under it:
        a cap in the bar's colour fills outside the curve, with the edge's
