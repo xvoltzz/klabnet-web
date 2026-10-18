@@ -2926,6 +2926,7 @@
       font-family: var(--font-ui);
       font-size: 12.5px; font-weight: 600; color: var(--text);
       letter-spacing: 0.01em; margin-bottom: 2px;
+      overflow-wrap: anywhere; /* a long username breaks instead of running out of the card */
     }
     .presence-card.is-me .presence-card-name { color: rgba(var(--accent-rgb),1); }
     /* Stable per-person color (gitea#3) — same idea as the chat
@@ -5697,7 +5698,9 @@
     }
 
     /* Home's Who's online: the classic presence cards, two across. */
-    .hm-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
+    /* Two across while a card gets 170px; one when it wouldn't (it was
+       143px at 1100 wide, with the name and note wrapping). */
+    .hm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; align-content: start; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
     .hm-cards::-webkit-scrollbar { display: none; }
     .hm-cards .presence-card { min-width: 0; padding: 7px 10px; gap: 10px; }
     .hm-cards .presence-card-avatar { width: 32px; height: 32px; font-size: 12px; }
