@@ -1254,13 +1254,17 @@
       transition: background 0.15s, border-color 0.15s;
     }
     .feed-post-reply-send:hover { background: rgba(var(--accent-rgb),0.22); }
+    /* Mentions only: a square secondary button at the end of Feed's title
+       row, filled while it's on (like the request type buttons). */
     .feed-mentions-btn {
       position: relative; display: flex; align-items: center; justify-content: center;
-      width: 24px; height: 24px; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0;
-      color: var(--text-dimmer); font-size: var(--fs-13); background: transparent; border: none;
-      transition: color 0.15s, background 0.15s;
+      width: var(--control-h); height: var(--control-h); border-radius: var(--radius-md); cursor: pointer; flex-shrink: 0;
+      margin-left: auto; color: var(--text-dim); font-size: var(--fs-16);
+      background: var(--glass-fill-h); border: 1px solid var(--glass-border);
+      transition: color 0.15s, background-color 0.15s, border-color 0.15s;
     }
-    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { color: var(--text); background: var(--tile-bg-h); }
+    .feed-mentions-btn:hover { color: var(--text); border-color: var(--glass-border-h); }
+    .feed-mentions-btn.is-active { color: var(--bg); background: var(--text); border-color: transparent; }
     .feed-mentions-dot {
       position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
       border-radius: 50%; background: rgba(var(--accent-rgb),1);
@@ -8657,7 +8661,6 @@
     .chat-share-np:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
     /* Small toolbar icons: one corner, one hover. */
     .feed-md-toolbar button, .feed-md-tool { border-radius: var(--radius-md); }
-    .feed-mentions-btn:hover, .feed-mentions-btn.is-active { background: var(--glass-fill-h); }
 
     /* The page's rounded corner stays rounded while things scroll under it:
        a cap in the bar's colour fills outside the curve, with the edge's
