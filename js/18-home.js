@@ -355,9 +355,10 @@
     const { html, others } = get();
     const full = lbl("Who's online") + '<div class="hm-cards">' + html + '</div>' +
       (others ? '' : '<div class="hm-quiet hm-alone">Just you right now</div>');
-    if (full === listenSig) return;
+    if (full === listenSig) { window.klabRefreshPresenceTimes?.(listenEl); return; }
     listenSig = full;
     listenEl.innerHTML = full;
+    window.klabRefreshPresenceTimes?.(listenEl);
   }
   window.klabHomePresenceChanged = () => { if (active) presenceChanged(); };
   if (typeof playerState !== 'undefined' && playerState.audio) {

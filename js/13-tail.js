@@ -552,6 +552,13 @@ function sampleImageColor(imgUrl) {
           sorted.forEach(album => {
             const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=300&${subsonicParams()}`;
             const card = document.createElement('div'); card.className = 'ap-disc-card';
+            card.setAttribute('role', 'button');
+            card.tabIndex = 0;
+            card.addEventListener('keydown', e => {
+              if ((e.key === 'Enter' || e.key === ' ') && !e.repeat && !e.isComposing) {
+                e.preventDefault(); e.stopPropagation(); card.click();
+              }
+            });
             card._album = { ...album, artist: album.artist || artistName, artistId: album.artistId || artistId };
             card.innerHTML = `<img src="${artUrl}" loading="lazy" alt="" /><div class="ap-disc-card-title">${esc(album.name||album.title)}</div><div class="ap-disc-card-year">${album.year||''}</div>`;
             card.addEventListener('click', () => window.openAlbumPage(album.id, album.name||album.title));

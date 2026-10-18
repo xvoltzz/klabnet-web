@@ -333,7 +333,7 @@
     // data-username is always present (the context menu's Message action
     // needs it regardless of playable state) — the sync-specific attrs
     // stay conditional on playable.
-    const attrs = ' data-username="' + esc(username||'') + '"' +
+    const attrs = ' role="link" tabindex="0" aria-label="' + esc(isMe ? 'Open your profile' : 'Message ' + username) + '" data-username="' + esc(username||'') + '"' +
       (playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
     // Every non-me card gets a stable per-person name color (same hash as
     // the chat timeline's nametags, gitea#3) so a busy roster is easier to
@@ -365,7 +365,7 @@
     // so someone who stops listening just drops back to "Online" rather
     // than looking like they left.
     const showTrack = playing && song;
-    const away = isMe ? '' : awayLabel(username);
+    const away = !isMe && _away.has(username) ? 'Away' : '';
     // Only knowable because both sides of a party report it through their
     // own regular presence post (see postPresence()) — there's no other
     // channel a third viewer could learn this from, since the actual sync
@@ -373,7 +373,7 @@
     // only on your own card; informational-only on everyone else's.
     const partyLine = partyHost
       ? '<div class="presence-card-party' + (isMe ? ' presence-card-party-leave' : '') + '"' +
-          (isMe ? ' title="Leave listening party"' : ' title="Listening together"') + '>' +
+          (isMe ? ' role="button" tabindex="0" title="Leave listening party"' : ' title="Listening together"') + '>' +
           '<i class="ti ti-headphones"></i> with ' + esc(partyHost) +
           (isMe ? ' <i class="ti ti-x"></i>' : '') +
         '</div>'
@@ -385,7 +385,7 @@
     // people's cards only show the line when they actually have a note.
     const note = _notesCache.get(username);
     const noteLine = isMe
-      ? '<div class="presence-card-note presence-card-note-edit' + (note ? '' : ' presence-card-note-empty') + '" title="' + (note ? 'Edit your note' : 'Add a note') + '">' +
+      ? '<div class="presence-card-note presence-card-note-edit' + (note ? '' : ' presence-card-note-empty') + '" role="button" tabindex="0" title="' + (note ? 'Edit your note' : 'Add a note') + '">' +
           (note ? esc(note) : 'Add a note…') +
         '</div>'
       : (note ? '<div class="presence-card-note" title="' + esc(note) + '">' + esc(note) + '</div>' : '');
@@ -395,7 +395,7 @@
       '</div>' +
       '<div class="presence-card-info">' +
         '<div class="presence-card-name">' + esc(username) + (isMe ? ' <span class="presence-card-you">(you)</span>' : '') + platformIcon(isMe ? PLATFORM : platform) + '</div>' +
-        '<div class="presence-card-track">' + (showTrack ? esc(song) : away || 'Online') + '</div>' +
+        '<div class="presence-card-track"' + (!showTrack && away ? ' data-presence-away' : '') + '>' + (showTrack ? esc(song) : away || 'Online') + '</div>' +
         (showTrack && artist ? '<div class="presence-card-artist">' + esc(artist) + '</div>' : '') +
         partyLine +
         noteLine +
@@ -413,23 +413,35 @@
     const avatarUrl = _avatarCache.get(username);
     const inner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username || '?')[0].toUpperCase());
     const playable = !isMe && playing && (songId || song);
-    const attrs = ' data-username="' + esc(username || '') + '"' +
+    const attrs = ' role="link" tabindex="0" aria-label="' + esc(isMe ? 'Open your profile' : 'Message ' + username) + '" data-username="' + esc(username || '') + '"' +
       (playable ? ' data-song-id="' + esc(songId || '') + '" data-song-title="' + esc(song || '') + '" data-song-artist="' + esc(artist || '') + '"' : '');
     const note = _notesCache.get(username);
     // No note bubbles over the faces: squeezed that small nobody could read
     // them. Notes live in the tooltip here, in a DM's header, and on Home's
     // presence cards (where yours is set). Leaving a listening party is a
     // control, not a note, so that one stays.
-    const bubble = isMe && partyHost ? '<span class="chat-face-note presence-card-party-leave" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>' : '';
-    const away = isMe ? '' : awayLabel(username);
+    const bubble = isMe && partyHost ? '<span class="chat-face-note presence-card-party-leave" role="button" tabindex="0" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>' : '';
+    const away = !isMe && _away.has(username) ? 'Away' : '';
     const tip = (isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username))) + (away ? ' · ' + away.toLowerCase() : '') + (note ? ' · “' + esc(note) + '”' : '');
     return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (away ? ' is-away' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
-      ' style="--name-color:' + profileColor(username) + '" title="' + tip + '">' + bubble +
+      ' style="--name-color:' + profileColor(username) + '"' + (away ? ' data-away-tip="' + tip + '"' : '') + ' title="' + tip + '">' + bubble +
       '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +
         (playing && song ? '<span class="chat-face-eq"><i></i><i></i><i></i></span>' : '') + '</span>' +
       '<span class="chat-face-name">' + (isMe ? 'you' : esc(username)) + platformIcon(isMe ? PLATFORM : platform) + '</span></div>';
   }
 
+  // Keep elapsed time out of the HTML diff: a minute passing must not
+  // replace a focused face, a note control, or Home's whole card shelf.
+  window.klabRefreshPresenceTimes = function(root) {
+    root.querySelectorAll('.presence-card.is-away[data-username]').forEach(card => {
+      const label = awayLabel(card.dataset.username);
+      const dot = card.querySelector('.presence-card-online');
+      if (dot) { dot.title = label; dot.setAttribute('aria-label', label); }
+      const track = card.querySelector('[data-presence-away]');
+      if (track) track.textContent = label;
+      if (card.dataset.awayTip) card.title = card.dataset.awayTip.replace(' · away', ' · ' + label.toLowerCase());
+    });
+  };
   let _lastRenderedHTML = null;
   // ── Offline roster ─────
   // klabnet's own presence (above) only shows people currently on the
@@ -552,7 +564,7 @@
     ensureAvatarResolved(person.username);
     const avatarUrl = _avatarCache.get(person.username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((person.username || '?')[0].toUpperCase());
-    return '<div class="presence-row" data-username="' + esc(person.username) + '"' +
+    return '<div class="presence-row" role="link" tabindex="0" aria-label="Message ' + esc(person.username) + '" data-username="' + esc(person.username) + '"' +
       ' style="--name-color:' + profileColor(person.username) + ';" title="' + esc(person.username) + '">' +
       '<div class="presence-row-avatar">' + avatarInner + '</div>' +
       '<span class="presence-row-name">' + esc(person.username) + '</span>' +
@@ -634,9 +646,10 @@
     window.klabChatPresenceChanged && window.klabChatPresenceChanged();
     // Most 8s polls come back with nothing changed — skip the DOM
     // teardown/rebuild entirely when the output is identical to last time.
-    if (html === _lastRenderedHTML) return;
+    if (html === _lastRenderedHTML) { window.klabRefreshPresenceTimes(list); return; }
     _lastRenderedHTML = html;
     list.innerHTML = html;
+    window.klabRefreshPresenceTimes(list);
     applyUnreadDmDots();
   }
 
@@ -985,6 +998,15 @@
     e.preventDefault();
     showPresenceCtx(e.clientX, e.clientY, card);
   };
+  // Delegate so Home's copies and rebuilt chat faces share the same keys.
+  // Links retain interactive descendants (your note / Leave party).
+  document.addEventListener('keydown', e => {
+    if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey ||
+        (e.key !== 'Enter' && e.key !== ' ')) return;
+    const el = e.target.closest('.presence-card[tabindex], .presence-row[tabindex], .presence-card-note-edit[tabindex], .presence-card-party-leave[tabindex]');
+    if (!el || e.target !== el) return;
+    e.preventDefault(); e.stopPropagation(); el.click();
+  }, true);
   list.addEventListener('click', onCardClick);
   list.addEventListener('contextmenu', onCardContext);
   window.klabPresenceCardClick = onCardClick;

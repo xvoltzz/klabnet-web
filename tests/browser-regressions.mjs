@@ -1,12 +1,16 @@
+import presence from './presence.mjs';
+import keyboard from './keyboard.mjs';
 export default async p => {
   const check = async (name, body) => {
     await p.ev(`(async () => { const assert = (ok, why) => { if (!ok) throw new Error(why); };
       const pause = ms => new Promise(r => setTimeout(r, ms)); ${body} })()`);
     console.log('PASS', name);
+    if (p.checkpoint) await p.checkpoint(name);
   };
   await p.goto();
-  if (p.smoke || p.variant === 'light') await p.ev(`applyTheme('${p.variant === 'light' ? 'light' : 'dark'}')`);
+  await p.ev(`applyTheme('${p.variant === 'light' ? 'light' : 'dark'}')`);
   if (p.variant === 'side') await p.ev("document.querySelector('#navStyle [data-v=side]').click()");
+  if (p.keyboardOnly) { await keyboard(p); await presence(p); return; }
   if (p.smoke) {
     await check('desktop layout stays desktop', `assert(!matchMedia(KLAB_PHONE_MQ).matches,'Phone UI in a desktop window');`);
     for (const tab of ['home','feed','chat','music','photos']) {
@@ -30,6 +34,7 @@ export default async p => {
       assert(style.textTransform==='none','Request button uppercase');
     `);
     await p.ev('closeChatModal();openSettings()'); await p.sleep(300); await p.shot('settings');
+    await p.ev('closeSettings()');await keyboard(p); await presence(p);
     console.log('PASS', p.variant, 'screens and dialogs'); return;
   }
   await check('local identity and shared Home feed', `
@@ -74,6 +79,7 @@ export default async p => {
     }
   `);
   await p.shot('settings'); await p.ev('closeSettings()');
+  await keyboard(p); await presence(p);
   await check('slider controls and mute from zero', `
     volSlider.setPct(0.4); playerState.volume = playerState.audio.volume = 0.4;
     const slider = document.getElementById('volSlider');
