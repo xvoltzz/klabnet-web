@@ -2038,12 +2038,32 @@
     .player-vol i { font-size: 14px; color: var(--text-dimmer); }
     .vol-slider { width: 72px; background: none !important; }
 
-    /* Every control has a fixed minimum footprint, so once the window gets
-       narrow enough the sum of those minimums exceeds the dock's own width
-       and content spills out past its rounded edge. Progressively drop the
-       least essential controls instead of letting that happen. */
+    /* Every control has a fixed minimum footprint, so once the dock gets
+       narrow enough the sum of those minimums exceeds its width and content
+       spills out past its rounded edge. Progressively drop the least
+       essential controls instead. Keyed off the dock's own width, not the
+       window's: a sidebar takes 233px of a 1100px window, and the Devices
+       button (js/23-session.js) needs room of its own when it shows. The
+       widths are measured, with the dock's widest gaps. */
+    .player-dock { container: dock / inline-size; }
+    .player-dock .ctrl-btn { flex-shrink: 0; }
+    @container dock (max-width: 860px) { .player-dock .dock-extra { display: none; } }
+    @container dock (max-width: 910px) { .player-dock:has(#dockDevices:not([hidden])) .dock-extra { display: none; } }
+    @container dock (max-width: 840px) {
+      .player-dock .vol-slider { width: 48px; }
+      .player-dock .player-info { min-width: 90px; }
+    }
+    @container dock (max-width: 720px) { .player-dock .player-time-wrap { display: none; } }
+    @container dock (max-width: 600px) {
+      .player-dock .vol-slider { width: 32px; }
+      .player-dock .player-progress { min-width: 40px; }
+    }
+    /* The cover opens the full player too. */
+    @container dock (max-width: 500px) {
+      .player-dock #btnFS { display: none; }
+      .player-dock .player-info { min-width: 60px; }
+    }
     @media (max-width: 860px) {
-      .player-dock .dock-extra { display: none; }
       .player-dock { gap: .6rem; padding-inline: 1rem; }
     }
     @media (max-width: 760px) and (pointer: coarse) {
@@ -8210,7 +8230,7 @@
     .dock-devices.on:hover { border-color: var(--glass-border-h); }
     #fsPlayer #fsDevices.on { color: rgba(var(--accent-rgb),1) !important; opacity: 1 !important; }
     /* Narrow: the icon alone (the name is its tooltip and in the menu). */
-    @media (max-width: 860px) {
+    @container dock (max-width: 1060px) {
       .dock-devices.on { width: 32px; padding: 0; }
       .dock-devices.on span { display: none; }
     }

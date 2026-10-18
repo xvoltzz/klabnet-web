@@ -17,6 +17,16 @@ export default async p => {
           if(r.width)assert(r.left>=bounds.left-1 && r.right<=bounds.right+1,'Dock button escaped: '+(b.id||b.title));}
       `);
     }
+    await check('dock fits with another device playing', `
+      const dock=document.getElementById('playerDock'), dev=document.getElementById('dockDevices'), name=document.getElementById('dockDevicesName');
+      const was=[dev.hidden, dev.className, name.textContent];
+      dev.hidden=false; dev.classList.add('on'); name.textContent='Chrome on Windows';
+      const bounds=dock.getBoundingClientRect();
+      for(const b of dock.querySelectorAll('button, .slider-wrap')){const r=b.getBoundingClientRect();
+        if(r.width){assert(r.left>=bounds.left-1 && r.right<=bounds.right+1,'Dock control escaped: '+(b.id||b.className));
+          assert(b.tagName!=='BUTTON' || r.width>=26,'Dock button squashed: '+(b.id||b.title));}}
+      [dev.hidden, dev.className, name.textContent]=was;
+    `);
     await p.ev("setActiveTab('music')"); await p.sleep(600);
     for (const section of ['albums','artists','songs','requests']) {
       await p.ev(`document.querySelector('.picker-tab[data-tab="${section}"]').click()`);
