@@ -46,7 +46,6 @@
          .tab-nav-btn 37 from padding, .rail-tab 28, .ctrl-btn 32), which
          is why the header's icon row and tab row visibly disagreed. */
       --control-h:    34px;
-      --control-h-sm: 28px;
       /* Section headers ("// feed", "// users") — the feed's also holds a
          button while the rail's is bare text, so without a shared floor
          the two columns' labels sat on different baselines. */
@@ -124,9 +123,7 @@
       --tile-bg:        rgba(255,252,248,0.055);
       --tile-bg-h:      rgba(255,252,248,0.11);
       --tile-icon:      rgba(237,233,224,0.5);
-      --tile-icon-h:    rgba(237,233,224,1);
       --tile-label:     rgba(237,233,224,0.3);
-      --tile-label-h:   rgba(237,233,224,0.8);
       --tile-border:    rgba(255,252,248,0.1);
       --tile-border-h:  rgba(255,252,248,0.28);
       --tile-inner-t:   rgba(255,252,248,0.16);
@@ -172,9 +169,7 @@
       --tile-bg:        rgba(255,255,253,0.55);
       --tile-bg-h:      rgba(255,255,253,0.8);
       --tile-icon:      #8a7550;
-      --tile-icon-h:    #6a5636;
       --tile-label:     #8a7550;
-      --tile-label-h:   #6a5636;
       --tile-border:    rgba(130,112,88,0.2);
       --tile-border-h:  rgba(120,108,92,0.4);
       --tile-inner-t:   rgba(255,255,253,0.85);
@@ -5879,10 +5874,6 @@
     @media (max-width: 1000px) {
       .dash, body[class*="tab-"] .dash { max-width: 100%; }
     }
-    /* Some tabs scroll the page and some lock it; with a classic (Windows)
-       scrollbar the page got ~15px narrower or wider each switch. Keep the
-       scrollbar's space either way. */
-    html { scrollbar-gutter: stable; }
 
     /* ══════════════════════════════════════════
        PHONE LAYOUT (<= 760px): a phone, the installed iPhone app, or the
