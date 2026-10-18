@@ -2495,6 +2495,10 @@
     .settings-row-sub {
       font-size: 9px; color: var(--text-dimmer); letter-spacing: 0.08em; margin-top: 2px;
     }
+    /* A row that is itself the control (Reset all preferences) is a real
+       button, so the keyboard reaches it, drawn as the other rows. */
+    button.settings-row { width: 100%; box-sizing: border-box; font: inherit; letter-spacing: inherit; color: inherit; text-align: start; }
+    button.settings-row :is(.settings-row-label, .settings-row-sub) { display: block; }
     /* Background-color settings row button — shows the currently-effective
        --bg as its own fill (see applyCustomBg()) so it doubles as a live
        swatch, not just a generic icon button. */
@@ -4911,7 +4915,7 @@
     #settingsBackdrop .settings-row {
       margin: 0; border-radius: 0; border: none; background: none; border-top: 1px solid var(--glass-border); padding-left: 4px; padding-right: 4px;
     }
-    #settingsBackdrop .settings-section .settings-row:first-of-type { border-top: none; }
+    #settingsBackdrop .settings-section-label + .settings-row { border-top: none; }
     #settingsBackdrop .settings-row-label { font-size: 14px; letter-spacing: 0; }
     #settingsBackdrop .settings-row-sub { font-size: 12px; letter-spacing: 0; }
 

@@ -82,6 +82,7 @@ export default async p => {
       assert(b.tagName === 'BUTTON', 'Switch is not keyboard reachable');
       assert(b.getAttribute('aria-checked') === String(b.classList.contains('on')), 'Switch accessible state stale');
     }
+    assert(document.getElementById('clearPrefsRow').tagName === 'BUTTON', 'Reset row is not keyboard reachable');
   `);
   await p.shot('settings'); await p.ev('closeSettings()');
   await check('slider controls and mute from zero', `
