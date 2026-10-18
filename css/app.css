@@ -4587,6 +4587,20 @@
     #musicShell .picker-action.fav-active, #musicShell .picker-action.login-active { opacity: 1; }
     #musicShell .picker-action.fav-active { color: var(--danger-color); }
     @media (hover: none) { #musicShell .picker-item .picker-action { opacity: 1; } }
+    /* A narrow list (a narrow window keeps Music's sidebar beside it) left
+       a song row's title 0px wide behind six buttons. Drop them as the list
+       narrows, the way the phone does; every one is also on the row's
+       right-click menu. Song rows only: the album grid keeps its buttons. */
+    #pickerList { container: picker / inline-size; }
+    @container picker (max-width: 440px) {
+      #pickerList:not(.picker-list-grid) .picker-item-actions :is(.type-badge, [data-login], [data-add-pl]) { display: none; }
+    }
+    @container picker (max-width: 380px) {
+      #pickerList:not(.picker-list-grid) .picker-item-actions :is(.klab-star, [data-queue]) { display: none; }
+    }
+    @container picker (max-width: 320px) {
+      #pickerList:not(.picker-list-grid) .picker-item-dur { display: none; }
+    }
 
     /* Album and artist grids: Home's card, with play/queue over the art. */
     #musicShell .picker-list.picker-list-grid {
@@ -7698,6 +7712,9 @@
       #musicShell .ap-hero-name { font-size: 30px; }
       #musicShell .ap-actions, #musicShell .pl-desc { padding-left: 12px; padding-right: 12px; }
     }
+    /* Narrower still, the title gets the hover Play button's room: the row
+       itself plays, and right-click has the rest. */
+    @container (max-width: 400px) { #musicShell .ap-track-play { display: none; } }
 
     /* Songs you can drag into order (by the number) and take out. */
     #musicShell .pl-grip { cursor: grab; }
