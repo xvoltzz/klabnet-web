@@ -241,8 +241,6 @@ function sampleImageColor(imgUrl) {
 
   watchNode(document.getElementById('fsArt'));
   watchNode(document.getElementById('playerArtWrap'));
-  const da = document.querySelector('.player-art');
-  if (da) new MutationObserver(() => sample(da.src)).observe(da, { attributes: true, attributeFilter: ['src'] });
 
   // Revert to default accent when paused; re-sample on resume. Only when
   // playing actually flips: body's class changes on every tab switch too,
@@ -568,6 +566,11 @@ function sampleImageColor(imgUrl) {
           const chips = document.createElement('div'); chips.className = 'ap-similar';
           info.similarArtist.slice(0,14).forEach(sim => {
             const chip = document.createElement('span'); chip.className = 'ap-sim-chip'; chip.textContent = sim.name;
+            chip.setAttribute('role', 'button');
+            chip.tabIndex = 0;
+            chip.addEventListener('keydown', e => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); }
+            });
             chip.addEventListener('click', async () => {
               // Search catalog for this artist
               try {
@@ -778,79 +781,6 @@ function sampleImageColor(imgUrl) {
     await renderFn();
   };
 
-})();
-
-// ══════════════════════════════════════════
-//  PRESENCE RAIL SCROLL BOUNDS
-//  See the comment on .presence-rail's CSS max-height for why this needs
-//  to be measured rather than left as a CSS calc(): enough listeners to
-//  actually approach that cap made the rail's box extend past the
-//  viewport at the page's initial (pre-scroll) layout, so the whole PAGE
-//  became scrollable by the overshoot instead of just the rail scrolling
-//  internally. Also drives the "more below" fade/chevron hint.
-// ══════════════════════════════════════════
-(function() {
-  const rail = document.querySelector('.presence-rail');
-  const more = document.getElementById('presenceRailMore');
-  if (!rail) return;
-  let pending = false;
-  function updateMoreHint() {
-    if (!more) return;
-    // Measured with the hint out of the way: shown, its own box adds ~10px
-    // of scroll height, so it kept itself up forever as "more below" with
-    // nothing below it, fading out the offline toggle it sat on.
-    // And only for a real row's worth: a few px of decoration (a glow, a
-    // focus ring) overhanging the last card isn't "more people below".
-    more.hidden = true;
-    const hasMore = rail.scrollHeight > rail.clientHeight + 24
-      && (rail.scrollTop + rail.clientHeight) < rail.scrollHeight - 24;
-    more.hidden = !hasMore;
-  }
-  function update() {
-    pending = false;
-    // The narrow-width breakpoint already sets max-height:none/
-    // position:static via its own media query — don't fight it with an
-    // inline style left over from a wider viewport.
-    if (window.innerWidth <= 880) {
-      rail.style.maxHeight = '';
-    } else {
-      const top = rail.getBoundingClientRect().top;
-      const available = window.innerHeight - top - 24; // ~1.5rem breathing room at the bottom
-      rail.style.maxHeight = Math.max(120, available) + 'px';
-    }
-    updateMoreHint();
-  }
-  function schedule() {
-    if (pending) return;
-    pending = true;
-    requestAnimationFrame(update);
-  }
-  window.addEventListener('resize', schedule);
-  window.addEventListener('load', schedule);
-  // updateMoreHint reads scrollHeight/clientHeight/scrollTop and then writes
-  // `hidden`, which invalidates layout — so the next scroll event's read
-  // forces a fresh synchronous reflow, once per scroll event. Coalescing
-  // into a frame is the same treatment update() above already gets.
-  let hintPending = false;
-  function scheduleMoreHint() {
-    if (hintPending) return;
-    hintPending = true;
-    requestAnimationFrame(() => { hintPending = false; updateMoreHint(); });
-  }
-  rail.addEventListener('scroll', scheduleMoreHint, { passive: true });
-  // New/removed listeners change rail.scrollHeight — recheck the hint
-  // (not the max-height, which only depends on viewport geometry).
-  new MutationObserver(scheduleMoreHint).observe(rail, { childList: true, subtree: true });
-  // Sizes also change with no mutation at all (fonts and avatars loading,
-  // the header settling at startup), which left the "more below" chevron
-  // and its fade stuck over the offline toggle with nothing below it.
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => { schedule(); scheduleMoreHint(); });
-    ro.observe(rail);
-    const inner = document.getElementById('presenceList');
-    if (inner) ro.observe(inner);
-  }
-  schedule();
 })();
 
 // ══════════════════════════════════════════

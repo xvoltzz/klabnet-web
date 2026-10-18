@@ -152,7 +152,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.17.2" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.18.1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -164,7 +164,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.17.2" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.18.1" />
 </head>
 <body>
 
@@ -327,8 +327,8 @@ window.KLAB_BOOT = (function() {
         <!-- Windows browsers only (js/07-tabnav.js); the app itself hides it. -->
         <a class="ctx-item" id="getAppBtn" href="desktop/klabnet-setup.exe" download hidden><i class="ti ti-download"></i> Get the Windows app</a>
         <div class="ctx-divider"></div>
-        <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
-        <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank"><i class="ti ti-user-circle"></i> Account</a>
+        <a class="ctx-item" id="repoBtn" href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank" rel="noopener"><i class="ti ti-git-branch"></i> Source (Gitea)</a>
+        <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank" rel="noopener"><i class="ti ti-user-circle"></i> Account</a>
       </div>
 <!-- Voice channels (js/22-voice.js), under the header's headset button. -->
 <div class="hdr-more-menu vc-panel" id="voicePanel" role="dialog" aria-label="Voice">
@@ -550,7 +550,7 @@ window.KLAB_BOOT = (function() {
           <!-- Laid out like Music: a sidebar and the conversation, straight
                on the page over a backdrop, no panel around them. -->
           <aside class="chat-side" id="chatSide">
-            <label class="chat-search"><i class="ti ti-search"></i><input type="text" id="chatSearch" placeholder="Find someone or a channel" autocomplete="off" /></label>
+            <label class="chat-search"><i class="ti ti-search"></i><input type="text" id="chatSearch" placeholder="Find someone or a channel" aria-label="Find someone or a channel" autocomplete="off" /></label>
             <div class="chat-side-scroll">
               <div class="chat-lbl">Online now</div>
               <div class="presence-grid chat-online" id="presenceList"></div>
@@ -591,7 +591,7 @@ window.KLAB_BOOT = (function() {
                      sliding window of a long message, so you had to arrow
                      around to read back what you'd written. Enter still
                      sends; Shift+Enter makes a newline. -->
-                <textarea id="chatComposerInput" placeholder="Message…" rows="1" autocomplete="off" disabled></textarea>
+                <textarea id="chatComposerInput" placeholder="Message…" aria-label="Message" rows="1" autocomplete="off" disabled></textarea>
                 <button class="chat-icon-btn chat-emoji-btn" id="chatEmojiBtn" type="button" title="Emoji"><i class="ti ti-mood-smile"></i></button>
                 <button class="chat-share-np" id="chatShareNp" type="button" title="Share what you're playing" hidden><span class="chat-share-np-art" id="chatShareNpArt"></span><span id="chatShareNpTitle"></span></button>
                 <button class="chat-send" id="chatSendBtn" type="button" title="Send"><i class="ti ti-arrow-up"></i></button>
@@ -610,7 +610,7 @@ window.KLAB_BOOT = (function() {
     <nav class="music-sidebar" id="musicSidebar">
       <div class="picker-search">
         <i class="ti ti-search"></i>
-        <input type="text" id="pickerSearch" placeholder="Search songs, artists…" autocomplete="off" />
+        <input type="text" id="pickerSearch" placeholder="Search songs, artists…" aria-label="Search music" autocomplete="off" />
         <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
       </div>
       <!-- Home, then what's yours, then the whole library. Split into
@@ -747,7 +747,7 @@ window.KLAB_BOOT = (function() {
         <div class="ph-side-head"><span>Comments</span><button type="button" class="ph-side-close" id="phSideClose" title="Close (c)"><i class="ti ti-x"></i></button></div>
         <div class="ph-replies" id="phReplies"></div>
         <form class="ph-reply-form" id="phReplyForm" autocomplete="off">
-          <input type="text" id="phReplyInput" placeholder="Add a comment…" maxlength="500" />
+          <input type="text" id="phReplyInput" placeholder="Add a comment…" aria-label="Add a comment" maxlength="500" />
         </form>
         <div class="ph-side-foot">
           <a class="ph-original" id="phOriginal" target="_blank" rel="noopener"><i class="ti ti-arrows-maximize"></i> Full resolution · <span id="phOriginalSize"></span></a>
@@ -829,11 +829,9 @@ window.KLAB_BOOT = (function() {
   </div>
 </div>
 
-<!-- KEYBOARD SHORTCUTS HINTS — own dedicated backdrop (not the shared
-     chatModal shell) so its own Escape/open-state handling never has to
-     guess whether some OTHER modal is the one currently open. -->
+<!-- PHOTOS — new post and edit post (js/14-photos.js). -->
 <div class="add-app-backdrop" id="phComposeBackdrop">
-  <div class="add-app-modal ph-compose">
+  <div class="add-app-modal ph-compose" role="dialog" aria-label="New photo post">
     <div class="add-app-title">
       <span>New photo post</span>
       <button class="add-app-close" id="phComposeClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -842,17 +840,17 @@ window.KLAB_BOOT = (function() {
       <input type="file" id="phComposeFile" accept="image/*,.heic,.heif" multiple hidden />
       <div class="ph-compose-grid" id="phComposeGrid"></div>
       <div class="ph-compose-exif" id="phComposeExif"></div>
-      <textarea class="ph-compose-caption" id="phComposeCaption" rows="2" maxlength="500" placeholder="Write a caption…"></textarea>
+      <textarea class="ph-compose-caption" id="phComposeCaption" rows="2" maxlength="500" placeholder="Write a caption…" aria-label="Caption"></textarea>
       <div class="ph-compose-pair">
         <label class="ph-field ph-date-field"><span>Shooting date</span><input type="date" id="phShotDate" /><em class="ph-compose-hint" id="phShotHint"></em></label>
         <div class="ph-field ph-tags-field"><span>Tag people who were there</span>
-          <div class="ph-tags-box" id="phTagsBox"><input type="text" id="phTagInput" placeholder="Type a name…" autocomplete="off" /></div>
+          <div class="ph-tags-box" id="phTagsBox"><input type="text" id="phTagInput" placeholder="Type a name…" aria-label="Tag people who were there" autocomplete="off" /></div>
           <div class="ph-tag-suggest" id="phTagSuggest"></div>
         </div>
       </div>
       <div class="ph-compose-song">
         <div id="phSongSearchWrap">
-          <div class="ph-song-search"><i class="ti ti-music"></i><input type="text" id="phSongSearch" placeholder="Add a song from the library…" autocomplete="off" /></div>
+          <div class="ph-song-search"><i class="ti ti-music"></i><input type="text" id="phSongSearch" placeholder="Add a song from the library…" aria-label="Add a song from the library" autocomplete="off" /></div>
           <div class="ph-song-results" id="phSongResults"></div>
         </div>
         <div class="ph-song-picked" id="phSongPicked" hidden>
@@ -862,7 +860,7 @@ window.KLAB_BOOT = (function() {
             <button type="button" class="ph-mini-btn" id="phSongPreview" title="Preview clip"><i class="ti ti-player-play"></i></button>
             <button type="button" class="ph-mini-btn" id="phSongRemove" title="Remove song"><i class="ti ti-x"></i></button>
           </div>
-          <input type="range" id="phSongStart" min="0" max="300" step="1" value="0" />
+          <input type="range" id="phSongStart" min="0" max="300" step="1" value="0" aria-label="Where the song starts" />
           <div class="ph-compose-hint" id="phSongStartLabel"></div>
         </div>
       </div>
@@ -875,7 +873,7 @@ window.KLAB_BOOT = (function() {
 </div>
 
 <div class="add-app-backdrop" id="phEditBackdrop">
-  <div class="add-app-modal ph-compose ph-edit">
+  <div class="add-app-modal ph-compose ph-edit" role="dialog" aria-label="Edit post">
     <div class="add-app-title">
       <span>Edit post</span>
       <button class="add-app-close" id="phEditClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -884,7 +882,7 @@ window.KLAB_BOOT = (function() {
       <label class="ph-field ph-date-field"><span>Shooting date</span><input type="date" id="phEditDate" /><em class="ph-compose-hint">Leave it empty to use the date saved in the photos.</em></label>
       <label class="ph-field"><span>Caption</span><textarea class="ph-compose-caption" id="phEditCaption" rows="3" maxlength="500"></textarea></label>
       <div class="ph-field ph-tags-field"><span>Tagged</span>
-        <div class="ph-tags-box" id="phEditTagsBox"><input type="text" id="phEditTagInput" placeholder="Type a name…" autocomplete="off" /></div>
+        <div class="ph-tags-box" id="phEditTagsBox"><input type="text" id="phEditTagInput" placeholder="Type a name…" aria-label="Tagged" autocomplete="off" /></div>
         <div class="ph-tag-suggest" id="phEditTagSuggest"></div>
       </div>
     </div>
@@ -895,8 +893,11 @@ window.KLAB_BOOT = (function() {
   </div>
 </div>
 
+<!-- KEYBOARD SHORTCUTS HINTS — own dedicated backdrop (not the shared
+     chatModal shell) so its own Escape/open-state handling never has to
+     guess whether some OTHER modal is the one currently open. -->
 <div class="add-app-backdrop" id="keyHintsBackdrop">
-  <div class="add-app-modal" style="width:min(560px, calc(100vw - 2rem));">
+  <div class="add-app-modal" role="dialog" aria-label="Keyboard shortcuts" style="width:min(560px, calc(100vw - 2rem));">
     <div class="add-app-title">
       <span>Keyboard shortcuts</span>
       <button class="add-app-close" id="keyHintsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -944,7 +945,7 @@ window.KLAB_BOOT = (function() {
 
 <!-- SETTINGS MODAL -->
 <div class="settings-backdrop" id="settingsBackdrop">
-  <div class="settings-modal">
+  <div class="settings-modal" role="dialog" aria-label="Settings">
     <div class="settings-header">
       <span class="settings-title">Settings</span>
       <button class="settings-close" id="settingsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -1116,37 +1117,37 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.17.2';</script>
-<script defer src="js/00-util.js?v=v2026.10.17.2"></script>
-<script defer src="js/01-shell.js?v=v2026.10.17.2"></script>
-<script defer src="js/02-player.js?v=v2026.10.17.2"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.17.2"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.17.2"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.17.2"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.17.2"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.17.2"></script>
-<script defer src="js/08-chat.js?v=v2026.10.17.2"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.17.2"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.17.2"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.17.2"></script>
-<script defer src="js/11-presence.js?v=v2026.10.17.2"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.17.2"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.17.2"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.17.2"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.17.2"></script>
-<script defer src="js/12-feed.js?v=v2026.10.17.2"></script>
-<script defer src="js/13-tail.js?v=v2026.10.17.2"></script>
-<script defer src="js/14-photos.js?v=v2026.10.17.2"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.17.2"></script>
-<script defer src="js/16-motion.js?v=v2026.10.17.2"></script>
-<script defer src="js/17-history.js?v=v2026.10.17.2"></script>
-<script defer src="js/18-home.js?v=v2026.10.17.2"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.17.2"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.17.2"></script>
-<script defer src="js/21-stars.js?v=v2026.10.17.2"></script>
-<script defer src="js/22-voice.js?v=v2026.10.17.2"></script>
-<script defer src="js/23-session.js?v=v2026.10.17.2"></script>
-<script defer src="js/24-flair.js?v=v2026.10.17.2"></script>
+<script>const KLABNET_VERSION = 'v2026.10.18.1';</script>
+<script defer src="js/00-util.js?v=v2026.10.18.1"></script>
+<script defer src="js/01-shell.js?v=v2026.10.18.1"></script>
+<script defer src="js/02-player.js?v=v2026.10.18.1"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.18.1"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.18.1"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.18.1"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.18.1"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.18.1"></script>
+<script defer src="js/08-chat.js?v=v2026.10.18.1"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.18.1"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.18.1"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.18.1"></script>
+<script defer src="js/11-presence.js?v=v2026.10.18.1"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.18.1"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.18.1"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.18.1"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.18.1"></script>
+<script defer src="js/12-feed.js?v=v2026.10.18.1"></script>
+<script defer src="js/13-tail.js?v=v2026.10.18.1"></script>
+<script defer src="js/14-photos.js?v=v2026.10.18.1"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.18.1"></script>
+<script defer src="js/16-motion.js?v=v2026.10.18.1"></script>
+<script defer src="js/17-history.js?v=v2026.10.18.1"></script>
+<script defer src="js/18-home.js?v=v2026.10.18.1"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.18.1"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.18.1"></script>
+<script defer src="js/21-stars.js?v=v2026.10.18.1"></script>
+<script defer src="js/22-voice.js?v=v2026.10.18.1"></script>
+<script defer src="js/23-session.js?v=v2026.10.18.1"></script>
+<script defer src="js/24-flair.js?v=v2026.10.18.1"></script>
 
 </body>
 </html>

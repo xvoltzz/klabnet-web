@@ -31,6 +31,18 @@ function fetchTimeout(url, opts, ms) {
   return fetch(url, { ...(opts || {}), signal }).finally(() => clearTimeout(t));
 }
 
+// Shared by Feed and Home so the same post has the same age on both.
+// Takes milliseconds; API timestamp parsing stays with the caller.
+function klabRelativeTime(time) {
+  if (!Number.isFinite(time) || time <= 0) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  if (seconds < 604800) return Math.floor(seconds / 86400) + 'd';
+  return new Date(time).toLocaleDateString();
+}
+
 // Escape a string for safe interpolation into an innerHTML template —
 // used anywhere a song/artist/album/playlist name (Navidrome metadata or
 // direct user input, e.g. a typed playlist name) gets built into markup.

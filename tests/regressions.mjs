@@ -96,3 +96,16 @@ const failedCount = puts.length;
 await stars.toggle('song:rapid', true);
 assert.equal(puts.length, failedCount, 'uncertain previous write must refresh before another flip');
 console.log('PASS failed lookups and writes preserve intended star state');
+
+const timeContext = context({ Date: class extends Date { static now() { return 2000000000; } } });
+vm.runInContext(await source('00-util.js'), timeContext);
+for (const [seconds, expected] of [[0, 'just now'], [59, 'just now'], [60, '1m'],
+  [3599, '59m'], [3600, '1h'], [86399, '23h'], [86400, '1d'], [604799, '6d']]) {
+  assert.equal(timeContext.klabRelativeTime(2000000000 - seconds * 1000), expected);
+}
+assert.equal(timeContext.klabRelativeTime(2000001000), 'just now');
+assert.equal(timeContext.klabRelativeTime(NaN), '');
+assert.equal(timeContext.klabRelativeTime(0), '');
+assert.equal(timeContext.klabRelativeTime(2000000000 - 604800000),
+  new Date(2000000000 - 604800000).toLocaleDateString());
+console.log('PASS shared relative times at minute, hour, day and week boundaries');

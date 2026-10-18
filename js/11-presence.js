@@ -674,28 +674,6 @@
   // Called by the chat module whenever its unread set changes.
   window.KLAB_REFRESH_PRESENCE_UNREAD = applyUnreadDmDots;
 
-  // ── Rail tabs: Users / Channels ──────────
-  // Only meaningful on Chat (off it there are no channels and the tab row
-  // is hidden), but the class is harmless everywhere so there's no need to
-  // special-case the tab here. Remembered so it doesn't reset every visit.
-  const RAIL_TAB_KEY = 'klabnet_rail_tab';
-  function setRailTab(which) {
-    const rail = document.getElementById('presenceRail');
-    if (!rail) return;
-    const showChannels = which === 'channels';
-    rail.classList.toggle('show-channels', showChannels);
-    document.querySelectorAll('#railTabs .rail-tab').forEach(b =>
-      b.classList.toggle('active', (b.dataset.railTab === 'channels') === showChannels));
-    try { localStorage.setItem(RAIL_TAB_KEY, showChannels ? 'channels' : 'users'); } catch (e) {}
-  }
-  document.getElementById('railTabs')?.addEventListener('click', e => {
-    const btn = e.target.closest('.rail-tab');
-    if (!btn) return;
-    setRailTab(btn.dataset.railTab);
-    SFX && SFX.play('click');
-  });
-  try { setRailTab(localStorage.getItem(RAIL_TAB_KEY) || 'users'); } catch (e) { setRailTab('users'); }
-
   // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
     const username = card.dataset.username || 'them';
@@ -1180,7 +1158,9 @@
     if (_heartbeatTimer || _beatWorker) return;
     try {
       const src = 'let t;onmessage=e=>{clearInterval(t);t=setInterval(()=>postMessage(0),e.data)}';
-      _beatWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      const workerUrl = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      try { _beatWorker = new Worker(workerUrl); }
+      finally { URL.revokeObjectURL(workerUrl); }
       // Party ticks ride along: a host in a background tab keeps its
       // followers in step instead of dropping to one tick a minute.
       _beatWorker.onmessage = () => { postPresence(); broadcastPartyTick(); };

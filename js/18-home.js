@@ -36,13 +36,7 @@
     const str = String(s);
     return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(' ', 'T') + 'Z').getTime() || 0;
   };
-  function ago(t) {
-    const s = (Date.now() - t) / 1000;
-    if (s < 45) return 'just now';
-    if (s < 3600) return Math.round(s / 60) + 'm';
-    if (s < 86400) return Math.round(s / 3600) + 'h';
-    return new Date(t).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short' });
-  }
+  const ago = t => klabRelativeTime(t);
   const timeHTML = t => '<span class="hm-t" data-t="' + t + '">' + ago(t) + '</span>';
   const cover = (id, size) => id ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(id)}&size=${size}&${subsonicParams()}` : '';
   const photoFile = (id, size) => `/api/posts/photos/files/${id}/${size}?v=2`;
