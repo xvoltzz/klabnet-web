@@ -2270,6 +2270,9 @@
       position: relative; height: 20px;
       display: block; cursor: pointer; flex-shrink: 0;
       background: none !important;
+      /* Its own width is 100cqi, for the dot below. Safe: everything in
+         it is absolutely placed, so it has no content width to lose. */
+      container-type: inline-size;
     }
     .slider-track {
       position: absolute; left: 0; right: 0; height: 3px;
@@ -2289,7 +2292,9 @@
       position: absolute; width: 14px; height: 14px;
       border-radius: 50%; background: #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.3);
-      top: 50%; transform: translate(-50%, -50%);
+      /* Placed by --pct (0..1) with a transform, so moving it is no layout,
+         like the fill's scaleX. An inline style.left still works too. */
+      left: 0; top: 50%; transform: translate(calc(var(--pct, 0) * 100cqi - 50%), -50%);
       pointer-events: none;
       opacity: 0; transition: opacity 0.2s, box-shadow 0.2s;
     }
