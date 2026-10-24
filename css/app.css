@@ -8794,8 +8794,8 @@
     }
     .soc-main > .tab-panel::-webkit-scrollbar { display: none; }
     .tab-panel[data-tab-panel="feed"] { max-width: none; margin: 0; }
-    /* A reading column, starting at the sidebar like every page beside it. */
-    .tab-panel[data-tab-panel="feed"] > .sec { max-width: 900px; margin: 0; }
+    /* A reading column, centred in the room beside the sidebar. */
+    .tab-panel[data-tab-panel="feed"] > .sec { max-width: 900px; margin: 0 auto; }
 
     /* ── The sidebar: Music's ── */
     .soc-sidebar { width: 250px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
