@@ -115,7 +115,7 @@ try {
   check('...and not after', await ev(`!klabSlideshow.isOpen() && document.getElementById('phSlideBtn').getAttribute('aria-pressed') === 'false'`));
   check('on Photos, Chat and Online now step aside', await ev(`!document.getElementById('chatSide').offsetParent`));
   await ev(`document.querySelector('#socNav [data-soc="social"]').click()`); await sleep(600);
-  check('chat not signed in: "Connect chat", no lists, who\'s online', await ev(`!document.body.classList.contains('chat-on') && !!document.getElementById('socChatConnect').offsetParent && !document.getElementById('chatChannelsList').offsetParent && !!document.getElementById('presenceList').offsetParent`));
+  check('chat not signed in: "Connect chat", no lists, no Online now', await ev(`!document.body.classList.contains('chat-on') && !!document.getElementById('socChatConnect').offsetParent && !document.getElementById('chatChannelsList').offsetParent && !document.getElementById('presenceList').offsetParent`));
   await ev(`document.getElementById('socChatConnect').click()`); await sleep(500);
   check('"Connect chat" goes to Chat', (await at()) === 'chat');
   await shot('chat');

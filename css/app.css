@@ -8986,3 +8986,68 @@
         padding-bottom: var(--dock-room);
       }
     }
+
+    /* ══ SOCIAL'S SIDEBAR, compact (2026-10-24) ══
+       Room for more of what matters: channels on one line, a conversation
+       on one line (who, then the last thing said, faded), voice rows and
+       who's online as plain rows rather than tiles, and less air between
+       the groups. The nav rows keep Music's 38px so the two sidebars
+       line up. */
+    #socShell .soc-side-scroll { gap: 12px; }
+    #socShell .chat-lbl { padding: 10px 12px 4px; }
+    #socShell .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
+    #socShell .music-sidebar-label { padding-bottom: 4px; }
+
+    /* Channels and conversations: 32px rows. */
+    #socShell #chatSide .chat-conv { height: 32px; padding: 0 8px 0 10px; gap: 8px; margin: 0 0 1px; border-radius: 8px; }
+    #socShell #chatSide .chat-conv-lead { width: 20px; font-size: 15px; }
+    #socShell #chatSide .chat-conv-face { width: 22px; height: 22px; font-size: 10px; margin-left: -1px; }
+    #socShell #chatSide .chat-conv-face .chat-channel-online-dot { width: 7px; height: 7px; right: -2px; bottom: -2px; }
+    #socShell #chatSide .chat-conv-tx { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+    #socShell #chatSide .chat-conv-top { display: contents; }
+    #socShell #chatSide .chat-channel-name { order: 0; flex: 0 1 auto; font-size: var(--fs-13); }
+    #socShell #chatSide .chat-channel-unread-dot { order: 1; align-self: center; width: 6px; height: 6px; }
+    #socShell #chatSide .chat-conv-last { order: 2; flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--fs-12); }
+    #socShell #chatSide .chat-conv-when { order: 3; margin-left: auto; font-size: var(--fs-11); }
+    /* A channel's name says enough; the preview is a conversation's. */
+    #socShell #chatChannelsList .chat-conv-last { display: none; }
+    #socShell #chatSide .chat-channel-close {
+      right: 4px; width: 22px; height: 22px; opacity: 0; background: none; box-shadow: none; border: none;
+      color: var(--text-dimmer); font-size: 13px; transition: opacity .15s ease;
+    }
+    #socShell #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    #socShell #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
+    #socShell #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
+    #socShell #chatSide .chat-more { height: 28px; padding: 0 10px; gap: 8px; }
+    #socShell #chatSide .chat-more i { width: 20px; }
+
+    /* Voice: rows like the others. */
+    #socVoice .vc-row { height: 32px; padding: 0 10px; gap: 8px; border-radius: 8px; font-size: var(--fs-13); }
+    #socVoice .vc-row i { font-size: 16px; width: 20px; }
+
+    #socShell #presenceList[hidden] { display: none; }
+    /* Online now (hidden for now): rows, not tiles. Name, then what they're up to (or
+       their note) faded on the same line; your own note to add on hover. */
+    #presenceList.soc-presence { gap: 1px; }
+    #presenceList.soc-presence .presence-card:not(.has-banner),
+    #presenceList.soc-presence .presence-card {
+      min-height: 32px; padding: 4px 8px 4px 10px; gap: 8px; border-radius: 8px; align-items: center;
+    }
+    #presenceList.soc-presence .presence-card:not(.has-banner) { background: none; border-color: transparent; }
+    #presenceList.soc-presence .presence-card:not(.has-banner):hover { background: var(--glass-fill); }
+    #presenceList.soc-presence .presence-card-avatar { width: 22px; height: 22px; font-size: 10px; flex: none; }
+    #presenceList.soc-presence .presence-card-online { width: 7px; height: 7px; right: -2px; bottom: -2px; }
+    #presenceList.soc-presence .presence-card-info { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 7px; min-width: 0; }
+    #presenceList.soc-presence .presence-card-name { margin: 0; flex: 0 1 auto; max-width: 100%; }
+    #presenceList.soc-presence .presence-card-name svg, #presenceList.soc-presence .presence-card-name i { display: none; }
+    #presenceList.soc-presence .presence-card-track { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #presenceList.soc-presence .presence-card-artist { display: none; }
+    #presenceList.soc-presence .presence-card-note { flex-basis: 100%; margin: 1px 0 0; padding: 0; border: none; background: none; font-size: var(--fs-12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Out of sight but still reachable from the keyboard; on hover or
+       focus it takes "Online"'s place, so nothing below moves. */
+    #presenceList.soc-presence .presence-card-note-empty:not(:focus) {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;
+    }
+    #presenceList.soc-presence .presence-card:hover .presence-card-note-empty,
+    #presenceList.soc-presence .presence-card-note-empty:focus { position: static; width: auto; height: auto; opacity: 1; pointer-events: auto; flex: 1 1 0; margin: 0; }
+    #presenceList.soc-presence .presence-card:is(:hover, :focus-within):has(.presence-card-note-empty) .presence-card-track { display: none; }

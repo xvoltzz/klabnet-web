@@ -26,17 +26,7 @@ export default async p => {
   }
   await p.ev("closeApPanel();setActiveTab('social')");await p.sleep(600);await p.shot('keyboard-presence');
   if (!p.baseline) {
-    await p.ev(`{const note=document.querySelector('#presenceList .presence-card-note-edit');
-      if(note.getAttribute('role')!=='button'||note.tabIndex!==0)throw new Error('Note inaccessible');note.focus();}`);
-    await p.key(' ','Space');
-    if(!await p.ev("!!document.getElementById('inputDialogField') && document.getElementById('chatModalBackdrop').classList.contains('open')"))throw new Error('Note Space did not open dialog');
-    await p.ev('closeChatModal()');
-    await p.ev(`{const card=document.querySelector('#presenceList .presence-card');
-      if(card.getAttribute('role')!=='link'||card.tabIndex!==0)throw new Error('Presence face inaccessible');
-      window.keyboardClicks=0;window.keyboardCatch=e=>{if(e.target===card){keyboardClicks++;e.stopImmediatePropagation();}};
-      document.addEventListener('click',keyboardCatch,true);card.focus();}`);
-    try {await p.key('Enter');await p.key(' ','Space');if(await p.ev('keyboardClicks')!==2)throw new Error('Presence keyboard activation failed');}
-    finally {await p.ev('document.removeEventListener("click",keyboardCatch,true);delete window.keyboardCatch;delete window.keyboardClicks;');}
-    console.log('PASS discography and presence keyboard activation');
+    // Online now's cards aren't shown any more (2026-10-24): nothing of theirs to reach.
+    console.log('PASS discography keyboard activation');
   }
 };
