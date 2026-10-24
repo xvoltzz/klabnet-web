@@ -234,7 +234,7 @@
   // Latest posts: Feed's own, as it has them (no fetch of its own).
   const posts = (() => {
     const sec = document.createElement('section');
-    sec.className = 'mh-section';
+    sec.className = 'mh-section soc-posts';
     sec.innerHTML = '<div class="mh-row-wrap"><div class="mh-row"></div>' +
       '<button type="button" class="mh-row-nav prev" title="Back"><i class="ti ti-chevron-left"></i></button>' +
       '<button type="button" class="mh-row-nav next" title="More"><i class="ti ti-chevron-right"></i></button></div>';
@@ -244,7 +244,24 @@
       wrap.classList.toggle('more-r', row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
     };
     row.addEventListener('scroll', edges, { passive: true });
-    new ResizeObserver(edges).observe(row);
+    // On a big screen the row takes what height is left under the photos:
+    // as many rows of cards as fit (up to three, and no more than the
+    // posts need), each card showing as many lines as it has room for.
+    const roomy = matchMedia('(min-width: 761px), (pointer: fine)');
+    const GAP = 14, CARD_W = 260, ROW_H = 210;
+    function fit() {
+      if (!roomy.matches) { row.style.removeProperty('--rows'); row.style.removeProperty('--lines'); row.classList.remove('tall'); return; }
+      const cs = getComputedStyle(row);
+      const h = row.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const n = row.querySelectorAll('.soc-post').length || 1;
+      const cols = Math.max(1, Math.floor((row.clientWidth + GAP) / (CARD_W + GAP)));
+      const rows = Math.max(1, Math.min(3, Math.floor((h + GAP) / (ROW_H + GAP)), Math.ceil(n / cols)));
+      const cell = (h - GAP * (rows - 1)) / rows;
+      row.style.setProperty('--rows', rows);
+      row.style.setProperty('--lines', Math.max(4, Math.floor((cell - 86) / 19)));
+      row.classList.toggle('tall', cell >= 220);
+    }
+    new ResizeObserver(() => { fit(); edges(); }).observe(row);
     const page = dir => row.scrollBy({ left: dir * row.clientWidth * 0.85, behavior: 'smooth' });
     sec.querySelector('.mh-row-nav.prev').addEventListener('click', () => page(-1));
     sec.querySelector('.mh-row-nav.next').addEventListener('click', () => page(1));
@@ -258,10 +275,17 @@
       const url = window.klabResolveUserAvatar?.(u);
       return '<span class="soc-post-av">' + (url ? '<img src="' + esc(url) + '" alt="" />' : esc((u || '?')[0].toUpperCase())) + '</span>';
     }
+    // A post's picture, or the cover of the song it shares: shown when the
+    // cards are tall enough to hold one (.tall, from fit()).
+    function pic(p) {
+      if (p.image_mxc) return window.klabFeedImage?.(p.image_mxc) || null;
+      const c = p.song?.coverArt;
+      return c && typeof ND_URL !== 'undefined' ? ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(c) + '&size=' + klabArtSize(300) + '&' + subsonicParams() : null;
+    }
     let lastKey = '';
     function render(list) {
       if (!list) return;
-      const key = list.map(p => p.id + ':' + (p.reply_count || 0) + ':' + !!window.klabResolveUserAvatar?.(p.username)).join('|');
+      const key = list.map(p => p.id + ':' + (p.reply_count || 0) + ':' + !!window.klabResolveUserAvatar?.(p.username) + ':' + (pic(p) || '')).join('|');
       if (key === lastKey) { refreshTimes(); return; }
       lastKey = key;
       row.innerHTML = list.length ? list.map(p => {
@@ -272,11 +296,13 @@
             '<span class="soc-post-name" style="color:' + (typeof profileColor === 'function' ? profileColor(p.username) : 'inherit') + '">' + esc(p.username) + '</span>' +
             '<span class="soc-post-when" data-t="' + apiTime(p.created) + '">' + klabRelativeTime(apiTime(p.created)) + '</span></div>' +
           '<div class="soc-post-text">' + esc(text) + '</div>' +
+          (pic(p) ? '<div class="soc-post-pic"><img src="' + esc(pic(p)) + '" alt="" loading="lazy" /></div>' : '') +
           '<div class="soc-post-meta">' +
             (p.reply_count ? '<span><i class="ti ti-message-circle"></i>' + p.reply_count + '</span>' : '') +
             (reacts ? '<span><i class="ti ti-mood-smile"></i>' + reacts + '</span>' : '') + '</div>' +
         '</div>';
       }).join('') : '<div class="soc-home-empty">No posts yet.</div>';
+      fit();
       edges();
     }
     function refreshTimes() {

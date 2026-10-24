@@ -750,7 +750,7 @@
     // outside (presence's profile refresh), and drawing the empty list
     // replaced the loading or Retry message with "No posts yet".
     if (!_feedLoadedOk) return;
-    window.klabHomeFeedChanged?.(_feedPosts.slice(0, 8));
+    window.klabHomeFeedChanged?.(_feedPosts.slice(0, 12));
     const me = window.KLAB_USER?.username;
     const posts = _mentionsOnly ? _feedPosts.filter(p => textMentions(p.text, me)) : _feedPosts;
     const keys = posts.map(p => postRenderKey(p, me));
@@ -888,7 +888,10 @@
   // color/bio/banner — renderFeed/listEl are private to this IIFE, same
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
-  window.klabFeedPosts = () => _feedLoadedOk ? _feedPosts.slice(0, 8) : null;
+  window.klabFeedPosts = () => _feedLoadedOk ? _feedPosts.slice(0, 12) : null;
+  // A post's picture for Social's home: the URL once it's loaded (null
+  // till then; the load re-renders the feed, which tells Social's home).
+  window.klabFeedImage = mxc => { ensureFeedImage(mxc); return _feedImageCache.get(mxc) || null; };
   window.klabLoadFeed = () => _feedLoadedOk && Date.now() - _feedFetchedAt < 30000 ? Promise.resolve() : fetchFeed();
   // A new profile picture: this cache still had the old one, so feed
   // posts, Home, the mention list and the request list kept the old face

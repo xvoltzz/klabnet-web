@@ -8728,6 +8728,29 @@
     .soc-post-meta { margin-top: auto; display: flex; gap: 12px; font-size: var(--fs-11); color: var(--text-dimmer); }
     .soc-post-meta i { margin-right: 3px; }
     .soc-home-empty { padding: 10px 4px; font-size: var(--fs-13); color: var(--text-dimmer); }
+    /* On a big screen, Latest posts fill the height under the photos: the
+       page is at least the panel's height, and the row a grid of up to
+       three rows (js/25-social.js fit() sets --rows and --lines). */
+    @media (min-width: 761px), (pointer: fine) {
+      .soc-home { min-height: 100%; display: flex; flex-direction: column; }
+      .soc-home-body { flex: 1; }
+      .soc-posts { flex: 1; display: flex; flex-direction: column; min-height: 152px; }
+      .soc-posts .mh-row-wrap { flex: 1; display: flex; flex-direction: column; }
+      .soc-posts .mh-row {
+        flex: 1 1 0; min-height: 0; display: grid; grid-auto-flow: column;
+        grid-template-rows: repeat(var(--rows, 1), minmax(0, 1fr)); grid-auto-columns: minmax(260px, 1fr);
+      }
+      .soc-posts .soc-post { width: auto; min-height: 0; }
+      .soc-posts .soc-post-text { -webkit-line-clamp: var(--lines, 4); }
+      .soc-posts .mh-row-nav { top: calc(50% - 21px); }
+      .soc-posts .tall .soc-post-pic {
+        display: block; flex: 1 1 0; min-height: 60px; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h);
+      }
+      .soc-posts .tall .soc-post-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .soc-posts .tall .soc-post-pic ~ .soc-post-meta { margin-top: 0; }
+      .soc-posts .tall .soc-post:has(.soc-post-pic) .soc-post-text { -webkit-line-clamp: 3; flex: none; }
+    }
+    .soc-post-pic { display: none; }
 
     /* ── The sidebar, hidden (the header's button or "b") ── */
     @media (min-width: 761px), (pointer: fine) {
