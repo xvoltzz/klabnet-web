@@ -9155,7 +9155,7 @@
     #musicShell #pickerList.has-abc { padding-right: 34px; }
     .abc-rail {
       position: absolute; right: 4px; width: 24px; z-index: 6;
-      touch-action: none; user-select: none; -webkit-user-select: none; outline: none;
+      touch-action: none; user-select: none; -webkit-user-select: none; outline: none; cursor: pointer;
       opacity: .55; transition: opacity .35s ease;
     }
     .abc-rail[hidden] { display: none; }
