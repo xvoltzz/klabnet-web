@@ -355,7 +355,7 @@ document.getElementById('fsNext').addEventListener('click', () => SFX.play('skip
 document.getElementById('fsPrev').addEventListener('click', () => SFX.play('skip'), true);
 
 // Picker tabs
-document.querySelectorAll('.picker-tab').forEach(tab => {
+document.querySelectorAll('.picker-tab[data-tab]').forEach(tab => {
   tab.addEventListener('click', () => SFX.play('nav'));
 });
 

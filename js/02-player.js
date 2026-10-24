@@ -941,7 +941,7 @@ function ensureSongRowDelegation() {
       } else if (link.dataset.goAlbum && link.dataset.albumName) {
         const curTab = pickerTab || 'random';
         loadAlbumView(link.dataset.goAlbum, link.dataset.albumName, () => {
-          document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
           const tab = document.querySelector('[data-tab="' + curTab + '"]');
           if (tab) tab.classList.add('active');
           loadPickerTab(curTab);
@@ -1027,10 +1027,10 @@ function renderPickerList(songs, label) {
 }
 
 // Tab switching
-document.querySelectorAll('.picker-tab').forEach(tab => {
+document.querySelectorAll('.picker-tab[data-tab]').forEach(tab => {
   tab.addEventListener('click', () => {
     window.closeApPanel?.(); // else the still-open album/artist page just kept covering the browse view
-    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     loadPickerTab(tab.dataset.tab);
   });
@@ -1047,9 +1047,9 @@ document.querySelectorAll('.picker-tab').forEach(tab => {
 let _preSearchTab = null;
 function enterPickerSearchMode() {
   if (pickerTab === 'search') return;
-  _preSearchTab = document.querySelector('.picker-tab.active')?.dataset.tab || 'random';
+  _preSearchTab = document.querySelector('.picker-tab[data-tab].active')?.dataset.tab || 'random';
   window.closeApPanel?.();
-  document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
   pickerTab = 'search';
 }

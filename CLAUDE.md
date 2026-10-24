@@ -111,6 +111,7 @@ The owner wanted the social parts in one tab, laid out like Music, with a quiet 
 - **Full height, one width.** All four pages fill the window like Music, at Music's width, so the sidebar doesn't move between them. Social's home and Feed scroll inside their panel now, not the window: `activeScrollPane()` (j/k) knows, Feed's backdrop listens for scrolls on the way down, and `_tabScroll` keeps their places.
 - **Social's home** (js/25-social.js): Music Home's head, the newest photo uploads in a Cover Flow (`window.klabCoverFlow`, thumbs sharpened to `medium` in the middle) and the latest posts in a row of cards. The posts are Feed's own (`klabFeedPosts`, and it listens in on `klabHomeFeedChanged`); only the photos are fetched, and only while it's showing.
 - **Phones** (and Photos on a narrow touch screen): the four are chips along the top, as Music's sidebar is there, and Chat's list is the Chat page's first screen (`chat-rooms-view`), with the search box.
+- **Social's rows are `.picker-tab`s too** (for Music's look), with `data-soc` instead of `data-tab`. Music's code must match `.picker-tab[data-tab]` only: matching every `.picker-tab` made a click on Feed play Music's nav sound on top of its own, load a Music section called `undefined` ("No tracks found") and push a Music step onto Back.
 - **The header's sidebar button** hides Social's sidebar as one (`pane-off-social`); the old `pane-off-chat`/`-photos` are gone.
 - **Not done yet:** recent chat on Social's home, and a phone run on a real device.
 

@@ -63,7 +63,7 @@ function openGenreView(genre) {
   // It's part of Genres, also when Back/Forward reopens it from another
   // section: "← Genres" (loadGenres) draws nothing unless this says so.
   pickerTab = 'genres';
-  document.querySelectorAll('.picker-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'genres'));
+  document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === 'genres'));
   document.querySelectorAll('.music-playlist-row').forEach(r => r.classList.remove('active'));
   window.klabNav?.push({ tab: 'music', kind: 'genre', value: genre.value });
   hideSortBtn();
@@ -74,7 +74,7 @@ function openGenreView(genre) {
   back.innerHTML = '<i class="ti ti-arrow-left"></i> Genres';
   back.addEventListener('click', () => {
     if (window.klabNav?.back()) return; // same as the browser's Back
-    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="genres"]').classList.add('active');
     pickerList.classList.remove('picker-list-grid');
     setMusicViewTitle('genres');
@@ -973,7 +973,7 @@ function setMusicViewTitle(tab, title) {
 window.setMusicViewTitle = setMusicViewTitle;
 // Straight from the sidebar too: some views (Requests) load through their
 // own wrapper around loadPickerTab and never reach the one above.
-document.querySelectorAll('.picker-tab').forEach(t => t.addEventListener('click', () => setMusicViewTitle(t.dataset.tab)));
+document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.addEventListener('click', () => setMusicViewTitle(t.dataset.tab)));
 (function() {
   const list = document.getElementById('pickerList');
   const sub = document.getElementById('musicViewSub');

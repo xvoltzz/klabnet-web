@@ -420,11 +420,11 @@ function sampleImageColor(imgUrl) {
     document.querySelectorAll('.music-playlist-row.active').forEach(r => r.classList.remove('active'));
     const row = _navId && document.querySelector(`.music-playlist-row[data-pl-id="${CSS.escape(_navId)}"]`);
     if (row) {
-      const tab = document.querySelector('.picker-tab.active');
+      const tab = document.querySelector('.picker-tab[data-tab].active');
       if (tab) { _navTab = tab; tab.classList.remove('active'); }
       row.classList.add('active');
     } else if (_navTab) {
-      if (!document.querySelector('.picker-tab.active')) _navTab.classList.add('active');
+      if (!document.querySelector('.picker-tab[data-tab].active')) _navTab.classList.add('active');
       _navTab = null;
     }
   }

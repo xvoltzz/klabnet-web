@@ -142,7 +142,7 @@
   // ── Where screens change ──
   // Music sections: after the sidebar's own click handler has run.
   document.addEventListener('click', e => {
-    const tab = e.target.closest?.('.picker-tab');
+    const tab = e.target.closest?.('.picker-tab[data-tab]');
     if (tab) setTimeout(() => push({ tab: 'music', kind: 'section', section: tab.dataset.tab }), 0);
   }, true);
 
