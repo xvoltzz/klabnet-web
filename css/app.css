@@ -6696,6 +6696,9 @@
     /* In the app the title bar covers the top 48px: a pinned day label
        pins below it, not under it. */
     :is(html.app-titlebar, html.web-bar) #feedList .feed-day { top: var(--tb-h, 48px); }
+    /* Inside Social, Feed scrolls in its own panel, which starts below the
+       title bar already: the day pins to the panel's top, not 48px under it. */
+    .soc-main #feedList .feed-day, :is(html.app-titlebar, html.web-bar) .soc-main #feedList .feed-day { top: 0; }
 
     /* Sizes in vh/vw ignore the short-window zoom tiers (Chromium scales
        viewport units by zoom): the photo composer ran off the screen. */
