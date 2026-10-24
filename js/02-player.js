@@ -751,14 +751,34 @@ function goToMusicDetail(openFn) {
   openFn();
 }
 
+// Random songs for Home's shuffle picks. Asked again once if they come
+// back empty or not at all: an empty answer left "No tracks found" on
+// Music until Home was pressed.
+async function fetchRandomSongs() {
+  const once = async () => {
+    const r = await fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`, {}, 8000);
+    const d = await r.json();
+    const songs = d['subsonic-response']?.randomSongs?.song || [];
+    if (!songs.length) console.warn('[music] no random songs', r.status, d['subsonic-response']?.status, d['subsonic-response']?.error);
+    return songs;
+  };
+  try { const s = await once(); if (s.length) return s; } catch (e) { console.warn('[music] random songs failed', e); }
+  await new Promise(r => setTimeout(r, 1500));
+  return once();
+}
+
+// Sections something can ask for; anything else (an old link, a stale
+// saved state) opens Home, not an empty list.
+const PICKER_TABS = new Set(['random', 'recent', 'search', 'songs', 'albums', 'artists', 'genres', 'favorites', 'queue', 'playlists', 'requests']);
+
 async function loadPickerTab(tab) {
+  if (!PICKER_TABS.has(tab)) { console.warn('[music] unknown section', tab); tab = 'random'; }
   pickerTab = tab;
   const myLoadToken = ++_pickerLoadToken;
   // Home is a front page for the library (js/15-music-home.js), drawn at
   // once: only its "Shuffle picks" wait for these random songs.
   if (tab === 'random' && window.klabRenderMusicHome) {
-    const songs = fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`, {}, 8000)
-      .then(r => r.json()).then(d => d['subsonic-response']?.randomSongs?.song || []);
+    const songs = fetchRandomSongs();
     songs.catch(() => {});
     window.klabRenderMusicHome(pickerList, songs, () => loadPickerTab('random'));
     return;
@@ -771,9 +791,7 @@ async function loadPickerTab(tab) {
   let songs = [];
   try {
     if (tab === 'random') {
-      const res  = await fetchTimeout(`${ND_URL}/rest/getRandomSongs?size=30&${subsonicParams()}`, {}, 8000);
-      const data = await res.json();
-      songs = data['subsonic-response']?.randomSongs?.song || [];
+      songs = await fetchRandomSongs();
     } else if (tab === 'recent') {
       // Use localStorage play history — most accurate, reflects THIS user's actual plays
       songs = getPlayHistory();
@@ -994,6 +1012,7 @@ function renderSongItems(songs, container) {
 
 function renderPickerList(songs, label) {
   if (!songs.length) {
+    console.warn('[music] empty list', pickerTab, label);
     pickerList.innerHTML = '<div class="picker-empty">No tracks found</div>';
     return;
   }
