@@ -8763,3 +8763,198 @@
       #chatApp #chatTimeline .chat-msg-avatar, #chatApp #chatTimeline .chat-msg.mine .chat-msg-avatar { width: 34px; min-width: 34px; height: 34px; }
       #chatApp #chatTimeline .chat-msg-avatar.grouped { height: auto; }
     }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SOCIAL — Feed, Chat and Photos as one page, laid out like Music
+       (index.html #socShell, js/07-tabnav.js TAB_GROUP, js/25-social.js).
+       One sidebar beside whichever of its four pages is up: its home,
+       Feed, Photos or Chat. Chat's and Photos' own sidebars are groups
+       inside it now (#chatSide and #phSidebar keep their ids and classes,
+       so their rules above still apply); only their outer layout is reset
+       here. All four pages are full height with the same width, so the
+       sidebar never moves between them.
+       ══════════════════════════════════════════════════════════════════ */
+    .soc-shell { display: none; }
+    body.tab-social-group .soc-shell { display: flex; gap: 1.4rem; flex: 1; min-height: 0; }
+    body.tab-social-group { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-social-group .dash { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+    body.tab-social-group:not(.tab-photos-active) .dash { padding-bottom: 7rem; }
+    body.tab-social-group.player-hidden:not(.tab-photos-active) .dash { padding-bottom: 1.75rem; }
+    @media (min-width: 761px), (pointer: fine) {
+      body.tab-social-group .dash { max-width: min(96vw, 2800px); }
+    }
+    body.tab-social-group .dash-body { flex: 1; min-height: 0; }
+    body.tab-social-group .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    .soc-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+    body.tab-social-group .soc-main > .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    /* Social's home and Feed scroll inside the page, as Music's lists do. */
+    body.tab-social-group .soc-main > .tab-panel[data-tab-panel="social"].active,
+    body.tab-social-group .soc-main > .tab-panel[data-tab-panel="feed"].active {
+      display: block; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    }
+    .soc-main > .tab-panel::-webkit-scrollbar { display: none; }
+    .tab-panel[data-tab-panel="feed"] { max-width: none; margin: 0; }
+    /* A reading column, starting at the sidebar like every page beside it. */
+    .tab-panel[data-tab-panel="feed"] > .sec { max-width: 900px; margin: 0; }
+
+    /* ── The sidebar: Music's ── */
+    .soc-sidebar { width: 250px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .soc-side-scroll {
+      flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 18px; padding-top: 6px;
+    }
+    .soc-side-scroll::-webkit-scrollbar { display: none; }
+    #socShell .music-sidebar-label {
+      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--text-dimmer); padding: 0 12px 6px; margin: 0;
+    }
+    #socShell .picker-tabs { gap: 2px; }
+    #socShell .picker-tab {
+      height: 38px; padding: 0 12px; gap: 12px; border-radius: 10px;
+      font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim);
+      background: none; border: 1px solid transparent; box-shadow: none;
+    }
+    #socShell .picker-tab i { font-size: 18px; width: 20px; color: inherit; opacity: .85; }
+    #socShell .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
+    #socShell .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
+    #socShell .picker-tab.active i { color: var(--text); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+    .soc-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text); box-shadow: 0 0 8px rgba(255,255,255,.5); }
+    .soc-dot[hidden] { display: none; }
+    /* Rows only a phone needs: there the photo views sit beside the photo,
+       and Chat's list is a screen of its own. */
+    #socShell .soc-photos-row, #socShell .soc-chat-row { display: none; }
+
+    /* Photos' group: the views and Post always; the photo's details, the
+       Show toggles and its song only while Photos is up. */
+    @media (min-width: 901px), (pointer: fine) {
+      #socShell .ph-sidebar {
+        display: flex; flex-direction: column; gap: 0; width: auto; flex: none;
+        min-height: auto; overflow: visible; padding-top: 0;
+      }
+      #socShell .ph-side-group { margin-top: 18px; }
+    }
+    /* The same test as Photos' own (narrowMq in js/14-photos.js). */
+    @media (max-width: 900px) and (not (pointer: fine)) {
+      #socShell .ph-sidebar { display: none; }
+      #socShell .soc-photos-row { display: flex; }
+    }
+    body:not(.tab-photos-active) #socShell .soc-ph-only { display: none; }
+    body:has(#phShell.is-empty) #socShell .ph-now { display: none; }
+    .soc-sidebar > .ph-now { margin-top: 0; }
+    /* What's lit is where you are: the photo view you were on stays
+       pressed underneath, but only lights up on Photos. */
+    body:not(.tab-photos-active) #socShell .ph-sidebar .ph-order button[aria-pressed="true"] {
+      background: none; border-color: transparent; color: var(--text-dim);
+    }
+    body:not(.tab-photos-active) #socShell .ph-sidebar .ph-order button[aria-pressed="true"] i { filter: none; opacity: .85; }
+    body:not(.tab-photos-active) #socShell .ph-sidebar .ph-order button[aria-pressed="true"]:hover { background: var(--glass-fill); color: var(--text); }
+
+    /* Chat's group: who's online always (it's presence, not chat); the
+       channels and messages once chat is signed in, "Connect chat" until. */
+    #socShell .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
+    #socShell .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
+    #socShell .chat-side > .music-sidebar-label { display: none; }
+    #socShell .chat-lbl { padding: 16px 12px 6px; }
+    #socShell .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
+    body:not(.chat-on) #socShell .chat-side > .music-sidebar-label { display: block; }
+    #socShell .soc-chat-connect { width: 100%; margin-bottom: 10px; }
+    body.chat-on #socShell .soc-chat-connect { display: none; }
+    body:not(.chat-on) #socShell :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
+    body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
+    body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
+    body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
+    /* The conversation takes the whole page now: no column for a list. */
+    #socShell #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+    /* Social's home: Music Home's head, Cover Flow and rows. */
+    .soc-home { padding-bottom: 18px; }
+    #socShell .music-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 14px; flex: none; }
+    #socShell .music-view-head h2 {
+      margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #socShell .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
+    .soc-home-body { display: flex; flex-direction: column; gap: 6px; }
+    .soc-home-body > .picker-section-label { margin: 14px 4px 8px; }
+    .soc-home-body > .picker-section-label:first-child { margin-top: 0; }
+    /* Photos aren't square: the flow shows them whole, on a soft square. */
+    .soc-flow .mh-cover { background: var(--glass-fill); }
+    .soc-flow .mh-cover img { object-fit: cover; }
+    .soc-flow .mh-flow-caption .k { display: none; }
+    /* Latest posts: cards in a row you can flick along, like Music's. */
+    .soc-post {
+      flex: none; width: 260px; min-height: 132px; display: flex; flex-direction: column; gap: 8px;
+      padding: 12px 14px; border-radius: 10px; cursor: pointer; scroll-snap-align: start;
+      border: 1px solid var(--glass-border); background: var(--glass-fill);
+      transition: border-color .15s, background .15s;
+    }
+    .soc-post:hover { border-color: var(--glass-border-h); background: var(--glass-fill-h); }
+    .soc-post-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .soc-post-av {
+      width: 24px; height: 24px; border-radius: 50%; flex: none; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--glass-fill-h); color: var(--text-dim); font: 600 11px var(--font-ui);
+    }
+    .soc-post-av img { width: 100%; height: 100%; object-fit: cover; }
+    .soc-post-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .soc-post-when { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); }
+    .soc-post-text {
+      font-size: var(--fs-13); line-height: 1.45; color: var(--text-dim);
+      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+    }
+    .soc-post-meta { margin-top: auto; display: flex; gap: 12px; font-size: var(--fs-11); color: var(--text-dimmer); }
+    .soc-post-meta i { margin-right: 3px; }
+    .soc-home-empty { padding: 10px 4px; font-size: var(--fs-13); color: var(--text-dimmer); }
+
+    /* ── The sidebar, hidden (the header's button or "b") ── */
+    @media (min-width: 761px), (pointer: fine) {
+      html.pane-off-social #socShell #socSidebar { display: none; }
+    }
+
+    /* ── Phones: the pages are chips along the top, as in Music, and
+       Chat's list is the Chat page's first screen ── */
+    @media (max-width: 760px) and (pointer: coarse) {
+      body.tab-social-group .soc-shell { flex-direction: column; gap: 8px; }
+      .soc-sidebar { width: 100%; flex: none; gap: 8px; }
+      .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; gap: 8px; }
+      #socShell .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      #socShell .soc-nav::-webkit-scrollbar { display: none; }
+      #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+      #socShell .soc-chat-row { display: flex; }
+      #socShell .soc-search, #socShell #chatSide { display: none; }
+      body.tab-chat-active.chat-rooms-view #socShell .soc-search { display: flex; }
+      body.tab-chat-active.chat-rooms-view #socShell #chatSide { display: flex; }
+      body.tab-chat-active.chat-rooms-view .soc-sidebar { flex: 1; min-height: 0; }
+      body.tab-chat-active.chat-rooms-view .soc-side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+      body.tab-chat-active.chat-rooms-view .soc-main { display: none; }
+      body.tab-chat-active:not(.chat-rooms-view) .soc-sidebar { display: none; }
+      #socShell .music-view-head h2 { font-size: 24px; }
+      .soc-post { width: 220px; }
+    }
+    /* One box at a time, as in Music's sidebar: the sliding highlight is
+       the active row's, and hovering only brightens a row's text. */
+    #socShell .soc-nav.has-pill .picker-tab,
+    #socShell .soc-nav.has-pill .picker-tab:hover:not(.active) {
+      background: transparent; border-color: transparent;
+      transition: color var(--m-slow) var(--m-ease);
+    }
+    #socShell .soc-nav.has-pill .picker-tab:hover:not(.active) { color: var(--text); }
+    /* A narrow window on a computer: the sidebar gives up some width, as
+       Music's does. */
+    @media (min-width: 761px) and (max-width: 900px), (pointer: fine) and (max-width: 900px) {
+      .soc-sidebar { width: 200px; }
+      body.tab-social-group .soc-shell { gap: 20px; }
+    }
+    /* Photos on a narrow touch screen keeps its controls beside the photo
+       and wants the width (js/14-photos.js narrowMq): Social's pages are
+       chips along the top there, as on a phone, and the song box is empty. */
+    @media (max-width: 900px) and (not (pointer: fine)) {
+      #socShell .ph-now { display: none; }
+      body.tab-photos-active .soc-shell { flex-direction: column; gap: 8px; }
+      body.tab-photos-active .soc-sidebar { width: 100%; flex: none; }
+      body.tab-photos-active .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; }
+      body.tab-photos-active #socShell :is(.soc-search, #chatSide) { display: none; }
+      body.tab-photos-active #socShell .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      body.tab-photos-active #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+      body.tab-photos-active #socShell .soc-chat-row { display: flex; }
+    }

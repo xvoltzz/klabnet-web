@@ -3261,6 +3261,8 @@ async function ensureJoinedToKlabnet() {
 function showChatApp() {
   document.getElementById('chatConnect').hidden = true;
   document.getElementById('chatApp').hidden = false;
+  // Social's sidebar shows the conversations instead of "Connect chat".
+  document.body.classList.add('chat-on');
   const dot  = document.getElementById('chatStatusDot');
   const text = document.getElementById('chatStatusText');
   // showChatApp() can run more than once (MatrixChat.login() is idempotent,
@@ -3312,6 +3314,7 @@ function showChatApp() {
       updateSocialUnreadBadge();
       document.getElementById('chatApp').hidden = true;
       document.getElementById('chatConnect').hidden = false;
+      document.body.classList.remove('chat-on');
       showToast('Chat was signed out. Connect again to keep chatting.', 'ti-plug-connected-x');
     });
     MatrixChat.on('memberProfileChanged', userId => invalidateMsgAvatar(userId));

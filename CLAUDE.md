@@ -1,6 +1,6 @@
 # klabnet-web: notes for Claude
 
-klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome), photos and home, as one site at `user.klab.gg`. It's also the inside of **klabnet-desktop** (the Electron app for Windows, Linux and, in progress, macOS; see that repo's CLAUDE.md for the Mac work). The server side is **klabnet-api** (FastAPI + SQLite). README.md covers architecture and deployment.
+klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome), photos and home, as one site at `user.klab.gg`. Feed, Chat and Photos are one page, Social (see below). It's also the inside of **klabnet-desktop** (the Electron app for Windows, Linux and, in progress, macOS; see that repo's CLAUDE.md for the Mac work). The server side is **klabnet-api** (FastAPI + SQLite). README.md covers architecture and deployment.
 
 ## How the code is put together
 - No build step. `index.html` loads `css/app.css` and `js/NN-*.js` as classic `<script defer>` files that share globals. Top-level `const`/`let` are global bindings but **not** `window` properties (e.g. `ND_URL`, `KLABNET_VERSION`). Later files wrap earlier functions by reassigning them (`openFS`, `updateQueueBadge`, `syncShuffleBtns`).
@@ -95,6 +95,19 @@ Like Spotify: of everywhere you have klabnet open, one device makes the sound (t
   - Devices of the same kind have the same name ("Chrome on Windows" twice). The desktop apps could send the computer's name.
   - A list longer than 2,000 songs is sent as the 2,000 around where it's at.
   - Two devices can't both play on purpose (a second room). Starting one stops the other.
+
+## Social: Feed, Chat and Photos as one page (built 2026-10-24; not yet run against the real homelab)
+The owner wanted the social parts in one tab, laid out like Music, with a quiet "what's new" showcase like Music Home's Cover Flow, and Photos' timeline and filmstrip kept as they are. The app's nav is Home, Social and Music now.
+- **Each of the four is still a tab.** `social` (Social's own home), `feed`, `chat` and `photos` are all in `TABS` with their own panel, hash, body class (`tab-feed-active`…) and Back entry, so everything that calls `setActiveTab('feed')` or links `#photos` still works. `TAB_GROUP` in js/07-tabnav.js says they're one page: the nav's one Social button (`data-tab-group`) is lit for all four, `body.tab-social-group` is on for all four, and the button goes back to the last one you were on (`klabnet_social_last`), or to Social's home when pressed while there. Tab and 1–3 go between Home, Social and Music; `g s/f/c/p` go straight to one.
+- **One sidebar, `#socSidebar`** (index.html `#socShell`): Home and Feed rows (`#socNav`, `data-soc`), then Photos' group and Chat's group. Those two groups are the old sidebars moved in whole, keeping their ids and classes (`#phSidebar.ph-sidebar`, `#chatSide.chat-side`), so their own CSS and JS still apply; "SOCIAL" at the end of css/app.css only resets their outer layout. js/14-photos.js still moves its views, details and toggles into `#phSideViews`/`#phSideInfo`/`#phSideToggles`/`#phNow` on a wide window.
+  - The photo's details, Show toggles and song (`.soc-ph-only`) show on Photos only. A photo view or a conversation picked from another of the four goes there (js/25-social.js).
+  - Who's online always shows (it's presence); the channels and messages once chat is signed in (`body.chat-on`, set in js/08-chat.js), "Connect chat" until then.
+  - The highlights only light up on their own page: the photo view underneath stays pressed, the active conversation stays chosen.
+- **Full height, one width.** All four pages fill the window like Music, at Music's width, so the sidebar doesn't move between them. Social's home and Feed scroll inside their panel now, not the window: `activeScrollPane()` (j/k) knows, Feed's backdrop listens for scrolls on the way down, and `_tabScroll` keeps their places.
+- **Social's home** (js/25-social.js): Music Home's head, the newest photo uploads in a Cover Flow (`window.klabCoverFlow`, thumbs sharpened to `medium` in the middle) and the latest posts in a row of cards. The posts are Feed's own (`klabFeedPosts`, and it listens in on `klabHomeFeedChanged`); only the photos are fetched, and only while it's showing.
+- **Phones** (and Photos on a narrow touch screen): the four are chips along the top, as Music's sidebar is there, and Chat's list is the Chat page's first screen (`chat-rooms-view`), with the search box.
+- **The header's sidebar button** hides Social's sidebar as one (`pane-off-social`); the old `pane-off-chat`/`-photos` are gone.
+- **Not done yet:** recent chat on Social's home (Home's chat tile has the code to borrow), and a phone run on a real device.
 
 ## Testing without the real site
 The real site needs Authentik, so local testing uses a mock server. It serves this repo, fakes `/api/*` (photos, presence, posts, artwork) and loads index.html with a fake `window.klabnetDesktop` to preview the app layouts. Pages are screenshotted in headless Chrome (`--screenshot`, `--virtual-time-budget`) inside an iframe harness that can call into the page. Headless Chrome has no GPU, so `data-fx="low"` (reduced effects) is on there: no blur and no backdrops. Performance was measured in real Chrome windows and in the real Electron app, not headless.

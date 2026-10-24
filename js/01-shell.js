@@ -379,7 +379,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 //  never hijacked.
 // ══════════════════════════════════════════
 (function() {
-  const GO_TO_TAB = { h: 'home', f: 'feed', c: 'chat', m: 'music', p: 'photos' };
+  const GO_TO_TAB = { h: 'home', s: 'social', f: 'feed', c: 'chat', m: 'music', p: 'photos' };
   let awaitingG = false;
   let awaitingGTimer = null;
 
@@ -400,6 +400,9 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       if (document.getElementById('apPanel')?.classList.contains('open')) return document.getElementById('apScroll');
       return document.getElementById('pickerList');
     }
+    // Feed and Social's home scroll beside Social's sidebar.
+    const panel = document.querySelector('.tab-panel.active');
+    if (panel && ['feed', 'social'].includes(panel.dataset.tabPanel)) return panel;
     return document.scrollingElement || document.documentElement;
   }
   function scrollPane(delta) {
@@ -433,8 +436,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   // one. Tab keeps its usual job only in an open dialog (those trap focus
   // with it) and where something uses it itself (the markdown editor's
   // list indenting, which claims it first).
-  const pages = () => TABS.filter(isTabEnabled);
-  function currentPage() { return document.querySelector('.tab-panel.active')?.dataset.tabPanel; }
+  // The app's pages: Home, Social and Music. Feed, Chat and Photos are
+  // inside Social (its sidebar, or g f / g c / g p).
+  const pages = () => TABS.filter(t => topTab(t) === t && isTabEnabled(t));
+  function currentPage() { return topTab(document.querySelector('.tab-panel.active')?.dataset.tabPanel); }
   // Real dialogs only. This used to match any "*backdrop*" and the album /
   // artist page, which is a view, not a dialog: with one open, Tab went
   // back to hopping between buttons.
@@ -449,7 +454,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   const covered = () => slideshowOpen() || !!document.querySelector('.fs-player.open');
   function flipPage(dir) {
     const P = pages(), i = P.indexOf(currentPage());
-    setActiveTab(P[(i + dir + P.length) % P.length]);
+    const to = P[(i + dir + P.length) % P.length];
+    setActiveTab(to === 'social' ? _socialLast : to);
     // A button left focused by a click would take the next Tab itself.
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
@@ -490,7 +496,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 
     if (/^[1-9]$/.test(e.key)) {
       const P = pages(), target = P[+e.key - 1];
-      if (target) { e.preventDefault(); setActiveTab(target); }
+      if (target) { e.preventDefault(); setActiveTab(target === 'social' ? _socialLast : target); }
       return;
     }
 

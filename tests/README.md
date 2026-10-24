@@ -132,3 +132,14 @@ as tester, alice, bob and carol, so give it a throwaway database.
 ```sh
 node tests/feed.mjs
 ```
+
+`tests/social.mjs` checks the Social page (Feed, Chat and Photos under one
+tab): the top nav and the sidebar rows, that the Social button returns to
+the page you were last on, Back/Forward and scroll positions between the
+four pages, the sidebar toggle, the Tab and 2 keys, Social's home (new
+photos, latest posts) and the phone's chips. It needs the rig above with a
+few photos and posts in it.
+
+```sh
+node tests/social.mjs
+```

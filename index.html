@@ -152,7 +152,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.1" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -164,7 +164,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.1" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.2" />
 </head>
 <body>
 
@@ -389,10 +389,11 @@ window.KLAB_BOOT = (function() {
     </div>
     <nav class="tab-nav" id="tabNav">
       <button class="tab-nav-btn" data-tab-target="home" title="Home"><i class="ti ti-home"></i><span>Home</span></button>
-      <button class="tab-nav-btn" data-tab-target="feed" title="Feed"><i class="ti ti-news"></i><span>Feed</span></button>
-      <button class="tab-nav-btn" data-tab-target="chat" title="Chat"><i class="ti ti-users"></i><span>Chat</span><span id="socialUnreadBadge"></span></button>
+      <!-- Feed, Chat and Photos are one page now, with Music's kind of
+           sidebar (js/07-tabnav.js TAB_GROUP). This button lands on
+           whichever of them you were on last. -->
+      <button class="tab-nav-btn" data-tab-target="social" data-tab-group="social feed chat photos" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
-      <button class="tab-nav-btn" data-tab-target="photos" title="Photos"><i class="ti ti-photo"></i><span>Photos</span></button>
     </nav>
     <div class="header-right">
       <!-- Voice (js/22-voice.js). Hidden until the API says voice is set
@@ -445,6 +446,133 @@ window.KLAB_BOOT = (function() {
         <div class="hm-tile hm-photos" id="hmPhotos"></div>
         <div class="hm-tile hm-chat" id="hmChat"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab-panel="music">
+  <div class="music-shell" id="musicShell">
+    <nav class="music-sidebar" id="musicSidebar">
+      <div class="picker-search">
+        <i class="ti ti-search"></i>
+        <input type="text" id="pickerSearch" placeholder="Search songs, artists…" aria-label="Search music" autocomplete="off" />
+        <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
+      </div>
+      <!-- Home, then what's yours, then the whole library. Split into
+           three blocks for the grouping only: every .picker-tab still wires
+           up through the same querySelectorAll('.picker-tab'). -->
+      <div class="music-nav">
+      <div class="picker-tabs">
+        <button class="picker-tab active" data-tab="random"><i class="ti ti-home"></i><span>Home</span></button>
+      </div>
+      <div class="music-sidebar-group">
+        <div class="music-sidebar-label">Your library</div>
+        <div class="picker-tabs">
+          <button class="picker-tab" data-tab="recent"><i class="ti ti-history"></i><span>Recently played</span></button>
+          <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
+          <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
+        </div>
+        <div class="music-playlist-nav" id="musicPlaylistNav">
+          <!-- Individual rows injected by renderPlaylistNav() -->
+          <button class="music-new-playlist-btn" id="musicNewPlaylistBtn" type="button"><i class="ti ti-plus"></i> New playlist</button>
+        </div>
+      </div>
+      <div class="music-sidebar-group">
+        <div class="music-sidebar-label">Browse</div>
+        <div class="picker-tabs">
+          <button class="picker-tab" data-tab="songs"><i class="ti ti-music"></i><span>Songs</span></button>
+          <button class="picker-tab" data-tab="albums"><i class="ti ti-disc"></i><span>Albums</span></button>
+          <button class="picker-tab" data-tab="artists"><i class="ti ti-microphone-2"></i><span>Artists</span></button>
+          <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
+          <button class="picker-tab" data-tab="playlists"><i class="ti ti-playlist"></i><span>Playlists</span></button>
+          <button class="picker-tab" data-tab="requests"><i class="ti ti-music-plus"></i><span>Requests</span> <span id="requestsCount"></span></button>
+        </div>
+      </div>
+      </div>
+    </nav>
+    <div class="music-main">
+      <div class="picker-backdrop" id="pickerBackdrop">
+        <div class="music-view-head" id="musicViewHead"><h2 id="musicViewTitle">Home</h2><span id="musicViewSub"></span></div>
+        <div class="picker-list" id="pickerList">
+          <div class="picker-empty">Loading tracks…</div>
+        </div>
+      </div>
+      <div class="ap-panel" id="apPanel">
+        <div class="ap-card">
+          <div class="ap-bg" id="apBg"></div>
+          <div class="ap-topbar">
+            <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
+            <span class="ap-topbar-title" id="apTopbarTitle"></span>
+            <button class="ap-back klab-star" id="apStar" title="Star" hidden><i class="ti ti-star"></i><span class="klab-star-n"></span></button>
+          </div>
+          <div class="ap-scroll" id="apScroll"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Social: Feed, Chat and Photos on one page, laid out like Music. One
+       sidebar for all of it (Home, Feed, the photo views, the people and
+       conversations); each of the three keeps its own tab key, so
+       setActiveTab('feed'), #photos and the like still land on them.
+       See "SOCIAL" in css/app.css and js/25-social.js. -->
+  <div class="soc-shell" id="socShell">
+    <nav class="soc-sidebar" id="socSidebar" aria-label="Social">
+      <label class="chat-search soc-search"><i class="ti ti-search"></i><input type="text" id="chatSearch" placeholder="Find someone or a channel" aria-label="Find someone or a channel" autocomplete="off" /></label>
+      <div class="soc-side-scroll" id="socSideScroll">
+        <div class="picker-tabs soc-nav" id="socNav">
+          <button class="picker-tab" data-soc="social"><i class="ti ti-home"></i><span>Home</span></button>
+          <button class="picker-tab" data-soc="feed"><i class="ti ti-news"></i><span>Feed</span><span class="soc-dot" id="socFeedDot" hidden></span></button>
+          <!-- Phones only: there the photo views sit beside the photo, and
+               Chat's list is a screen of its own. -->
+          <button class="picker-tab soc-photos-row" data-soc="photos"><i class="ti ti-photo"></i><span>Photos</span></button>
+          <button class="picker-tab soc-chat-row" data-soc="chat"><i class="ti ti-message-circle"></i><span>Chat</span></button>
+        </div>
+        <!-- js/14-photos.js moves the views, Post, the photo's details and
+             the Show toggles in here on a wide window, and back beside the
+             photo on a phone. The details and toggles show on Photos only. -->
+        <div class="ph-sidebar soc-group" id="phSidebar" aria-label="Photos">
+          <div class="music-sidebar-label">Photos</div>
+          <div class="ph-side-views" id="phSideViews"></div>
+          <div class="ph-side-group ph-side-this soc-ph-only">
+            <div class="ph-side-label">This photo</div>
+            <div class="ph-side-info" id="phSideInfo"></div>
+          </div>
+          <div class="ph-side-group soc-ph-only">
+            <div class="ph-side-label">Show</div>
+            <div class="ph-side-toggles" id="phSideToggles"></div>
+          </div>
+        </div>
+        <div class="chat-side soc-group" id="chatSide">
+          <div class="music-sidebar-label">Chat</div>
+          <!-- Until chat is signed in (body.chat-on), this instead of the lists. -->
+          <button class="picker-tab soc-chat-connect" id="socChatConnect" type="button"><i class="ti ti-message-circle"></i><span>Connect chat</span></button>
+          <div class="chat-side-scroll">
+            <div class="chat-lbl">Online now</div>
+            <div class="presence-grid chat-online" id="presenceList"></div>
+            <div class="chat-lbl chat-lbl-row"><span>Channels</span>
+              <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
+              <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
+            </div>
+            <div class="chat-convos" id="chatChannelsList"></div>
+            <div class="chat-lbl" id="chatDmLbl">Messages</div>
+            <div class="chat-convos" id="chatDmList"></div>
+            <div class="chat-convos" id="chatPeopleResults" hidden></div>
+          </div>
+        </div>
+      </div>
+      <!-- The photo's song, pinned to the bottom, with its mute button. Photos only. -->
+      <div class="ph-now soc-ph-only" id="phNow"></div>
+    </nav>
+    <div class="soc-main" id="socMain">
+
+  <!-- Social's own home: what's new, quietly. Music Home's kind of page:
+       the newest photos in a Cover Flow, the latest posts, recent chat.
+       Built by js/25-social.js. -->
+  <div class="tab-panel" data-tab-panel="social">
+    <div class="soc-home" id="socHome">
+      <div class="music-view-head"><h2 id="socHomeTitle">What's happening</h2><span id="socHomeSub"></span></div>
+      <div class="soc-home-body" id="socHomeBody"></div>
     </div>
   </div>
 
@@ -547,23 +675,8 @@ window.KLAB_BOOT = (function() {
       <div class="chat-app" id="chatApp" hidden>
         <div class="chat-app-header" id="chatAppHeader"><span class="chat-status-dot" id="chatStatusDot"></span><span id="chatStatusText">Connecting…</span></div>
         <div class="chat-body">
-          <!-- Laid out like Music: a sidebar and the conversation, straight
-               on the page over a backdrop, no panel around them. -->
-          <aside class="chat-side" id="chatSide">
-            <label class="chat-search"><i class="ti ti-search"></i><input type="text" id="chatSearch" placeholder="Find someone or a channel" aria-label="Find someone or a channel" autocomplete="off" /></label>
-            <div class="chat-side-scroll">
-              <div class="chat-lbl">Online now</div>
-              <div class="presence-grid chat-online" id="presenceList"></div>
-              <div class="chat-lbl chat-lbl-row"><span>Channels</span>
-                <button class="chat-icon-btn" id="chatBrowseBtn" title="Browse public channels"><i class="ti ti-list-search"></i></button>
-                <button class="chat-icon-btn" id="chatCreateBtn" title="Create a channel"><i class="ti ti-plus"></i></button>
-              </div>
-              <div class="chat-convos" id="chatChannelsList"></div>
-              <div class="chat-lbl" id="chatDmLbl">Messages</div>
-              <div class="chat-convos" id="chatDmList"></div>
-              <div class="chat-convos" id="chatPeopleResults" hidden></div>
-            </div>
-          </aside>
+          <!-- The conversation, straight on the page over a backdrop. Its
+               list of people, channels and messages is in Social's sidebar. -->
           <div class="chat-main">
             <div class="chat-head" id="chatHead"></div>
             <!-- Mobile only (see the mobile block at the end of the CSS).
@@ -605,90 +718,12 @@ window.KLAB_BOOT = (function() {
   </div>
   </div>
 
-  <div class="tab-panel" data-tab-panel="music">
-  <div class="music-shell" id="musicShell">
-    <nav class="music-sidebar" id="musicSidebar">
-      <div class="picker-search">
-        <i class="ti ti-search"></i>
-        <input type="text" id="pickerSearch" placeholder="Search songs, artists…" aria-label="Search music" autocomplete="off" />
-        <button class="picker-sort-btn" id="pickerSortBtn" title="Sort"><i class="ti ti-arrows-sort"></i></button>
-      </div>
-      <!-- Home, then what's yours, then the whole library. Split into
-           three blocks for the grouping only: every .picker-tab still wires
-           up through the same querySelectorAll('.picker-tab'). -->
-      <div class="music-nav">
-      <div class="picker-tabs">
-        <button class="picker-tab active" data-tab="random"><i class="ti ti-home"></i><span>Home</span></button>
-      </div>
-      <div class="music-sidebar-group">
-        <div class="music-sidebar-label">Your library</div>
-        <div class="picker-tabs">
-          <button class="picker-tab" data-tab="recent"><i class="ti ti-history"></i><span>Recently played</span></button>
-          <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
-          <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
-        </div>
-        <div class="music-playlist-nav" id="musicPlaylistNav">
-          <!-- Individual rows injected by renderPlaylistNav() -->
-          <button class="music-new-playlist-btn" id="musicNewPlaylistBtn" type="button"><i class="ti ti-plus"></i> New playlist</button>
-        </div>
-      </div>
-      <div class="music-sidebar-group">
-        <div class="music-sidebar-label">Browse</div>
-        <div class="picker-tabs">
-          <button class="picker-tab" data-tab="songs"><i class="ti ti-music"></i><span>Songs</span></button>
-          <button class="picker-tab" data-tab="albums"><i class="ti ti-disc"></i><span>Albums</span></button>
-          <button class="picker-tab" data-tab="artists"><i class="ti ti-microphone-2"></i><span>Artists</span></button>
-          <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
-          <button class="picker-tab" data-tab="playlists"><i class="ti ti-playlist"></i><span>Playlists</span></button>
-          <button class="picker-tab" data-tab="requests"><i class="ti ti-music-plus"></i><span>Requests</span> <span id="requestsCount"></span></button>
-        </div>
-      </div>
-      </div>
-    </nav>
-    <div class="music-main">
-      <div class="picker-backdrop" id="pickerBackdrop">
-        <div class="music-view-head" id="musicViewHead"><h2 id="musicViewTitle">Home</h2><span id="musicViewSub"></span></div>
-        <div class="picker-list" id="pickerList">
-          <div class="picker-empty">Loading tracks…</div>
-        </div>
-      </div>
-      <div class="ap-panel" id="apPanel">
-        <div class="ap-card">
-          <div class="ap-bg" id="apBg"></div>
-          <div class="ap-topbar">
-            <button class="ap-back" id="apBack" title="Back"><i class="ti ti-arrow-left"></i></button>
-            <span class="ap-topbar-title" id="apTopbarTitle"></span>
-            <button class="ap-back klab-star" id="apStar" title="Star" hidden><i class="ti ti-star"></i><span class="klab-star-n"></span></button>
-          </div>
-          <div class="ap-scroll" id="apScroll"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>
-
   <!-- Photos. Not a card on the page: while this tab is showing, the page
        itself becomes the viewer — the backdrop behind everything turns into
        a blur of the current photo (#phBackdrop, outside .dash), the dock
        tucks away and the music pauses. Built and driven by js/14-photos.js. -->
   <div class="tab-panel" data-tab-panel="photos">
   <div class="ph-shell" id="phShell">
-    <!-- Wide windows: Music's sidebar. js/14-photos.js moves the views and
-         Post, the photo's details and the Show toggles in here, and back
-         beside the photo when the window is narrow (a phone). -->
-    <nav class="ph-sidebar" id="phSidebar" aria-label="Photos">
-      <div class="ph-side-views" id="phSideViews"></div>
-      <div class="ph-side-group ph-side-this">
-        <div class="ph-side-label">This photo</div>
-        <div class="ph-side-info" id="phSideInfo"></div>
-      </div>
-      <div class="ph-side-group">
-        <div class="ph-side-label">Show</div>
-        <div class="ph-side-toggles" id="phSideToggles"></div>
-      </div>
-      <!-- The photo's song, pinned to the bottom, with its mute button. -->
-      <div class="ph-now" id="phNow"></div>
-    </nav>
     <div class="ph-main">
     <div class="ph-view-head"><h2 id="phViewTitle">Timeline</h2><span id="phViewSub"></span></div>
     <div class="ph-panel">
@@ -760,6 +795,10 @@ window.KLAB_BOOT = (function() {
     </div>
     </div>
   </div>
+  </div>
+
+
+    </div>
   </div>
 
   </div>
@@ -906,11 +945,11 @@ window.KLAB_BOOT = (function() {
       <div class="key-hints-group">
         <div class="key-hints-group-label">Navigation</div>
         <div class="key-hints-row"><span>Next / previous page</span><span class="key-hints-keys"><kbd class="key-hint-key">Tab</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">⇧ Tab</kbd></span></div>
-        <div class="key-hints-row"><span>Jump to a page</span><span class="key-hints-keys"><kbd class="key-hint-key">1</kbd><span style="opacity:.5;">–</span><kbd class="key-hint-key">5</kbd></span></div>
-        <div class="key-hints-row"><span>Go to Home / Feed / Chat / Music / Photos</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">h/f/c/m/p</kbd></span></div>
+        <div class="key-hints-row"><span>Jump to a page</span><span class="key-hints-keys"><kbd class="key-hint-key">1</kbd><span style="opacity:.5;">–</span><kbd class="key-hint-key">3</kbd></span></div>
+        <div class="key-hints-row"><span>Go to Home / Social / Feed / Chat / Photos / Music</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">h/s/f/c/p/m</kbd></span></div>
         <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
         <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
-        <div class="key-hints-row"><span>Hide / show the sidebar (Music, Chat, Photos)</span><span class="key-hints-keys"><kbd class="key-hint-key">b</kbd></span></div>
+        <div class="key-hints-row"><span>Hide / show the sidebar (Music, Social)</span><span class="key-hints-keys"><kbd class="key-hint-key">b</kbd></span></div>
         <div class="key-hints-row"><span>Focus search (Music tab)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
       </div>
       <div class="key-hints-group">
@@ -1117,37 +1156,38 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.24.1';</script>
-<script defer src="js/00-util.js?v=v2026.10.24.1"></script>
-<script defer src="js/01-shell.js?v=v2026.10.24.1"></script>
-<script defer src="js/02-player.js?v=v2026.10.24.1"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.24.1"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.24.1"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.24.1"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.24.1"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.24.1"></script>
-<script defer src="js/08-chat.js?v=v2026.10.24.1"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.24.1"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.24.1"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.24.1"></script>
-<script defer src="js/11-presence.js?v=v2026.10.24.1"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.24.1"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.24.1"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.24.1"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.24.1"></script>
-<script defer src="js/12-feed.js?v=v2026.10.24.1"></script>
-<script defer src="js/13-tail.js?v=v2026.10.24.1"></script>
-<script defer src="js/14-photos.js?v=v2026.10.24.1"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.24.1"></script>
-<script defer src="js/16-motion.js?v=v2026.10.24.1"></script>
-<script defer src="js/17-history.js?v=v2026.10.24.1"></script>
-<script defer src="js/18-home.js?v=v2026.10.24.1"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.24.1"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.24.1"></script>
-<script defer src="js/21-stars.js?v=v2026.10.24.1"></script>
-<script defer src="js/22-voice.js?v=v2026.10.24.1"></script>
-<script defer src="js/23-session.js?v=v2026.10.24.1"></script>
-<script defer src="js/24-flair.js?v=v2026.10.24.1"></script>
+<script>const KLABNET_VERSION = 'v2026.10.24.2';</script>
+<script defer src="js/00-util.js?v=v2026.10.24.2"></script>
+<script defer src="js/01-shell.js?v=v2026.10.24.2"></script>
+<script defer src="js/02-player.js?v=v2026.10.24.2"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.24.2"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.24.2"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.24.2"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.24.2"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.24.2"></script>
+<script defer src="js/08-chat.js?v=v2026.10.24.2"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.24.2"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.24.2"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.24.2"></script>
+<script defer src="js/11-presence.js?v=v2026.10.24.2"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.24.2"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.24.2"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.24.2"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.24.2"></script>
+<script defer src="js/12-feed.js?v=v2026.10.24.2"></script>
+<script defer src="js/13-tail.js?v=v2026.10.24.2"></script>
+<script defer src="js/14-photos.js?v=v2026.10.24.2"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.24.2"></script>
+<script defer src="js/16-motion.js?v=v2026.10.24.2"></script>
+<script defer src="js/17-history.js?v=v2026.10.24.2"></script>
+<script defer src="js/18-home.js?v=v2026.10.24.2"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.24.2"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.24.2"></script>
+<script defer src="js/21-stars.js?v=v2026.10.24.2"></script>
+<script defer src="js/22-voice.js?v=v2026.10.24.2"></script>
+<script defer src="js/23-session.js?v=v2026.10.24.2"></script>
+<script defer src="js/24-flair.js?v=v2026.10.24.2"></script>
+<script defer src="js/25-social.js?v=v2026.10.24.2"></script>
 
 </body>
 </html>

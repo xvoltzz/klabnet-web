@@ -4,7 +4,7 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 
 ## The project in one screen
 
-- klabnet is the klab.gg homelab's own app, one site at `user.klab.gg` behind Authentik: Home, Feed, Chat (Matrix), Music (Navidrome over the Subsonic API) and Photos. The same page is the inside of the desktop apps.
+- klabnet is the klab.gg homelab's own app, one site at `user.klab.gg` behind Authentik: Home, Social (Feed, Chat on Matrix, and Photos, as one page) and Music (Navidrome over the Subsonic API). The same page is the inside of the desktop apps.
 - Sibling repos, all under `~/projects/`:
   - `klabnet-api`: FastAPI + SQLite, everything under `/api/*`. Identity comes from `X-Authentik-*` headers that Caddy adds.
   - `klabnet-desktop`: the Electron app (Windows, Linux, macOS). `src/preload.js` defines `window.klabnetDesktop`.
@@ -41,6 +41,7 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 | `js/20-mentions.js`, `js/21-stars.js` | @mention suggestions (not in chat); stars on songs and albums |
 | `js/22-voice.js` | Voice channels on LiveKit (see `CLAUDE.md`, "Voice"); `js/vendor/livekit-client.umd.js` loads on first join |
 | `js/23-session.js` | One player on every device: the active one plays, the rest are its remotes (see `CLAUDE.md`, "One player on every device"). Loads last; makes `playerState.audio` stand in for the active device's |
+| `js/25-social.js` | Social: Feed, Chat and Photos as one page with one sidebar (see `CLAUDE.md`, "Social"). The sidebar's cross-page clicks and Social's own home (new photos in a Cover Flow, the latest posts) |
 
 ## Rules that bite
 

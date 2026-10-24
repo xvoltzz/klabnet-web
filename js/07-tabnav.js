@@ -1,10 +1,21 @@
 // ══════════════════════════════════════════
-//  TAB NAV — Home / Feed / Chat / Music / Photos router
+//  TAB NAV — Home / Social / Music router
 //  Hash-based so tabs are bookmarkable and back/forward works. The floating
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'feed', 'chat', 'music', 'photos'];
+const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos'];
+// Social is one page with a sidebar, like Music, holding its own home, Feed,
+// Chat and Photos. Each of those is still a tab of its own here (its own
+// panel, hash, body class and Back entry), so everything that sends you to
+// one keeps working; the app's nav has one Social button for the four, and
+// it lands on whichever you were on last.
+const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social', photos: 'social' };
+const SOCIAL_LAST_KEY = 'klabnet_social_last';
+let _socialLast = 'social';
+try { if (TAB_GROUP[localStorage.getItem(SOCIAL_LAST_KEY)]) _socialLast = localStorage.getItem(SOCIAL_LAST_KEY); } catch (e) {}
+// The pages the app's nav (and Tab, and 1–3) go between.
+const topTab = key => TAB_GROUP[key] || key;
 
 // Native switches handle Space/Enter. Mirror the existing class-based
 // settings updates in their accessible state, including desktop callbacks.
@@ -23,23 +34,35 @@ document.querySelectorAll('#settingsBackdrop button.s-toggle').forEach(button =>
 function afterSwitchPaints(fn) { requestAnimationFrame(() => setTimeout(fn, 0)); }
 
 function isTabEnabled(key) {
-  const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${key}"]`);
+  const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${topTab(key)}"]`);
   return !!btn && !btn.hidden;
 }
 
-// Where each tab was scrolled to. Feed and Home scroll the window, which
-// the other tabs share (and Chat pins to 0), so coming back used to land
-// at the top: 40 posts down, a quick reply in Chat, and the place was lost.
+// Where each tab was scrolled to. Home scrolls the window, which the other
+// tabs share (and Chat pins to 0), so coming back used to land at the top:
+// 40 posts down, a quick reply in Chat, and the place was lost. Social's
+// home and Feed scroll inside the page, beside its sidebar, and a panel
+// that's been hidden comes back scrolled to the top, so those are kept too.
 const _tabScroll = {};
+const PANEL_SCROLLS = new Set(['social', 'feed']);
+const tabPanel = key => document.querySelector(`.tab-panel[data-tab-panel="${key}"]`);
 function setActiveTab(key) {
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
-  if (leaving && leaving !== key) _tabScroll[leaving] = window.scrollY;
+  if (leaving && leaving !== key) _tabScroll[leaving] = PANEL_SCROLLS.has(leaving) ? tabPanel(leaving).scrollTop : window.scrollY;
+  if (TAB_GROUP[key] && key !== _socialLast) {
+    _socialLast = key;
+    try { localStorage.setItem(SOCIAL_LAST_KEY, key); } catch (e) {}
+  }
   // Captured before the tab-panel/body-class toggles below — used further
   // down to detect "just arrived on Chat" vs. "already there".
   const enteringChat = key === 'chat' && !document.body.classList.contains('tab-chat-active');
-  document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === key));
+  document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === topTab(key)));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
+  // Social's sidebar: the row for the page you're on.
+  document.querySelectorAll('#socNav [data-soc]').forEach(b => b.classList.toggle('active', b.dataset.soc === key));
+  document.body.classList.toggle('tab-social-group', topTab(key) === 'social');
+  document.body.classList.toggle('tab-social-active', key === 'social');
   // Chat wants to feel like its own app screen, not another section on
   // the scrolling dashboard — the hero/MOTD header and the presence rail
   // (redundant there anyway, Chat already shows who's around) collapse
@@ -52,7 +75,11 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-feed-active', key === 'feed');
   // Before the paint, so it never shows at the wrong spot first. Something
   // that jumps to a particular post (klabFeedFocus) scrolls after this.
-  if (leaving !== key) window.scrollTo(0, _tabScroll[key] || 0);
+  if (leaving !== key) {
+    if (PANEL_SCROLLS.has(key)) { window.scrollTo(0, 0); tabPanel(key).scrollTop = _tabScroll[key] || 0; }
+    else window.scrollTo(0, _tabScroll[key] || 0);
+  }
+  if (typeof window.klabSocialTabChanged === 'function') { const on = key === 'social'; afterSwitchPaints(() => window.klabSocialTabChanged(on)); }
   if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
@@ -115,7 +142,19 @@ function setActiveTab(key) {
 
 function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => setActiveTab(btn.dataset.tabTarget));
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.tabTarget;
+      // Social: back to where you were in it; pressed again while there,
+      // to its home, the way a second press of a tab goes to its top.
+      if (key === 'social') {
+        const on = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
+        setActiveTab(TAB_GROUP[on] ? 'social' : _socialLast);
+      } else setActiveTab(key);
+    });
+  });
+  document.getElementById('socNav')?.addEventListener('click', e => {
+    const row = e.target.closest('[data-soc]');
+    if (row) { SFX && SFX.play('click'); setActiveTab(row.dataset.soc); }
   });
   // A click already switched; the hash it set shouldn't do it all again.
   window.addEventListener('hashchange', () => {
@@ -694,25 +733,24 @@ window.klabSideNav = (function() {
 
 // ══════════════════════════════════════════
 //  HIDING A PAGE'S SIDEBAR
-//  Music, Chat and Photos each have a sidebar of their own beside the
-//  page. The header's button (and "b") hides the current page's and brings
-//  it back, so a small window can be all music, or all conversation. Kept
-//  per page and per device: html.pane-off-<page>, set in <head> from
-//  localStorage and laid out by the CSS. Phones have no sidebars to hide.
+//  Music and Social each have a sidebar of their own beside the page. The
+//  header's button (and "b") hides the current page's and brings it back,
+//  so a small window can be all music, or all conversation. Kept per page
+//  and per device: html.pane-off-<page>, set in <head> from localStorage
+//  and laid out by the CSS. Phones have no sidebars to hide.
 // ══════════════════════════════════════════
 window.klabPane = (function() {
   const root = document.documentElement;
   const btn = document.getElementById('paneToggle');
   if (!btn) return null;
   const KEY = 'klabnet_pane_off';
-  // Each page's sidebar, and where that page lays it out as one (Photos
-  // keeps its phone layout on a touch screen up to 900px).
+  // Each page's sidebar, where that page lays it out as one, and the body
+  // class that says you're on it (Social's is all four of its pages).
   const PANES = {
-    music:  { el: 'musicSidebar', mq: matchMedia(KLAB_DESK_MQ) },
-    chat:   { el: 'chatSide',     mq: matchMedia(KLAB_DESK_MQ) },
-    photos: { el: 'phSidebar',    mq: matchMedia('(min-width: 901px), (pointer: fine)') },
+    music:  { el: 'musicSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-music-active' },
+    social: { el: 'socSidebar',   mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
   };
-  const page = () => Object.keys(PANES).find(t => document.body.classList.contains('tab-' + t + '-active') && PANES[t].mq.matches) || null;
+  const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches) || null;
   const hidden = t => root.classList.contains('pane-off-' + t);
 
   function sync() {

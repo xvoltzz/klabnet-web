@@ -664,7 +664,8 @@
     _fbLayers[_fbI ^ 1].classList.remove('on');
   }
   const queueFeedBackdrop = () => { if (!_fbQueued) { _fbQueued = true; requestAnimationFrame(focusFeedBackdrop); } };
-  window.addEventListener('scroll', queueFeedBackdrop, { passive: true });
+  // Caught on the way down: Feed scrolls inside Social's page, not the window.
+  document.addEventListener('scroll', queueFeedBackdrop, { passive: true, capture: true });
 
   // A shared song that's the one playing right now shows its record out and spinning.
   function syncFeedRecords() {
