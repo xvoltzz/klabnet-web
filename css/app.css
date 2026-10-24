@@ -8882,7 +8882,7 @@
 
     /* ══ HOME — a plain landing page (js/18-home.js) ══
        The app's own look: a big welcome (the one serif on the site), the
-       date and who's online, and What's new as one glass panel of rows
+       date and who's online, and the changelog as one glass panel of rows
        like Music's lists, each with an icon for what it touched. */
     :root {
       --hp-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -9223,3 +9223,144 @@
     #pickerList { position: relative; }
     .vsongs { position: relative; flex: none; }
     .vsongs > .picker-item { position: absolute; left: 0; right: 0; }
+
+    /* ══ The full player, redone (2026-10-24: "it just feels a little janky") ══
+       A computer window: the cover and the controls stay put in a column on
+       the left; Up next and the lyrics share the panel on the right and
+       cross-fade (opening the lyrics used to swap the whole layout from a
+       grid to a row, and everything but the cover jumped). A phone keeps
+       its own layout (.fs-side and .fs-panes are display: contents there).
+       #fsPlayer#fsPlayer: over the older layers above without unpicking
+       them all. */
+    #fsPlayer { --fs-col: min(56vh, 30vw, 540px); }
+    #fsPlayer::before {
+      /* The cover's colour (--accent-rgb, tweened per album in js/10-lyrics.js) glowing through. */
+      content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(55% 65% at 18% 28%, rgba(var(--accent-rgb), .26), transparent 72%),
+        radial-gradient(45% 55% at 88% 82%, rgba(var(--accent-rgb), .14), transparent 70%);
+    }
+    #fsPlayer .fs-art { transition: transform .7s cubic-bezier(.34,1.32,.64,1), box-shadow .7s ease; }
+    /* Paused, the cover sits back a little, as in Apple Music. */
+    body:not(.is-playing) #fsPlayer .fs-art { transform: scale(.93); box-shadow: 0 14px 40px rgba(0,0,0,.42); }
+    #fsPlayer .fs-art img { transition: opacity .5s ease; }
+    #fsPlayer .fs-art img.fs-art-in { opacity: 0; }
+
+    /* Lyrics: big, left-aligned, one colour step per line, no scaling or
+       glow (both repainted every line on a big blurred layer). */
+    #fsPlayer .lyric-line {
+      font: 700 clamp(22px, 2.2vw, 34px)/1.28 var(--font-ui); letter-spacing: -.02em; margin-bottom: .62em;
+      color: rgba(255,255,255,.26); transform: none; text-shadow: none; text-align: left;
+      transition: color .55s ease;
+    }
+    #fsPlayer .lyric-line.near { color: rgba(255,255,255,.4); }
+    #fsPlayer .lyric-line.far { color: rgba(255,255,255,.2); }
+    #fsPlayer .lyric-line.active { color: #fff; }
+    #fsPlayer .lyric-line:not(.active):hover { color: rgba(255,255,255,.72); }
+    #fsPlayer .lyric-line.plain { font-size: clamp(18px, 1.6vw, 24px); font-weight: 600; color: rgba(255,255,255,.78); }
+    #fsPlayer .lyrics-status { font: 500 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--fs-dimmer); text-align: left; }
+
+    /* A phone: as it was. */
+    #fsPlayer .fs-side, #fsPlayer .fs-panes { display: contents; }
+    #fsPlayer .fs-side-tabs { display: none; }
+
+    @media (min-width: 900px) and (min-height: 560px) {
+      #fsPlayer#fsPlayer.open {
+        display: grid; grid-template-columns: var(--fs-col) minmax(0, 640px); justify-content: center; align-items: center;
+        column-gap: clamp(56px, 7vw, 140px); padding: 6vh 5vw; flex-direction: initial;
+      }
+      #fsPlayer#fsPlayer .fs-content {
+        display: flex; flex-direction: column; align-items: stretch; width: var(--fs-col); max-width: none; height: auto;
+        padding: 0; border: 0; gap: 0;
+      }
+      #fsPlayer#fsPlayer .fs-art-tilt-wrap { order: 0; width: 100%; }
+      #fsPlayer#fsPlayer .fs-art { width: var(--fs-col) !important; height: var(--fs-col) !important; border-radius: 14px; -webkit-box-reflect: initial; }
+      #fsPlayer#fsPlayer .fs-meta { order: 1; margin-top: 28px; text-align: left; }
+      #fsPlayer#fsPlayer .fs-title {
+        font-size: clamp(22px, 2vw, 30px); line-height: 1.18; letter-spacing: -.015em; display: block;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: initial;
+      }
+      #fsPlayer#fsPlayer .fs-artist { font-size: 17px; text-transform: none; letter-spacing: 0; }
+      #fsPlayer#fsPlayer .fs-album { font-size: 14px; text-transform: none; letter-spacing: 0; }
+      #fsPlayer#fsPlayer .fs-prog-wrap { order: 2; margin-top: 22px; }
+      #fsPlayer#fsPlayer .fs-controls { order: 3; margin: 14px 0 0; justify-content: center; gap: 22px; }
+      #fsPlayer#fsPlayer .fs-secondary-controls { order: 4; margin: 16px -8px 0; width: calc(100% + 16px); justify-content: flex-start; }
+      #fsPlayer#fsPlayer .fs-vol { order: 5; margin-top: 8px; width: 100%; justify-content: flex-start; gap: 8px; }
+      #fsPlayer#fsPlayer .fs-vol-bar { flex: 1; width: auto; }
+
+      #fsPlayer#fsPlayer .fs-side { display: flex; flex-direction: column; position: relative; z-index: 1; min-width: 0; height: min(80vh, 840px); }
+      #fsPlayer#fsPlayer .fs-side-tabs {
+        display: flex; align-items: center; gap: 2px; position: relative; flex: none;
+        padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--fs-line);
+      }
+      .fs-side-tab {
+        border: 0; background: none; cursor: pointer; padding: 6px 12px; border-radius: 8px;
+        font: 600 var(--fs-14) var(--font-ui); color: var(--fs-dimmer); transition: color .2s ease, background-color .2s ease;
+      }
+      .fs-side-tab:hover { color: var(--fs-t); background: rgba(255,255,255,.06); }
+      .fs-side-tab[aria-selected="true"] { color: var(--fs-t); }
+      .fs-side-ink {
+        position: absolute; left: 0; bottom: -1px; height: 2px; width: var(--ink-w, 0); border-radius: 2px; background: var(--fs-t);
+        transform: translateX(var(--ink-x, 0)); transition: transform .5s cubic-bezier(.34,1.3,.64,1), width .5s cubic-bezier(.34,1.3,.64,1);
+      }
+      .fs-side-note { margin-left: auto; font-size: var(--fs-12); color: var(--fs-dimmer); white-space: nowrap; }
+
+      #fsPlayer#fsPlayer .fs-panes { display: block; position: relative; flex: 1; min-height: 0; }
+      #fsPlayer#fsPlayer .fs-panes > :is(.fs-upnext, .fs-lyrics-col) {
+        display: flex !important; flex-direction: column; position: absolute; inset: 0; margin: 0; height: auto; animation: none;
+        opacity: 1; transform: none; visibility: visible;
+        transition: opacity .38s ease, transform .55s cubic-bezier(.2,.8,.2,1), visibility 0s;
+      }
+      #fsPlayer#fsPlayer:not(.lyrics-open) .fs-lyrics-col,
+      #fsPlayer#fsPlayer.lyrics-open .fs-upnext {
+        opacity: 0; visibility: hidden; pointer-events: none;
+        transition: opacity .25s ease, transform .4s ease, visibility 0s linear .4s;
+      }
+      #fsPlayer#fsPlayer:not(.lyrics-open) .fs-lyrics-col { transform: translateY(16px); }
+      #fsPlayer#fsPlayer.lyrics-open .fs-upnext { transform: translateY(-12px); }
+      #fsPlayer#fsPlayer .fs-upnext-list {
+        flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-top: 4px;
+        -webkit-mask-image: linear-gradient(#000 calc(100% - 60px), transparent); mask-image: linear-gradient(#000 calc(100% - 60px), transparent);
+      }
+      #fsPlayer#fsPlayer .fs-upnext-list:empty::before { content: 'Nothing up next'; display: block; padding: 14px 4px; font-size: var(--fs-13); color: var(--fs-dimmer); }
+      #fsPlayer#fsPlayer .fs-upnext-row { margin: 0; padding: 8px; box-sizing: border-box; }
+      #fsPlayer#fsPlayer .lyrics-scroll { padding: 26vh 8px 46vh 4px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #fsPlayer .fs-art, #fsPlayer .fs-art img, #fsPlayer .fs-side-ink, #fsPlayer .fs-panes > * { transition: none !important; }
+      body:not(.is-playing) #fsPlayer .fs-art { transform: none; }
+    }
+
+    /* ── Social's home: the photo collage (js/25-social.js) ── */
+    .soc-collage {
+      position: relative; height: clamp(360px, 56vh, 660px); margin: 2px 0 8px;
+      contain: strict; border-radius: 14px; overflow: hidden;
+      --collage-ease: cubic-bezier(.62,-0.02,.24,1.12);
+    }
+    .soc-collage[hidden] { display: none; }
+    .soc-tile {
+      position: absolute; left: 0; top: 0; padding: 0; border: 0; margin: 0; cursor: pointer; overflow: hidden;
+      border-radius: 4px; background: var(--glass-fill); transform-origin: center;
+      transition:
+        transform 1.15s var(--collage-ease) var(--d, 0ms), width 1.15s var(--collage-ease) var(--d, 0ms),
+        height 1.15s var(--collage-ease) var(--d, 0ms), opacity .55s ease var(--d, 0ms), border-radius .4s ease;
+    }
+    .soc-tile.off { opacity: 0; pointer-events: none; }
+    .soc-tile img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+      opacity: 0; scale: 1.04; transition: opacity .5s ease, scale 1.2s cubic-bezier(.2,.8,.2,1);
+    }
+    .soc-tile.loaded img { opacity: 1; scale: 1; }
+    .soc-tile:hover img { scale: 1.035; }
+    .soc-tile:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+    .soc-tile-cap {
+      position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 10px; text-align: left;
+      font: 500 var(--fs-12) var(--font-ui); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: linear-gradient(transparent, rgba(0,0,0,.6)); opacity: 0; transform: translateY(6px);
+      transition: opacity .25s ease, transform .3s ease;
+    }
+    .soc-tile-cap:empty { display: none; }
+    .soc-tile:hover .soc-tile-cap, .soc-tile:focus-visible .soc-tile-cap { opacity: 1; transform: none; }
+    @media (max-width: 760px) { .soc-collage { height: 420px; border-radius: 10px; } }
+    @media (prefers-reduced-motion: reduce) { .soc-tile, .soc-tile img { transition: none; } }
+    html[data-fx="low"] .soc-tile { transition-duration: .5s, .5s, .5s, .3s, .2s; }

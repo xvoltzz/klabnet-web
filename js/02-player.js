@@ -1518,22 +1518,28 @@ function updateFSUI(song) {
   };
   _fsBgImg.src = bgUrl;
 
-  // Crossfade album art
+  // The new cover is loaded and decoded first, then laid over the old one
+  // and faded in; the old one goes once it's covered. (It used to fade the
+  // old one out, empty the box, and drop the new one in while it was
+  // still loading: a blank square, then a pop.)
   const fsArt = document.getElementById('fsArt');
-  fsArt.style.opacity = '0';
-  fsArt.style.transition = 'opacity 0.4s ease';
-  setTimeout(() => {
-    if (myFsArt !== _fsArtToken) return; // a newer song's cover is coming
-    fsArt.innerHTML = '';
+  fsArt.style.opacity = '1';
+  {
     const img = document.createElement('img');
     img.src = artUrl;
     if (song.coverArt) {
       img.dataset.cover = song.coverArt; img.alt = song.album || song.title || '';
       if (song.album) { img.dataset.album = song.album; img.dataset.albumId = song.albumId || ''; img.dataset.artist = window.klabAlbumArtistOf?.(song) || song.artist || ''; }
     }
-    img.onerror = () => { fsArt.innerHTML = '<i class="ti ti-music"></i>'; };
-    fsArt.appendChild(img);
-    fsArt.style.opacity = '1';
+    const show = () => {
+      if (myFsArt !== _fsArtToken) return; // a newer song's cover is coming
+      const old = [...fsArt.children];
+      img.classList.add('fs-art-in');
+      fsArt.appendChild(img);
+      requestAnimationFrame(() => requestAnimationFrame(() => img.classList.remove('fs-art-in')));
+      setTimeout(() => old.forEach(o => o !== img && o.remove()), 520);
+    };
+    img.decode().then(show, () => { if (myFsArt === _fsArtToken) fsArt.innerHTML = '<i class="ti ti-music"></i>'; });
     // Then the same cover at high resolution, once it's ready.
     if (song.album && window.klabHiResArt) {
       window.klabHiResArt({ albumId: song.albumId || '', artist: window.klabAlbumArtistOf(song), album: song.album }).then(r => {
@@ -1543,7 +1549,7 @@ function updateFSUI(song) {
         return pre.decode().then(() => { if (img.isConnected) img.src = r.large; });
       }).catch(() => {});
     }
-  }, 200);
+  }
 }
 
 // FS controls mirror main player

@@ -299,15 +299,36 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     });
     _activeIdx = idx;
 
-    // Smooth scroll active line to center
+    // The line glides up to a little above the middle, on its own curve:
+    // the browser's smooth scroll started over, from a standstill, on
+    // every line, and jumped if one came while it was still going.
+    // Leaves it alone for a few seconds after you scroll it yourself.
     const activeEl = els[idx];
-    if (activeEl) {
-      const scrollTop  = activeEl.offsetTop
-        - scroll.clientHeight / 2
-        + activeEl.offsetHeight / 2;
-      scroll.scrollTo({ top: scrollTop, behavior: 'smooth' });
-    }
+    if (activeEl && Date.now() - _userScrolledAt > 3500) glideTo(activeEl.offsetTop - scroll.clientHeight * 0.38 + activeEl.offsetHeight / 2);
   }
+
+  let _glide = 0, _userScrolledAt = 0;
+  function glideTo(top) {
+    cancelAnimationFrame(_glide);
+    top = Math.max(0, Math.min(scroll.scrollHeight - scroll.clientHeight, top));
+    const from = scroll.scrollTop, d = top - from;
+    if (Math.abs(d) < 1) return;
+    if (!(window.klabMotionOk?.() ?? true)) { scroll.scrollTop = top; return; }
+    const dur = Math.min(900, 520 + Math.abs(d) * 0.4), t0 = performance.now();
+    // Ease out, without the start: a line arrives as the singer gets there.
+    const ease = t => 1 - Math.pow(1 - t, 3.2);
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur);
+      scroll.scrollTop = from + d * ease(t);
+      if (t < 1) _glide = requestAnimationFrame(step);
+    };
+    _glide = requestAnimationFrame(step);
+  }
+  // Your own scrolling (wheel, touch, keys), not the glide's.
+  ['wheel', 'touchmove', 'keydown'].forEach(t => scroll.addEventListener(t, () => {
+    _userScrolledAt = Date.now();
+    cancelAnimationFrame(_glide);
+  }, { passive: true }));
 
   // ── Animation loop for synced lyrics ────
   // Only while the lyrics are actually on screen: with the full player
@@ -431,6 +452,24 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   }
 
   lyricsBtn.addEventListener('click', toggleLyrics);
+  // The side panel's tabs: Up next or Lyrics.
+  const tabs = [...document.querySelectorAll('#fsSide [data-fs-pane]')];
+  tabs.forEach(t => t.addEventListener('click', () => {
+    if ((t.dataset.fsPane === 'lyrics') !== _lyricsOpen) toggleLyrics();
+  }));
+  // The underline slides under whichever is chosen.
+  const ink = document.querySelector('#fsSide .fs-side-ink');
+  function syncTabs() {
+    tabs.forEach(t => t.setAttribute('aria-selected', String((t.dataset.fsPane === 'lyrics') === _lyricsOpen)));
+    const on = tabs.find(t => t.getAttribute('aria-selected') === 'true');
+    if (ink && on?.offsetWidth) { ink.style.setProperty('--ink-x', on.offsetLeft + 'px'); ink.style.setProperty('--ink-w', on.offsetWidth + 'px'); }
+  }
+  lyricsBtn.addEventListener('click', syncTabs);
+  tabs.forEach(t => t.addEventListener('click', syncTabs));
+  // Measured once it's on screen (nothing has a width while it's closed).
+  if (fsPlayer2) new MutationObserver(() => { if (fsPlayer2.classList.contains('open')) requestAnimationFrame(syncTabs); })
+    .observe(fsPlayer2, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', syncTabs);
 
   // Auto-load when song changes if panel is open
   const _origPlaySongLyrics = playSong;

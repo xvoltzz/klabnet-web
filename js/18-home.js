@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════
 //  HOME — a plain landing page: "hi :)".
 //    · The greeting, today's date and how many are online.
-//    · What's new: the newest commits to klabnet (klabnet-api's
+//    · Changelog: the newest commits to klabnet (klabnet-api's
 //      /api/changes asks Gitea for them), a day at a time, each one opening
 //      to its whole message.
 //    · The version and a link to the source at the foot.
@@ -27,7 +27,7 @@
   const presenceChanged = window.klabHomePresenceChanged;
   window.klabHomePresenceChanged = () => { presenceChanged?.(); if (active) paintPeople(); };
 
-  // ── What's new ──
+  // ── Changelog ──
   const when = s => new Date(s).getTime() || 0;
   // An icon for what a commit touches, read off its title: tests first,
   // then the part of klabnet, then the kind of change. Only icons the
@@ -58,9 +58,9 @@
     if (!commits) {
       // Only a 502 from klabnet-api is Gitea itself not answering; the
       // rest is klabnet-api (or the way to it), so it says that instead.
-      el.innerHTML = '<p class="hp-note">' + (failed === 404 ? 'What’s new needs the latest klabnet-api.'
+      el.innerHTML = '<p class="hp-note">' + (failed === 404 ? 'The changelog needs the latest klabnet-api.'
         : failed === 502 ? 'Couldn’t reach the git server just now.'
-        : failed ? 'Couldn’t load what’s new just now.' : 'Loading…') + '</p>';
+        : failed ? 'Couldn’t load the changelog just now.' : 'Loading…') + '</p>';
       return;
     }
     if (!commits.length) { el.innerHTML = '<p class="hp-note">Nothing yet.</p>'; return; }

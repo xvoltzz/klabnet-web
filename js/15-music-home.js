@@ -1127,7 +1127,7 @@
   function fsUpRender() {
     if (!fsUp || !fsEl.classList.contains('open')) return;
     const { items, center, queued } = npItems();
-    const next = items.slice(center + (playerState.currentSong ? 1 : 0)).slice(0, 8);
+    const next = items.slice(center + (playerState.currentSong ? 1 : 0)).slice(0, 14);
     fsUp.hidden = !next.length;
     fsUpNote.textContent = [queued ? `${queued} queued` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
     fsUpList.textContent = '';

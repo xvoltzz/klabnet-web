@@ -153,7 +153,7 @@ try {
 
   // ── Social's home ──
   await ev(`setActiveTab('social')`);
-  check('new photos in a Cover Flow', await until(`document.querySelectorAll('#socHomeBody .soc-flow .mh-cover').length > 0`, 8000));
+  check('new photos in a collage', await until(`document.querySelectorAll('#socHomeBody .soc-collage .soc-tile:not(.off)').length > 0`, 8000));
   check('the latest posts in a row', await until(`document.querySelectorAll('#socHomeBody .soc-post').length > 0`, 8000));
   await sleep(800);
   await shot('home');
@@ -161,7 +161,7 @@ try {
   await ev(`document.querySelector('#socHomeBody .soc-post').click()`); await sleep(1200);
   check('a post card opens it in Feed', (await at()) === 'feed' && await ev(`!!document.querySelector('#feedList .feed-post[data-post-id="${first}"]')`));
   await ev(`setActiveTab('social')`); await sleep(600);
-  await ev(`document.querySelector('#socHomeBody .soc-flow .mh-flow-actions button').click()`); await sleep(1200);
+  await ev(`document.querySelector('#socHomeBody .soc-tile:not(.off)').click()`); await sleep(1200);
   check('a photo\'s Open goes to it in Photos', (await at()) === 'photos');
 
   // ── A phone ──
