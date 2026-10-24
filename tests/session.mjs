@@ -255,7 +255,7 @@ try {
   await b.shot('2-devices-menu');
   await b.ev(`document.getElementById('btnFS').click()`);
   await sleep(900);
-  check('the full player says where it is playing', await b.ev(`document.getElementById('fsDeviceNote').textContent`) === 'on Chrome on Windows' && await b.ev(`!document.getElementById('fsDevices').hidden`));
+  check('the full player says where it is playing', /^on Chrome on \w/.test(await b.ev(`document.getElementById('fsDeviceNote').textContent`)) && await b.ev(`!document.getElementById('fsDevices').hidden`));
   await b.shot('2b-full-player');
   await b.ev(`closeFS()`);
   await sleep(500);

@@ -59,6 +59,10 @@
   // Separate from the above: until one fetch has actually worked, there's
   // no feed to draw, no has-more to know, and no mention watermark to seed.
   let _feedLoadedOk  = false;
+  // A first load that failed used to wait for the next 30s poll, so one
+  // dropped request at startup left "Couldn't load the feed" up for half a
+  // minute. Until one works, it tries again sooner: 2s, 4s, 8s, 16s.
+  let _feedRetryMs = 0, _feedRetryTimer = null;
   let _pendingFile   = null;
   let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
@@ -748,6 +752,7 @@
 
       const existing = new Map();
       listEl.querySelectorAll(':scope > .feed-post[data-post-id]').forEach(el => existing.set(el.dataset.postId, el));
+      let refocusReply = null;
 
       // Day chapters (Eastern, where everyone is): a sticky header before the
       // first post of each day. Headers are reused by day so they don't
@@ -769,7 +774,14 @@
         // Don't yank a post out from under someone mid-sentence. Leaving
         // the key stale means it rebuilds on the next render once focus
         // has moved on.
-        if (el && typingIn && el.contains(typingIn)) { deferred = true; return el; }
+        // An empty reply box has nothing to lose, though, and sending a
+        // reply leaves you in one: holding the post back there meant new
+        // replies to it never showed while you stayed in the box. It's
+        // rebuilt and the new box gets the focus back (below).
+        if (el && typingIn && el.contains(typingIn)) {
+          if (typingIn.value || !typingIn.classList.contains('feed-post-reply-input')) { deferred = true; return el; }
+          refocusReply = id;
+        }
         if (el && el.dataset.postBody === postBodyKey(p, me)) { patchPostEl(el, p, k); return el; }
         return buildPostEl(p, k);
       }
@@ -791,6 +803,8 @@
       if (typingIn && document.activeElement !== typingIn && typingIn.isConnected) {
         typingIn.focus();
         if (caret) { try { typingIn.setSelectionRange(caret[0], caret[1]); } catch (e) {} }
+      } else if (refocusReply && !typingIn.isConnected) {
+        listEl.querySelector('.feed-post-reply-input[data-post-id="' + refocusReply + '"]')?.focus({ preventScroll: true });
       }
     }
     // Only remember the key if what's on screen actually matches it. If the
@@ -966,6 +980,8 @@
       // should derive it from this top-page fetch.
       if (!_feedLoadedOk || gap) _feedHasMore = pageFull;
       _feedLoadedOk = true;
+      _feedRetryMs = 0;
+      clearTimeout(_feedRetryTimer);
       const signature = _feedPosts.map(p => `${p.id}:${p.reply_count || 0}:${JSON.stringify(p.reactions || {})}`).join('|');
       // Most 30s polls come back with nothing actually new — skip the full
       // list rebuild when this fetch changed nothing. Every other trigger
@@ -995,6 +1011,9 @@
           fetchFeed();
         });
         _lastFeedRenderKey = null;
+        _feedRetryMs = Math.min(_feedRetryMs ? _feedRetryMs * 2 : 2000, 16000);
+        clearTimeout(_feedRetryTimer);
+        _feedRetryTimer = setTimeout(fetchFeed, _feedRetryMs);
       }
     } finally {
       _feedPending = false;
@@ -1440,10 +1459,16 @@
       if (!r.ok) { restore(); return; }
       const reply = await r.json();
       const list = _repliesCache.get(postId) || [];
+      const post = _feedPosts.find(p => p.id === postId);
+      // Someone else replied while you were typing (a poll saw the count
+      // move, but the post was held back for your typing): the list here
+      // doesn't have theirs, and adding yours made it look complete, so
+      // theirs stayed hidden until the next poll. Fetch the whole list.
+      const behind = !!post && list.length !== (post.reply_count || 0);
       list.push(reply);
       _repliesCache.set(postId, list);
-      const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reply_count = (post.reply_count || 0) + 1;
+      if (behind) _repliesStale.add(postId);
       _localEditAt.set(postId, performance.now());
       // Blur first. The reconciler refuses to rebuild the post containing
       // the focused element so it can't yank a half-typed reply away — but

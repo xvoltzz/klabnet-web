@@ -46,6 +46,7 @@
   let pos = 0, target = 0; // strip x currently under the playhead / where it's gliding to
   let sel = -1;
   let hasOlder = true, loadingOlder = false, loadedOnce = false;
+  let retryMs = 0, retryTimer = null;
   // Where the next older page starts: the oldest post a server page has
   // returned. Not simply the last of `posts`, which can be a post you just
   // dated into the past, far beyond what's loaded; paging from there would
@@ -129,7 +130,14 @@
       // about the new order's own, which may still be on its way.
       if (g !== gen) return;
       pendingFocus = null;
-      if (!loadedOnce) showEmpty('Couldn’t load photos. Retrying…');
+      if (!loadedOnce) {
+        showEmpty('Couldn’t load photos. Retrying…');
+        // It said "Retrying…" and then waited for the 45s poll. Sooner,
+        // while it never has loaded: 2s, 4s, 8s, 16s.
+        retryMs = Math.min(retryMs ? retryMs * 2 : 2000, 16000);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => { if (!loadedOnce) fetchLatest(); }, retryMs);
+      }
     }
   }
 

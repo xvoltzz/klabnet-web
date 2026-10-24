@@ -119,3 +119,16 @@ node tests/voice.mjs --variant=mac
 
 Not covered: real microphones and speakers, echo, latency, a network that
 blocks UDP, and anything on a phone.
+
+## Feed
+
+`tests/feed.mjs` checks that a first load that fails comes back on its own
+within seconds (it used to wait for the 30s poll), that typing in a reply
+box or the composer survives a poll, and that replies other people send
+show up: the ones sent while you typed yours, and new ones while you sit
+in an empty reply box. It needs the rig above and writes posts and replies
+as tester, alice, bob and carol, so give it a throwaway database.
+
+```sh
+node tests/feed.mjs
+```
