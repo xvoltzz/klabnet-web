@@ -1212,6 +1212,8 @@
   }
   function renderInfoBtn() {
     shell.classList.toggle('bare', !infoOn);
+    // "This photo" lives in Social's sidebar now, outside the shell.
+    document.body.classList.toggle('ph-bare', !infoOn);
     const b = $('phInfoBtn');
     setToggleBtn(b, infoOn ? 'ti-info-circle' : 'ti-photo', 'Photo info', infoOn);
     b.title = infoOn ? 'Hide photo info (i)' : 'Show photo info (i)';

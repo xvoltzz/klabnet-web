@@ -8951,6 +8951,18 @@
       }
     }
 
+    /* ══ Social's sidebar while in Photos ══
+       Photo info off hides the photo's details (they're in this sidebar,
+       outside .ph-shell, so .bare alone missed them). And it keeps to
+       Photos: its nav, the photo, the switch and the song. Chat and Online
+       now step aside, and Voice too unless you're in a channel; leaving
+       Photos brings them back. */
+    body.ph-bare.tab-photos-active #socShell .ph-side-this { display: none; }
+    @media (min-width: 901px), (pointer: fine) {
+      body.tab-photos-active #socShell #chatSide,
+      body.tab-photos-active #socShell #socVoice:not(:has(#vcFoot:not([hidden]))) { display: none; }
+    }
+
     /* ══ Pages under the player bar (desktop; a phone's dock is its mini player) ══ */
     @media (min-width: 761px), (pointer: fine) {
       /* ── The page runs all the way down, under the bar ──

@@ -581,9 +581,37 @@ function syncDmMore() {
   btn.setAttribute('aria-expanded', String(open));
   btn.querySelector('span').textContent = open ? 'Show less' : `Show ${more} more`;
 }
+// Opening grows the list to its new height while the others fade in;
+// folding fades them out as it shrinks, then hides them.
+let _dmAnim = null;
 document.getElementById('chatDmMore')?.addEventListener('click', () => {
-  document.getElementById('chatDmList')?.classList.toggle('open');
+  const list = document.getElementById('chatDmList');
+  if (!list) return;
+  _dmAnim?.finish(); // a fold still running ends first, so this reads where it landed
+  const opening = !list.classList.contains('open');
+  const from = list.offsetHeight;
+  list.classList.toggle('open', true);
+  const full = list.offsetHeight;
+  list.classList.remove('open');
+  const folded = list.offsetHeight;
+  list.classList.toggle('open', opening);
   syncDmMore();
+  if (!(window.klabMotionOk?.() ?? true) || full === folded) return;
+  // The ones that come and go: past the first three, not the open one.
+  const extra = [...list.querySelectorAll(':scope > .chat-conv')].slice(DM_SHOWN).filter(c => !c.classList.contains('active'));
+  const ease = 'cubic-bezier(.2,.8,.2,1)', ms = 260;
+  if (!opening) list.classList.add('open'); // keep them while they leave
+  list.style.overflow = 'hidden';
+  const grow = list.animate({ height: [from + 'px', (opening ? full : folded) + 'px'] }, { duration: ms, easing: ease });
+  extra.forEach((c, i) => c.animate(
+    opening ? { opacity: [0, 1], transform: ['translateY(-4px)', 'none'] } : { opacity: [1, 0] },
+    { duration: opening ? ms : ms * .6, delay: opening ? Math.min(i, 6) * 18 : 0, easing: ease, fill: 'backwards' }));
+  _dmAnim = grow;
+  grow.onfinish = grow.oncancel = () => {
+    if (_dmAnim === grow) _dmAnim = null;
+    list.style.overflow = '';
+    if (!opening) list.classList.remove('open');
+  };
 });
 
 // Sidebar search: filters conversations, and finds anyone on the site to
