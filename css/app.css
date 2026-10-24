@@ -8938,15 +8938,8 @@
     html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
 
 
-    /* ══ THE PLAYER BAR, a little slimmer (2026-10-24) ══
-       The same bar, a few pixels less tall (about 66px, was 75): less
-       padding, a slightly smaller cover. Its cover goes to the album
-       (js/02-player.js); the full player is the button at the end.
-       Desktop only: a phone's dock is its mini player. */
+    /* ══ Pages under the player bar (desktop; a phone's dock is its mini player) ══ */
     @media (min-width: 761px), (pointer: fine) {
-      .player-dock { --dock-hgt: 66px; padding-block: .5rem; }
-      .player-dock .player-art, .player-dock .player-art-placeholder { width: 44px; height: 44px; }
-
       /* ── The page runs all the way down, under the bar ──
          Music's and Social's pages used to stop above it (a 7rem floor on
          the whole page). Now their scrolling parts reach the window's foot
@@ -8955,7 +8948,7 @@
          slides under its glass. Chat keeps its floor: its composer has to
          stay above the bar. */
       body { --dock-room: 1.75rem; }
-      body:not(.player-hidden) { --dock-room: calc(66px + 1.1rem + 16px); }
+      body:not(.player-hidden) { --dock-room: calc(75px + 1.1rem + 16px); }
       body.tab-music-active .dash,
       body.tab-music-active.player-hidden .dash,
       body.tab-social-group:not(.tab-photos-active):not(.tab-chat-active) .dash,
