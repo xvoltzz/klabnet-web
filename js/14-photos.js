@@ -1335,7 +1335,7 @@
     else if (k === 'ArrowDown' || k === 'j') goPost(-1);
     else if (k === 'c') setSide(!shell.classList.contains('side-open'));
     else if (k === 'i') { SFX && SFX.play('click'); setInfo(!infoOn); }
-    else if (k === 's') window.klabSlideshow?.open();
+    else if (k === 'S') window.klabSlideshow?.open(); // s is the next row in the sidebar, as everywhere
     else if (k === 'End' || k === 'G') goTo(newestPostStart());
     else if (k === 'Home') goTo(0);
     else if (k === 'Escape' && shell.classList.contains('side-open')) setSide(false);

@@ -67,7 +67,7 @@
     empty.textContent = 'No photos yet.';
     empty.hidden = true;
 
-    const GAP = 4, EVERY = 4600;
+    const GAP = 4, EVERY = 9000;
     const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
     let items = [], order = [], keys = '', loadedAt = 0, step = 0, timer = 0, held = false, inView = true, drawn = false;
     const tiles = new Map(); // photo id -> its tile
@@ -142,7 +142,7 @@
         on.add(t);
         const coming = t.classList.contains('off');
         // A wave across the block: left to right, top to bottom.
-        t.style.setProperty('--d', Math.round((p.x / W) * 260 + (p.y / H) * 120) + 'ms');
+        t.style.setProperty('--d', Math.round((p.x / W) * 160 + (p.y / H) * 80) + 'ms');
         if (coming) {
           // From nowhere: put where it goes first, then shown.
           t.style.transition = 'none';
@@ -163,6 +163,10 @@
 
     // Each move: the photo after this one up front (so each gets the big
     // spot in turn), and two others trade places.
+    // ←/→ (and now and then on its own) is the whole wall moving: a new
+    // order and the hero to the other side. On its own it's mostly one
+    // photo trading places with one not shown (or two shown, if all are),
+    // since the whole wall going every few seconds was "nervewracking".
     function shuffle(dir = 1) {
       step += 1;
       if (order.length < 3) return;
@@ -172,10 +176,23 @@
       [order[i], order[j]] = [order[j], order[i]];
       layout();
     }
+    let ticks = 0;
+    function drift() {
+      if (++ticks % 6 === 0) return shuffle(1);
+      const shown = order.filter(it => tiles.get(it.ph.id) && !tiles.get(it.ph.id).classList.contains('off')).length || Math.min(order.length, 12);
+      // Its partner about the same shape, so the rows around it hardly
+      // change: one of the three closest, from those not shown if any.
+      const i = Math.floor(Math.random() * shown);
+      const pool = order.map((it, j) => j).filter(j => j !== i && (order.length > shown ? j >= shown : true));
+      pool.sort((a, b) => Math.abs(aspect(order[a]) - aspect(order[i])) - Math.abs(aspect(order[b]) - aspect(order[i])));
+      const j = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+      [order[i], order[j]] = [order[j], order[i]];
+      layout();
+    }
     function schedule() {
       clearTimeout(timer);
       if (!active || document.hidden || held || !inView || calm() || items.length < 3) return;
-      timer = setTimeout(() => { shuffle(1); schedule(); }, EVERY);
+      timer = setTimeout(() => { drift(); schedule(); }, EVERY);
     }
     el.addEventListener('pointerenter', () => { held = true; clearTimeout(timer); });
     el.addEventListener('pointerleave', () => { held = false; schedule(); });

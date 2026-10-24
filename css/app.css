@@ -9358,15 +9358,15 @@
     .soc-collage {
       position: relative; height: clamp(360px, 56vh, 660px); margin: 2px 0 8px;
       contain: strict; border-radius: 14px; overflow: hidden;
-      --collage-ease: cubic-bezier(.62,-0.02,.24,1.12);
+      --collage-ease: cubic-bezier(.45,0,.2,1);
     }
     .soc-collage[hidden] { display: none; }
     .soc-tile {
       position: absolute; left: 0; top: 0; padding: 0; border: 0; margin: 0; cursor: pointer; overflow: hidden;
       border-radius: 4px; background: var(--glass-fill); transform-origin: center;
       transition:
-        transform 1.15s var(--collage-ease) var(--d, 0ms), width 1.15s var(--collage-ease) var(--d, 0ms),
-        height 1.15s var(--collage-ease) var(--d, 0ms), opacity .55s ease var(--d, 0ms), border-radius .4s ease;
+        transform 1.8s var(--collage-ease) var(--d, 0ms), width 1.8s var(--collage-ease) var(--d, 0ms),
+        height 1.8s var(--collage-ease) var(--d, 0ms), opacity .9s ease var(--d, 0ms), border-radius .4s ease;
     }
     .soc-tile.off { opacity: 0; pointer-events: none; }
     .soc-tile img {

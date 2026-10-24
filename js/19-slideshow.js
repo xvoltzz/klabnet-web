@@ -296,7 +296,7 @@
     else if (k === 'ArrowRight' || k === 'l') step(1);
     else if (k === 'ArrowLeft' || k === 'h') step(-1);
     else if (k === 'i') { opts.info = !opts.info; save(); syncBar(); }
-    else if (k === 'Escape' || k === 's') close();
+    else if (k === 'Escape' || k === 's' || k === 'S') close();
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();

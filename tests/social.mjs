@@ -150,6 +150,25 @@ try {
   check('...and Tab again to Music', (await at()) === 'music', await at());
   await key('2'); await sleep(400);
   check('2 is Social', (await at()) === 'feed', await at());
+  // W/S and ↑/↓: the rows of the page's sidebar.
+  const press = async (k, code, vk) => { for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: k, code, windowsVirtualKeyCode: vk, ...(type === 'keyDown' && k.length === 1 ? { text: k } : {}) }); await sleep(450); };
+  await press('s', 'KeyS', 83);
+  check('s is the next row: Feed to Photos', (await at()) === 'photos', await at());
+  await press('w', 'KeyW', 87);
+  check('...w the one before', (await at()) === 'feed', await at());
+  await press('ArrowUp', 'ArrowUp', 38);
+  check('↑ as well: up to Social\'s home', (await at()) === 'social', await at());
+  await press('ArrowDown', 'ArrowDown', 40);
+  check('...and ↓ back to Feed', (await at()) === 'feed', await at());
+  await ev(`setActiveTab('music'); document.activeElement?.blur()`); await sleep(500);
+  const mRow = () => ev(`document.querySelector('#musicShell .picker-tab[data-tab].active')?.dataset.tab`);
+  const m0 = await mRow();
+  await press('s', 'KeyS', 83);
+  const m1 = await mRow();
+  check('in Music, s goes down its sidebar', m1 && m1 !== m0 && (await at()) === 'music', [m0, m1]);
+  await press('w', 'KeyW', 87);
+  check('...and w back up', (await mRow()) === m0, await mRow());
+  await ev(`setActiveTab('feed')`); await sleep(400);
 
   // ── Social's home ──
   await ev(`setActiveTab('social')`);

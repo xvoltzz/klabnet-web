@@ -461,6 +461,37 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     // A button left focused by a click would take the next Tab itself.
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
+  // The page's own sidebar, one row at a time (W/S, ↑/↓): Tab goes
+  // between pages, these between what's in one. Music's rows as they
+  // show (all of them while its sidebar is hidden); Social's Home, Feed,
+  // Photos and Chat, which on a wide window has no row of its own.
+  function subTabs() {
+    const page = currentPage();
+    if (page === 'music') {
+      const all = [...document.querySelectorAll('#musicShell .picker-tab[data-tab]')];
+      const shown = all.filter(b => b.offsetParent);
+      return { rows: (shown.length ? shown : all).map(b => b.dataset.tab), at: document.querySelector('#musicShell .picker-tab[data-tab].active')?.dataset.tab,
+        go: key => document.querySelector(`#musicShell .picker-tab[data-tab="${CSS.escape(key)}"]`)?.click() };
+    }
+    if (page === 'social') {
+      const rows = ['social', 'feed', 'photos', 'chat'].filter(isTabEnabled);
+      return { rows, at: document.querySelector('.tab-panel.active')?.dataset.tabPanel,
+        go: key => { SFX && SFX.play('click'); setActiveTab(key); } };
+    }
+    return null;
+  }
+  function stepSubTab(dir) {
+    const t = subTabs();
+    if (!t || !t.rows.length) return false;
+    const i = t.rows.indexOf(t.at);
+    t.go(t.rows[i < 0 ? (dir > 0 ? 0 : t.rows.length - 1) : (i + dir + t.rows.length) % t.rows.length]);
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    return true;
+  }
+  // ↑/↓ only when nothing that takes arrows has focus (a slider, a menu,
+  // the A–Z rail, a row of cards): there they're that thing's.
+  const arrowsFree = () => { const el = document.activeElement; return !el || el === document.body || !!el.closest('.picker-tab, .tab-nav-btn'); };
+
   // Not even a field with text in it keeps Tab: the search box keeps what
   // you searched for, drafts stay in the composers, and either one having
   // focus turned Tab into hopping between buttons ("Tab sometimes selects
@@ -518,6 +549,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         if (onMusic && search) { e.preventDefault(); window.klabPane?.show('music'); search.focus(); }
         break;
       }
+      case 'w': case 's': if (stepSubTab(e.key === 's' ? 1 : -1)) e.preventDefault(); break;
+      case 'ArrowUp': case 'ArrowDown':
+        if (!e.defaultPrevented && !e.shiftKey && arrowsFree() && stepSubTab(e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault();
+        break;
       case 'b': if (window.klabPane?.toggle()) e.preventDefault(); break;
       case 'n': e.preventDefault(); document.getElementById('btnNext')?.click(); break;
       case 'p': e.preventDefault(); document.getElementById('btnPrev')?.click(); break;
