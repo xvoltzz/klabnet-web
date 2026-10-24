@@ -52,8 +52,7 @@ async function loadAlbums() {
     const albums = await albumsLibrary();
     // Moved on to another view while this loaded: it isn't ours to draw on.
     if (pickerTab !== 'albums' || t !== _pickerLoadToken) return;
-    renderAlbumList(applySort(albums, 'albums'));
-    showSortBtn('albums');
+    klabBrowse.render('albums'); // filtered, sorted, with the A–Z rail (js/26-browse.js)
   } catch(e) { if (pickerTab === 'albums' && t === _pickerLoadToken) pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 

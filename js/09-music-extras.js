@@ -509,134 +509,41 @@ document.getElementById('playerDock').addEventListener('contextmenu', e => {
 const _origLoadPickerTabNew = loadPickerTab;
 
 // ── Songs browser ──
-// Default ("library order") stays the original fast path: fetch one page,
-// render it, fetch more as the user scrolls near the bottom — a library of
-// thousands of songs never has to load in full just to open the tab.
-// Picking an actual sort order is an explicit, opt-in trade: it fetches the
-// whole library once (caching it) so the sort is global, then renders the
-// sorted result in the same chunk-by-chunk way so a low-power device still
-// only ever has a page's worth of DOM nodes at a time.
-const _SONGS_PER_PAGE = 100;
-let _songsOffset = 0;
-let _songsObserver = null;
+// The whole library, fetched a thousand at a time (a 7,000-song library is
+// eight requests, under a second on the LAN) and kept for ten minutes, so
+// the filters, every sort and the A–Z rail (js/26-browse.js) work on all of
+// it at once. Rows are still drawn a hundred at a time as you scroll.
+const _SONGS_PER_PAGE = 1000;
+let _songsObserver = null; // gone; the playlists wrapper still clears it
 let _songsCache = null, _songsAt = 0;
 
 async function _fetchSongsPage(offset) {
-  const res  = await fetchTimeout(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`, {}, 8000);
+  const res  = await fetchTimeout(`${ND_URL}/rest/search3?query=%20&songCount=${_SONGS_PER_PAGE}&songOffset=${offset}&albumCount=0&artistCount=0&${subsonicParams()}`, {}, 15000);
   const data = await res.json();
   return data['subsonic-response']?.searchResult3?.song || [];
 }
 
-let _songsLoading = null; // the sorted list's crawl, shared by every view waiting on it
+let _songsLoading = null; // the crawl, shared by every view waiting on it
 async function loadAllSongs() {
-  if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
   pickerList.innerHTML = '<div class="picker-empty">Loading songs…</div>';
-  showSortBtn('songs');
   const t = _pickerLoadToken;
   try {
-    if (getSort('songs') === 'default') {
-      await loadSongsIncremental();
-    } else {
-      if (!_songsCache || Date.now() - _songsAt > LIBRARY_TTL_MS) await (_songsLoading ||= (async () => {
-        const all = [];
-        let offset = 0;
-        // Capped for the same reason as loadAlbums() above — 200 pages is
-        // 20,000 songs, well beyond any real library.
-        for (let page_i = 0; page_i < 200; page_i++) {
-          const page = await _fetchSongsPage(offset);
-          all.push(...page);
-          if (page.length < _SONGS_PER_PAGE) break;
-          offset += _SONGS_PER_PAGE;
-          if (page_i === 199) showToast('The song list may be incomplete: it hit the page limit', 'ti-list-details');
-        }
-        _songsCache = all;
-        _songsAt = Date.now();
-      })().finally(() => { _songsLoading = null; }));
-      if (pickerTab !== 'songs' || t !== _pickerLoadToken) return;
-      renderSongsTabSorted();
-    }
-  } catch(e) { if (pickerTab === 'songs') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load songs</div>'; }
-}
-
-// Fast path — one page at a time, straight from the network, in server order.
-async function loadSongsIncremental() {
-  _songsOffset = 0;
-  pickerList.innerHTML = '';
-  const lbl = document.createElement('div');
-  lbl.className = 'picker-section-label';
-  lbl.id = '_songsLbl';
-  lbl.textContent = 'All Songs';
-  pickerList.appendChild(lbl);
-
-  const first = await _fetchSongsPage(0);
-  if (pickerTab !== 'songs' || !lbl.isConnected) return;
-  pickerSongs = [...first];
-  renderSongItems(first, pickerList);
-  _songsOffset = first.length;
-
-  if (first.length < _SONGS_PER_PAGE) { lbl.textContent = `All Songs (${_songsOffset})`; return; }
-
-  const sentinel = document.createElement('div');
-  sentinel.style.cssText = 'height:1px;';
-  pickerList.appendChild(sentinel);
-
-  _songsObserver = new IntersectionObserver(async ([entry]) => {
-    if (!entry.isIntersecting) return;
-    _songsObserver.unobserve(sentinel);
-    let more;
-    // One failed page used to end the list for good; it tries again when
-    // the bottom comes back into view.
-    try { more = await _fetchSongsPage(_songsOffset); }
-    catch (e) { if (sentinel.isConnected) setTimeout(() => sentinel.isConnected && _songsObserver.observe(sentinel), 3000); return; }
-    if (pickerTab !== 'songs' || !sentinel.isConnected) return; // another view by now
-    if (!more.length) { sentinel.remove(); lbl.textContent = `All Songs (${_songsOffset})`; return; }
-    // In place: a song playing from this list keeps the same array as its
-    // playlist, so it plays on into the pages loaded after it.
-    pickerSongs.push(...more);
-    sentinel.remove();
-    renderSongItems(more, pickerList);
-    _songsOffset += more.length;
-    if (more.length === _SONGS_PER_PAGE) { pickerList.appendChild(sentinel); _songsObserver.observe(sentinel); }
-    else lbl.textContent = `All Songs (${_songsOffset})`;
-  }, { root: pickerList, rootMargin: '80px' });
-
-  _songsObserver.observe(sentinel);
-}
-
-// Sorted path — the whole (cached) library, rendered in chunks as the user scrolls.
-function renderSongsTabSorted() {
-  if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
-  const sorted = applySort(_songsCache || [], 'songs');
-  pickerSongs = sorted;
-  pickerList.innerHTML = '';
-
-  const lbl = document.createElement('div');
-  lbl.className = 'picker-section-label';
-  lbl.id = '_songsLbl';
-  lbl.textContent = `All Songs (${sorted.length})`;
-  pickerList.appendChild(lbl);
-
-  const sentinel = document.createElement('div');
-  sentinel.style.cssText = 'height:1px;';
-  let rendered = 0;
-
-  const renderChunk = () => {
-    const next = sorted.slice(rendered, rendered + _SONGS_PER_PAGE);
-    renderSongItems(next, pickerList);
-    rendered += next.length;
-    if (rendered >= sorted.length) { if (sentinel.isConnected) sentinel.remove(); return; }
-    pickerList.appendChild(sentinel);
-    _songsObserver.observe(sentinel);
-  };
-
-  _songsObserver = new IntersectionObserver(([entry]) => {
-    if (!entry.isIntersecting) return;
-    _songsObserver.unobserve(sentinel);
-    sentinel.remove();
-    renderChunk();
-  }, { root: pickerList, rootMargin: '80px' });
-
-  renderChunk();
+    if (!_songsCache || Date.now() - _songsAt > LIBRARY_TTL_MS) await (_songsLoading ||= (async () => {
+      const all = [];
+      // Capped like loadAlbums(): 50 pages is 50,000 songs.
+      for (let page_i = 0; page_i < 50; page_i++) {
+        const page = await _fetchSongsPage(all.length);
+        all.push(...page);
+        if (page.length < _SONGS_PER_PAGE) break;
+        if (pickerTab === 'songs') { const e = pickerList.querySelector('.picker-empty'); if (e) e.textContent = `Loading songs… ${all.length.toLocaleString()}`; }
+        if (page_i === 49) showToast('The song list may be incomplete: it hit the page limit', 'ti-list-details');
+      }
+      _songsCache = all;
+      _songsAt = Date.now();
+    })().finally(() => { _songsLoading = null; }));
+    if (pickerTab !== 'songs' || t !== _pickerLoadToken) return;
+    klabBrowse.render('songs');
+  } catch(e) { if (pickerTab === 'songs' && t === _pickerLoadToken) pickerList.innerHTML = '<div class="picker-empty">Couldn’t load songs</div>'; }
 }
 
 loadPickerTab = async function(tab) {
@@ -916,9 +823,11 @@ function openMusicRequestModal() {
 // ══════════════════════════════════════════
 const SORT_KEY = 'klabnet_picker_sort';
 const SORT_OPTIONS = {
-  songs:     [['default','Library order'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)'], ['album-asc','Album (A–Z)']],
+  songs:     [['artist-asc','Artist (A–Z)'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['album-asc','Album (A–Z)'],
+              ['year-desc','Year (newest)'], ['year-asc','Year (oldest)'], ['created-desc','Recently added'], ['plays-desc','Most played'], ['duration-desc','Longest']],
   favorites: [['added-desc','Recently added'], ['title-asc','Title (A–Z)'], ['title-desc','Title (Z–A)'], ['artist-asc','Artist (A–Z)']],
-  albums:    [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['artist-asc','Artist (A–Z)'], ['year-desc','Year (Newest)'], ['year-asc','Year (Oldest)']],
+  albums:    [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['artist-asc','Artist (A–Z)'], ['year-desc','Year (newest)'], ['year-asc','Year (oldest)'],
+              ['created-desc','Recently added'], ['plays-desc','Most played'], ['played-desc','Recently played']],
   playlists: [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['created-desc','Recently created']],
   genres:    [['name-asc','Name (A–Z)'], ['count-desc','Most songs']],
 };
@@ -929,7 +838,9 @@ try { _pickerSortState = JSON.parse(localStorage.getItem(SORT_KEY) || '{}'); } c
 function getSort(tab) {
   const opts = SORT_OPTIONS[tab];
   if (!opts) return null;
-  return _pickerSortState[tab] || opts[0][0];
+  // A sort that's since gone (Songs' "Library order") is the first one.
+  const saved = _pickerSortState[tab];
+  return opts.some(o => o[0] === saved) ? saved : opts[0][0];
 }
 function setSort(tab, val) {
   _pickerSortState[tab] = val;
@@ -942,16 +853,21 @@ function applySort(items, tab) {
   const cmp = (a, b) => String(a).localeCompare(String(b));
   // Genres store their label in `value`, not `name`.
   const nameOf = x => tab === 'genres' ? x.value : x.name;
+  const inAlbum = (a, b) => (a.discNumber || 0) - (b.discNumber || 0) || (a.track || 0) - (b.track || 0);
   switch (key) {
     case 'title-desc':   return arr.sort((a, b) => cmp(b.title, a.title));
-    case 'artist-asc':   return arr.sort((a, b) => cmp(a.artist, b.artist));
-    case 'album-asc':    return arr.sort((a, b) => cmp(a.album, b.album));
+    // Then album by album, in track order, so it plays like the records do.
+    case 'artist-asc':   return arr.sort((a, b) => cmp(a.artist, b.artist) || cmp(a.album ?? a.name, b.album ?? b.name) || inAlbum(a, b));
+    case 'album-asc':    return arr.sort((a, b) => cmp(a.album, b.album) || inAlbum(a, b));
     case 'added-desc':   return arr; // songs/favorites are already stored newest-first
     case 'name-desc':    return arr.sort((a, b) => cmp(nameOf(b), nameOf(a)));
     case 'year-desc':    return arr.sort((a, b) => (b.year||0) - (a.year||0));
     case 'year-asc':     return arr.sort((a, b) => (a.year||0) - (b.year||0));
     case 'created-desc': return arr.sort((a, b) => new Date(b.created||0) - new Date(a.created||0));
     case 'count-desc':   return arr.sort((a, b) => (b.songCount||0) - (a.songCount||0));
+    case 'plays-desc':   return arr.sort((a, b) => (b.playCount||0) - (a.playCount||0));
+    case 'played-desc':  return arr.sort((a, b) => String(b.played||'').localeCompare(String(a.played||'')));
+    case 'duration-desc': return arr.sort((a, b) => (b.duration||0) - (a.duration||0));
     case 'title-asc':    return arr.sort((a, b) => cmp(a.title, b.title));
     case 'name-asc':     return arr.sort((a, b) => cmp(nameOf(a), nameOf(b)));
     default:
@@ -961,7 +877,8 @@ function applySort(items, tab) {
 
 function showSortBtn(tab) {
   const btn = document.getElementById('pickerSortBtn');
-  if (btn) btn.classList.toggle('shown', !!SORT_OPTIONS[tab]);
+  // Albums and Songs sort from their own bar (js/26-browse.js).
+  if (btn) btn.classList.toggle('shown', !!SORT_OPTIONS[tab] && tab !== 'albums' && tab !== 'songs');
 }
 function hideSortBtn() {
   const btn = document.getElementById('pickerSortBtn');
@@ -971,7 +888,7 @@ function hideSortBtn() {
 
 function rerenderSortedTab() {
   if (pickerTab === 'songs')          loadAllSongs();
-  else if (pickerTab === 'albums')    renderAlbumList(applySort(_albumsCache || [], 'albums'));
+  else if (pickerTab === 'albums')    klabBrowse.render('albums');
   else if (pickerTab === 'favorites') loadPickerTab('favorites');
   else if (pickerTab === 'genres')    loadGenres();
 }
