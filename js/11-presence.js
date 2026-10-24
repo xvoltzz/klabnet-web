@@ -403,32 +403,8 @@
     '</div>';
   }
 
-  // Chat's "Online now" row: a face per person with their note in a small
-  // bubble above it, Instagram-Notes-style (what notes were modeled on).
-  // Keeps the presence-card class and data-* attributes so the click
-  // (DM, or your own: profile), right-click (listen along / profile) and
-  // unread-dot handling below all work unchanged.
-  function faceHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
-    ensureAvatarResolved(username);
-    const avatarUrl = _avatarCache.get(username);
-    const inner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username || '?')[0].toUpperCase());
-    const playable = !isMe && playing && (songId || song);
-    const attrs = ' role="link" tabindex="0" aria-label="' + esc(isMe ? 'Open your profile' : 'Message ' + username) + '" data-username="' + esc(username || '') + '"' +
-      (playable ? ' data-song-id="' + esc(songId || '') + '" data-song-title="' + esc(song || '') + '" data-song-artist="' + esc(artist || '') + '"' : '');
-    const note = _notesCache.get(username);
-    // No note bubbles over the faces: squeezed that small nobody could read
-    // them. Notes live in the tooltip here, in a DM's header, and on Home's
-    // presence cards (where yours is set). Leaving a listening party is a
-    // control, not a note, so that one stays.
-    const bubble = isMe && partyHost ? '<span class="chat-face-note presence-card-party-leave" role="button" tabindex="0" title="Leave listening party"><i class="ti ti-headphones"></i> ' + esc(partyHost) + '</span>' : '';
-    const away = !isMe && _away.has(username) ? 'Away' : '';
-    const tip = (isMe ? 'You' : (playing && song ? esc(username) + ' · listening to ' + esc(song) : esc(username))) + (away ? ' · ' + away.toLowerCase() : '') + (note ? ' · “' + esc(note) + '”' : '');
-    return '<div class="presence-card chat-face' + (isMe ? ' is-me' : '') + (away ? ' is-away' : '') + (playable ? ' is-playable' : '') + (playing && song ? ' is-playing' : '') + '"' + attrs +
-      ' style="--name-color:' + profileColor(username) + '"' + (away ? ' data-away-tip="' + tip + '"' : '') + ' title="' + tip + '">' + bubble +
-      '<span class="chat-face-av">' + inner + '<span class="presence-card-online"></span>' +
-        (playing && song ? '<span class="chat-face-eq"><i></i><i></i><i></i></span>' : '') + '</span>' +
-      '<span class="chat-face-name">' + (isMe ? 'you' : esc(username)) + platformIcon(isMe ? PLATFORM : platform) + '</span></div>';
-  }
+  // Social's "Online now" (#presenceList, in its sidebar) draws the same
+  // cards as Home, restyled to the sidebar's rows ("SOCIAL" in app.css).
 
   // Keep elapsed time out of the HTML diff: a minute passing must not
   // replace a focused face, a note control, or Home's whole card shelf.
@@ -622,11 +598,11 @@
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
-      html += faceHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
+      html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     }
     // Listening first, then everyone else online.
     [...others].sort(byActivity).forEach(l => {
-      html += faceHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform);
+      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots

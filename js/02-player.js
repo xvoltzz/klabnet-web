@@ -1189,13 +1189,12 @@ function dockWanted() {
 // on screen and moved with `translate`/`scale`, which add to the dock's
 // own transform (and to the !important ones that hide it on Photos).
 let dockFlight = null;
-function flyDock(open) {
+function flyDock(open, pr) {
   const dock = document.getElementById('playerDock'), peek = document.getElementById('dockPeek');
   const ok = (window.klabMotionOk?.() ?? true) && dock.animate;
-  peek.classList.add('flying');
   const icon = peek.querySelector('.eq-ico') || peek;
-  const pr = icon.getBoundingClientRect(), dr = dock.getBoundingClientRect();
-  if (!ok || !pr.width || !dr.width) { peek.classList.remove('flying'); return null; }
+  const dr = dock.getBoundingClientRect();
+  if (!ok || !pr || !pr.width || !dr.width) return null;
   const z = typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1;
   const m = new DOMMatrix(getComputedStyle(dock).transform === 'none' ? undefined : getComputedStyle(dock).transform);
   const sx = Math.max(pr.width / dr.width, 0.01), sy = Math.max(pr.height / dr.height, 0.01);
@@ -1210,14 +1209,42 @@ function flyDock(open) {
   // Done: the dock's own slide transition comes back only once the
   // hidden state has settled, or it would play a second, smaller move.
   const land = () => {
-    peek.classList.remove('flying');
     requestAnimationFrame(() => requestAnimationFrame(() => { if (dockFlight !== a || !open) dock.classList.remove('dock-flying'); }));
   };
   a.finished.then(() => { land(); if (open && dockFlight === a) { a.cancel(); dockFlight = null; dock.classList.remove('dock-flying'); } }, land);
   // The visualiser gives a little bump as the dock lands in it.
-  if (!open) setTimeout(() => icon.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
+  if (!open && !peek.classList.contains('peek-hidden')) setTimeout(() => icon.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
     { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' }), 300);
   return a;
+}
+// The visualiser shrinks away on Music (where the dock is) and grows back
+// everywhere else, never just vanishing. Returns where its icon is, or
+// will be once it has grown in, for the dock's flight.
+function setPeekHidden(hide, animate) {
+  const peek = document.getElementById('dockPeek');
+  if (!peek) return null;
+  const icon = peek.querySelector('.eq-ico') || peek;
+  const was = peek.classList.contains('peek-hidden');
+  if (was === hide) return icon.getBoundingClientRect();
+  if (!animate) peek.style.transition = 'none';
+  let rect;
+  if (hide) { rect = icon.getBoundingClientRect(); peek.classList.add('peek-hidden'); }
+  else {
+    peek.style.transition = 'none';
+    peek.classList.remove('peek-hidden');
+    rect = icon.getBoundingClientRect();
+    if (animate) { peek.classList.add('peek-hidden'); void peek.offsetWidth; peek.style.transition = ''; peek.classList.remove('peek-hidden'); }
+  }
+  if (!animate) { void peek.offsetWidth; peek.style.transition = ''; }
+  return rect;
+}
+// The room pages leave the dock at their foot (body.player-hidden turns
+// it off). On a computer only Music keeps it: brought up anywhere else,
+// the dock floats over the page, so nothing on it moves or pops in.
+function dockLayout() {
+  document.body.classList.toggle('player-hidden', dockDeskMq.matches
+    ? !document.body.classList.contains('tab-music-active')
+    : document.getElementById('playerDock').classList.contains('hidden'));
 }
 function applyDock(animate) {
   const dock = document.getElementById('playerDock'), peek = document.getElementById('dockPeek');
@@ -1225,28 +1252,34 @@ function applyDock(animate) {
   peek?.setAttribute('aria-pressed', String(dockPeekOpen));
   peek && (peek.title = dockPeekOpen ? 'Tuck the player away' : 'Player');
   document.body.classList.toggle('dock-peek-open', dockPeekOpen);
+  // With the page, not at the end of the flight.
+  if (dockDeskMq.matches) dockLayout();
   const was = !dock.classList.contains('hidden');
-  if (v === was) { document.body.classList.toggle('player-hidden', !v); return; }
+  const peekHide = dockDeskMq.matches && document.body.classList.contains('tab-music-active');
+  if (v === was) { setPeekHidden(peekHide, animate); dockLayout(); return; }
   dockFlight?.cancel();
   dockFlight = null;
   const flying = animate && peek && dockDeskMq.matches && (window.klabMotionOk?.() ?? true);
+  // Where the dock flies from or to: the visualiser where it will be once
+  // it has grown back in (leaving Music), or where it is as it shrinks away.
+  const iconRect = setPeekHidden(peekHide, animate);
   // No slide transition under the flight (it ran as a second animation).
   dock.classList.toggle('dock-flying', !!flying);
   void dock.offsetWidth;
   if (v) {
     dock.classList.remove('hidden');
-    document.body.classList.remove('player-hidden');
-    if (flying) dockFlight = flyDock(true);
+    dockLayout();
+    if (flying) dockFlight = flyDock(true, iconRect);
     if (!dockFlight) dock.classList.remove('dock-flying');
   } else {
     const done = () => {
       if (dockWanted()) return;
       dock.classList.add('hidden');
-      document.body.classList.add('player-hidden');
+      dockLayout();
       dockFlight?.cancel();
       dockFlight = null;
     };
-    const a = flying ? flyDock(false) : null;
+    const a = flying ? flyDock(false, iconRect) : null;
     if (a) { dockFlight = a; a.finished.then(done, () => {}); } else { done(); dock.classList.remove('dock-flying'); }
   }
 }

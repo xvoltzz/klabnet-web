@@ -22,7 +22,7 @@ export default async p => {
     if(!p.baseline) await p.ev(`if(presenceShelf!==document.querySelector('#hmListen .hm-cards') ||
       presenceFace!==document.querySelector('#presenceList [data-username="away-fixture"]') || document.activeElement!==presenceCard)
         throw new Error('Elapsed away time rebuilt the cards or lost focus');
-      if(!presenceCard.textContent.includes('Away 8m') || !presenceFace.title.includes('away 8m'))throw new Error('Away text stale');`);
+      if(!presenceCard.textContent.includes('Away 8m') || !presenceFace.textContent.includes('Away 8m'))throw new Error('Away text stale');`);
     // Screenshots compare unfocused styling; focus preservation is asserted above.
     await p.ev('document.activeElement.blur()');await p.shot('away-presence');
     console.log('PASS elapsed away text',p.baseline?'baseline capture':'preserves card identity and focus');
