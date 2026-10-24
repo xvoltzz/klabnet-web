@@ -497,7 +497,7 @@
     card.className = 'mh-card';
     card._album = a; // right-click menu (09-music-extras.js)
     card.innerHTML =
-      `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, 300))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
+      `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, klabArtSize(200)))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
       `<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>` +
       `<div class="mh-card-t">${esc(a.name || a.title || '')}</div><div class="mh-card-a">${esc(a.artist || '')}</div>`;
     card.addEventListener('click', e => {

@@ -100,16 +100,17 @@ function renderAlbumList(albums, appendMode) {
     ph.className = 'picker-item-art-ph';
     ph.innerHTML = '<i class="ti ti-vinyl"></i>';
 
-    const artUrl = ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(album.coverArt || album.id) + '&size=300&' + subsonicParams();
-    // 300, like Music Home's cards: a grid tile is 130-200px wide, and the
-    // old 150 was blurry on a high-DPI screen.
+    // Sized when it's fetched, from how wide its box really is: a grid tile
+    // (130-250px) or a search row's small art.
+    const artUrl = () => ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(album.coverArt || album.id) +
+      '&size=' + klabArtSize(Math.max(ph.offsetWidth, ph.getBoundingClientRect().width) || 200) + '&' + subsonicParams();
     const artImg = new Image();
     artImg.className = 'picker-item-art';
     artImg.decoding = 'async';
     artImg.onload = () => ph.replaceWith(artImg);
     // Fetched as it nears the screen: the whole library at once was ~500
     // cover requests in one burst, queued ahead of the music itself.
-    item._loadArt = () => { artImg.src = artUrl; };
+    item._loadArt = () => { artImg.src = artUrl(); };
     if (_albumArtIO) _albumArtIO.observe(item); else item._loadArt();
 
     const info = document.createElement('div');
@@ -248,7 +249,7 @@ function artistThumbUrl(artistId) {
       .then(r => r.json()).then(d => d['subsonic-response']?.artist, () => null);
     const cover = artist?.album?.[0]?.coverArt;
     if (!cover && !info && !artist) throw new Error('offline'); // not remembered: try again next time
-    return cover ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(cover)}&size=300&${subsonicParams()}` : '';
+    return cover ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(cover)}&size=${klabArtSize(200)}&${subsonicParams()}` : '';
   })();
   _artistThumbs.set(artistId, p);
   p.catch(() => _artistThumbs.delete(artistId));

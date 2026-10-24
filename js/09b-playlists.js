@@ -344,7 +344,7 @@ async function plRenderPage(ctx, id) {
     root.style.setProperty('--pl-c', pl.color || 'transparent');
     root.classList.toggle('tinted', !!pl.color);
     const bg = pl.cover ? `${PL_API}/covers/${encodeURIComponent(pl.cover)}/s`
-      : pl.art?.[0] ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(pl.art[0])}&size=300&${subsonicParams()}` : '';
+      : pl.art?.[0] ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(pl.art[0])}&size=${klabArtSize(200)}&${subsonicParams()}` : '';
     if (bg) ctx.setBg(bg); else ctx.clearBg();
 
     const kicker = !pl.featured ? (pl.local ? 'Playlist' : 'Private playlist') : pl.collab ? 'Featured playlist · open to additions' : 'Featured playlist';

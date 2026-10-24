@@ -589,6 +589,15 @@ function klabPostSong(s) {
 // Stars (js/21-stars.js): anything can be starred, and five people starring
 // it turns it gold. Chat, feed posts and photos store a star as this
 // reaction; songs and albums keep theirs in the API's stars table.
+// Cover art for a box this wide (CSS px): enough pixels for the screen's
+// density (and the app's zoom, which is in it), in the few sizes asked
+// for, so Navidrome's resize cache keeps working. A fixed 300 was soft
+// on a high-DPI screen once a tile was past 150px.
+function klabArtSize(cssPx) {
+  const need = cssPx * (window.devicePixelRatio || 1);
+  return need <= 300 ? 300 : need <= 600 ? 600 : 1000;
+}
+
 const KLAB_STAR = '⭐';
 const KLAB_GOLD_AT = 5;
 // Off since 2026-10-24 (the owner's call; maybe back later): no star

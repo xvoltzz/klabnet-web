@@ -550,7 +550,7 @@ function sampleImageColor(imgUrl) {
           const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'Discography';
           const grid = document.createElement('div'); grid.className = 'ap-disc-grid';
           sorted.forEach(album => {
-            const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=300&${subsonicParams()}`;
+            const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=${klabArtSize(190)}&${subsonicParams()}`;
             const card = document.createElement('div'); card.className = 'ap-disc-card';
             card.setAttribute('role', 'button');
             card.tabIndex = 0;
@@ -635,7 +635,8 @@ function sampleImageColor(imgUrl) {
 
         const songs  = album.song || [];
         const artLg  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=800&${subsonicParams()}` : '';
-        const artSm  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=300&${subsonicParams()}` : '';
+        // The cover beside the title: as sharp as the backdrop's (the same file, already asked for).
+        const artSm  = album.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=${klabArtSize(260)}&${subsonicParams()}` : '';
         const totSec = songs.reduce((s,t) => s+(t.duration||0), 0);
         const durStr = totSec > 3600
           ? `${Math.floor(totSec/3600)}h ${Math.floor((totSec%3600)/60)}m`
