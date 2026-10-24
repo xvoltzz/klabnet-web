@@ -87,11 +87,17 @@
   async function loadChanges() {
     if (Date.now() - loadedAt < REFRESH_MS && commits) return;
     try {
-      const r = await fetchTimeout('/api/changes', {}, 12000);
-      // An older klabnet-api has no /api/changes: a 404, or, past a proxy
-      // that answers unknown paths with the page itself, HTML.
+      // /api/posts/changes, since Caddy only forwards a fixed list of /api
+      // prefixes and /api/changes isn't on it (its file server answered
+      // with HTML). The plain path is asked too, where it does get through.
+      const ask = path => fetchTimeout(path, {}, 12000);
+      const missing = r => r.status === 404 || r.status === 405 || (r.ok && !/json/.test(r.headers.get('content-type') || ''));
+      let r = await ask('/api/posts/changes');
+      if (missing(r)) r = await ask('/api/changes');
+      // An older klabnet-api has neither: a 404, or, past a proxy that
+      // answers unknown paths with the page itself, HTML.
       const json = /json/.test(r.headers.get('content-type') || '');
-      if (r.status === 404 || (r.ok && !json)) throw new Error('no endpoint');
+      if (missing(r)) throw new Error('no endpoint');
       if (r.status === 502 && json && (await r.json().catch(() => ({}))).error === 'git unreachable') throw new Error('git');
       if (!r.ok) throw new Error('status ' + r.status);
       commits = (await r.json()).commits || [];
