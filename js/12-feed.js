@@ -871,7 +871,7 @@
   // so a mention seen on the way back in stayed "unread" indefinitely. And
   // a draft restored while another tab was showing was sized against a
   // hidden textarea, clipped to its first two lines.
-  window.klabFeedShown = () => { revealSoon(); unfoldShortPosts(); refreshFeedTimes(); updateMentionsDot(); if (textEl.value) autoGrowComposer(); };
+  window.klabFeedShown = () => { if (!_feedLoadedOk) fetchFeed(); revealSoon(); unfoldShortPosts(); refreshFeedTimes(); updateMentionsDot(); if (textEl.value) autoGrowComposer(); };
 
   // Avatar/image/reply resolutions land one at a time; a cold load of 50
   // posts fired ~35 separate full rebuilds, each re-creating every <img> on
@@ -954,7 +954,11 @@
     // presence/notes/profiles polling elsewhere in the app.
     // Except for someone who asked to be told about mentions while klabnet
     // is in the background: the poll is the only thing that finds them.
-    if (document.hidden && !(_settings.desktopNotif && 'Notification' in window && Notification.permission === 'granted')) return;
+    // Never the first load, though: the desktop app builds its window
+    // hidden and shows it when the page is ready, so its first fetch was
+    // always skipped, and Feed sat blank after a launch or an update until
+    // a visibilitychange that Wayland doesn't always send (or the next poll).
+    if (_feedLoadedOk && document.hidden && !(_settings.desktopNotif && 'Notification' in window && Notification.permission === 'granted')) return;
     _feedPending = true;
     // Derived from _feedPosts.length before, which isn't "first load" — it's
     // "empty right now". An empty feed, or one whose first load failed,
