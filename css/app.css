@@ -8938,6 +8938,19 @@
     html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
 
 
+    /* ══ The player bar, more solid (the owner's call, 2026-10-24) ══
+       Mostly the page's own colour now, with a little blur still showing
+       through; it read as too see-through, in the Linux app most of all
+       (18%). After every platform's own rule, so it wins. */
+    @media (min-width: 761px), (pointer: fine) {
+      .player-dock,
+      html.klabnet-app.app-material .player-dock,
+      html.klabnet-app.app-material[data-desktop="linux"] .player-dock,
+      html.klabnet-app.app-material[data-desktop="kde"] #playerDock {
+        background: color-mix(in srgb, var(--modal-bg) 90%, transparent) !important;
+      }
+    }
+
     /* ══ Pages under the player bar (desktop; a phone's dock is its mini player) ══ */
     @media (min-width: 761px), (pointer: fine) {
       /* ── The page runs all the way down, under the bar ──
