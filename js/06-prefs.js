@@ -336,7 +336,7 @@ window.addEventListener('storage', e => {
 // ── Live update check ────────────────────
 // This is a long-lived SPA with no build step or version endpoint to poll
 // — so "is there a new deploy" is answered by just re-fetching this same
-// HTML file (no-store, so an intermediate cache can't serve a stale copy)
+// HTML file (no-cache: the server's own answer, never a kept copy)
 // and reading the KLABNET_VERSION string back out of it. Shows a
 // persistent banner rather than auto-reloading, so nobody mid-message
 // loses what they were typing.
@@ -347,17 +347,41 @@ window.addEventListener('storage', e => {
 // visibilitychange listener below still re-checks immediately the moment
 // a hidden tab becomes visible again, so detection latency in practice
 // barely changes.
+// It also runs once as the page starts. index.html isn't as uncached as
+// it was meant to be: Caddy sends it with an ETag and no Cache-Control, so
+// a browser (or the apps) may treat its copy as fresh for hours (a tenth
+// of its age) and open the old page after a deploy, its markup against
+// the service worker's newer scripts: the Feed that didn't show until
+// Ctrl+Shift+R. no-cache asks the server every time (a 304 when nothing
+// changed, rather than the whole page again) and refreshes the browser's
+// copy when something has.
 const UPDATE_CHECK_MS = 5 * 60 * 1000;
-async function checkForUpdate() {
+async function checkForUpdate(atStart = false) {
   // Already saying so: no need to keep downloading the page to find out again.
-  if (document.hidden || document.getElementById('updateBanner')) return;
+  if (!atStart && (document.hidden || document.getElementById('updateBanner'))) return;
   try {
-    const res = await fetchTimeout(location.pathname || '/', { cache: 'no-store' }, 8000);
+    const res = await fetchTimeout(location.pathname || '/', { cache: 'no-cache' }, 8000);
+    if (!res.ok) return;
     const html = await res.text();
     const match = /KLABNET_VERSION\s*=\s*'([^']+)'/.exec(html);
-    if (match && match[1] !== KLABNET_VERSION) showUpdateBanner(match[1]);
+    if (!match || match[1] === KLABNET_VERSION) return;
+    if (atStart && reloadStalePage(match[1])) return;
+    showUpdateBanner(match[1]);
   } catch (e) {}
 }
+// Opened on an old copy of the page: start again on the new one, while
+// nothing's been done yet. Once per version, so a server still mid-deploy
+// can't loop it.
+function reloadStalePage(version) {
+  if (performance.now() > 20000 || document.querySelector('textarea:focus, input:focus')?.value) return false;
+  try {
+    if (sessionStorage.getItem('klabnet_stale_reload') === version) return false;
+    sessionStorage.setItem('klabnet_stale_reload', version);
+  } catch (e) { return false; }
+  location.reload();
+  return true;
+}
+window.addEventListener('load', () => setTimeout(() => checkForUpdate(true), 1000), { once: true });
 
 // Dismissal is remembered against the version it was dismissed FOR, not as
 // a plain boolean — otherwise closing it once would suppress every future

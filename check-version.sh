@@ -3,7 +3,8 @@
 #
 # There is no build step here, so both the const and the query strings are
 # hand-edited literals and it is very easy to bump one and not the other.
-# The failure mode is nasty and silent: index.html is never cached, so a
+# The failure mode is nasty and silent: index.html is meant never to be
+# cached (see checkForUpdate in js/06-prefs.js for when it is), so a
 # deploy ships new markup immediately, but the ?v= URLs are unchanged and
 # therefore still cache hits -- new HTML wired to old behaviour. That is
 # what "the new chat rail renders but clicking a person still starts a
