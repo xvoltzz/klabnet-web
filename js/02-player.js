@@ -157,6 +157,7 @@ function updatePlayerUI(song) {
     titleEl.style.display='none'; artistEl.style.display='none';
     idleEl.style.display='block'; progress.style.display='none';
     artWrap.innerHTML='<i class="ti ti-music"></i>';
+    ++_dockArtToken; // a cover still loading mustn't land on the idle bar
     return;
   }
 
@@ -229,7 +230,8 @@ function updatePlayerUI(song) {
   // replaces the old one once it's loaded: the music-note placeholder
   // used to blink in between on every track.
   const old = artWrap.querySelector('img.player-art');
-  if (old && song.coverArt && old.dataset.cover === song.coverArt) return;
+  // Still a new token: a skipped song's cover, still loading, would land here.
+  if (old && song.coverArt && old.dataset.cover === song.coverArt) { ++_dockArtToken; return; }
   const myArt = ++_dockArtToken;
   const ph = document.createElement('div');
   ph.className = 'picker-item-art-ph';
@@ -1531,7 +1533,6 @@ if (playerState.audio) {
   const _fsPlayerEl   = document.getElementById('fsPlayer');
   const _fsCurEl       = document.getElementById('fsCur');
   const _fsDurEl       = document.getElementById('fsDur');
-  const _fsPlayIconEl  = document.getElementById('fsPlayIcon');
   window._syncFSProgress = function() {
     if (!playerState.audio.duration) return;
     const pct = (playerState.audio.currentTime / playerState.audio.duration) * 100;
@@ -1539,9 +1540,11 @@ if (playerState.audio) {
     if (!fsProgSlider.dragging) {
     fsProgSlider.setPct(pct / 100);
     }
-    _fsCurEl.textContent = formatTime(playerState.audio.currentTime);
-    _fsDurEl.textContent = formatTime(playerState.audio.duration);
-    _fsPlayIconEl.className = playerState.playing ? 'ti ti-player-pause-filled' : 'ti ti-player-play-filled';
+    // Only when the second changes: same-text writes still re-laid out the
+    // labels four times a second. (The play icon is setPlayIcon()'s.)
+    const cur = formatTime(playerState.audio.currentTime), dur = formatTime(playerState.audio.duration);
+    if (_fsCurEl.textContent !== cur) _fsCurEl.textContent = cur;
+    if (_fsDurEl.textContent !== dur) _fsDurEl.textContent = dur;
   };
   playerState.audio.addEventListener('timeupdate', () => {
     // This fires continuously during all playback — skip the work

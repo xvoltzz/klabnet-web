@@ -168,6 +168,7 @@
   }
 
   // ── Showing a photo ──
+  let pending = null;
   async function show(id) {
     const it = byId(id);
     if (!it) return false;
@@ -176,7 +177,9 @@
     const pre = new Image();
     pre.decoding = 'async';
     pre.src = url;
+    pending = pre;
     try { await pre.decode(); } catch (e) { return false; }
+    finally { if (pending === pre) pending = null; }
     if (t !== token || !isOpen) return true;
 
     const next = slides[1 - front], cur = slides[front];
@@ -358,6 +361,8 @@
     wake = null;
     wakeRequest = null;
     ahead = null;
+    // The photo on its way in: closing cancels its download.
+    if (pending) { pending.src = ''; pending = null; }
     if (document.fullscreenElement === root) document.exitFullscreen?.().catch(() => {});
     document.body.classList.remove('ss-on');
     const el = root;

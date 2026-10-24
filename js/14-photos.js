@@ -96,15 +96,25 @@
   const structureKey = list => list.map(p => p.id + ':' + p.photos.map(ph => ph.id).join(',')).join('|');
 
   let lastFetch = 0;
+  // Only the newest request lands, and a delete, edit or post made while
+  // one was out makes it stale: it would put back what was just changed.
+  let latestSeq = 0;
   async function fetchLatest() {
     if (document.hidden) return;
     lastFetch = Date.now();
-    const asked = order, g = gen;
+    const asked = order, g = gen, seq = ++latestSeq, startedAt = performance.now();
     try {
       const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const data = await r.json();
+      if (seq !== latestSeq) return;
       const fresh = data.posts || [];
+      // Liked or commented on while this was out: keep what's shown.
+      for (const p of fresh) {
+        if (!(localEditAt.get(p.id) > startedAt)) continue;
+        const had = posts.find(q => q.id === p.id);
+        if (had) { p.reactions = had.reactions; p.likers = had.likers; p.reply_count = had.reply_count; }
+      }
       if (typeof data.total === 'number' && g === gen) total = data.total;
       // Switched between Timeline and What's New while this was in flight.
       if (g !== gen) return;
@@ -128,7 +138,7 @@
     } catch (e) {
       // A request from before a switch to What's New failing says nothing
       // about the new order's own, which may still be on its way.
-      if (g !== gen) return;
+      if (g !== gen || seq !== latestSeq) return;
       pendingFocus = null;
       if (!loadedOnce) {
         showEmpty('Couldn’t load photos. Retrying…');
@@ -607,7 +617,9 @@
     $('phOwn').hidden = !(post.username === me() || window.KLAB_USER?.is_admin);
     if (postChanged) {
       $('phReplies').dataset.postId = '';
-      if (shell.classList.contains('side-open')) loadReplies(post);
+      // Scrubbing past posts with comments open asked for every one's;
+      // they load once the strip comes to rest (settle()).
+      if (shell.classList.contains('side-open')) { if (moving()) repliesDue = true; else loadReplies(post); }
     }
     // A poll says someone commented (or deleted one) on the post whose
     // comments are open: bring the list up to date in place, not just the
@@ -644,7 +656,7 @@
   }
 
   // ── Scrubbing ──
-  let raf = 0, scrubbing = false, idleTimer = 0;
+  let raf = 0, scrubbing = false, idleTimer = 0, repliesDue = false;
   const moving = () => scrubbing || pos !== target;
   // At rest: show the selected photo sharp and warm up its neighbours.
   let warmed = false;
@@ -662,6 +674,7 @@
     // Just the first photo is warmed, once the page has gone quiet.
     if (sel < 0 || !items[sel]) return;
     if (!isActive()) { warmSoon(); return; }
+    if (repliesDue) { repliesDue = false; if (shell.classList.contains('side-open')) loadReplies(items[sel].post); }
     const i = sel, id = items[i].ph.id;
     const big = fileUrl(id, sizeFor(items[i].ph));
     preload(i);
@@ -837,13 +850,25 @@
   }
 
   // ── Reactions / replies (the feed's endpoints) ──
+  // A poll swaps in new post objects, so after any await the post is found
+  // again by id. A like or comment marks it changed here (localEditAt): a
+  // poll that set out before then doesn't put the old counts back. And only
+  // the last of quick taps lands (reactSeq), not whichever answer is slowest.
+  const reactSeq = new Map(), localEditAt = new Map();
+  const current = post => posts.find(p => p.id === post.id) || post;
   async function toggleReaction(post, emoji) {
+    const seq = (reactSeq.get(post.id) || 0) + 1;
+    reactSeq.set(post.id, seq);
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}/reactions`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji }),
       }, 8000);
       if (!r.ok) throw new Error();
-      post.reactions = (await r.json()).reactions || {};
+      const reactions = (await r.json()).reactions || {};
+      if (reactSeq.get(post.id) !== seq) return;
+      post = current(post);
+      post.reactions = reactions;
+      localEditAt.set(post.id, performance.now());
       if (emoji === LIKE) {
         const mine = !!post.reactions[LIKE]?.mine;
         post.likers = (post.likers || []).filter(u => u !== me());
@@ -918,7 +943,9 @@
       if (!r.ok) throw new Error();
       const reply = await r.json();
       input.value = '';
-      post.reply_count = (post.reply_count || 0) + 1;
+      const cur = current(post);
+      cur.reply_count = (cur.reply_count || 0) + 1;
+      localEditAt.set(post.id, performance.now());
       if (showingReplies(post)) renderReplies(post, shownReplies(post).concat(reply));
       renderPost('refresh');
     } catch (err) { showToast('Couldn’t post that comment', 'ti-alert-triangle'); }
@@ -932,7 +959,9 @@
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}/replies/${del.dataset.replyId}`, { method: 'DELETE' }, 8000);
       if (!r.ok) throw new Error();
-      post.reply_count = Math.max(0, (post.reply_count || 1) - 1);
+      const cur = current(post);
+      cur.reply_count = Math.max(0, (cur.reply_count || 1) - 1);
+      localEditAt.set(post.id, performance.now());
       if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => String(x.id) !== del.dataset.replyId));
       renderPost('refresh');
     } catch (err) { showToast('Couldn’t delete that comment', 'ti-alert-triangle'); }
@@ -957,6 +986,7 @@
       const pi = posts.findIndex(p => p.id === post.id);
       const next = posts.filter(p => p.id !== post.id);
       if (total != null && pi >= 0) total = Math.max(0, total - posts[pi].photos.length);
+      latestSeq++;
       applyPosts(next, { focusPostId: (next[pi] || next[pi - 1])?.id });
       showToast('Post deleted', 'ti-trash');
     } catch (e) { showToast('Couldn’t delete that post', 'ti-alert-triangle'); }
@@ -1008,6 +1038,7 @@
       if (at < 0) at = next.length;
       next.splice(at, 0, data);
       closeEdit();
+      latestSeq++;
       applyPosts(next, { focusPostId: data.id });
       showToast('Post updated', 'ti-check');
     } catch (e) {
@@ -1263,6 +1294,8 @@
       // decoded full-size photos are the biggest thing this page holds,
       // and Chromium keeps its own decoded copy of every one drawn until
       // the system runs short, so the desktop app asks it to let go too.
+      // Cancelled, not just forgotten: they kept downloading off the tab.
+      for (const p of preloaded.values()) if (!p.complete) p.src = '';
       preloaded.clear();
       if (leaving) window.klabnetDesktop?.trimMemory?.();
       if (pausedByPhotos) { pausedByPhotos = false; playerState.audio.play().catch(() => {}); }
@@ -1638,6 +1671,7 @@
       if (at < 0) at = next.length;
       next.splice(at, 0, data);
       if (total != null) total += (data.photos || []).length;
+      latestSeq++;
       applyPosts(next, { focusPostId: data.id });
       SFX && SFX.play('success');
     } catch (e) {
@@ -1731,6 +1765,8 @@
   function stopPreview() {
     previewWanted = false;
     previewAudio.pause();
+    // Let go of the stream too: paused, it held the connection open.
+    if (previewAudio.getAttribute('src')) { previewAudio.removeAttribute('src'); previewAudio.load(); }
     $('phSongPreview').innerHTML = '<i class="ti ti-player-play"></i>';
   }
   previewAudio.addEventListener('timeupdate', () => {

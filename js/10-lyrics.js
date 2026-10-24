@@ -183,11 +183,8 @@ function refreshTimeDisplay() {
   if (!_timeEl) return;
   const cur = playerState.audio.currentTime;
   const dur = playerState.audio.duration;
-  if (_showRemaining && isFinite(dur)) {
-    _timeEl.textContent = '-' + _fmtTime(dur - cur);
-  } else {
-    _timeEl.textContent = _fmtTime(cur);
-  }
+  const t = _showRemaining && isFinite(dur) ? '-' + _fmtTime(dur - cur) : _fmtTime(cur);
+  if (_timeEl.textContent !== t) _timeEl.textContent = t;
 }
 function _fmtTime(s) {
   if (!isFinite(s)) return '0:00';
@@ -445,10 +442,9 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     if (song && playerState.currentSong !== song) return;
     _currentSongId = null; // invalidate cache for new song
     // Fetched when they'll be seen; opening the full player loads them.
-    if (lyricsVisible()) {
-      await loadLyrics(song);
-      if (_isSynced) startSync();
-    }
+    // Not awaited: everything after playSong (the party's tick, Next) waited
+    // on LRCLIB, up to two 8s lookups.
+    if (lyricsVisible()) loadLyrics(song).then(() => { if (_isSynced && playerState.currentSong === song) startSync(); }, () => {});
   };
 
   // Stop/start sync loop with playback state

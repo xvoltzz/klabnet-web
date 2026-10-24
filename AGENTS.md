@@ -127,28 +127,22 @@ Also unrun: the listening-party change, the away-on-lock change (needs a real lo
 
 ## Known and left open
 
-Reported by the reviews and not fixed. Each is a reasonable next thing.
+Reported by the reviews and not fixed. Each is a reasonable next thing. (The 2026-10-24 fix pass checked the older list against the code and dropped what was already done.)
 
-- **Chat rebuilds the whole timeline on every event** (`renderTimeline`). An append-only fast path would fix it. Each GIF send re-uploads the file to Synapse; picker tiles and chat keep full-size GIFs.
-- **Chat read receipts:** `readActiveChatRoom` and `renderTimeline` disagree on which event is last (one counts edits), and `_lastSentReadEventId` is set before the receipt succeeds.
-- **Phone:** Chat's in-app back arrow pushes a history entry instead of going back (`setChatMobileView` wrapper in `js/17-history.js`).
-- **klabnet-desktop:** the permission allow-list in `src/main.js` appears to lack `'screen-wake-lock'`, so the slideshow can't keep the screen awake in the app. Not run.
-- **klabnet-api:** photo list queries apply `LIMIT` before dropping posts with no photos, so a page can come back short. The client tolerates it now; the queries should filter.
-- "Away 7m" is inside the HTML that presence diffing compares, so away people cause rebuilds every minute.
-- **Music requests:** the list re-renders up to five times per visit while avatars resolve.
-- **The image viewer** doesn't cancel the original's download when closed early.
+- **Chat:** a reaction still rebuilds the whole timeline, and so does a page of older history; only new messages and your own sends append. A reaction-only fast path (rebuild just that row's pills) and a prepend path for history would cover both. The image cache is capped by count (120), not bytes, and a GIF loads whole whatever its size; a byte budget and a size limit on `full: true` downloads would bound it. An avatar lookup in flight when someone changes theirs can cache the old one. No access-token refresh (only matters if Synapse issues expiring tokens).
+- **Feed:** the image blob cache never evicts an image of a loaded post, so a long scroll back keeps every picture (and every YouTube iframe) for the session.
+- **klabnet-desktop:** the permission allow-list in `src/main.js` appears to lack `'screen-wake-lock'`, so the slideshow can't keep the screen awake in the app. Not run (the repo isn't on the dev machine).
+- **Music requests:** landing straight on Requests fetches the list twice; avatars are re-checked on a timer, where an event from the feed's avatar lookups would do.
+- **The update check** keeps fetching the page every 5 minutes after its banner is dismissed (it can't know a newer deploy hasn't come since).
 - **The sound-effects `AudioContext`** never suspends. Left alone because resuming outside a gesture is uncertain on Safari and would cost notification sounds.
 - **Accessibility:** several things you press aren't buttons (`.s-toggle` divs in Settings, the mute icons, `#playerArtWrap`, `.ap-sim-chip`), so they aren't keyboard reachable.
-- **Dead code:** the presence-rail block and `.player-art` observer in `js/13-tail.js`, the fallback body of `loadArtistView` in `js/03-picker-tabs.js`, `setRailTab` in `js/11-presence.js`, and CSS for `.rail-tabs`, `.rail-channels`, `.chat-channels-toolbar`.
 - **CSS:**
   - Fonts: rules ask for JetBrains Mono 500 and Inter 800 and 300, but only 700 and 400 to 700 are loaded, so they render at the nearest weight. Loading them changes how those elements look: the owner's call.
   - Buttons that are neither primary nor secondary: `.chat-head-btn`, `.chat-hello-chip`, `.feed-post-more`, `.fb-type-btn`, `.music-req-type-btn`, `.picker-sort-btn`, plus a few off-size ones.
   - 12px radii on `.header-right` and `.tab-nav` were left because they are concentric with the 8px buttons inside.
   - Small-caps labels that differ slightly from the standard (`.ph-spec .k`, `.ph-month`, `.mh-wheel-result .k`, `.fs-upnext-row .q`).
-  - `.slider-fill` animates `width` on every `timeupdate`; `transform: scaleX()` would avoid layout.
-  - Undefined custom properties that only ever use their fallback: `--fs-17`, `--font-mono`, `--ph-rail-w`.
-  - `@media (max-width: 860px)` hides the dock's extra buttons on a narrow desktop window too.
-  - The file is 484KB, 23% of it comments. It gzips to about 106KB; stripping comments at deploy would be the only large saving.
+  - Chat's and Feed's backdrops still use the old Home's `.hm-backdrop`/`.hm-bd-layer` names. Deleting Home's CSS took them (and `.soft`, `hmEq`, `feedFlash`) out once; they're back beside `.chat-backdrop`. Before deleting a block, grep for every selector and keyframe in it.
+  - The file is ~480KB, about a quarter comments. It gzips to about 106KB; stripping comments at deploy would be the only large saving.
 
 ## Where a deep dive is most likely to pay
 

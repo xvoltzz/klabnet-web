@@ -19,44 +19,59 @@ loadPickerTab = async function(tab) {
 // Kept for ten minutes, like Genres: kept for the whole session, an album
 // added since never showed up here in an app left running for days.
 const LIBRARY_TTL_MS = 10 * 60 * 1000;
-let _albumsCache = null, _albumsAt = 0;
+let _albumsCache = null, _albumsAt = 0, _albumsLoading = null;
+// The whole library's albums, crawled once however many views ask for it
+// at a time (leaving and coming back mid-crawl used to start another).
+function albumsLibrary() {
+  if (_albumsCache && Date.now() - _albumsAt <= LIBRARY_TTL_MS) return Promise.resolve(_albumsCache);
+  return _albumsLoading ||= (async () => {
+    const allAlbums = [];
+    let offset = 0;
+    const pageSize = 500;
+    // Capped so a misbehaving server (always returns a full page) can't
+    // hang this in an infinite fetch loop — 50 pages is 25,000 albums,
+    // well beyond any real library.
+    for (let page_i = 0; page_i < 50; page_i++) {
+      const res = await fetchTimeout(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`, {}, 8000);
+      const data = await res.json();
+      const page = data['subsonic-response']?.albumList?.album || [];
+      allAlbums.push(...page);
+      if (page.length < pageSize) break; // no more pages
+      offset += pageSize;
+      if (page_i === 49) showToast('The album list may be incomplete: it hit the page limit', 'ti-list-details');
+    }
+    _albumsCache = allAlbums;
+    _albumsAt = Date.now();
+    return allAlbums;
+  })().finally(() => { _albumsLoading = null; });
+}
 async function loadAlbums() {
   pickerList.innerHTML = '<div class="picker-empty">Loading albums…</div>';
+  const t = _pickerLoadToken;
   try {
-    if (!_albumsCache || Date.now() - _albumsAt > LIBRARY_TTL_MS) {
-      const allAlbums = [];
-      let offset = 0;
-      const pageSize = 500;
-      // Capped so a misbehaving server (always returns a full page) can't
-      // hang this in an infinite fetch loop — 50 pages is 25,000 albums,
-      // well beyond any real library.
-      for (let page_i = 0; page_i < 50; page_i++) {
-        const res = await fetchTimeout(`${ND_URL}/rest/getAlbumList?type=alphabeticalByName&size=${pageSize}&offset=${offset}&${subsonicParams()}`, {}, 8000);
-        const data = await res.json();
-        const page = data['subsonic-response']?.albumList?.album || [];
-        allAlbums.push(...page);
-        if (page.length < pageSize) break; // no more pages
-        offset += pageSize;
-        if (page_i === 49) showToast('The album list may be incomplete: it hit the page limit', 'ti-list-details');
-      }
-      _albumsCache = allAlbums;
-      _albumsAt = Date.now();
-    }
+    const albums = await albumsLibrary();
     // Moved on to another view while this loaded: it isn't ours to draw on.
-    if (pickerTab !== 'albums') return;
-    renderAlbumList(applySort(_albumsCache, 'albums'));
+    if (pickerTab !== 'albums' || t !== _pickerLoadToken) return;
+    renderAlbumList(applySort(albums, 'albums'));
     showSortBtn('albums');
-  } catch(e) { if (pickerTab === 'albums') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
+  } catch(e) { if (pickerTab === 'albums' && t === _pickerLoadToken) pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 
+// Artists keep for as long as albums do; every visit fetched them again.
+let _artistsCache = null, _artistsAt = 0;
 async function loadArtists() {
   pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
+  const t = _pickerLoadToken;
   try {
-    const res = await fetchTimeout(`${ND_URL}/rest/getArtists?${subsonicParams()}`, {}, 8000);
-    const data = await res.json();
-    if (pickerTab !== 'artists') return;
-    renderArtistList(data['subsonic-response']?.artists?.index || []);
-  } catch(e) { if (pickerTab === 'artists') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
+    if (!_artistsCache || Date.now() - _artistsAt > LIBRARY_TTL_MS) {
+      const res = await fetchTimeout(`${ND_URL}/rest/getArtists?${subsonicParams()}`, {}, 8000);
+      const data = await res.json();
+      _artistsCache = data['subsonic-response']?.artists?.index || [];
+      _artistsAt = Date.now();
+    }
+    if (pickerTab !== 'artists' || t !== _pickerLoadToken) return;
+    renderArtistList(_artistsCache);
+  } catch(e) { if (pickerTab === 'artists' && t === _pickerLoadToken) pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 
 const _albumArtIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
@@ -217,25 +232,34 @@ function queueArtistThumbHydration(item, artistId) {
   _artistThumbObserver.observe(item);
 }
 
+// An artist's picture, looked up once a session: every visit and search
+// asked again, two requests a row. The album cover is only asked for when
+// there's no photo.
+const _artistThumbs = new Map();
+function artistThumbUrl(artistId) {
+  if (_artistThumbs.has(artistId)) return _artistThumbs.get(artistId);
+  const p = (async () => {
+    const info = await fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${encodeURIComponent(artistId)}&count=1&${subsonicParams()}`, {}, 8000)
+      .then(r => r.json()).then(d => d['subsonic-response']?.artistInfo2, () => null);
+    let url = info?.mediumImageUrl || info?.largeImageUrl || '';
+    // Last.fm's "no picture" star.
+    if (url && url.includes('2a96cbd8b46e442fc41c2b86b821562f')) url = '';
+    if (url) return url;
+    const artist = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artistId)}&${subsonicParams()}`, {}, 8000)
+      .then(r => r.json()).then(d => d['subsonic-response']?.artist, () => null);
+    const cover = artist?.album?.[0]?.coverArt;
+    if (!cover && !info && !artist) throw new Error('offline'); // not remembered: try again next time
+    return cover ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(cover)}&size=300&${subsonicParams()}` : '';
+  })();
+  _artistThumbs.set(artistId, p);
+  p.catch(() => _artistThumbs.delete(artistId));
+  return p;
+}
 async function hydrateArtistThumb(item, artistId) {
   const ph = item?.querySelector('.picker-item-art-ph');
   if (!ph || !artistId) return;
   try {
-    const [infoRes, artistRes] = await Promise.allSettled([
-      fetchTimeout(`${ND_URL}/rest/getArtistInfo2?id=${encodeURIComponent(artistId)}&count=1&${subsonicParams()}`, {}, 8000).then(r => r.json()),
-      fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artistId)}&${subsonicParams()}`, {}, 8000).then(r => r.json()),
-    ]);
-    const info = infoRes.status === 'fulfilled'
-      ? infoRes.value['subsonic-response']?.artistInfo2
-      : null;
-    const artist = artistRes.status === 'fulfilled'
-      ? artistRes.value['subsonic-response']?.artist
-      : null;
-    let url = info?.mediumImageUrl || info?.largeImageUrl || '';
-    if (url && url.includes('2a96cbd8b46e442fc41c2b86b821562f')) url = '';
-    if (!url && artist?.album?.[0]?.coverArt) {
-      url = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.album[0].coverArt)}&size=300&${subsonicParams()}`;
-    }
+    const url = await artistThumbUrl(artistId);
     if (!url || !ph.isConnected) return;
     const img = new Image();
     img.className = 'picker-item-art artist';
@@ -291,6 +315,7 @@ async function loadArtistView(artist) {
   goToMusicDetail(() => window.openArtistPage(artist.id, artist.name));
 }
 
+const QUEUE_SHOWN = 200;
 function renderQueueList() {
   updateQueueBadge();
   if (!queue.length) { pickerList.innerHTML = '<div class="picker-empty">The queue is empty. Add albums or songs</div>'; return; }
@@ -304,7 +329,9 @@ function renderQueueList() {
   clearBtn.addEventListener('click', () => { queue = []; updateQueueBadge(); renderQueueList(); SFX.play('click'); });
   clearRow.appendChild(clearBtn);
   pickerList.appendChild(clearRow);
-  queue.forEach((song, idx) => {
+  // The first 200: "Queue all" on a long playlist made thousands of rows,
+  // all rebuilt on every track change while this was open.
+  queue.slice(0, QUEUE_SHOWN).forEach(song => {
     // size=80 — same list-mode-row sizing fix as renderSongItem() above.
     const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}`;
     const item = document.createElement('div');
@@ -332,4 +359,10 @@ function renderQueueList() {
     });
     pickerList.appendChild(item);
   });
+  if (queue.length > QUEUE_SHOWN) {
+    const more = document.createElement('div');
+    more.className = 'picker-empty';
+    more.textContent = 'and ' + (queue.length - QUEUE_SHOWN).toLocaleString() + ' more';
+    pickerList.appendChild(more);
+  }
 }

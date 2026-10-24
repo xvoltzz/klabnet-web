@@ -137,9 +137,13 @@ export default async p => {
     assert(timeline.querySelector('.chat-msg')===first, 'Appending recreated old messages');
     assert(Math.abs(anchor.getBoundingClientRect().top-top)<2, 'Append moved reading position');
     assert(timeline.lastElementChild.dataset.eventId==='$new', 'Message not appended at the end');
-    testEvents[0]=testEvent('$0','edited',{replacingEvent:()=>({getId:()=>'$edit'})}); renderTimeline();
+    // As the SDK does it: the original's content changes and the edit
+    // itself joins the live timeline (renderTimeline() keys on that).
+    testEvents[0]=testEvent('$0','edited',{replacingEvent:()=>({getId:()=>'$edit'})});
+    testEvents.push(testEvent('$edit','',{getRelation:()=>({rel_type:'m.replace'})})); renderTimeline();
     assert(timeline.querySelector('.chat-msg-text').textContent.startsWith('edited'), 'Edit not rebuilt');
-    testEvents[0]=testEvent('$0','',{isRedacted:()=>true}); renderTimeline();
+    testEvents[0]=testEvent('$0','',{isRedacted:()=>true});
+    testEvents.push(testEvent('$redaction','',{getType:()=>'m.room.redaction'})); renderTimeline();
     assert(timeline.querySelector('.chat-msg-text').textContent==='Message deleted', 'Redaction not rebuilt');
     testEvents.splice(0,testEvents.length,testEvent('$reset')); renderTimeline();
     assert(timeline.querySelectorAll('.chat-msg').length===1, 'Limited timeline kept removed rows');

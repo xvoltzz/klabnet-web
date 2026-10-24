@@ -23,7 +23,6 @@
     { sel: '#sideNav .side-me', at: 'end' },
     { sel: '#musicViewTitle', at: 'after' },
     { sel: '#phViewTitle', at: 'after' },
-    { sel: '.hm-tile', at: 'top', x: 0.7, any: true },
     { sel: '#feedList .feed-post.is-song.playing', at: 'top', x: 0.88 },
   ];
   const el = document.createElement('button');

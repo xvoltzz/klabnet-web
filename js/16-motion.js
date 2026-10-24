@@ -15,6 +15,14 @@
   // Performance mode (see KLAB_FX in index.html) counts as reduced motion.
   const moving = () => !reduce.matches && !window.KLAB_FX?.on();
   window.klabMotionOk = moving;
+  // The window in the background (focus elsewhere): the few animations
+  // that loop for as long as something lasts (the visualiser, the
+  // listening ring, the prompt's cursor) hold still ("WINDOW IDLE" in
+  // app.css), so the app isn't redrawn every frame behind other windows.
+  const idle = () => document.documentElement.classList.toggle('win-idle', !document.hasFocus());
+  window.addEventListener('blur', idle);
+  window.addEventListener('focus', idle);
+  idle();
 
   function fadeUp(el, { dy = 8, duration = 240, delay = 0 } = {}) {
     if (!el || !moving() || !el.animate) return;

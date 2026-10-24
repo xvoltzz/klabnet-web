@@ -1577,29 +1577,6 @@
        list and carry almost no information — a full card each buried the
        few people actually around. */
 
-    /* One-line variant of a presence card, for the offline list only. */
-    .presence-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 5px 8px; border-radius: 7px; cursor: pointer;
-      border: 1px solid transparent; opacity: 0.6;
-      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-    }
-    .presence-row:hover {
-      background: var(--tile-bg-h); border-color: var(--tile-border-h); opacity: 1;
-    }
-    .presence-row-avatar {
-      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(var(--accent-rgb),0.15); color: rgba(var(--accent-rgb),1);
-      font-size: 9px; font-weight: 700; text-transform: uppercase;
-      filter: grayscale(0.6);
-    }
-    .presence-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .presence-row-name {
-      font-size: 12px; color: var(--name-color, var(--text-dim));
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
-    }
-    .presence-row.has-unread { opacity: 1; }
     /* The collapsed header carries the signal when the unread person is
        hidden inside it. */
 
@@ -1615,8 +1592,7 @@
       box-shadow: 0 0 7px rgba(248,113,113,0.65);
       margin-left: auto;
     }
-    .presence-card.has-unread,
-    .presence-row.has-unread { border-color: rgba(248,113,113,0.5); }
+    .presence-card.has-unread { border-color: rgba(248,113,113,0.5); }
     .chat-icon-btn {
       background: none; border: none; cursor: pointer; color: var(--text-dimmer);
       font-size: 14px; padding: 4px 6px; border-radius: 6px;
@@ -3438,10 +3414,8 @@
     .type-badge { font-size: 7.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; flex-shrink: 0; font-family: inherit; }
     .type-badge.song  { color: #7ab8ff; border-color: rgba(122,184,255,0.35); background: rgba(122,184,255,0.1); }
     .type-badge.album { color: #c47aff; border-color: rgba(196,122,255,0.35); background: rgba(196,122,255,0.1); }
-    .type-badge.soon  { color: #eab308; border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.12); }
     [data-theme="light"] .type-badge.song  { color: #a0560a; border-color: rgba(190,110,10,0.35); background: rgba(190,110,10,0.1); }
     [data-theme="light"] .type-badge.album { color: #8a3a18; border-color: rgba(150,70,30,0.35); background: rgba(150,70,30,0.1); }
-    [data-theme="light"] .type-badge.soon  { color: #92700a; border-color: rgba(146,112,10,0.4); background: rgba(234,179,8,0.14); }
     .type-badge.fulfilled { color: var(--success-color); border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.12); }
     .type-badge.dismissed { color: var(--text-faint); border-color: var(--tile-border); background: var(--tile-bg); }
     [data-theme="light"] .type-badge.fulfilled { color: #1a7a3e; border-color: rgba(26,122,62,0.35); background: rgba(26,122,62,0.1); }
@@ -5269,6 +5243,25 @@
        page, over a backdrop of whoever you're talking to. No panel around
        it, no boxes in boxes, no scroll bars. ══ */
     .tab-panel[data-tab-panel="feed"] { max-width: 860px; margin: 0 auto; width: 100%; } /* no rail beside Feed any more */
+    /* ── Room backdrops: Chat's and Feed's blurred picture behind the page ──
+       (Home's old spotlight used these first, hence the hm- names.) Hidden,
+       not just transparent, off their tab, so the blurred layers aren't
+       composited. */
+    .hm-backdrop { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .5s ease, visibility 0s .5s; overflow: hidden; }
+    .hm-bd-layer {
+      position: absolute; inset: -12%; background-size: cover; background-position: center;
+      filter: blur(80px) saturate(1.4) brightness(0.55); opacity: 0; transition: opacity 1.2s ease;
+    }
+    .hm-bd-layer.on { opacity: 1; }
+    /* klabSoften() baked the filter into the image (Firefox re-blurs a live
+       filter every frame): the live one goes, everywhere it's used. */
+    .soft, .soft-grad { filter: none !important; }
+    .hm-bd-layer.on.soft-grad { opacity: .55; }
+    [data-theme="light"] .hm-bd-layer.on.soft-grad { opacity: .9; }
+    [data-theme="light"] .hm-bd-layer { filter: blur(80px) saturate(1.3) brightness(1.1); }
+    [data-theme="light"] .hm-backdrop::after { content: ''; position: absolute; inset: 0; background: var(--bg); opacity: .66; }
+    /* The bars of a "listening" EQ (Chat's header, Music Home's Cover Flow). */
+    @keyframes hmEq { 0%, 100% { transform: scaleY(.27); } 50% { transform: scaleY(1); } }
     .chat-backdrop { opacity: 0 !important; }
     body.tab-chat-active .chat-backdrop { opacity: 1 !important; visibility: visible; transition-delay: 0s; }
     body:not(.tab-chat-active) .chat-backdrop { visibility: hidden; }
@@ -5293,38 +5286,9 @@
     .chat-lbl-row .chat-icon-btn { width: 24px; height: 24px; font-size: 15px; border-radius: 6px; color: var(--text-dimmer); }
     .chat-lbl-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
 
-    /* online now: faces, notes above them */
-    #presenceList.chat-online { display: flex; gap: 8px; overflow-x: auto; padding: 8px 6px 2px; grid-template-columns: none; }
-    /* Room above the faces only for the listening-party bubble (notes don't show here) */
-    #presenceList.chat-online:has(.chat-face-note) { padding-top: 24px; }
-    #presenceList .presence-card.chat-face {
-      position: relative; flex-shrink: 0; width: 48px; display: flex; flex-direction: column; align-items: center; gap: 4px;
-      padding: 0; margin: 0; border: none; background: none; box-shadow: none; border-radius: 0; cursor: pointer; min-width: 0;
-    }
-    #presenceList .presence-card.chat-face:hover { background: none; border: none; box-shadow: none; }
-    .chat-face-av {
-      position: relative; width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-      background: color-mix(in srgb, var(--name-color) 16%, transparent); color: var(--name-color); font: 700 14px var(--font-ui);
-      transition: transform var(--m-fast) var(--m-ease);
-    }
-    .chat-face:hover .chat-face-av { transform: translateY(-2px); }
-    .chat-face-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-    .chat-face.is-playing .chat-face-av { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px rgba(var(--accent-rgb),.9); }
-    #presenceList .chat-face .presence-card-online { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; border: none; background: var(--success-color); box-shadow: 0 0 0 2px var(--bg); animation: none; }
-    .chat-face.is-playing .presence-card-online { display: none; }
-    .chat-face-eq { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: inline-flex; gap: 2px; align-items: flex-end; height: 11px; padding: 1px 4px; border-radius: 4px; background: var(--bg); }
-    .chat-face-eq i, .chat-head-eq i { width: 2px; height: 100%; transform-origin: bottom; border-radius: 1px; background: rgb(var(--accent-rgb)); animation: hmEq .9s ease-in-out infinite; }
-    .chat-face-eq i:nth-child(2), .chat-head-eq i:nth-child(2) { animation-delay: -.3s; }
-    .chat-face-eq i:nth-child(3), .chat-head-eq i:nth-child(3) { animation-delay: -.6s; }
-    .chat-face-name { font-size: 11px; color: var(--text-dim); max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chat-face-note {
-      position: absolute; bottom: calc(100% - 2px); left: 50%; transform: translateX(-50%); z-index: 2;
-      max-width: 84px; padding: 2px 6px; border-radius: 6px; background: var(--glass-fill-h); backdrop-filter: blur(10px);
-      font-size: 10.5px; line-height: 1.35; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .chat-face-note.empty { color: var(--text-dimmer); }
-    .chat-face-note.presence-card-note-edit:hover, .chat-face-note.presence-card-party-leave:hover { background: var(--glass-border-h); }
-    #presenceList .chat-face .presence-card-unread-dot { position: absolute; top: -2px; right: 2px; margin: 0; }
+    .chat-head-eq i { width: 2px; height: 100%; transform-origin: bottom; border-radius: 1px; background: rgb(var(--accent-rgb)); animation: hmEq .9s ease-in-out infinite; }
+    .chat-head-eq i:nth-child(2) { animation-delay: -.3s; }
+    .chat-head-eq i:nth-child(3) { animation-delay: -.6s; }
 
     /* conversations */
     #chatSide .chat-conv {
@@ -5492,6 +5456,9 @@
     /* ══ FEED, alive: the page takes on the post you're reading, posts are
        shaped by what they are, and days are chapters. ══ */
     .feed-backdrop { opacity: 0 !important; }
+    /* A post jumped to (from Social's home, a mention) lights up once. */
+    #feedList .feed-post.feed-post-flash { animation: feedFlash 2.2s var(--m-ease); }
+    @keyframes feedFlash { 12% { border-color: rgba(var(--accent-rgb),.7); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.18), 0 0 30px rgba(var(--accent-rgb),.2); } }
     body.tab-feed-active .feed-backdrop { opacity: 1 !important; visibility: visible; transition-delay: 0s; }
     body:not(.tab-feed-active) .feed-backdrop { visibility: hidden; }
     /* no backdrop-filter here: what's behind is already a blurred backdrop,
@@ -5625,7 +5592,6 @@
     html[data-fx="low"] .hm-backdrop,
     html[data-fx="low"] .fs-bg,
     html[data-fx="low"] .ph-bd-layer,
-    html[data-fx="low"] .hm-blur,
     html[data-fx="low"] .mh-flow-bg,
     html[data-fx="low"] .feed-post-backart,
     html[data-fx="low"] #musicShell .ap-bg { display: none !important; }
@@ -5641,10 +5607,7 @@
     html[data-fx="low"] .motd,
     html[data-fx="low"] #socialUnreadBadge:not(:empty),
     html[data-fx="low"] .ph-song.playing .ph-eq b,
-    html[data-fx="low"] .hm-live-dot,
-    html[data-fx="low"] .chat-face-eq i,
     html[data-fx="low"] .chat-head-eq i,
-    html[data-fx="low"] .hm-lcd-colon,
     html[data-fx="low"] .presence-card.is-playing .presence-card-online::after,
     html[data-fx="low"] #feedList .feed-post.is-song.playing .feed-rec-disc { animation: none !important; }
     /* The listening ring (below), still: a frozen one is just a ring. */
@@ -6551,15 +6514,24 @@
        ══════════════════════════════════════════════════════════════════ */
 
     /* ── Section labels ── */
-    .picker-section-label, .ap-sec-label, #musicShell .picker-section-label,
-    .settings-section-label, .chat-lbl,
-    .sec-label, .key-hints-group-label, .music-sidebar-label, #musicShell .music-sidebar-label,
-    .hm-lbl, .profile-modal-label, .ctx-label, .feed-composer-live-label, .chat-date-sep-label, .ph-side-head {
+    .picker-section-label,
+    .ap-sec-label,
+    #musicShell .picker-section-label,
+    .settings-section-label,
+    .chat-lbl,
+    .sec-label,
+    .key-hints-group-label,
+    .music-sidebar-label,
+    #musicShell .music-sidebar-label,
+    .profile-modal-label,
+    .ctx-label,
+    .feed-composer-live-label,
+    .chat-date-sep-label,
+    .ph-side-head {
       font-family: var(--font-ui); font-size: var(--fs-10); font-weight: 600;
       letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer);
     }
-    .hm-lbl span, .mh-note { text-transform: none; letter-spacing: normal; font-weight: 500; opacity: .7; }
-    .hm-lbl span::before { content: ''; margin: 0 0 0 4px; }
+    .mh-note { text-transform: none; letter-spacing: normal; font-weight: 500; opacity: .7; }
     .settings-section-label { margin-bottom: .6rem; padding-left: 2px; }
     .ctx-label { padding: 6px 10px 6px; }
 
@@ -6648,7 +6620,6 @@
        their name on presence cards and chat's faces. Quiet: it's a detail. */
     .presence-plat { font-size: 12px; margin-left: 5px; opacity: .5; vertical-align: -1px; font-weight: 400; color: currentColor; }
     .presence-card-name .presence-plat { font-size: 12.5px; }
-    .chat-face-name .presence-plat { font-size: 10px; margin-left: 3px; vertical-align: 0; }
     .presence-card-you { font-size: var(--fs-10); opacity: .45; font-weight: 400; }
 
     /* Sliders take the drag themselves on touch screens instead of the
@@ -6677,12 +6648,14 @@
     /* Blurs on things repeated down a scrolling list re-blur every frame of
        the scroll, per item; a near-opaque fill looks the same. */
     #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action,
-    .mh-row-nav, .mh-flow-nav, .chat-msg-song-play, .chat-face-note {
+    .mh-row-nav,
+    .mh-flow-nav,
+    .chat-msg-song-play {
       -webkit-backdrop-filter: none; backdrop-filter: none;
     }
     #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action,
     .mh-row-nav, .mh-flow-nav { background: color-mix(in srgb, var(--modal-bg) 88%, transparent); }
-    .chat-msg-song-play, .chat-face-note { background: color-mix(in srgb, var(--modal-bg) 70%, transparent); }
+    .chat-msg-song-play { background: color-mix(in srgb, var(--modal-bg) 70%, transparent); }
     #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action[title="Play"] { background: var(--text); }
 
     /* The "listening" pulse, on the compositor: a ring that scales and
@@ -6744,8 +6717,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .chat-face-eq i, .chat-head-eq i { animation: none; }
-      .hm-spot .hm-slide { transition: none; }
+      .chat-head-eq i { animation: none; }
       .presence-card.is-playing .presence-card-online::after { animation: none; opacity: 0; }
       #tabNav, #playerDock, #tabNav .tab-nav-btn, .header .tab-nav .tab-nav-btn, .tab-nav { transition: none !important; }
     }
@@ -7040,7 +7012,6 @@
         font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase;
         color: var(--text-dimmer); padding: 0 12px 6px;
       }
-      .ph-side-views { display: flex; flex-direction: column; gap: 2px; }
       .ph-sidebar .ph-order {
         display: flex; flex-direction: column; gap: 2px; height: auto; padding: 0; border: 0; border-radius: 0;
         background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
@@ -7182,13 +7153,10 @@
        little faded. Listening still shows (the music's still playing). */
     :root { --away-color: #f5b93f; }
     .presence-card.is-away .presence-card-online,
-    #presenceList .chat-face.is-away .presence-card-online,
-    .chat-channel-online-dot.away,
-    .hm-av.on.away::after { background: var(--away-color); animation: none; }
+    .chat-channel-online-dot.away { background: var(--away-color); animation: none; }
     .presence-card.is-away .presence-card-online { box-shadow: none; }
     .chat-channel-online-dot.away { box-shadow: 0 0 0 2px var(--bg); }
-    .presence-card.is-away .presence-card-avatar > :not(.presence-card-online),
-    .chat-face.is-away .chat-face-av > img { opacity: .6; }
+    .presence-card.is-away .presence-card-avatar > :not(.presence-card-online) { opacity: .6; }
     .presence-card.is-away:not(.is-playing) .presence-card-track { color: color-mix(in srgb, var(--away-color) 75%, var(--text-dim)); }
 
 
@@ -7882,24 +7850,11 @@
        is a header menu (.hdr-more-menu), so every platform skin dresses
        it the way it dresses the ⋯ menu.
        ══════════════════════════════════════════════════════════════════ */
-    .vc-badge {
-      position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box;
-      border-radius: 7px; background: var(--success-color); color: #04140a;
-      font: 700 9px/14px var(--font-ui); text-align: center; pointer-events: none;
-    }
-    .vc-badge[hidden] { display: none; }
     /* The microphone beside it: plain while it's on, red while it's off,
        ringed green while the room hears you. */
     #voiceMicBtn { color: var(--text); transition: color .15s, background .15s, border-color .15s, box-shadow .12s; }
     #voiceMicBtn.muted { color: var(--danger-color); }
 
-    .vc-panel { width: 300px; max-width: calc(100vw - 16px); padding: 0; box-sizing: border-box; }
-    .vc-panel.visible { display: flex; flex-direction: column; max-height: min(560px, calc(100vh - 120px)); }
-    .vc-head { display: flex; align-items: center; gap: 2px; padding: 12px 8px 6px 16px; }
-    .vc-title { flex: 1; font: 700 var(--fs-18)/1.2 var(--font-ui); color: var(--text); }
-    .vc-head .chat-icon-btn { width: 28px; height: 28px; font-size: 16px; display: flex; align-items: center; justify-content: center; color: var(--text-dimmer); }
-    .vc-head .chat-icon-btn:hover { color: var(--text); }
-    .vc-head .chat-icon-btn[hidden] { display: none; }
     .vc-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 6px 8px; scrollbar-width: none; }
     .vc-list::-webkit-scrollbar { display: none; }
     .vc-row {
@@ -7976,7 +7931,7 @@
 
     /* Not on a phone yet: its header has no room, and it wants its own layout. */
     @media (max-width: 760px) and (pointer: coarse) {
-      #voiceBtn, #voiceMicBtn { display: none; }
+      #voiceMicBtn { display: none; }
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -8339,7 +8294,6 @@
     html:has(.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .fs-player.open) { overflow: hidden; }
     #chatModalBody, .settings-modal, .add-app-modal { overscroll-behavior: contain; }
     @media (prefers-reduced-motion: reduce) {
-      .hm-enter, .hm-arrive.go { animation: none; }
       .klab-tilt, .klab-tilt.tilting { transform: none; }
     }
 
@@ -8386,7 +8340,7 @@
         clip-path: inset(calc(var(--tb-h) + 1px) 0 0 calc(var(--nav-w, 0px) + 1px) round calc(var(--radius-lg) - 1px) 0 0 0);
         transition: opacity .5s ease, visibility 0s .5s, clip-path .28s var(--m-ease);
       }
-      html.web-bar body.tab-home-active .hm-backdrop { transition: opacity .5s ease, visibility 0s 0s, clip-path .28s var(--m-ease); }
+      html.web-bar :is(body.tab-chat-active .chat-backdrop, body.tab-feed-active .feed-backdrop) { transition: opacity .5s ease, visibility 0s 0s, clip-path .28s var(--m-ease); }
       html.web-bar[data-nav="menu"] .hm-backdrop { clip-path: inset(var(--tb-h) 0 0 0); }
     }
 
@@ -8796,6 +8750,8 @@
     @keyframes eqIco { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
     @media (prefers-reduced-motion: reduce) { body.is-playing .eq-ico b { animation: none; } }
     html[data-fx="low"] body.is-playing .eq-ico b { animation: none; }
+    /* Shrunk away on Music: nothing to animate (it redrew under the dock). */
+    #dockPeek.peek-hidden .eq-ico b { animation: none; }
     .hdr-btn .dock-peek-label { display: none; }
     #sideNav .dock-peek-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-size: var(--fs-13); }
     body.is-playing #dockPeek { color: var(--text); }
@@ -8842,25 +8798,38 @@
        their size so a 22px one and a 96px one look alike. !important
        because the circles were set in many places, some of them by id. */
     :root { --av-radius: 28%; }
-    .chat-msg-avatar, .chat-msg-avatar img,
-    .chat-msg-seen-avatar, .chat-msg-seen-avatar img,
-    .chat-conv-face, .chat-conv-face img,
-    .chat-head-face, .chat-head-face img,
-    .chat-face-av, .chat-face-av img,
-    .feed-post-avatar, .feed-post-avatar img,
-    .feed-post-reply-avatar, .feed-post-reply-avatar img,
-    .hm-av, .hm-av img,
-    .mention-suggest-av, .mention-suggest-av img,
-    .ph-avatar, .ph-avatar img,
-    .ph-avatar-letter, .ph-avatar-letter img,
-    .presence-card-avatar, .presence-card-avatar img,
-    .presence-row-avatar, .presence-row-avatar img,
-    .profile-modal-avatar, .profile-modal-avatar img,
-    .profile-modal-avatar-overlay, .profile-modal-avatar-overlay img,
-    .profile-view-avatar, .profile-view-avatar img,
-    .side-me-av, .side-me-av img,
-    .soc-post-av, .soc-post-av img,
-    .vc-av, .vc-av img { border-radius: var(--av-radius) !important; }
+    .chat-msg-avatar,
+    .chat-msg-avatar img,
+    .chat-msg-seen-avatar,
+    .chat-msg-seen-avatar img,
+    .chat-conv-face,
+    .chat-conv-face img,
+    .chat-head-face,
+    .chat-head-face img,
+    .feed-post-avatar,
+    .feed-post-avatar img,
+    .feed-post-reply-avatar,
+    .feed-post-reply-avatar img,
+    .mention-suggest-av,
+    .mention-suggest-av img,
+    .ph-avatar,
+    .ph-avatar img,
+    .ph-avatar-letter,
+    .ph-avatar-letter img,
+    .presence-card-avatar,
+    .presence-card-avatar img,
+    .profile-modal-avatar,
+    .profile-modal-avatar img,
+    .profile-modal-avatar-overlay,
+    .profile-modal-avatar-overlay img,
+    .profile-view-avatar,
+    .profile-view-avatar img,
+    .side-me-av,
+    .side-me-av img,
+    .soc-post-av,
+    .soc-post-av img,
+    .vc-av,
+    .vc-av img { border-radius: var(--av-radius) !important; }
 
     /* ══ HOME — a plain landing page (js/18-home.js) ══
        The app's own look: a big welcome (the one serif on the site), the
@@ -8926,3 +8895,11 @@
       .hp-line, .hp-commits summary { flex-wrap: wrap; }
       .hp-meta { width: 100%; order: 3; padding-left: 40px; }
     }
+
+    /* ══ WINDOW IDLE ══
+       js/16-motion.js sets html.win-idle while the window doesn't have
+       focus. The animations that loop for as long as something lasts
+       pause until it's back. */
+    html.win-idle :is(.prompt-cursor.visible, .eq-ico b, .chat-head-eq i, .mh-eq i),
+    html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
+

@@ -27,7 +27,13 @@ function fetchTimeout(url, opts, ms) {
   const t = setTimeout(() => ctrl.abort(), ms || 10000);
   // Keep the caller's cancellation as well as the timeout. Replacing its
   // signal made closing a viewer leave the original download running.
-  const signal = opts?.signal ? AbortSignal.any([ctrl.signal, opts.signal]) : ctrl.signal;
+  // AbortSignal.any is Safari 17.4+: older ones forward the abort by hand.
+  let signal = ctrl.signal;
+  if (opts?.signal) {
+    if (AbortSignal.any) signal = AbortSignal.any([ctrl.signal, opts.signal]);
+    else if (opts.signal.aborted) ctrl.abort();
+    else opts.signal.addEventListener('abort', () => ctrl.abort(), { once: true });
+  }
   return fetch(url, { ...(opts || {}), signal }).finally(() => clearTimeout(t));
 }
 

@@ -261,6 +261,10 @@ window.klabGifPicker = (function() {
     panel.hidden = true;
     onPick = null;
     anchorEl = null;
+    // Opening loads afresh anyway: the GIFs (each decoded and animating)
+    // go now, and a page still on its way doesn't fill a hidden grid.
+    reqId++; loading = false;
+    grid.textContent = '';
   }
   return { open, close, isOpen: () => !!panel && !panel.hidden };
 })();

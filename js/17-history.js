@@ -127,7 +127,10 @@
     // A conversation closed or left since: getRoom() still has it, so it
     // would open again for a while, with a composer that can't send.
     const membership = d.room && window.MatrixChat?.client?.getRoom(d.room)?.getMyMembership?.();
-    if (d.room && d.room !== _chatActiveRoomId && (membership === 'join' || membership === 'invite')) { if (typeof chooseChatRoom === 'function') chooseChatRoom(d.room); else _chatActiveRoomId = d.room; renderChannelList(); }
+    // The phone's list shows no conversation: going back to it keeps the
+    // one you were in, not whichever was open when you entered Chat.
+    const listOnly = d.view === 'rooms' && matchMedia(KLAB_PHONE_MQ).matches;
+    if (!listOnly && d.room && d.room !== _chatActiveRoomId && (membership === 'join' || membership === 'invite')) { if (typeof chooseChatRoom === 'function') chooseChatRoom(d.room); else _chatActiveRoomId = d.room; renderChannelList(); }
     if (d.view && typeof setChatMobileView === 'function') setChatMobileView(d.view);
   }
 

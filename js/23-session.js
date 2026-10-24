@@ -193,7 +193,11 @@
     const cur = playerState.currentSong;
     if (!cur || cur.id !== now.song.id) {
       applying++;
-      try { playSong(songFor(now)); } finally { applying--; }
+      // Following the playing device isn't a pick of yours: counted as one,
+      // it cancelled a Play you'd just pressed that was still fetching.
+      const auto = _autoNext;
+      _autoNext = true;
+      try { playSong(songFor(now)); } finally { applying--; _autoNext = auto; }
       shown.dur = -1;
       fire('loadstart');
     }
@@ -257,7 +261,9 @@
       A.load();
     }
     role = r; mirror = m;
-    if (remote() && !wasRemote) own = { volume: playerState.volume };
+    // The login song's fade-in would go on setting the volume, which a
+    // remote sends to the device that's playing: ramping theirs.
+    if (remote() && !wasRemote) { clearInterval(_loginFadeInterval); own = { volume: playerState.volume }; }
     if (!remote() && wasRemote && own) {
       const v = own.volume;
       own = null;

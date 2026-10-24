@@ -155,8 +155,16 @@ window.klabStars = (function() {
   }, true);
 
   // Rows are built in a dozen places; this catches them all.
-  let queued = [], raf = 0;
+  // Hidden (the tray), frames don't run, and the queue held every node added
+  // for hours: then it's dropped and the whole page is painted on return.
+  let queued = [], raf = 0, dirty = false;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !dirty) return;
+    dirty = false; queued = [];
+    paint(document.body);
+  });
   new MutationObserver(muts => {
+    if (document.hidden) { dirty = true; queued = []; return; }
     for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) queued.push(n);
     if (queued.length && !raf) raf = requestAnimationFrame(() => {
       raf = 0;

@@ -1380,13 +1380,18 @@
       renderFeed();
     });
   }
+  // Only the last of quick taps lands, not whichever answer is slowest.
+  const _reactSeq = new Map();
   async function toggleFeedReaction(postId, emoji) {
+    const seq = (_reactSeq.get(postId) || 0) + 1;
+    _reactSeq.set(postId, seq);
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/reactions`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji }),
       }, 8000);
       if (!r.ok) throw new Error('status ' + r.status);
       const data = await r.json();
+      if (_reactSeq.get(postId) !== seq) return;
       const post = _feedPosts.find(p => p.id === postId);
       if (post) post.reactions = data.reactions || {};
       _localEditAt.set(postId, performance.now());
@@ -1698,9 +1703,13 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshFeedTimes(); updateMentionsDot(); fetchFeed(); } });
   // Relative times tick over in place, and media lookups that failed get
   // another go once they're due (see FEED_MEDIA_RETRY_MS).
+  let _feedDayShown = _dayFmt.format(new Date());
   setInterval(() => {
     if (document.hidden) return;
     refreshFeedTimes();
+    // Past midnight: "Today" and "Yesterday" move along (the day is in the render key).
+    const day = _dayFmt.format(new Date());
+    if (day !== _feedDayShown) { _feedDayShown = day; renderFeed(); }
     _feedAvatarFailedAt.forEach((t, username) => { if (retryDue(_feedAvatarFailedAt, username)) ensureFeedAvatar(username); });
     const live = new Set(_feedPosts.map(p => p.image_mxc).filter(Boolean));
     _feedImageFailedAt.forEach((t, mxc) => { if (live.has(mxc) && retryDue(_feedImageFailedAt, mxc)) ensureFeedImage(mxc); });

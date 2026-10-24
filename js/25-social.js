@@ -76,13 +76,15 @@
         const items = [];
         ((await r.json()).posts || []).forEach(post => (post.photos || []).forEach(ph => { if (items.length < 24) items.push({ post, ph }); }));
         loadedAt = Date.now();
+        empty.hidden = !!items.length;
+        f.el.hidden = !items.length;
+        if (!items.length) { keys = ''; empty.textContent = 'No photos yet.'; return; }
         const k = items.map(it => it.ph.id).join();
         // The same photos: leave it where you'd flicked it to.
         if (k === keys) { f.render(); return; }
         keys = k;
         f.set(items, 0, { keyOf: it => it.ph.id });
-        empty.hidden = !!items.length;
-      } catch (e) { if (!keys) { f.el.hidden = true; empty.hidden = false; } }
+      } catch (e) { if (!keys) { f.el.hidden = true; empty.textContent = 'Couldn’t load photos just now.'; empty.hidden = false; } }
     }
     const empty = document.createElement('div');
     empty.className = 'soc-home-empty';

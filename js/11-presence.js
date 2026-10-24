@@ -524,29 +524,6 @@
   }
 
 
-  // Persisted so it doesn't snap shut on every poll-driven re-render, or
-  // every page load for someone who likes it open.
-  const OFFLINE_OPEN_KEY = 'klabnet_presence_offline_open';
-  function offlineExpanded() {
-    try { return localStorage.getItem(OFFLINE_OPEN_KEY) === '1'; } catch (e) { return false; }
-  }
-  function setOfflineExpanded(v) {
-    try { localStorage.setItem(OFFLINE_OPEN_KEY, v ? '1' : '0'); } catch (e) {}
-  }
-
-  // One-line variant of offlineCardHTML for the collapsed list. Same
-  // data-username, so clicking one still opens a DM.
-  function offlineRowHTML(person) {
-    ensureAvatarResolved(person.username);
-    const avatarUrl = _avatarCache.get(person.username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((person.username || '?')[0].toUpperCase());
-    return '<div class="presence-row" role="link" tabindex="0" aria-label="Message ' + esc(person.username) + '" data-username="' + esc(person.username) + '"' +
-      ' style="--name-color:' + profileColor(person.username) + ';" title="' + esc(person.username) + '">' +
-      '<div class="presence-row-avatar">' + avatarInner + '</div>' +
-      '<span class="presence-row-name">' + esc(person.username) + '</span>' +
-    '</div>';
-  }
-
   let _lastRoster = [];
   // For chat: who's around and what they're doing, by username.
   window.klabPresenceOf = function(username) {
@@ -557,17 +534,6 @@
       song: l && l.playing ? l.song : '', artist: l && l.playing ? l.artist : '', songId: l && l.playing ? l.songId : '',
       note: _notesCache.get(username) || '', avatar: _avatarCache.get(username) || null,
     };
-  };
-  // Home's "Who's online": the full presence cards (banner, song, note),
-  // you first, then whoever's listening, then everyone else online.
-  window.klabPresenceCardsHTML = function() {
-    const me = window.KLAB_USER?.username;
-    const mySong = playerState.currentSong;
-    const others = (_lastOthers || []).filter(l => l && l.username !== me).sort(byActivity);
-    let html = '';
-    if (me && me !== 'anonymous') html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
-    others.forEach(l => { html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform); });
-    return { html, others: others.length };
   };
   // Everyone the site knows, online first, for chat's search.
   window.klabRoster = function() {
@@ -637,8 +603,7 @@
   // skip-if-unchanged check above.
   function applyUnreadDmDots() {
     const unread = window.KLAB_UNREAD_DM_USERS;
-    let hiddenUnread = 0;
-    list.querySelectorAll('.presence-card[data-username], .presence-row[data-username]').forEach(el => {
+    list.querySelectorAll('.presence-card[data-username]').forEach(el => {
       const has = !!unread && unread.has(el.dataset.username);
       el.classList.toggle('has-unread', has);
       const existing = el.querySelector('.presence-card-unread-dot');
@@ -650,15 +615,7 @@
       } else if (!has && existing) {
         existing.remove();
       }
-      // An unread DM from someone offline would otherwise be invisible
-      // while the offline list is collapsed.
-      if (has && el.classList.contains('presence-row') && !offlineExpanded()) hiddenUnread++;
     });
-    const toggle = document.getElementById('presenceOfflineToggle');
-    if (toggle) {
-      toggle.classList.toggle('has-unread', hiddenUnread > 0);
-      toggle.title = hiddenUnread ? `${hiddenUnread} unread message${hiddenUnread === 1 ? '' : 's'} in here` : '';
-    }
   }
   // Called by the chat module whenever its unread set changes.
   window.KLAB_REFRESH_PRESENCE_UNREAD = applyUnreadDmDots;
@@ -815,7 +772,9 @@
     };
     for (const userId of _partySubscribers.keys()) sendToDeviceEvent(userId, 'klab.sync_tick', content).catch(() => {});
   }
-  setInterval(broadcastPartyTick, 5000);
+  // Every 5s while showing; hidden, the heartbeat worker sends them (one
+  // clock at a time: both ran, ~20 messages a minute to each follower).
+  setInterval(() => { if (!document.hidden) broadcastPartyTick(); }, 5000);
   // Renew our own subscription with the host we're following every 60s —
   // PARTY_SUB_TTL_MS on their end is longer than this on purpose, so a
   // slow tick or two doesn't spuriously drop us.
@@ -920,29 +879,18 @@
   playerState.audio.addEventListener('play',  broadcastPartyTick);
   playerState.audio.addEventListener('pause', broadcastPartyTick);
 
-  // Shared by chat's faces and Home's cards.
+  // Social's sidebar cards.
   const onCardClick = e => {
     if (e.target.closest('.presence-card-note-edit')) { editMyNote(); return; }
     if (e.target.closest('.presence-card-party-leave')) { leaveParty(); SFX && SFX.play('click'); return; }
     const meCard = e.target.closest('.presence-card.is-me');
     if (meCard) { openProfileModal(); return; }
-    const offToggle = e.target.closest('#presenceOfflineToggle');
-    if (offToggle) {
-      const open = !offToggle.classList.contains('is-open');
-      setOfflineExpanded(open);
-      offToggle.classList.toggle('is-open', open);
-      const listEl = offToggle.nextElementSibling;
-      if (listEl) listEl.hidden = !open;
-      SFX && SFX.play('click');
-      return;
-    }
     // Left-click opens a DM. It used to start a listening party, which is a
     // surprising thing to do by accident to someone else's audio — that
     // moved to the right-click menu alongside View Profile, where it reads
     // as the deliberate action it is. messageUser() reuses an existing DM
     // if there is one, so this is "talk to this person" either way.
-    // .presence-row is the compact offline variant — same behaviour.
-    const card = e.target.closest('.presence-card[data-username], .presence-row[data-username]');
+    const card = e.target.closest('.presence-card[data-username]');
     if (card && !card.classList.contains('is-me')) {
       SFX && SFX.play('nav');
       messageUser(card.dataset.username);
@@ -968,7 +916,7 @@
     presenceCtxMenu.classList.add('visible');
   }
   const onCardContext = e => {
-    const card = e.target.closest('.presence-card, .presence-row');
+    const card = e.target.closest('.presence-card');
     // Not yourself — listen-partying or DMing your own card makes no sense.
     if (!card || card.classList.contains('is-me') || !card.dataset.username) return;
     e.preventDefault();
@@ -979,14 +927,12 @@
   document.addEventListener('keydown', e => {
     if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey ||
         (e.key !== 'Enter' && e.key !== ' ')) return;
-    const el = e.target.closest('.presence-card[tabindex], .presence-row[tabindex], .presence-card-note-edit[tabindex], .presence-card-party-leave[tabindex]');
+    const el = e.target.closest('.presence-card[tabindex], .presence-card-note-edit[tabindex], .presence-card-party-leave[tabindex]');
     if (!el || e.target !== el) return;
     e.preventDefault(); e.stopPropagation(); el.click();
   }, true);
   list.addEventListener('click', onCardClick);
   list.addEventListener('contextmenu', onCardContext);
-  window.klabPresenceCardClick = onCardClick;
-  window.klabPresenceCardContext = onCardContext;
   document.addEventListener('click', e => { if (!presenceCtxMenu.contains(e.target)) hidePresenceCtx(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePresenceCtx(); });
 
@@ -1161,7 +1107,7 @@
       finally { URL.revokeObjectURL(workerUrl); }
       // Party ticks ride along: a host in a background tab keeps its
       // followers in step instead of dropping to one tick a minute.
-      _beatWorker.onmessage = () => { postPresence(); broadcastPartyTick(); };
+      _beatWorker.onmessage = () => { postPresence(); if (document.hidden) broadcastPartyTick(); };
       _beatWorker.postMessage(document.hidden ? POLL_MS * 1.5 : POLL_MS);
       postPresence();
     } catch (e) {

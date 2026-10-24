@@ -836,20 +836,14 @@ function sampleImageColor(imgUrl) {
     pending = true;
     requestAnimationFrame(update);
   }
-  // Any content change inside .dash (tiles added/removed, edit mode, etc.)
-  // — ignore our own class toggle on .dash so this can't trigger itself,
-  // and ignore the two descendants that are positioned out of flow and so
-  // cannot change .dash's content height no matter what they do: the fixed
-  // player dock (progress bar + clock, written several times a second) and
-  // the absolutely-positioned MOTD (rerolls on a 45-75s timer). Those two
-  // were generating essentially all of this observer's traffic.
-  const dock = document.getElementById('playerDock');
-  const motd = document.getElementById('motd');
-  const prompt = document.querySelector('.terminal-prompt');
-  const outOfFlow = t => (dock && dock.contains(t)) || (motd && motd.contains(t)) || (prompt && prompt.contains(t));
-  new MutationObserver(muts => {
-    if (muts.some(m => !(m.target === dash && m.attributeName === 'class') && !outOfFlow(m.target))) schedule();
-  }).observe(dash, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+  // Its height changing, not every change inside it: a MutationObserver on
+  // the whole of .dash (every tab, the chat timeline, the feed, the sliding
+  // pills' style writes) forced a style and layout read per batch. Sizes
+  // only change when something that matters does: .dash and each tab's
+  // panel are watched, which is where content height comes from.
+  const ro = new ResizeObserver(schedule);
+  ro.observe(dash);
+  dash.querySelectorAll('.tab-panel').forEach(p => ro.observe(p));
   // body class changes (edit-mode, etc.) can also affect .dash's height via CSS
   new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', schedule);

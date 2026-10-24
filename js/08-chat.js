@@ -817,6 +817,7 @@ function renderTypingLine() {
 // needed, scroll only snaps to bottom if the user was already there (or
 // this is a fresh room switch) rather than always.
 let _lastTimelineRenderKey = null;
+let _lastTimelineQuick = '', _chatEchoSeq = 0; // see renderTimeline()
 let _timelineSnapshot = null;
 const _lastSentReadEventId = new Map(); // roomId -> event id we've already sent a read receipt for
 const _readReceiptPending = new Map(); // one receipt in flight per room
@@ -855,10 +856,17 @@ function computeReactions(room) {
   return map;
 }
 
+// One toggle at a time per reaction: a quick second click found the first
+// one's local echo (a ~ ID the server can't redact) and the reaction stuck.
+const _reactionInFlight = new Set();
 async function toggleReaction(targetEventId, emoji) {
   const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
   if (!room || !targetEventId) return;
+  const key = targetEventId + '|' + emoji;
+  if (_reactionInFlight.has(key)) return;
   const mine = computeReactions(room).get(targetEventId)?.get(emoji)?.mine;
+  if (mine && mine.startsWith('~')) return; // still sending
+  _reactionInFlight.add(key);
   try {
     if (mine) {
       await MatrixChat.client.redactEvent(room.roomId, mine);
@@ -868,6 +876,7 @@ async function toggleReaction(targetEventId, emoji) {
       });
     }
   } catch (e) { console.error('[chat] reaction failed', e); }
+  finally { _reactionInFlight.delete(key); }
 }
 
 let _replyingToEventId = null;
@@ -972,8 +981,11 @@ function chatConvMenu(e) {
     { label: 'Mark as read', icon: 'ti-checks', hidden: !_chatUnreadRooms.has(room.roomId), action: () => {
       markRoomRead(room.roomId);
       updateChannelUnreadDots();
-      const last = roomLastMessage(room);
-      if (last) MatrixChat.client.sendReadReceipt(last).catch(() => {});
+      const last = lastReceiptable(room.getLiveTimeline().getEvents());
+      const client = MatrixChat.client;
+      if (last) client.sendReadReceipt(last).then(() => {
+        if (MatrixChat.client === client) _lastSentReadEventId.set(room.roomId, last.getId());
+      }).catch(() => {});
     } },
     '-',
     { label: 'View profile', icon: 'ti-user-circle', hidden: !other, action: () => openProfileView(other) },
@@ -1172,6 +1184,17 @@ function renderTimeline() {
   const isDmRoom = getDmRoomIds().has(room.roomId);
   el.classList.toggle('is-dm', isDmRoom);
 
+  // Every event in any room renders the channel list, which ends here: the
+  // passes below over the whole open timeline ran for a message elsewhere.
+  // Anything that changes what's drawn adds to the live timeline (messages,
+  // edits, reactions, redactions, member changes) or is a local echo
+  // updating (_chatEchoSeq); a forced render clears _lastTimelineRenderKey.
+  const live = room.getLiveTimeline().getEvents(), lastLive = live[live.length - 1];
+  const quick = room.roomId + '|' + live.length + '|' + (live[0]?.getId() || '') + '|' + (lastLive?.getId() || '') + '|' +
+    (lastLive?.status || '') + '|' + _chatEchoSeq + '|' + isDmRoom + '|' + new Date().toDateString();
+  if (!roomChanged && _lastTimelineRenderKey !== null && quick === _lastTimelineQuick) return;
+  _lastTimelineQuick = quick;
+
   const events = room.getLiveTimeline().getEvents().filter(ev => {
     if (ev.getType() !== 'm.room.message') return false;
     // An edit shows up as its own timeline entry, but the SDK already
@@ -1221,10 +1244,17 @@ function renderTimeline() {
   // The usual live event only adds messages at the end. Keep the existing
   // rows (and loaded GIFs) in that case; edits, reactions, redactions,
   // pagination and limited timeline resets still use the full rebuild.
+  // A message you sent getting its real ID from the server (same event,
+  // only the ID part of its key changed) counts as unchanged: it rebuilt
+  // every row, and restarted every GIF, once per message sent. A new day
+  // rebuilds once, so "Today" and "Yesterday" move along.
   const prev = _timelineSnapshot;
-  const appendFrom = !roomChanged && _lastTimelineRenderKey && prev?.room === room &&
-    prev.reactions === reactionKey && prev.keys.length > 0 && eventKeys.length > prev.keys.length &&
-    prev.keys.every((key, i) => key === eventKeys[i]) &&
+  const idless = k => k.slice(k.indexOf(':'));
+  const sameRow = i => prev.keys[i] === eventKeys[i] || (prev.evs[i] === events[i] && idless(prev.keys[i]) === idless(eventKeys[i]));
+  const today = new Date().toDateString();
+  const appendFrom = !roomChanged && _lastTimelineRenderKey && prev?.room === room && prev.today === today &&
+    prev.reactions === reactionKey && prev.keys.length > 0 && eventKeys.length >= prev.keys.length &&
+    prev.keys.every((key, i) => sameRow(i)) &&
     el.querySelectorAll('.chat-msg').length === prev.keys.length ? prev.keys.length : 0;
   const wasNearBottom = roomChanged || _forceScrollBottomOnNextRender || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   _forceScrollBottomOnNextRender = false;
@@ -1248,9 +1278,20 @@ function renderTimeline() {
     }
   }
   _lastTimelineRenderKey = renderKey;
-  _timelineSnapshot = { room, keys: eventKeys, reactions: reactionKey };
+  _timelineSnapshot = { room, keys: eventKeys, evs: events.slice(), reactions: reactionKey, today };
 
-  if (appendFrom) el.querySelector('.chat-msg-seen')?.remove();
+  if (appendFrom) {
+    el.querySelector('.chat-msg-seen')?.remove();
+    // Rows kept whose event has its real ID now.
+    const rows = el.querySelectorAll('.chat-msg');
+    for (let i = 0; i < appendFrom; i++) {
+      const id = events[i].getId();
+      if (rows[i] && rows[i].dataset.eventId !== id) {
+        rows[i].dataset.eventId = id;
+        rows[i].querySelectorAll('[data-target-id]').forEach(p => { p.dataset.targetId = id; });
+      }
+    }
+  }
   else el.innerHTML = '';
   if (!events.length) {
     // An empty conversation says who it's with and gives you a way in.
@@ -1364,6 +1405,16 @@ function renderTimeline() {
       img.className = 'chat-msg-image' + (animated ? ' is-gif' : '');
       img.dataset.mxc = content.url;
       img.alt = content.body || '';
+      // Its box from the size the sender gave, before it loads: images
+      // arriving late shifted the timeline under you. 260px is the
+      // timeline's own cap on either side (app.css).
+      const w = +content.info?.w, h = +content.info?.h;
+      if (w > 0 && h > 0) {
+        const k = Math.min(1, 260 / w, 260 / h);
+        img.style.width = Math.round(w * k) + 'px';
+        img.style.aspectRatio = w + ' / ' + h;
+        img.style.height = 'auto';
+      }
       const cachedUrl = _chatImageCache.get(content.url);
       // Shown again: most recently used, last to be evicted.
       if (cachedUrl) { _chatImageCache.delete(content.url); _chatImageCache.set(content.url, cachedUrl); }
@@ -1459,7 +1510,9 @@ function updateSeenLine(room, events) {
   const el = document.getElementById('chatTimeline');
   if (!el || _chatActiveRoomId !== room.roomId) return;
   const existing = el.querySelector('.chat-msg-seen');
-  const lastEvent = events[events.length - 1];
+  // Your message still sending has no ID anyone can have read: "Seen"
+  // went away and came back with every message sent.
+  const lastEvent = lastReceiptable(events);
   let readers = [];
   if (lastEvent && lastEvent.getSender() === MatrixChat.client.getUserId()) {
     const members = room.getJoinedMembers().filter(m => m.userId !== MatrixChat.client.getUserId());
@@ -1627,17 +1680,18 @@ function notifyTyping() {
 let _pendingChatImage = null;
 function setChatImage(file) {
   _pendingChatImage = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (_pendingChatImage !== file) return;
-    const img = document.getElementById('chatImagePreview');
-    const wrap = document.getElementById('chatImagePreviewWrap');
-    if (img && wrap) { img.src = reader.result; wrap.hidden = false; }
-  };
-  reader.readAsDataURL(file);
+  // An object URL, not a data: one (an 8MB picture became an ~11MB string,
+  // made again on every room switch that brought the draft back).
+  if (_chatImagePreviewUrl) URL.revokeObjectURL(_chatImagePreviewUrl);
+  _chatImagePreviewUrl = URL.createObjectURL(file);
+  const img = document.getElementById('chatImagePreview');
+  const wrap = document.getElementById('chatImagePreviewWrap');
+  if (img && wrap) { img.src = _chatImagePreviewUrl; wrap.hidden = false; }
 }
+let _chatImagePreviewUrl = null;
 function clearChatImage() {
   _pendingChatImage = null;
+  if (_chatImagePreviewUrl) { URL.revokeObjectURL(_chatImagePreviewUrl); _chatImagePreviewUrl = null; }
   const wrap = document.getElementById('chatImagePreviewWrap');
   if (wrap) wrap.hidden = true;
   document.getElementById('chatImagePreview')?.removeAttribute('src');
@@ -2989,6 +3043,20 @@ function chatPaneShowing() {
   return !(document.body.classList.contains('chat-rooms-view') && matchMedia(KLAB_PHONE_MQ).matches);
 }
 function chatRoomOnScreen() { return chatPaneShowing() && document.hasFocus(); }
+// The last message a read receipt can point at: not an edit (that isn't
+// the last thing said) and not a local echo still sending (no server ID).
+function lastReceiptable(list) {
+  for (let i = list.length - 1; i >= 0; i--) {
+    const ev = list[i];
+    if (ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace' &&
+        !ev.status && ev.getId() && !ev.getId().startsWith('~')) return ev;
+  }
+  return null;
+}
+// A receipt the server keeps refusing (twice running) isn't asked again
+// for 30s: every event in any room re-renders, and each one retried it.
+// One failure (a blip) still retries straight away.
+const _readReceiptFailedAt = new Map();
 function readActiveChatRoom(room, events) {
   room = room || (_chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId));
   if (!room) return;
@@ -2997,15 +3065,20 @@ function readActiveChatRoom(room, events) {
   const list = events || room.getLiveTimeline().getEvents();
   // Same messages as the timeline: edits aren't the last thing said, and
   // local echoes (~ ids / send status) aren't server events we can receipt.
-  const lastEvent = [...list].reverse().find(ev => ev.getType() === 'm.room.message' &&
-    ev.getRelation()?.rel_type !== 'm.replace' && !ev.status && ev.getId() && !ev.getId().startsWith('~'));
+  const lastEvent = lastReceiptable(list);
   if (!lastEvent || _lastSentReadEventId.get(room.roomId) === lastEvent.getId() || _readReceiptPending.has(room.roomId)) return;
+  const failed = _readReceiptFailedAt.get(room.roomId);
+  if (failed && failed.n >= 2 && Date.now() - failed.at < 30000) return;
   const client = MatrixChat.client;
   const task = client.sendReadReceipt(lastEvent);
   _readReceiptPending.set(room.roomId, task);
   task.then(() => {
     if (MatrixChat.client === client) _lastSentReadEventId.set(room.roomId, lastEvent.getId());
-  }).catch(() => {}).finally(() => {
+    _readReceiptFailedAt.delete(room.roomId);
+  }).catch(() => {
+    const f = _readReceiptFailedAt.get(room.roomId);
+    _readReceiptFailedAt.set(room.roomId, { at: Date.now(), n: (f?.n || 0) + 1 });
+  }).finally(() => {
     if (_readReceiptPending.get(room.roomId) !== task) return;
     _readReceiptPending.delete(room.roomId);
     // A newer message may have landed during this request. Send its
@@ -3293,7 +3366,7 @@ function showChatApp() {
       if (live) acceptDmInvites();
       scheduleChatRender();
     });
-    MatrixChat.on('echo', scheduleChatRender);
+    MatrixChat.on('echo', () => { _chatEchoSeq++; scheduleChatRender(); });
     // The server stopped accepting our chat session (signed out elsewhere,
     // revoked): back to the Connect screen instead of a dead chat.
     MatrixChat.on('loggedOut', () => {
@@ -3306,7 +3379,9 @@ function showChatApp() {
       const composer = document.getElementById('chatComposerInput');
       if (composer) composer.value = '';
       clearReply(); clearChatImage();
-      _lastSentReadEventId.clear(); _readReceiptPending.clear();
+      _lastSentReadEventId.clear(); _readReceiptPending.clear(); _readReceiptFailedAt.clear();
+      // The dead client's rooms (held by the snapshot) and what was drawn from them.
+      _timelineSnapshot = null; _lastTimelineRenderKey = null; _lastTimelineQuick = ''; _typingRenderedRoomId = null; _chatHeadHTML = '';
       _dmInviteTried.clear(); _dmInviteRetryAt.clear(); _dmBookkeepingChecked.clear();
       // Nothing can be read while signed out, so the tab title and badge
       // shouldn't keep counting; reconnecting seeds them from the server.
@@ -3519,9 +3594,12 @@ async function sendChatGif(g) {
   clearReply();
   SFX && SFX.play('send');
   try {
-    const res = await fetch(g.url);
+    const res = await fetchTimeout(g.url, {}, 20000);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const blob = await res.blob();
+    // Past what the stash ever holds (GIPHY's under-2MB copies), and what
+    // Synapse would refuse anyway.
+    if (blob.size > 16 * 1024 * 1024) throw new Error('too big');
     const name = (g.title || 'gif').replace(/[^\w -]+/g, '').trim().slice(0, 60) || 'gif';
     const upload = await client.uploadContent(blob, { name: name + '.gif', type: 'image/gif' });
     await client.sendMessage(roomId, {
@@ -3531,6 +3609,8 @@ async function sendChatGif(g) {
     });
   } catch (e) {
     console.error('[chat] gif send failed', e);
+    // The reply it was answering comes back, like a failed message's does.
+    if (replyTo && MatrixChat.client === client) restoreFailedChatDraft(roomId, { reply: replyTo });
     showToast("Couldn't send that GIF", 'ti-photo-x');
   }
 }
@@ -3540,16 +3620,19 @@ document.getElementById('chatGifBtn')?.addEventListener('click', e => {
 
 // ── Composer extras: a send button, and one tap to share what's playing ──
 async function shareNowPlaying() {
-  const s = playerState.currentSong, client = MatrixChat.client;
-  if (!s || !client || !_chatActiveRoomId) return;
+  const s = playerState.currentSong, client = MatrixChat.client, roomId = _chatActiveRoomId;
+  if (!s || !client || !roomId) return;
   const song = { id: s.id, title: s.title || '', artist: s.artist || '', album: s.album || '', coverArt: s.coverArt || '' };
   const replyTo = _replyingToEventId;
   clearReply();
   try {
-    await client.sendMessage(_chatActiveRoomId, { msgtype: 'm.text', body: `🎵 ${song.title}${song.artist ? ' — ' + song.artist : ''}`, 'klab.song': song,
+    await client.sendMessage(roomId, { msgtype: 'm.text', body: `🎵 ${song.title}${song.artist ? ' — ' + song.artist : ''}`, 'klab.song': song,
       ...(replyTo ? { 'm.relates_to': { 'm.in_reply_to': { event_id: replyTo } } } : {}) });
     SFX && SFX.play('star');
-  } catch (e) { showToast("Couldn't share that song", 'ti-music-x'); }
+  } catch (e) {
+    if (replyTo && MatrixChat.client === client) restoreFailedChatDraft(roomId, { reply: replyTo });
+    showToast("Couldn't share that song", 'ti-music-x');
+  }
 }
 function syncShareChip() {
   const btn = document.getElementById('chatShareNp');

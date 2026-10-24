@@ -87,10 +87,17 @@ function openGenreView(genre) {
 }
 
 // Reopen a genre by name (browser back/forward, see js/17-history.js).
+// One crawl however many ask at once (Genres and a genre opened by Back).
+let _genresLoading = null;
+function genresLibrary() {
+  if (_genresCache && Date.now() - _genresAt <= GENRE_TTL_MS) return Promise.resolve(_genresCache);
+  return _genresLoading ||= buildGenres().then(g => { _genresCache = g; _genresAt = Date.now(); return g; })
+    .finally(() => { _genresLoading = null; });
+}
 window.klabOpenGenre = async value => {
   const t = ++_pickerLoadToken;
   try {
-    if (!_genresCache) { _genresCache = await buildGenres(); _genresAt = Date.now(); }
+    if (!_genresCache) await genresLibrary();
   } catch (e) {} // offline: Genres below says it failed
   if (t !== _pickerLoadToken) return; // moved on while the library was read
   const g = _genresCache?.find(x => x.value === value);
@@ -99,12 +106,12 @@ window.klabOpenGenre = async value => {
 
 async function loadGenres() {
   pickerList.innerHTML = '<div class="picker-empty">Loading genres…</div>';
+  const t = _pickerLoadToken;
   try {
-    if (!_genresCache || Date.now() - _genresAt > GENRE_TTL_MS) {
-      _genresCache = await buildGenres();
-      _genresAt = Date.now();
-    }
-    if (pickerTab !== 'genres') return; // moved on while the library was read
+    await genresLibrary();
+    // Moved on while the library was read (a genre opened meanwhile is on
+    // this tab too: the token tells them apart).
+    if (pickerTab !== 'genres' || t !== _pickerLoadToken) return;
     const genres = applySort(_genresCache, 'genres');
 
     if (!genres.length) { pickerList.innerHTML = '<div class="picker-empty">No genres found</div>'; return; }
@@ -520,15 +527,17 @@ async function _fetchSongsPage(offset) {
   return data['subsonic-response']?.searchResult3?.song || [];
 }
 
+let _songsLoading = null; // the sorted list's crawl, shared by every view waiting on it
 async function loadAllSongs() {
   if (_songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
   pickerList.innerHTML = '<div class="picker-empty">Loading songs…</div>';
   showSortBtn('songs');
+  const t = _pickerLoadToken;
   try {
     if (getSort('songs') === 'default') {
       await loadSongsIncremental();
     } else {
-      if (!_songsCache || Date.now() - _songsAt > LIBRARY_TTL_MS) {
+      if (!_songsCache || Date.now() - _songsAt > LIBRARY_TTL_MS) await (_songsLoading ||= (async () => {
         const all = [];
         let offset = 0;
         // Capped for the same reason as loadAlbums() above — 200 pages is
@@ -542,8 +551,8 @@ async function loadAllSongs() {
         }
         _songsCache = all;
         _songsAt = Date.now();
-      }
-      if (pickerTab !== 'songs') return;
+      })().finally(() => { _songsLoading = null; }));
+      if (pickerTab !== 'songs' || t !== _pickerLoadToken) return;
       renderSongsTabSorted();
     }
   } catch(e) { if (pickerTab === 'songs') pickerList.innerHTML = '<div class="picker-empty">Couldn’t load songs</div>'; }
