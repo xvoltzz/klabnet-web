@@ -6264,23 +6264,12 @@
     @media (min-width: 1400px) { .tab-panel[data-tab-panel="feed"] { max-width: 1040px; } }
 
     @media (min-width: 761px), (pointer: fine) {
-      html.klabnet-app { --dock-h: 72px; }
-      html.klabnet-app .player-dock {
-        left: 0; right: 0; bottom: 0; width: auto; transform: none;
-        min-height: var(--dock-h); box-sizing: border-box;
-        padding: 0.6rem 1.5rem; border-radius: 0; border-width: 1px 0 0; box-shadow: none;
-      }
+      /* The apps float the player like a browser does (the owner's call,
+         2026-10-24: it used to be a bar across the window's foot). */
       html.klabnet-app.app-material .player-dock {
         background: color-mix(in srgb, var(--modal-bg) 82%, transparent);
         -webkit-backdrop-filter: blur(30px) saturate(1.6); backdrop-filter: blur(30px) saturate(1.6);
       }
-      html.klabnet-app .player-dock.hidden,
-      html.klabnet-app body.tab-photos-active .player-dock { transform: translateY(100%) !important; }
-      html.klabnet-app .dash,
-      html.klabnet-app .dash.dash-clearance,
-      html.klabnet-app body[class*="tab-"] .dash { padding-bottom: calc(var(--dock-h) + 18px) !important; }
-      html.klabnet-app body.player-hidden .dash,
-      html.klabnet-app body.tab-photos-active .dash { padding-bottom: 18px !important; }
     }
 
     /* ══ What you can click looks clickable ══
@@ -6346,7 +6335,6 @@
       html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
       :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
-      html.klabnet-app body:not(.player-hidden):not(.tab-photos-active) { --nav-bottom: var(--dock-h); }
 
       /* The page moves over in one step while the sidebar animates: easing
          its padding re-flowed every grid on the page, frame after frame. */
@@ -6357,8 +6345,8 @@
       html.nav-side-on #settingsBtn { display: none; }
       html.nav-side-on .nav-burger { display: grid; place-items: center; }
 
-      /* The floating player (browsers) centres on the page, not the window. */
-      html:not(.klabnet-app):not([data-nav="top"]) .player-dock {
+      /* The floating player centres on the page, not the window. */
+      html:not([data-nav="top"]) .player-dock {
         left: calc(50% + var(--nav-w) / 2);
         width: min(calc(var(--content-w) + 200px), calc(100vw - var(--nav-w) - 3rem));
       }
@@ -8847,7 +8835,6 @@
     .player-dock.dock-flying { transition: none !important; }
     /* Photos hides the dock; brought up there, it shows over the strip. */
     body.tab-photos-active.dock-peek-open .player-dock { transform: translateX(-50%) !important; opacity: 1 !important; pointer-events: auto !important; }
-    html.klabnet-app body.tab-photos-active.dock-peek-open .player-dock { transform: none !important; }
 
     /* ══ PROFILE PICTURES: rounded squares ══
        The owner's call (2026-10-24): every profile picture is a rounded
