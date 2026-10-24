@@ -616,7 +616,7 @@ window.klabSideNav = (function() {
   burger.setAttribute('aria-label', 'Navigation');
   burger.innerHTML = '<i class="ti ti-menu-2"></i>';
 
-  const mode = () => root.getAttribute('data-nav') || 'top';
+  const mode = () => root.getAttribute('data-nav') || 'side';
   const on = () => desk.matches && mode() !== 'top';
   // Showing names inline, or only icons (or nothing) with the full
   // sidebar a click away over the page.
@@ -708,6 +708,7 @@ window.klabSideNav = (function() {
     apply(v, save);
   }
   function apply(v, save) {
+    if (!['side', 'rail', 'menu'].includes(v)) v = 'side'; // no more tabs in the header
     root.setAttribute('data-nav', v);
     if (save) { try { localStorage.setItem('klabnet_nav', v); } catch (e) {} }
     place();
