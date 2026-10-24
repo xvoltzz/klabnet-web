@@ -9051,3 +9051,46 @@
     #presenceList.soc-presence .presence-card:hover .presence-card-note-empty,
     #presenceList.soc-presence .presence-card-note-empty:focus { position: static; width: auto; height: auto; opacity: 1; pointer-events: auto; flex: 1 1 0; margin: 0; }
     #presenceList.soc-presence .presence-card:is(:hover, :focus-within):has(.presence-card-note-empty) .presence-card-track { display: none; }
+
+    /* ══ FEED, overhauled (2026-10-24) ══
+       Music's and Social home's language: quiet cards on the page, plain
+       type, the author's colour on their name only. No more colour wash
+       behind the page, blurred cover behind a song, or tint in a short
+       post's corner; and posts are simply there, not faded in as you reach
+       them (that fade, over those blurred layers, is what the Linux app
+       sometimes never drew). */
+    body.tab-feed-active .feed-backdrop { display: none !important; }
+    #feedList .feed-post,
+    #feedList .feed-post:not(.seen),
+    #feedList .feed-post.seen {
+      opacity: 1; transform: none; isolation: auto;
+      transition: border-color var(--m-fast) ease, background-color var(--m-fast) ease;
+    }
+    /* No card: posts sit on the page, a hairline between them, a faint
+       wash under the one you're pointing at. */
+    #feedList .feed-post,
+    [data-theme="light"] #feedList .feed-post,
+    #feedList .feed-post.in-focus {
+      gap: 12px; padding: 16px 10px 12px; border-radius: 0;
+      background: none; border: none; border-bottom: 1px solid var(--glass-border); box-shadow: none;
+    }
+    #feedList .feed-post:hover, #feedList .feed-post.in-focus:hover { background: color-mix(in srgb, var(--glass-fill) 60%, transparent); border-color: var(--glass-border); }
+    #feedList .feed-day + .feed-post { border-top: none; }
+    #feedList .feed-post-backart, #feedList .feed-post.is-shout::before { display: none; }
+    #feedList .feed-post-avatar { width: 34px; height: 34px; font-size: 14px; }
+    #feedList .feed-post-head { gap: 8px; align-items: baseline; }
+    #feedList .feed-post-name { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; }
+    #feedList .feed-post-time { font-size: var(--fs-12); color: var(--text-dimmer); }
+    #feedList .feed-post-text { margin-top: 3px; font-size: var(--fs-15); line-height: 1.55; color: var(--text); }
+    /* A one-liner still reads as one: bigger, not shouting. */
+    #feedList .feed-post.is-shout .feed-post-text { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; margin: 4px 0 0; }
+    #feedList .feed-post.is-song .feed-post-song,
+    [data-theme="light"] #feedList .feed-post.is-song .feed-post-song,
+    #feedList .feed-post-song { margin-top: 10px; padding: 8px; border-radius: 10px; background: var(--glass-fill-h); border: 1px solid var(--glass-border); }
+    #feedList .feed-post-image { margin-top: 10px; border-radius: 10px; }
+    #feedList .feed-post-footer { margin-top: 6px; margin-left: -8px; gap: 2px; }
+    #feedList .feed-post-add-reaction, #feedList .feed-post-reply-open { height: 30px; color: var(--text-dimmer); font-weight: 500; }
+    #feedList .feed-post-add-reaction i, #feedList .feed-post-reply-open i, #feedList .feed-post-footer .klab-star i { font-size: 17px; }
+    #feedList .feed-post-reaction-pill { height: 28px; padding: 0 9px; border-radius: 99px; }
+    #feedList .feed-post-replies { margin-top: 8px; padding-top: 10px; }
+    #feedList { gap: 0; }

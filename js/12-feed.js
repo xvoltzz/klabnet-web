@@ -499,9 +499,7 @@
     const kind = post.song ? ' is-song' : post.image_mxc ? ' is-photo' : (isShout(post.text) && !ytId ? ' is-shout' : '');
     return '<div class="feed-post' + kind + (star.count >= KLAB_GOLD_AT ? ' gold' : '') + '" data-post-id="' + post.id + '"' +
       (post.song ? ' data-song-id="' + esc(post.song.songId || '') + '"' : '') +
-      ((imgUrl || songArt) ? ' data-amb="' + esc(imgUrl || songArt) + '"' : '') +
       ' style="--name-color:' + profileColor(post.username) + '">' +
-      (songArt ? '<div class="feed-post-backart" style="background-image:url(&quot;' + esc(songArt) + '&quot;)"></div>' : '') +
       '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
@@ -666,9 +664,11 @@
     else if (e.boundingClientRect.width && !f.dataset.src && f.getAttribute('src') !== 'about:blank') { f.dataset.src = f.src; f.src = 'about:blank'; }
   }), { rootMargin: '300% 0px' }) : null;
 
-  // The page takes on the post in the middle of the screen: its photo,
-  // its song's cover, or its author's color, like Photos and Home.
-  const _fbLayers = document.getElementById('feedBackdrop')?.children;
+  // The page used to take on the post in the middle of the screen (its
+  // photo, its song's cover, its author's colour). Gone (2026-10-24): the
+  // owner didn't want it, and those full-window blurred layers were the
+  // likeliest reason the Linux app sometimes drew none of Feed's posts.
+  const _fbLayers = null;
   let _fbI = 0, _fbKey = '', _fbQueued = false;
   function focusFeedBackdrop() {
     _fbQueued = false;
