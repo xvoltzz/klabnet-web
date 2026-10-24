@@ -115,12 +115,12 @@ try {
   for (let n = 0; n < 40; n++) { await sleep(250); try { await fetch(`http://127.0.0.1:${port}/json`); break; } catch {} }
   const a = await open('alice'), b = await open('bob');
 
-  check('button shows once the API says voice is on', await until(a, `!document.getElementById('voiceBtn').hidden`));
+  check('Social\'s Voice group shows once the API says voice is on', await until(a, `!document.getElementById('socVoice').hidden`));
   check('mic button hidden before joining', await a.ev(`document.getElementById('voiceMicBtn').hidden`));
   check('settings section shows', await a.ev(`!document.getElementById('voiceSettings').hidden`));
 
-  await a.ev(`document.getElementById('voiceBtn').click()`);
-  check('panel opens with channels', await until(a, `document.querySelectorAll('#voicePanel.visible .vc-channel').length >= 1`), await a.ev(`[...document.querySelectorAll('.vc-row-name')].map(e => e.textContent)`));
+  await a.ev(`setActiveTab('social')`);
+  check('its channels are in the sidebar', await until(a, `document.querySelectorAll('#socVoice .vc-channel').length >= 1`), await a.ev(`[...document.querySelectorAll('.vc-row-name')].map(e => e.textContent)`));
   check('admin sees the add button', await a.ev(`!document.getElementById('vcAddBtn').hidden`));
   await a.shot('1-panel-empty');
 
@@ -135,8 +135,8 @@ try {
   // bob, not in the channel, sees alice there via the API
   await b.ev(`klabVoice.refresh()`);
   check('bob sees alice in the channel from outside', await until(b, `[...document.querySelectorAll('.vc-channel[data-id="1"] .vc-member')].some(e => e.dataset.u === 'alice')`), await names(b, 1));
-  check('bob gets a count badge', await b.ev(`!document.getElementById('voiceBadge').hidden && document.getElementById('voiceBadge').textContent`) === '1');
-  await b.ev(`document.getElementById('voiceBtn').click()`);
+  check('bob sees a count on Voice', await b.ev(`!document.getElementById('socVoiceCount').hidden && document.getElementById('socVoiceCount').textContent`) === '1');
+  await b.ev(`setActiveTab('social')`);
   await sleep(400);
   await b.shot('3-bob-sees-alice');
 
@@ -242,7 +242,7 @@ try {
   await a.shot('9-moved');
 
   // leave
-  await a2.ev(`document.getElementById('voiceBtn').click()`);
+  await a2.ev(`setActiveTab('social')`);
   await a2.ev(`document.getElementById('vcLeave').click()`);
   check('leave returns to idle', await until(a2, `klabVoice.state().phase === 'idle' && document.getElementById('voiceMicBtn').hidden`));
   check('no leftover audio elements', await a2.ev(`document.querySelectorAll('#voiceSink audio').length`) === 0);

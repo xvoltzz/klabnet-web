@@ -1,7 +1,8 @@
 // ══════════════════════════════════════════
 //  VOICE — drop-in channels, like Mumble's or Discord's
-//  A headset button in the header opens the channels and who's in them;
-//  click one and you're in. The audio goes straight between browsers and
+//  The channels and who's in them are a group in Social's sidebar
+//  (#socVoice); click one and you're in. While you're in one, a mute
+//  button sits in the header on every page. The audio goes straight between browsers and
 //  a LiveKit server on the homelab (WebRTC); klabnet-api only keeps the
 //  channel names, says who's where, and signs the token that lets you
 //  into a room (routers/voice.py).
@@ -15,10 +16,9 @@
 //  you've made each person. Settings → Voice edits them.
 // ══════════════════════════════════════════
 (function() {
-  const btn = document.getElementById('voiceBtn');
+  const group = document.getElementById('socVoice');
   const micBtn = document.getElementById('voiceMicBtn');
-  const panel = document.getElementById('voicePanel');
-  if (!btn || !micBtn || !panel) return;
+  if (!group || !micBtn) return;
   const $ = id => document.getElementById(id);
   const listEl = $('vcChannels'), footEl = $('vcFoot');
   const LIB = 'js/vendor/livekit-client.umd.js?v=2.22.3';
@@ -122,7 +122,8 @@
   }
 
   // ── Drawing ──
-  const panelOpen = () => panel.classList.contains('visible');
+  // Polled faster while you can see it.
+  const panelOpen = () => !group.hidden && document.body.classList.contains('tab-social-group');
 
   function memberHTML(m) {
     const u = m.username;
@@ -166,21 +167,21 @@
 
   function render() {
     const on = !!info.enabled;
-    btn.hidden = !on && !room;
+    group.hidden = !on && !room;
     $('voiceSettings').hidden = !on;
-    if (btn.hidden) { closePanel(); micBtn.hidden = true; return; }
+    if (group.hidden) { micBtn.classList.add('tucked'); return; }
 
-    // The header: lit while you're in a channel, with a mute button
-    // beside it; otherwise a count of who's in voice, if anyone is.
+    // The group's label counts who's in voice; while you're in a channel
+    // the header has a mute button, wherever you are.
     const inRoom = !!room && phase !== 'joining';
     const total = info.channels.reduce((n, c) => n + membersOf(c).length, 0);
-    const badge = $('voiceBadge');
-    badge.hidden = inRoom || !total;
-    badge.textContent = total > 9 ? '9+' : String(total);
-    btn.classList.toggle('active', !!joined);
-    btn.title = joined ? 'Voice: ' + joined.name : total ? klabCount(total, 'person', 'people') + ' in voice' : 'Voice';
-    btn.querySelector('i').className = deafened && inRoom ? 'ti ti-headphones-off' : 'ti ti-headset';
-    micBtn.hidden = !inRoom;
+    const count = $('socVoiceCount');
+    count.hidden = !total;
+    count.textContent = String(total);
+    // Grows in and out (the CSS) rather than appearing; the name stays
+    // while it shrinks away.
+    micBtn.classList.toggle('tucked', !inRoom);
+    if (joined) $('voiceNowLabel').textContent = micProblem ? 'Listening only' : joined.name + (showMuted() ? ' · muted' : '');
     micBtn.classList.toggle('muted', showMuted());
     micBtn.setAttribute('aria-pressed', String(showMuted()));
     micBtn.title = micProblem ? 'Microphone unavailable: click to try again' : showMuted() ? 'Unmute' : 'Mute';
@@ -416,35 +417,7 @@
   // Some browsers hold remote audio until the page has been clicked.
   document.addEventListener('click', () => { if (room && needsClick) room.startAudio().catch(() => {}); }, true);
 
-  // ── The panel ──
-  function openPanel() {
-    if (panelOpen() || btn.hidden) return;
-    document.querySelectorAll('.hdr-more-menu.visible').forEach(m => m.classList.remove('visible'));
-    anchorPanelUnder(panel, btn, 10);
-    panel.classList.add('visible');
-    btn.setAttribute('aria-expanded', 'true');
-    refresh();
-  }
-  function closePanel() {
-    if (!panelOpen()) return;
-    panel.classList.remove('visible');
-    btn.setAttribute('aria-expanded', 'false');
-  }
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    sfx('click');
-    if (panelOpen()) closePanel(); else openPanel();
-  });
   micBtn.addEventListener('click', toggleMute);
-  window.addEventListener('resize', () => { if (panelOpen()) anchorPanelUnder(panel, btn, 10); });
-  // Open until you click elsewhere. Its own right-click menus and dialogs
-  // are part of it.
-  document.addEventListener('pointerdown', e => {
-    if (panelOpen() && !panel.contains(e.target) && !btn.contains(e.target) && !e.target.closest?.('.klab-menu, .add-app-backdrop')) closePanel();
-  }, true);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && panelOpen() && !document.querySelector('.add-app-backdrop.open, .klab-menu.visible')) closePanel();
-  });
 
   const idOf = el => Number(el.closest('.vc-channel')?.dataset.id);
   listEl.addEventListener('click', e => {
@@ -486,7 +459,7 @@
       klabMenu(e, [
         { header: u },
         { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(u), hidden: typeof openProfileView !== 'function' },
-        { label: 'Message', icon: 'ti-message-2-plus', action: () => { closePanel(); messageUser(u); }, hidden: mine || typeof messageUser !== 'function' },
+        { label: 'Message', icon: 'ti-message-2-plus', action: () => messageUser(u), hidden: mine || typeof messageUser !== 'function' },
         '-',
         { label: vol(u) === 0 ? 'Unmute for me' : 'Mute for me', icon: vol(u) === 0 ? 'ti-volume' : 'ti-volume-off', hidden: !adjustable,
           action: () => { S.vols[u] = vol(u) === 0 ? 100 : 0; save(); applyVolumes(); render(); } },
@@ -520,7 +493,6 @@
   $('vcDeafen').addEventListener('click', toggleDeafen);
   $('vcLeave').addEventListener('click', () => leave());
   $('vcSettingsBtn').addEventListener('click', () => {
-    closePanel();
     openSettings();
     $('voiceSettings').scrollIntoView({ block: 'start' });
   });

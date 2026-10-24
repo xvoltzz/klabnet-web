@@ -8144,7 +8144,6 @@
        ringed green while the room hears you. */
     #voiceMicBtn { color: var(--text); transition: color .15s, background .15s, border-color .15s, box-shadow .12s; }
     #voiceMicBtn.muted { color: var(--danger-color); }
-    #voiceMicBtn.speaking { box-shadow: 0 0 0 1.5px var(--success-color), 0 0 12px rgba(74,222,128,0.4); }
 
     .vc-panel { width: 300px; max-width: calc(100vw - 16px); padding: 0; box-sizing: border-box; }
     .vc-panel.visible { display: flex; flex-direction: column; max-height: min(560px, calc(100vh - 120px)); }
@@ -8879,6 +8878,37 @@
     body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
     body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
+    /* Voice: its channels are sidebar rows you press to join, who's in
+       each under it, and the connected strip as a small card. */
+    #socShell .soc-voice { display: flex; flex-direction: column; }
+    #socShell .soc-voice[hidden] { display: none; }
+    #socShell .soc-label-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
+    #socShell .soc-label-row::after { content: ''; flex: 1; order: 1; }
+    #socShell .soc-label-row .chat-icon-btn {
+      order: 2; width: 24px; height: 24px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); letter-spacing: 0;
+    }
+    #socShell .soc-label-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
+    #socShell .soc-label-row .chat-icon-btn[hidden] { display: none; }
+    .soc-label-count {
+      margin-left: 6px; padding: 1px 6px; border-radius: 99px; letter-spacing: 0;
+      background: rgba(74,222,128,0.14); color: var(--success-color); font-weight: 600;
+    }
+    .soc-label-count[hidden] { display: none; }
+    #socVoice .vc-list { flex: none; overflow: visible; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    #socVoice .vc-row { height: 38px; padding: 0 12px; gap: 12px; border-radius: 10px; font: 500 var(--fs-14) var(--font-ui); }
+    #socVoice .vc-row i { font-size: 18px; width: 20px; }
+    #socVoice .vc-row:hover { background: var(--glass-fill); }
+    #socVoice .vc-channel.joined > .vc-row { background: var(--glass-fill-h); border-color: var(--glass-border); }
+    #socVoice .vc-channel.joined > .vc-row i { color: var(--success-color); }
+    #socVoice .vc-members { padding: 0 0 4px 30px; }
+    #socVoice .vc-members, #socVoice .vc-foot:not([hidden]) { animation: fadeUp .28s var(--m-ease) both; }
+    #socVoice .vc-foot {
+      margin-top: 8px; padding: 8px 8px 8px 12px; border: 1px solid var(--glass-border); border-radius: 10px;
+      background: var(--glass-fill);
+    }
+    #socVoice .vc-act { width: 30px; height: 30px; font-size: 15px; }
+
     /* Online now: Home's presence cards, cleaned up to sit in the sidebar
        like its rows: one per line, a glass tile, the song on one line. */
     #presenceList.soc-presence { display: flex; flex-direction: column; gap: 4px; padding: 0; animation: none; }
@@ -8963,9 +8993,10 @@
       #socShell .soc-nav::-webkit-scrollbar { display: none; }
       #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
       #socShell .soc-chat-row { display: flex; }
-      #socShell .soc-search, #socShell #chatSide { display: none; }
+      #socShell .soc-search, #socShell #chatSide, #socShell #socVoice { display: none; }
       body.tab-chat-active.chat-rooms-view #socShell .soc-search { display: flex; }
-      body.tab-chat-active.chat-rooms-view #socShell #chatSide { display: flex; }
+      body.tab-chat-active.chat-rooms-view #socShell #chatSide,
+      body.tab-chat-active.chat-rooms-view #socShell #socVoice:not([hidden]) { display: flex; }
       body.tab-chat-active.chat-rooms-view .soc-sidebar { flex: 1; min-height: 0; }
       body.tab-chat-active.chat-rooms-view .soc-side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
       body.tab-chat-active.chat-rooms-view .soc-main { display: none; }
@@ -8995,7 +9026,7 @@
       body.tab-photos-active .soc-shell { flex-direction: column; gap: 8px; }
       body.tab-photos-active .soc-sidebar { width: 100%; flex: none; }
       body.tab-photos-active .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; }
-      body.tab-photos-active #socShell :is(.soc-search, #chatSide) { display: none; }
+      body.tab-photos-active #socShell :is(.soc-search, #chatSide, #socVoice) { display: none; }
       body.tab-photos-active #socShell .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
       body.tab-photos-active #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
       body.tab-photos-active #socShell .soc-chat-row { display: flex; }
@@ -9031,9 +9062,55 @@
     #dockPeek.peek-hidden { opacity: 0; pointer-events: none; border-color: transparent; }
     #sideNav #dockPeek.peek-hidden { height: 0; border-width: 0; margin-bottom: -2px; }
     #dockPeek.hdr-btn.peek-hidden { width: 0; min-width: 0; padding: 0; margin: 0; border-width: 0; }
+    /* Voice, while you're in a channel: above the player, the channel's
+       name beside the mic. Talking lights the mic green; muted, it's red.
+       It grows in when you join and shrinks away when you leave. */
+    #voiceMicBtn.vc-now.vc-now {
+      overflow: hidden; box-shadow: none;
+      transition: height .34s var(--m-ease), width .34s var(--m-ease), min-width .34s var(--m-ease), padding .34s var(--m-ease),
+        margin .34s var(--m-ease), opacity .22s ease, background-color .15s, color .15s, border-color .15s;
+    }
+    #voiceMicBtn.tucked { opacity: 0; pointer-events: none; border-color: transparent; }
+    #sideNav #voiceMicBtn.tucked { height: 0; border-width: 0; margin-bottom: -2px; }
+    #voiceMicBtn.hdr-btn.tucked { width: 0; min-width: 0; padding: 0; margin: 0; border-width: 0; }
+    .hdr-btn .vc-now-label { display: none; }
+    #sideNav .vc-now-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-size: var(--fs-13); }
+    #sideNav #voiceMicBtn { color: var(--text); }
+    #sideNav #voiceMicBtn.muted { color: var(--text-dim); }
+    #voiceMicBtn i { border-radius: 50%; transition: box-shadow .12s, color .15s, background-color .15s; }
+    #voiceMicBtn:not(.muted) i { color: var(--success-color); }
+    #voiceMicBtn.muted i { color: var(--danger-color); }
+    #voiceMicBtn.speaking i { background: rgba(74,222,128,0.16); box-shadow: 0 0 0 3px rgba(74,222,128,0.16), 0 0 12px rgba(74,222,128,0.55); }
+    #sideNav #voiceMicBtn.speaking { border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.07); }
     /* Sidebar groups that come and go with the page ease in rather than pop. */
     #socShell :is(.soc-ph-only, .soc-chat-connect, .chat-side-scroll > .chat-lbl-row) { animation: fadeUp .32s var(--m-ease) both; }
     .player-dock.dock-flying { transition: none !important; }
     /* Photos hides the dock; brought up there, it shows over the strip. */
     body.tab-photos-active.dock-peek-open .player-dock { transform: translateX(-50%) !important; opacity: 1 !important; pointer-events: auto !important; }
     html.klabnet-app body.tab-photos-active.dock-peek-open .player-dock { transform: none !important; }
+
+    /* ══ PROFILE PICTURES: rounded squares ══
+       The owner's call (2026-10-24): every profile picture is a rounded
+       square now, not a circle. One radius for all of them, as a share of
+       their size so a 22px one and a 96px one look alike. !important
+       because the circles were set in many places, some of them by id. */
+    :root { --av-radius: 28%; }
+    .chat-msg-avatar, .chat-msg-avatar img,
+    .chat-msg-seen-avatar, .chat-msg-seen-avatar img,
+    .chat-conv-face, .chat-conv-face img,
+    .chat-head-face, .chat-head-face img,
+    .chat-face-av, .chat-face-av img,
+    .feed-post-avatar, .feed-post-avatar img,
+    .feed-post-reply-avatar, .feed-post-reply-avatar img,
+    .hm-av, .hm-av img,
+    .mention-suggest-av, .mention-suggest-av img,
+    .ph-avatar, .ph-avatar img,
+    .ph-avatar-letter, .ph-avatar-letter img,
+    .presence-card-avatar, .presence-card-avatar img,
+    .presence-row-avatar, .presence-row-avatar img,
+    .profile-modal-avatar, .profile-modal-avatar img,
+    .profile-modal-avatar-overlay, .profile-modal-avatar-overlay img,
+    .profile-view-avatar, .profile-view-avatar img,
+    .side-me-av, .side-me-av img,
+    .soc-post-av, .soc-post-av img,
+    .vc-av, .vc-av img { border-radius: var(--av-radius) !important; }

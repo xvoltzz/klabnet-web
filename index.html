@@ -152,7 +152,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.8" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.11" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -164,7 +164,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.8" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.11" />
 </head>
 <body>
 
@@ -331,20 +331,6 @@ window.KLAB_BOOT = (function() {
         <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank" rel="noopener"><i class="ti ti-user-circle"></i> Account</a>
       </div>
 <!-- Voice channels (js/22-voice.js), under the header's headset button. -->
-<div class="hdr-more-menu vc-panel" id="voicePanel" role="dialog" aria-label="Voice">
-  <div class="vc-head">
-    <span class="vc-title">Voice</span>
-    <button type="button" class="chat-icon-btn" id="vcAddBtn" title="New channel" aria-label="New channel" hidden><i class="ti ti-plus"></i></button>
-    <button type="button" class="chat-icon-btn" id="vcSettingsBtn" title="Voice settings" aria-label="Voice settings"><i class="ti ti-settings"></i></button>
-  </div>
-  <div class="vc-list" id="vcChannels"></div>
-  <div class="vc-foot" id="vcFoot" hidden>
-    <div class="vc-status" id="vcStatus"><b id="vcStatusHead"></b><span id="vcStatusSub"></span></div>
-    <button type="button" class="vc-act" id="vcMute" aria-pressed="false" aria-label="Mute"><i class="ti ti-microphone"></i></button>
-    <button type="button" class="vc-act" id="vcDeafen" aria-pressed="false" aria-label="Deafen"><i class="ti ti-headphones"></i></button>
-    <button type="button" class="vc-act vc-leave" id="vcLeave" title="Leave" aria-label="Leave"><i class="ti ti-phone-off"></i></button>
-  </div>
-</div>
 <div class="toast-flyout" id="toastFlyout"></div>
 
 <div class="ctx-menu" id="songCtxMenu">
@@ -396,13 +382,14 @@ window.KLAB_BOOT = (function() {
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
     </nav>
     <div class="header-right">
-      <!-- Voice (js/22-voice.js). Hidden until the API says voice is set
-           up; the microphone button only shows while you're in a channel. -->
+      <!-- Voice's mute (js/22-voice.js), while you're in a channel: the
+           channel's name, lit green while you talk. js/07-tabnav.js moves
+           it to the foot of the sidebar when there is one. The channels
+           themselves are in Social's sidebar (#socVoice). -->
       <!-- Hides the page's own sidebar (Music's, Chat's, Photos') and brings
            it back; js/07-tabnav.js shows it on those pages. -->
       <button class="hdr-btn" id="paneToggle" title="Hide sidebar" aria-label="Sidebar" aria-pressed="true" hidden><i class="ti ti-layout-sidebar-left-collapse"></i></button>
-      <button class="hdr-btn" id="voiceBtn" title="Voice" aria-label="Voice" aria-haspopup="dialog" aria-expanded="false" hidden><i class="ti ti-headset"></i><span class="vc-badge" id="voiceBadge" hidden></span></button>
-      <button class="hdr-btn" id="voiceMicBtn" title="Mute" aria-label="Mute" aria-pressed="false" hidden><i class="ti ti-microphone"></i></button>
+      <button class="hdr-btn vc-now tucked" id="voiceMicBtn" type="button" title="Mute" aria-label="Mute" aria-pressed="false"><i class="ti ti-microphone"></i><span class="vc-now-label" id="voiceNowLabel"></span></button>
       <button class="hdr-btn" id="settingsBtn" title="Settings" aria-label="Settings"><i class="ti ti-settings"></i></button>
       <!-- The dock, tucked away: a little visualiser that brings it up off
            Music (js/02-player.js). js/07-tabnav.js moves it to the foot of
@@ -558,6 +545,20 @@ window.KLAB_BOOT = (function() {
             <div class="chat-lbl" id="chatDmLbl">Messages</div>
             <div class="chat-convos" id="chatDmList"></div>
             <div class="chat-convos" id="chatPeopleResults" hidden></div>
+          </div>
+        </div>
+        <!-- Voice (js/22-voice.js): hidden until the API says it's set up. -->
+        <div class="soc-group soc-voice" id="socVoice" hidden>
+          <div class="music-sidebar-label soc-label-row"><span>Voice</span><span class="soc-label-count" id="socVoiceCount" hidden></span>
+            <button type="button" class="chat-icon-btn" id="vcAddBtn" title="New channel" aria-label="New channel" hidden><i class="ti ti-plus"></i></button>
+            <button type="button" class="chat-icon-btn" id="vcSettingsBtn" title="Voice settings" aria-label="Voice settings"><i class="ti ti-settings"></i></button>
+          </div>
+          <div class="vc-list" id="vcChannels"></div>
+          <div class="vc-foot" id="vcFoot" hidden>
+            <div class="vc-status" id="vcStatus"><b id="vcStatusHead"></b><span id="vcStatusSub"></span></div>
+            <button type="button" class="vc-act" id="vcMute" aria-pressed="false" aria-label="Mute"><i class="ti ti-microphone"></i></button>
+            <button type="button" class="vc-act" id="vcDeafen" aria-pressed="false" aria-label="Deafen"><i class="ti ti-headphones"></i></button>
+            <button type="button" class="vc-act vc-leave" id="vcLeave" title="Leave" aria-label="Leave"><i class="ti ti-phone-off"></i></button>
           </div>
         </div>
       </div>
@@ -1157,38 +1158,38 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.24.8';</script>
-<script defer src="js/00-util.js?v=v2026.10.24.8"></script>
-<script defer src="js/01-shell.js?v=v2026.10.24.8"></script>
-<script defer src="js/02-player.js?v=v2026.10.24.8"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.24.8"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.24.8"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.24.8"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.24.8"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.24.8"></script>
-<script defer src="js/08-chat.js?v=v2026.10.24.8"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.24.8"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.24.8"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.24.8"></script>
-<script defer src="js/11-presence.js?v=v2026.10.24.8"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.24.8"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.24.8"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.24.8"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.24.8"></script>
-<script defer src="js/12-feed.js?v=v2026.10.24.8"></script>
-<script defer src="js/13-tail.js?v=v2026.10.24.8"></script>
-<script defer src="js/14-photos.js?v=v2026.10.24.8"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.24.8"></script>
-<script defer src="js/16-motion.js?v=v2026.10.24.8"></script>
-<script defer src="js/17-history.js?v=v2026.10.24.8"></script>
-<script defer src="js/18-home.js?v=v2026.10.24.8"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.24.8"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.24.8"></script>
-<script defer src="js/21-stars.js?v=v2026.10.24.8"></script>
-<script defer src="js/22-voice.js?v=v2026.10.24.8"></script>
-<script defer src="js/23-session.js?v=v2026.10.24.8"></script>
-<script defer src="js/24-flair.js?v=v2026.10.24.8"></script>
-<script defer src="js/25-social.js?v=v2026.10.24.8"></script>
+<script>const KLABNET_VERSION = 'v2026.10.24.11';</script>
+<script defer src="js/00-util.js?v=v2026.10.24.11"></script>
+<script defer src="js/01-shell.js?v=v2026.10.24.11"></script>
+<script defer src="js/02-player.js?v=v2026.10.24.11"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.24.11"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.24.11"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.24.11"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.24.11"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.24.11"></script>
+<script defer src="js/08-chat.js?v=v2026.10.24.11"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.24.11"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.24.11"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.24.11"></script>
+<script defer src="js/11-presence.js?v=v2026.10.24.11"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.24.11"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.24.11"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.24.11"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.24.11"></script>
+<script defer src="js/12-feed.js?v=v2026.10.24.11"></script>
+<script defer src="js/13-tail.js?v=v2026.10.24.11"></script>
+<script defer src="js/14-photos.js?v=v2026.10.24.11"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.24.11"></script>
+<script defer src="js/16-motion.js?v=v2026.10.24.11"></script>
+<script defer src="js/17-history.js?v=v2026.10.24.11"></script>
+<script defer src="js/18-home.js?v=v2026.10.24.11"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.24.11"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.24.11"></script>
+<script defer src="js/21-stars.js?v=v2026.10.24.11"></script>
+<script defer src="js/22-voice.js?v=v2026.10.24.11"></script>
+<script defer src="js/23-session.js?v=v2026.10.24.11"></script>
+<script defer src="js/24-flair.js?v=v2026.10.24.11"></script>
+<script defer src="js/25-social.js?v=v2026.10.24.11"></script>
 
 </body>
 </html>

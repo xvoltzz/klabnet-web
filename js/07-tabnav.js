@@ -646,14 +646,16 @@ window.klabSideNav = (function() {
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
     // sidebar is hidden.
-    // The tucked-away player: the foot of the sidebar, or the header.
-    const peek = document.getElementById('dockPeek');
-    if (peek) {
-      if (sideOn && peek.parentElement !== foot) foot.prepend(peek);
-      if (!sideOn && peek.parentElement !== headerSlot) headerSlot.insertBefore(peek, document.getElementById('motdToggle'));
-      peek.classList.toggle('side-nav-item', sideOn);
-      peek.classList.toggle('hdr-btn', !sideOn);
-    }
+    // The tucked-away player, and voice while you're in a channel: the
+    // foot of the sidebar (voice on top), or the header.
+    ['dockPeek', 'voiceMicBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (sideOn && el.parentElement !== foot) foot.prepend(el);
+      if (!sideOn && el.parentElement !== headerSlot) headerSlot.insertBefore(el, document.getElementById('motdToggle'));
+      el.classList.toggle('side-nav-item', sideOn);
+      el.classList.toggle('hdr-btn', !sideOn);
+    });
     if (!sideOn) burger.remove();
     else if (root.classList.contains('app-titlebar') || bar || mode() === 'menu') {
       brand.insertBefore(burger, brand.querySelector('.logo'));
