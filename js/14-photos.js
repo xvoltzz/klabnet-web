@@ -639,7 +639,7 @@
     const liked = !!post.reactions?.[LIKE]?.mine;
     const n = post.reactions?.[LIKE]?.count || 0;
     const star = post.reactions?.[KLAB_STAR] || { count: 0, mine: false };
-    stage.classList.toggle('gold', star.count >= KLAB_GOLD_AT);
+    stage.classList.toggle('gold', KLAB_STARS && star.count >= KLAB_GOLD_AT);
     $('phReacts').innerHTML =
       `<button type="button" class="ph-like${liked ? ' mine' : ''}${pop ? ' pop' : ''}" data-like="1" title="${liked ? 'Unlike' : 'Like'}" aria-pressed="${liked}">` +
         `<i class="ti ${liked ? 'ti-heart-filled' : 'ti-heart'}"></i>${n ? `<span>${n}</span>` : ''}</button>` +

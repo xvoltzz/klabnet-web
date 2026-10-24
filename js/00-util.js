@@ -591,6 +591,12 @@ function klabPostSong(s) {
 // reaction; songs and albums keep theirs in the API's stars table.
 const KLAB_STAR = '⭐';
 const KLAB_GOLD_AT = 5;
+// Off since 2026-10-24 (the owner's call; maybe back later): no star
+// buttons, no gold, and ⭐ is an ordinary reaction again. What's stored
+// (the stars table, ⭐ reactions) and the API are left as they are, so
+// turning this back on brings it all back.
+const KLAB_STARS = false;
+if (!KLAB_STARS) document.documentElement?.classList?.add('no-stars');
 
 // Where the last press started. A dialog closes on a click outside it only
 // if the press started outside it too: drag-selecting text in a field and

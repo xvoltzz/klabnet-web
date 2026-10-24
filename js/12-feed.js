@@ -488,7 +488,7 @@
     const star = reactions[KLAB_STAR] || { count: 0, mine: false };
     const starHTML = '<button type="button" class="feed-post-star' + (star.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + KLAB_STAR + '" title="' + (star.mine ? 'Unstar' : 'Star') + '" aria-pressed="' + !!star.mine + '">' +
       '<i class="ti ' + (star.mine ? 'ti-star-filled' : 'ti-star') + '"></i>' + (star.count ? '<span>' + star.count + '</span>' : '') + '</button>';
-    const pillsHTML = Object.entries(reactions).filter(([emoji]) => emoji !== KLAB_STAR).map(([emoji, entry]) =>
+    const pillsHTML = Object.entries(reactions).filter(([emoji]) => !KLAB_STARS || emoji !== KLAB_STAR).map(([emoji, entry]) =>
       '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + esc(emoji) + '">' +
         esc(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
       '</button>'
@@ -497,7 +497,7 @@
     const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
     const songArt = post.song && post.song.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(post.song.coverArt)}&size=300&${subsonicParams()}` : '';
     const kind = post.song ? ' is-song' : post.image_mxc ? ' is-photo' : (isShout(post.text) && !ytId ? ' is-shout' : '');
-    return '<div class="feed-post' + kind + (star.count >= KLAB_GOLD_AT ? ' gold' : '') + '" data-post-id="' + post.id + '"' +
+    return '<div class="feed-post' + kind + (KLAB_STARS && star.count >= KLAB_GOLD_AT ? ' gold' : '') + '" data-post-id="' + post.id + '"' +
       (post.song ? ' data-song-id="' + esc(post.song.songId || '') + '"' : '') +
       ' style="--name-color:' + profileColor(post.username) + '">' +
       '<div class="feed-post-avatar" data-username="' + esc(post.username) + '">' + avatarInner + '</div>' +
@@ -1698,7 +1698,7 @@
     const mine = post.username === me;
     klabMenu(e, [
       { header: post.username },
-      { reacts: [KLAB_STAR, ...FEED_QUICK_REACTIONS, '😮', '😢'], action: emoji => {
+      { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...FEED_QUICK_REACTIONS, '😮', '😢'], action: emoji => {
         const btn = postEl.querySelector('.feed-post-add-reaction');
         if (btn) floatEmoji(btn, emoji);
         toggleFeedReaction(post.id, emoji);

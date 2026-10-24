@@ -17,7 +17,7 @@ function context(extra = {}) {
       addEventListener() {}, querySelectorAll: () => [] },
     MutationObserver: class { observe() {} }, addEventListener() {},
     AbortController, AbortSignal, setTimeout, clearTimeout, URL, Blob, crypto,
-    SFX: { play() {} }, showToast() {}, KLAB_GOLD_AT: 5, esc: String, ...extra,
+    SFX: { play() {} }, showToast() {}, KLAB_GOLD_AT: 5, KLAB_STARS: true, esc: String, ...extra,
   };
   ctx.window = ctx;
   return vm.createContext(ctx);

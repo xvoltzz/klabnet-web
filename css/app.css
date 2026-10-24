@@ -9105,3 +9105,7 @@
     #feedList .feed-post-reaction-pill { height: 28px; padding: 0 9px; border-radius: 99px; }
     #feedList .feed-post-replies { margin-top: 8px; padding-top: 10px; }
     #feedList { gap: 0; }
+
+    /* Stars are off (KLAB_STARS in js/00-util.js): every star button and
+       the song menu's Star go. The data and the API stay. */
+    html.no-stars :is(.klab-star, #songCtxStar, .chat-msg-star-btn, .feed-post-star, .ph-star) { display: none !important; }

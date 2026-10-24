@@ -1010,7 +1010,7 @@ function chatMessageMenu(e) {
   const inDmWithThem = getDmRoomIds().has(room.roomId);
   klabMenu(e, [
     { header: ev.sender?.name || user },
-    { reacts: [KLAB_STAR, ...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
+    { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
     { label: 'Reply', icon: 'ti-arrow-back-up', hidden: !alive, action: () => startReply(id) },
     { label: 'Edit', icon: 'ti-pencil', hidden: !(mine && isText), action: () => editChatMessage(id) },
     { label: 'Copy text', icon: 'ti-copy', hidden: !isText, action: () => klabCopy(content.body, 'Message') },
@@ -1609,16 +1609,16 @@ function paintRowReactions(row, ev, reactions) {
   msgReactions.forEach((entry, emoji) => {
     const pill = document.createElement('button');
     pill.type = 'button';
-    pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '') + (emoji === KLAB_STAR ? ' star' : '');
+    pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '') + (KLAB_STARS && emoji === KLAB_STAR ? ' star' : '');
     pill.dataset.targetId = ev.getId();
     pill.dataset.emoji = emoji;
     // The key is whatever a remote client sent; it's text, never markup.
-    pill.innerHTML = `${emoji === KLAB_STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+    pill.innerHTML = `${KLAB_STARS && emoji === KLAB_STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
     pills.appendChild(pill);
   });
   body.appendChild(pills);
   const stars = msgReactions.get(KLAB_STAR)?.senders.size || 0;
-  if (stars >= KLAB_GOLD_AT && !ev.isRedacted()) {
+  if (KLAB_STARS && stars >= KLAB_GOLD_AT && !ev.isRedacted()) {
     row.classList.add('starred');
     row.title = klabCount(stars, 'star');
   }

@@ -16,6 +16,8 @@ window.klabStars = (function() {
   const changing = new Set();
   const NONE = { count: 0, mine: false };
   let timer = 0;
+  // Stars are off (KLAB_STARS): nothing asked for, nothing drawn.
+  if (!KLAB_STARS) return { paint() {}, toggle() {}, get: () => NONE, ensure: async () => NONE, button: () => '' };
 
   function paintEl(el, s) {
     const gold = s.count >= KLAB_GOLD_AT;
