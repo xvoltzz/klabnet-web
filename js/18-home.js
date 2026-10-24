@@ -56,7 +56,8 @@
   function paintChanges() {
     const el = $('hpChanges');
     if (!commits) {
-      el.innerHTML = '<p class="hp-note">' + (failed ? 'Couldn’t reach the git server just now.' : 'Loading…') + '</p>';
+      el.innerHTML = '<p class="hp-note">' + (failed === 404 ? 'What’s new needs the latest klabnet-api.'
+        : failed ? 'Couldn’t reach the git server just now.' : 'Loading…') + '</p>';
       return;
     }
     if (!commits.length) { el.innerHTML = '<p class="hp-note">Nothing yet.</p>'; return; }
@@ -84,11 +85,12 @@
     if (Date.now() - loadedAt < REFRESH_MS && commits) return;
     try {
       const r = await fetchTimeout('/api/changes', {}, 12000);
+      if (r.status === 404) throw new Error('no endpoint');
       if (!r.ok) throw new Error('status ' + r.status);
       commits = (await r.json()).commits || [];
       failed = false;
       loadedAt = Date.now();
-    } catch (e) { failed = true; }
+    } catch (e) { failed = e.message === 'no endpoint' ? 404 : true; }
     paintChanges();
     paintFoot();
   }

@@ -129,13 +129,12 @@ Also unrun: the listening-party change, the away-on-lock change (needs a real lo
 
 Reported by the reviews and not fixed. Each is a reasonable next thing. (The 2026-10-24 fix pass checked the older list against the code and dropped what was already done.)
 
-- **Chat:** a reaction still rebuilds the whole timeline, and so does a page of older history; only new messages and your own sends append. A reaction-only fast path (rebuild just that row's pills) and a prepend path for history would cover both. The image cache is capped by count (120), not bytes, and a GIF loads whole whatever its size; a byte budget and a size limit on `full: true` downloads would bound it. An avatar lookup in flight when someone changes theirs can cache the old one. No access-token refresh (only matters if Synapse issues expiring tokens).
-- **Feed:** the image blob cache never evicts an image of a loaded post, so a long scroll back keeps every picture (and every YouTube iframe) for the session.
+- **Chat:** no access-token refresh (only matters if Synapse issues expiring tokens). The timeline's full rebuild is now only for a room switch, an edit or redaction, a new day, or a limited-timeline reset; appends, your own sends, reactions and older history patch in place (tests in `tests/browser-regressions.mjs`).
+- **Feed:** the image blob cache never evicts an image of a loaded post, so a long scroll back keeps every picture for the session. (YouTube players three screens away are unloaded.) Evicting would need a post scrolled back into view to swap in its placeholder and fetch again.
 - **klabnet-desktop:** the permission allow-list in `src/main.js` appears to lack `'screen-wake-lock'`, so the slideshow can't keep the screen awake in the app. Not run (the repo isn't on the dev machine).
-- **Music requests:** landing straight on Requests fetches the list twice; avatars are re-checked on a timer, where an event from the feed's avatar lookups would do.
+- **Music requests:** avatars are re-checked on a timer, where an event from the feed's avatar lookups would do.
 - **The update check** keeps fetching the page every 5 minutes after its banner is dismissed (it can't know a newer deploy hasn't come since).
 - **The sound-effects `AudioContext`** never suspends. Left alone because resuming outside a gesture is uncertain on Safari and would cost notification sounds.
-- **Accessibility:** several things you press aren't buttons (`.s-toggle` divs in Settings, the mute icons, `#playerArtWrap`, `.ap-sim-chip`), so they aren't keyboard reachable.
 - **CSS:**
   - Fonts: rules ask for JetBrains Mono 500 and Inter 800 and 300, but only 700 and 400 to 700 are loaded, so they render at the nearest weight. Loading them changes how those elements look: the owner's call.
   - Buttons that are neither primary nor secondary: `.chat-head-btn`, `.chat-hello-chip`, `.feed-post-more`, `.fb-type-btn`, `.music-req-type-btn`, `.picker-sort-btn`, plus a few off-size ones.

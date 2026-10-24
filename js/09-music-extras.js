@@ -695,13 +695,18 @@ loadPickerTab = async function(tab) {
   return _origLoadPickerTabRequests(tab);
 };
 
-async function fetchMusicRequests() {
-  try {
-    const res = await fetchTimeout('/api/music-requests', {}, 8000);
-    const data = await res.json();
-    _musicRequests = data.requests || [];
-  } catch (e) { /* leave whatever was last fetched in place */ }
-  updateRequestsBadge();
+// Callers at the same moment share one request (landing on Requests asked
+// twice: once for the sidebar's count, once for the list).
+let _musicRequestsLoading = null;
+function fetchMusicRequests() {
+  return _musicRequestsLoading ||= (async () => {
+    try {
+      const res = await fetchTimeout('/api/music-requests', {}, 8000);
+      const data = await res.json();
+      _musicRequests = data.requests || [];
+    } catch (e) { /* leave whatever was last fetched in place */ }
+    updateRequestsBadge();
+  })().finally(() => { _musicRequestsLoading = null; });
 }
 
 async function loadMusicRequestsTab() {

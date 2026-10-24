@@ -298,6 +298,7 @@ const MatrixChat = (function () {
     const blob = await res.blob();
     signal?.throwIfAborted();
     const picture = /^image\/(png|jpe?g|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)$/i.test(blob.type);
+    opts?.onSize?.(blob.size);
     return URL.createObjectURL(picture ? blob : new Blob([blob], { type: 'application/octet-stream' }));
   }
 
@@ -404,16 +405,28 @@ const _msgAvatarCache   = new Map(); // userId -> blob URL, or null
 const _msgAvatarPending = new Set();
 
 const _msgAvatarFailedAt = new Map();
+// Bumped when someone's avatar changes: a lookup that set out before then
+// would cache the old picture for the rest of the session.
+const _msgAvatarGen = new Map();
 function ensureMsgAvatarResolved(userId) {
   if (!userId || _msgAvatarCache.has(userId) || _msgAvatarPending.has(userId)) return;
   if (Date.now() - (_msgAvatarFailedAt.get(userId) || 0) < 60000) return;
   const client = MatrixChat.client;
   if (!client) return;
   _msgAvatarPending.add(userId);
+  const gen = _msgAvatarGen.get(userId) || 0;
   (async () => {
     try {
       const info = await client.getProfileInfo(userId);
-      _msgAvatarCache.set(userId, info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null);
+      const url = info?.avatar_url ? await MatrixChat.mxcToBlobUrl(info.avatar_url) : null;
+      if ((_msgAvatarGen.get(userId) || 0) !== gen || MatrixChat.client !== client) {
+        // Changed (or signed out) meanwhile: ask again for the new one.
+        if (url) URL.revokeObjectURL(url);
+        _msgAvatarPending.delete(userId);
+        if (MatrixChat.client === client) ensureMsgAvatarResolved(userId);
+        return;
+      }
+      _msgAvatarCache.set(userId, url);
     } catch (e) {
       // A failed fetch isn't "no avatar": leave it uncached so the next
       // render tries again, but not more than once a minute.
@@ -449,7 +462,9 @@ function ensureMsgAvatarResolved(userId) {
 // changes their avatar mid-session keeps showing their old photo in every
 // already-rendered row for the rest of the page's life.
 function invalidateMsgAvatar(userId) {
-  if (!userId || !_msgAvatarCache.has(userId)) return;
+  if (!userId) return;
+  _msgAvatarGen.set(userId, (_msgAvatarGen.get(userId) || 0) + 1);
+  if (!_msgAvatarCache.has(userId)) return;
   // The old blob URL used to just get dropped here with no revoke — every
   // avatar change (not exactly rare over a long session) permanently
   // leaked its previous photo. Safe to revoke immediately: the <img>s
@@ -1012,6 +1027,13 @@ function chatConvMenu(e) {
 const _chatImageCache   = new Map(); // mxc:// -> blob URL or null
 const _chatImagePending = new Set();
 const CHAT_IMAGE_CACHE_MAX = 120; // see capBlobCache()'s own comment
+// And by size: 120 full GIFs could be hundreds of MB, held for the session.
+const CHAT_IMAGE_BYTES_MAX = 64 * 1024 * 1024;
+const _chatImageBytes = new Map(); // mxc:// -> its blob's size
+let _chatImageBytesTotal = 0;
+// A GIF bigger than this shows as its still thumbnail: anyone in a public
+// room could post a 40MB one, and every viewer would download it whole.
+const CHAT_GIF_FULL_MAX = 8 * 1024 * 1024;
 // A failed load (a timeout on a big GIF, the server restarting) is tried
 // again a minute later instead of staying blank for the session.
 const _chatImageFailedAt = new Map();
@@ -1019,13 +1041,16 @@ const _chatImageFailedAt = new Map();
 // screen right now: revoking one of those left it (and Open/Copy image)
 // pointing at nothing, and the next render downloaded it all over again.
 function capChatImageCache() {
-  if (_chatImageCache.size <= CHAT_IMAGE_CACHE_MAX) return;
+  const over = () => _chatImageCache.size > CHAT_IMAGE_CACHE_MAX || _chatImageBytesTotal > CHAT_IMAGE_BYTES_MAX;
+  if (!over()) return;
   const onScreen = new Set([...document.querySelectorAll('.chat-msg-image[data-mxc]')].map(i => i.dataset.mxc));
   for (const [key, url] of _chatImageCache) {
-    if (_chatImageCache.size <= CHAT_IMAGE_CACHE_MAX) break;
+    if (!over()) break;
     if (onScreen.has(key)) continue;
     if (url) URL.revokeObjectURL(url);
     _chatImageCache.delete(key);
+    _chatImageBytesTotal -= _chatImageBytes.get(key) || 0;
+    _chatImageBytes.delete(key);
   }
 }
 function ensureChatImageResolved(mxc, animated) {
@@ -1034,8 +1059,13 @@ function ensureChatImageResolved(mxc, animated) {
   _chatImagePending.add(mxc);
   // A server thumbnail of a GIF is one still frame, so GIFs load whole
   // (they're GIPHY's under-2MB copies).
-  MatrixChat.mxcToBlobUrl(mxc, animated ? { full: true } : { width: 400, height: 400, method: 'scale' }).then(url => {
-    if (url) { _chatImageCache.set(mxc, url); _chatImageFailedAt.delete(mxc); }
+  let bytes = 0;
+  const onSize = n => { bytes = n; };
+  MatrixChat.mxcToBlobUrl(mxc, animated ? { full: true, onSize } : { width: 400, height: 400, method: 'scale', onSize }).then(url => {
+    if (url) {
+      _chatImageCache.set(mxc, url); _chatImageFailedAt.delete(mxc);
+      _chatImageBytes.set(mxc, bytes); _chatImageBytesTotal += bytes;
+    }
     else _chatImageFailedAt.set(mxc, Date.now());
   }).catch(() => {
     _chatImageFailedAt.set(mxc, Date.now());
@@ -1229,10 +1259,14 @@ function renderTimeline() {
   // removed reaction actually trigger a rebuild, the same way an edit or
   // redaction already does above.
   let reactionsDigest = [];
+  const reactionsOf = new Map(); // target -> its own part of the digest
   reactions.forEach((byEmoji, targetId) => {
+    const own = [];
     byEmoji.forEach((entry, emoji) => {
-      reactionsDigest.push(`${targetId}:${emoji}:${entry.senders.size}:${entry.mine ? 1 : 0}`);
+      own.push(`${targetId}:${emoji}:${entry.senders.size}:${entry.mine ? 1 : 0}`);
     });
+    reactionsOf.set(targetId, own.join(','));
+    reactionsDigest.push(...own);
   });
   reactionsDigest.sort();
 
@@ -1256,8 +1290,33 @@ function renderTimeline() {
     prev.reactions === reactionKey && prev.keys.length > 0 && eventKeys.length >= prev.keys.length &&
     prev.keys.every((key, i) => sameRow(i)) &&
     el.querySelectorAll('.chat-msg').length === prev.keys.length ? prev.keys.length : 0;
+  // Older history loaded above: the messages already shown are the end of
+  // the new list. Only the new ones are built (and the old first one again,
+  // whose name header and date divider can change at the join).
+  const added = eventKeys.length - (prev?.keys.length || 0);
+  const prependCount = !appendFrom && !roomChanged && prev?.room === room && prev.today === today &&
+    prev.reactions === reactionKey && prev.keys.length > 0 && added > 0 &&
+    prev.keys.every((key, i) => key === eventKeys[i + added]) &&
+    el.querySelectorAll('.chat-msg').length === prev.keys.length ? added : 0;
   const wasNearBottom = roomChanged || _forceScrollBottomOnNextRender || (el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   _forceScrollBottomOnNextRender = false;
+  // Only reactions changed (same messages, same day): redo just the rows
+  // whose reactions did, not every row (which restarted every GIF).
+  if (!roomChanged && _lastTimelineRenderKey && prev?.room === room && prev.today === today && prev.rx &&
+      prev.reactions !== reactionKey && eventKeys.length === prev.keys.length && prev.keys.every((key, i) => sameRow(i)) &&
+      el.querySelectorAll('.chat-msg').length === prev.keys.length) {
+    _lastTimelineRenderKey = renderKey;
+    _timelineSnapshot = { room, keys: eventKeys, evs: events.slice(), reactions: reactionKey, rx: reactionsOf, today };
+    const rows = el.querySelectorAll('.chat-msg');
+    const pinned = !roomChanged && el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    events.forEach((ev, i) => {
+      const id = ev.getId();
+      if (rows[i].dataset.eventId !== id) rows[i].dataset.eventId = id;
+      if ((prev.rx.get(prev.evs[i].getId()) || '') !== (reactionsOf.get(id) || '')) paintRowReactions(rows[i], ev, reactions);
+    });
+    if (pinned) el.scrollTop = el.scrollHeight;
+    return;
+  }
   // Only meaningful in the "reading history" branch below (wasNearBottom
   // already covers the other case) — el.innerHTML='' unconditionally
   // zeroes scrollTop, so without saving+restoring this, ANY rebuild that
@@ -1278,7 +1337,7 @@ function renderTimeline() {
     }
   }
   _lastTimelineRenderKey = renderKey;
-  _timelineSnapshot = { room, keys: eventKeys, evs: events.slice(), reactions: reactionKey, today };
+  _timelineSnapshot = { room, keys: eventKeys, evs: events.slice(), reactions: reactionKey, rx: reactionsOf, today };
 
   if (appendFrom) {
     el.querySelector('.chat-msg-seen')?.remove();
@@ -1292,7 +1351,7 @@ function renderTimeline() {
       }
     }
   }
-  else el.innerHTML = '';
+  else if (!prependCount) el.innerHTML = '';
   if (!events.length) {
     // An empty conversation says who it's with and gives you a way in.
     const other = isDmRoom ? (dmOtherUsername(room) || room.name || '') : '';
@@ -1304,10 +1363,11 @@ function renderTimeline() {
       (isDmRoom ? `<button type="button" class="chat-hello-chip" data-say="what are you listening to">🎧 Ask what they're playing</button>` : '') + '</div></div>';
     return;
   }
+  const target = prependCount ? document.createDocumentFragment() : el;
   let lastSender = appendFrom ? events[appendFrom - 1].getSender() : null;
   let lastTs = appendFrom ? events[appendFrom - 1].getTs() : 0;
   let lastDayKey = appendFrom ? new Date(events[appendFrom - 1].getTs()).toDateString() : null;
-  events.slice(appendFrom).forEach(ev => {
+  events.slice(appendFrom, prependCount ? prependCount + 1 : events.length).forEach(ev => {
     const evDate = new Date(ev.getTs());
     const dayKey = evDate.toDateString();
     if (dayKey !== lastDayKey) {
@@ -1316,7 +1376,7 @@ function renderTimeline() {
       const sep = document.createElement('div');
       sep.className = 'chat-date-sep';
       sep.innerHTML = `<span class="chat-date-sep-line"></span><span class="chat-date-sep-label">${esc(chatDateLabel(evDate))}</span><span class="chat-date-sep-line"></span>`;
-      el.appendChild(sep);
+      target.appendChild(sep);
     }
 
     const senderId   = ev.getSender();
@@ -1399,7 +1459,7 @@ function renderTimeline() {
         `<span class="chat-msg-song-tx"><b>${esc(song.title || 'Unknown')}</b><span>${esc(song.artist || '')}</span></span><span class="chat-msg-song-play"><i class="ti ti-player-play"></i></span>`;
       body.appendChild(card);
     } else if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
-      const animated = content.info?.mimetype === 'image/gif';
+      const animated = content.info?.mimetype === 'image/gif' && !(+content.info?.size > CHAT_GIF_FULL_MAX);
       ensureChatImageResolved(content.url, animated);
       const img = document.createElement('img');
       img.className = 'chat-msg-image' + (animated ? ' is-gif' : '');
@@ -1438,31 +1498,18 @@ function renderTimeline() {
       body.appendChild(text);
     }
 
-    const msgReactions = reactions.get(ev.getId());
-    if (msgReactions && msgReactions.size) {
-      const pills = document.createElement('div');
-      pills.className = 'chat-msg-reactions';
-      msgReactions.forEach((entry, emoji) => {
-        const pill = document.createElement('button');
-        pill.type = 'button';
-        pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '') + (emoji === KLAB_STAR ? ' star' : '');
-        pill.dataset.targetId = ev.getId();
-        pill.dataset.emoji = emoji;
-        // The key is whatever a remote client sent; it's text, never markup.
-        pill.innerHTML = `${emoji === KLAB_STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
-        pills.appendChild(pill);
-      });
-      body.appendChild(pills);
-      const stars = msgReactions.get(KLAB_STAR)?.senders.size || 0;
-      if (stars >= KLAB_GOLD_AT && !ev.isRedacted()) {
-        row.classList.add('starred');
-        row.title = klabCount(stars, 'star');
-      }
-    }
-
     row.append(avatar, body);
-    el.appendChild(row);
+    paintRowReactions(row, ev, reactions);
+    target.appendChild(row);
   });
+  if (prependCount) {
+    // The old first message and what's above it (its date divider) go;
+    // the fragment's last row is that message, built in its new context.
+    const oldFirst = el.querySelector('.chat-msg');
+    while (el.firstChild && el.firstChild !== oldFirst) el.firstChild.remove();
+    oldFirst?.remove();
+    el.prepend(target);
+  }
 
   updateSeenLine(room, events);
 
@@ -1490,6 +1537,44 @@ function renderTimeline() {
     const a = anchorId && el.querySelector(`.chat-msg[data-event-id="${CSS.escape(anchorId)}"]`);
     if (a) el.scrollTop += a.getBoundingClientRect().top - el.getBoundingClientRect().top - anchorOff;
     else el.scrollTop = oldScrollTop + (el.scrollHeight - oldScrollHeight);
+  }
+}
+
+// A message's reaction pills, its gold star and its own star button: built
+// with the row, and redone alone when only reactions changed.
+function paintRowReactions(row, ev, reactions) {
+  const body = row.querySelector('.chat-msg-body');
+  if (!body) return;
+  body.querySelector(':scope > .chat-msg-reactions')?.remove();
+  row.classList.remove('starred');
+  row.removeAttribute('title');
+  const msgReactions = reactions.get(ev.getId());
+  const starredByMe = !!msgReactions?.get(KLAB_STAR)?.mine;
+  const starBtn = row.querySelector('.chat-msg-star-btn');
+  if (starBtn) {
+    starBtn.classList.toggle('on', starredByMe);
+    starBtn.title = starredByMe ? 'Unstar' : 'Star';
+    const i = starBtn.querySelector('i');
+    if (i) i.className = 'ti ' + (starredByMe ? 'ti-star-filled' : 'ti-star');
+  }
+  if (!msgReactions || !msgReactions.size) return;
+  const pills = document.createElement('div');
+  pills.className = 'chat-msg-reactions';
+  msgReactions.forEach((entry, emoji) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'chat-msg-reaction-pill' + (entry.mine ? ' mine' : '') + (emoji === KLAB_STAR ? ' star' : '');
+    pill.dataset.targetId = ev.getId();
+    pill.dataset.emoji = emoji;
+    // The key is whatever a remote client sent; it's text, never markup.
+    pill.innerHTML = `${emoji === KLAB_STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+    pills.appendChild(pill);
+  });
+  body.appendChild(pills);
+  const stars = msgReactions.get(KLAB_STAR)?.senders.size || 0;
+  if (stars >= KLAB_GOLD_AT && !ev.isRedacted()) {
+    row.classList.add('starred');
+    row.title = klabCount(stars, 'star');
   }
 }
 
@@ -3381,6 +3466,10 @@ function showChatApp() {
       clearReply(); clearChatImage();
       _lastSentReadEventId.clear(); _readReceiptPending.clear(); _readReceiptFailedAt.clear();
       // The dead client's rooms (held by the snapshot) and what was drawn from them.
+      // Pictures fetched with the old session.
+      _msgAvatarCache.forEach(u => u && URL.revokeObjectURL(u)); _msgAvatarCache.clear(); _msgAvatarFailedAt.clear();
+      _chatImageCache.forEach(u => u && URL.revokeObjectURL(u)); _chatImageCache.clear();
+      _chatImageBytes.clear(); _chatImageBytesTotal = 0; _chatImageFailedAt.clear();
       _timelineSnapshot = null; _lastTimelineRenderKey = null; _lastTimelineQuick = ''; _typingRenderedRoomId = null; _chatHeadHTML = '';
       _dmInviteTried.clear(); _dmInviteRetryAt.clear(); _dmBookkeepingChecked.clear();
       // Nothing can be read while signed out, so the tab title and badge

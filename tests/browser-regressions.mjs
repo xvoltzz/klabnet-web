@@ -148,6 +148,24 @@ export default async p => {
     testEvents.splice(0,testEvents.length,testEvent('$reset')); renderTimeline();
     assert(timeline.querySelectorAll('.chat-msg').length===1, 'Limited timeline kept removed rows');
   `);
+  await check('chat reactions and older history keep the rows already shown', `
+    testEvents.splice(0,testEvents.length,...Array.from({length:30},(_,i)=>testEvent('$h'+i)));
+    _lastTimelineRenderKey=null; renderTimeline(); await pause(40);
+    const timeline=document.getElementById('chatTimeline');
+    const row0=timeline.querySelector('.chat-msg'), row5=timeline.querySelector('[data-event-id="$h5"]');
+    testEvents.push(testEvent('$r1','',{getType:()=>'m.reaction',
+      getContent:()=>({'m.relates_to':{rel_type:'m.annotation',event_id:'$h5',key:'👍'}})}));
+    renderTimeline();
+    assert(timeline.querySelector('[data-event-id="$h5"]')===row5 && timeline.querySelector('.chat-msg')===row0, 'A reaction rebuilt the timeline');
+    assert(row5.querySelector('.chat-msg-reaction-count')?.textContent==='1', 'Reaction pill not drawn');
+    testEvents.unshift(...Array.from({length:10},(_,i)=>testEvent('$old'+i)));
+    _lastTimelineRenderKey=null; renderTimeline();
+    assert(timeline.querySelector('[data-event-id="$h5"]')===row5, 'Older history rebuilt the rows shown');
+    assert(timeline.querySelector('.chat-msg').dataset.eventId==='$old0', 'Older history not at the top');
+    assert(timeline.querySelectorAll('.chat-msg').length===40, 'Wrong row count after older history');
+    assert(timeline.querySelectorAll('.chat-date-sep').length===1, 'Date divider repeated at the join');
+    assert(timeline.querySelector('[data-event-id="$h0"]').classList.contains('grouped'), 'The join was not regrouped');
+  `);
   await check('read receipt retry and event selection', `
     _lastSentReadEventId.clear(); _readReceiptPending.clear(); const sent=[]; let fail=true;
     testClient.sendReadReceipt=async ev=>{sent.push(ev.getId()); if(fail)throw new Error('offline');};

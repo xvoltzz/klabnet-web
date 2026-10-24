@@ -633,6 +633,17 @@
     else { _onScreen.delete(e.target); if (!e.target.isConnected) _visIO.unobserve(e.target); }
   })) : null;
 
+  // A YouTube player is a whole page of its own (tens of MB each), and a
+  // long scroll back kept every one it passed. Three screens away it's
+  // unloaded, and loaded again on the way back.
+  const _embedIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+    const f = e.target;
+    if (e.isIntersecting) { if (f.dataset.src) { f.src = f.dataset.src; delete f.dataset.src; } }
+    // Not when Feed itself is hidden (no box at all): a video playing on
+    // goes on playing while you're on another tab.
+    else if (e.boundingClientRect.width && !f.dataset.src && f.getAttribute('src') !== 'about:blank') { f.dataset.src = f.src; f.src = 'about:blank'; }
+  }), { rootMargin: '300% 0px' }) : null;
+
   // The page takes on the post in the middle of the screen: its photo,
   // its song's cover, or its author's color, like Photos and Home.
   const _fbLayers = document.getElementById('feedBackdrop')?.children;
@@ -683,6 +694,7 @@
     if (_seenPosts.has(String(post.id)) || !_entryIO || !(window.klabMotionOk?.() ?? true)) el.classList.add('seen');
     else _entryIO.observe(el);
     _visIO?.observe(el);
+    el.querySelectorAll('.feed-post-embed iframe').forEach(f => _embedIO?.observe(f));
     return el;
   }
   // Only the footer and replies changed: swap those into the post that's
@@ -702,6 +714,7 @@
     _entryIO?.unobserve(el);
     _visIO?.unobserve(el);
     _onScreen.delete(el);
+    el.querySelectorAll('.feed-post-embed iframe').forEach(f => _embedIO?.unobserve(f));
     el.remove();
   }
 
