@@ -46,7 +46,7 @@ Drop-in voice channels, like Mumble's or Discord's, on a self-hosted **LiveKit**
 - **Not done yet:**
   - Phones: the buttons are hidden under the phone media query. It needs its own layout.
   - The desktop apps: a global mute / push-to-talk key (a page only sees keys while it's focused), tray and Dock items. See klabnet-desktop's CLAUDE.md.
-  - Nothing shows who's in voice outside the panel (presence cards, Home).
+  - Nothing shows who's in voice outside Social's sidebar (presence cards).
 
 ## Playlists (built 2026-10-08; not yet run against the real homelab)
 A playlist has a name, a description, a cover, a color and its songs, and lives on **klabnet-api** so other people can see it. They used to be a name and some songs in each person's prefs.
@@ -111,7 +111,7 @@ The owner wanted the social parts in one tab, laid out like Music, with a quiet 
 - **Social's home** (js/25-social.js): Music Home's head, the newest photo uploads in a Cover Flow (`window.klabCoverFlow`, thumbs sharpened to `medium` in the middle) and the latest posts in a row of cards. The posts are Feed's own (`klabFeedPosts`, and it listens in on `klabHomeFeedChanged`); only the photos are fetched, and only while it's showing.
 - **Phones** (and Photos on a narrow touch screen): the four are chips along the top, as Music's sidebar is there, and Chat's list is the Chat page's first screen (`chat-rooms-view`), with the search box.
 - **The header's sidebar button** hides Social's sidebar as one (`pane-off-social`); the old `pane-off-chat`/`-photos` are gone.
-- **Not done yet:** recent chat on Social's home (Home's chat tile has the code to borrow), and a phone run on a real device.
+- **Not done yet:** recent chat on Social's home, and a phone run on a real device.
 
 ## Testing without the real site
 The real site needs Authentik, so local testing uses a mock server. It serves this repo, fakes `/api/*` (photos, presence, posts, artwork) and loads index.html with a fake `window.klabnetDesktop` to preview the app layouts. Pages are screenshotted in headless Chrome (`--screenshot`, `--virtual-time-budget`) inside an iframe harness that can call into the page. Headless Chrome has no GPU, so `data-fx="low"` (reduced effects) is on there: no blur and no backdrops. Performance was measured in real Chrome windows and in the real Electron app, not headless.
@@ -131,7 +131,13 @@ The real site needs Authentik, so local testing uses a mock server. It serves th
   - Blurred backdrops never need big art: `klabSoften` (js/00-util.js) bakes them to 96px and downsizes any `getCoverArt` source to 300px before it's fetched. Don't give a blurred background a screen-sized image.
   - Decoded pictures are the memory. Chromium keeps every one it has drawn until the OS says memory is short. When a screen lets go of many big pictures, call `window.klabnetDesktop?.trimMemory?.()`, as Photos does when you leave it and the image viewer does when it closes.
   - Photos keeps at most 6 preloaded photos (`preloaded` in js/14-photos.js) and clears them on leaving the tab.
-  - Animations that never stop make the window redraw every frame (steady GPU at 4K behind Acrylic), so avoid adding new ones. Home's spotlight progress bar was stepped once a second to save that, but the owner found it ugly: it's a smooth CSS animation again, on purpose.
+  - Animations that never stop make the window redraw every frame (steady GPU at 4K behind Acrylic), so avoid adding new ones.
 - **Away** (js/11-presence.js + klabnet-api routers/presence.py): each presence beat sends `activeAgo` (seconds since this device was used), `idleKnown` (it sees the whole computer: the apps' `klabnetDesktop.idle()`, or Chrome's IdleDetector once allowed in Settings -> Away status) and `lockedFor`. The API marks someone away after 5 minutes with nothing used on any device, or on a locked screen. Other browsers only see klabnet's own input, so they never make anyone away.
 - **Prefs** save with `PATCH /api/prefs` (just the changed fields, merged on the server, one request, so it survives a closing tab), falling back to GET+PUT on an API without PATCH.
 - **Favourites** are slimmed song records (`slimSong` in js/05-favorites.js), up to 2000; adding past that says so rather than dropping the oldest.
+
+## Home
+The owner asked for Home to be nuked and redone as a plain landing page (it says "hi :)"): a blank canvas in the app's own styling, not a retro pastiche, no one-liners, no tabs. They'll decide what else goes on it later.
+- **What's on it** (index.html `#homePage`, js/18-home.js, "HOME — a plain landing page" at the end of css/app.css): the title, the date and how many are online, "Elsewhere on KLAB" (plain links to the other klab.gg projects, starting with the Minecraft dashboard at mc.klab.gg), What's new, and the version and source link at the foot.
+- **What's new** is the newest commits to klabnet-web and klabnet-api, a day at a time, each opening to its whole message. git.klab.gg sends no CORS headers, so the page can't ask Gitea itself: klabnet-api's `GET /api/changes` (app/routers/changes.py, repos from `CHANGES_REPOS`) fetches them, drops merges and trailers, and caches five minutes. Until that's deployed, Home says it couldn't reach the git server.
+- **The glyphs** come from the commit title (`GLYPHS` in js/18-home.js: tests first, then the part of klabnet, then the kind of change). Only icons already in the font.

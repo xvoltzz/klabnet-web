@@ -10,16 +10,16 @@ export default async p => {
     window.presencePoll=()=>{
       Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));
       delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));
-    };setActiveTab('home');presencePoll();`);
+    };setActiveTab('social');presencePoll();`);
   try {
     await p.sleep(350);
-    await p.ev(`window.presenceShelf=document.querySelector('#hmListen .hm-cards');
+    await p.ev(`window.presenceShelf=document.querySelector('#presenceList');
       window.presenceFace=document.querySelector('#presenceList [data-username="away-fixture"]');
-      window.presenceCard=document.querySelector('#hmListen [data-username="away-fixture"]');
+      window.presenceCard=document.querySelector('#presenceList [data-username="away-fixture"]');
       if(!presenceCard || !presenceCard.textContent.includes('Away 7m'))throw new Error('Away fixture did not render');
       presenceCard.focus();presenceMinutes=8;presencePoll();`);
     await p.sleep(350);
-    if(!p.baseline) await p.ev(`if(presenceShelf!==document.querySelector('#hmListen .hm-cards') ||
+    if(!p.baseline) await p.ev(`if(presenceShelf!==document.querySelector('#presenceList') ||
       presenceFace!==document.querySelector('#presenceList [data-username="away-fixture"]') || document.activeElement!==presenceCard)
         throw new Error('Elapsed away time rebuilt the cards or lost focus');
       if(!presenceCard.textContent.includes('Away 8m') || !presenceFace.textContent.includes('Away 8m'))throw new Error('Away text stale');`);

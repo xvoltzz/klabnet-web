@@ -37,7 +37,7 @@ Two agents work on this repo: Claude Code (reads `CLAUDE.md`) and Codex (reads t
 | `js/14-photos.js`, `js/19-slideshow.js` | Photos and its slideshow (through `window.klabPhotos`) |
 | `js/15-music-home.js` | Music Home, Cover Flow, shuffle wheel |
 | `js/16-motion.js`, `js/17-history.js` | Sliding selection pills; browser Back/Forward through screens |
-| `js/18-home.js` | Home tab: spotlight, tiles, the "what just happened" line |
+| `js/18-home.js` | Home: the plain landing page, links out, What's new (commits from `/api/changes`) |
 | `js/20-mentions.js`, `js/21-stars.js` | @mention suggestions (not in chat); stars on songs and albums |
 | `js/22-voice.js` | Voice channels on LiveKit (see `CLAUDE.md`, "Voice"); `js/vendor/livekit-client.umd.js` loads on first join |
 | `js/23-session.js` | One player on every device: the active one plays, the rest are its remotes (see `CLAUDE.md`, "One player on every device"). Loads last; makes `playerState.audio` stand in for the active device's |
@@ -107,7 +107,7 @@ Six read-only reviews (shell, music, chat, presence/feed/home, photos, CSS), eac
 - **Photos and slideshow:** only the primary button taps to zoom; keys stand aside for the image viewer; `klabPostSong` maps the API's `songId` to `id` (the "Play song" menu items never showed); delete stays on a neighbour; `total` follows posts and deletes; `hasOlder` also trusts `total`, since the API can return a short page; preload eviction is least-recently-used; slideshow `mergeNew` appends older pages instead of jumping the queue; "Mine" with nothing of yours falls back to everyone's.
 - **Player:** unmute keeps the slider's volume; the wheel over the dock slider steps once; `getActiveLine` is computed from the current time for the current song only; `updateMediaSession` skips rebuilding metadata for the same song; play history and playlists store `slimSong` records; Albums and sorted Songs caches live ten minutes (`LIBRARY_TTL_MS`).
 - **Shell:** `g`-chords stop propagation; Tab, digits and `g x` do nothing under the full-screen player or the slideshow; the splash text tilts less when long (`--motd-tilt`, `fitMotdText`) so it stays in the window; accent sampling is once per cover and only when playing flips.
-- **CSS and wording:** view titles are 30px on Feed, Home and Chat; the app sidebar's rows match Music's; dialog text is 12 to 13px; toasts are `z-index: 3500`; the GIF picker is 405, under dialogs; Music's scrollbars are hidden; sentence case across menus, toasts and empty states; counts go through `klabCount`; server error strings through `klabCap`.
+- **CSS and wording:** view titles are 30px on Feed and Chat; the app sidebar's rows match Music's; dialog text is 12 to 13px; toasts are `z-index: 3500`; the GIF picker is 405, under dialogs; Music's scrollbars are hidden; sentence case across menus, toasts and empty states; counts go through `klabCount`; server error strings through `klabCap`.
 
 Two changes in behaviour the owner was told about: a conversation invite from someone on the same homeserver is accepted automatically (`acceptDmInvites`), and Photos text is no longer selectable on a desktop.
 
@@ -134,7 +134,7 @@ Reported by the reviews and not fixed. Each is a reasonable next thing.
 - **Phone:** Chat's in-app back arrow pushes a history entry instead of going back (`setChatMobileView` wrapper in `js/17-history.js`).
 - **klabnet-desktop:** the permission allow-list in `src/main.js` appears to lack `'screen-wake-lock'`, so the slideshow can't keep the screen awake in the app. Not run.
 - **klabnet-api:** photo list queries apply `LIMIT` before dropping posts with no photos, so a page can come back short. The client tolerates it now; the queries should filter.
-- **Home** fetches `/api/posts?limit=8` on its own while the feed already polls 50. "Away 7m" is inside the HTML that presence diffing compares, so away people cause rebuilds every minute. Feed and Home format relative times differently.
+- "Away 7m" is inside the HTML that presence diffing compares, so away people cause rebuilds every minute.
 - **Music requests:** the list re-renders up to five times per visit while avatars resolve.
 - **The image viewer** doesn't cancel the original's download when closed early.
 - **The sound-effects `AudioContext`** never suspends. Left alone because resuming outside a gesture is uncertain on Safari and would cost notification sounds.

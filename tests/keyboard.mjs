@@ -24,14 +24,14 @@ export default async p => {
       if(await p.ev('keyboardOpened.length')!==2)throw new Error('Discography keyboard activation failed');
     } finally {await p.ev('openAlbumPage=keyboardAlbumOpen;delete window.keyboardAlbumOpen;delete window.keyboardOpened;');}
   }
-  await p.ev("closeApPanel();setActiveTab('home')");await p.sleep(600);await p.shot('keyboard-presence');
+  await p.ev("closeApPanel();setActiveTab('social')");await p.sleep(600);await p.shot('keyboard-presence');
   if (!p.baseline) {
-    await p.ev(`{const note=document.querySelector('#hmListen .presence-card-note-edit');
+    await p.ev(`{const note=document.querySelector('#presenceList .presence-card-note-edit');
       if(note.getAttribute('role')!=='button'||note.tabIndex!==0)throw new Error('Note inaccessible');note.focus();}`);
     await p.key(' ','Space');
     if(!await p.ev("!!document.getElementById('inputDialogField') && document.getElementById('chatModalBackdrop').classList.contains('open')"))throw new Error('Note Space did not open dialog');
     await p.ev('closeChatModal()');
-    await p.ev(`{const card=document.querySelector('#hmListen .presence-card');
+    await p.ev(`{const card=document.querySelector('#presenceList .presence-card');
       if(card.getAttribute('role')!=='link'||card.tabIndex!==0)throw new Error('Presence face inaccessible');
       window.keyboardClicks=0;window.keyboardCatch=e=>{if(e.target===card){keyboardClicks++;e.stopImmediatePropagation();}};
       document.addEventListener('click',keyboardCatch,true);card.focus();}`);
