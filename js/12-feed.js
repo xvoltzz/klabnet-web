@@ -620,6 +620,28 @@
     _seenPosts.add(e.target.dataset.postId);
     _entryIO.unobserve(e.target);
   }), { rootMargin: '0px 0px -8% 0px' }) : null;
+  // The observer alone wasn't enough: in the Linux app a first load could
+  // leave every post at opacity 0 (Feed's colours moving as you scrolled,
+  // nothing to see) until a hard reload. So the page also looks for
+  // itself, on scroll, resize, arriving on Feed and each render: any post
+  // not yet shown whose top is above the window's foot is shown. Posts are
+  // in order down the page, so it stops at the first one still below.
+  let _revealRaf = 0;
+  function revealInView() {
+    _revealRaf = 0;
+    const list = document.getElementById('feedList');
+    if (!list?.offsetParent) return;
+    for (const el of list.querySelectorAll(':scope > .feed-post:not(.seen), :scope > * > .feed-post:not(.seen)')) {
+      if (el.getBoundingClientRect().top >= innerHeight) break;
+      el.classList.add('seen');
+      _seenPosts.add(el.dataset.postId);
+      _entryIO?.unobserve(el);
+    }
+  }
+  const revealSoon = () => { if (!_revealRaf) _revealRaf = requestAnimationFrame(revealInView); };
+  document.addEventListener('scroll', revealSoon, { capture: true, passive: true });
+  window.addEventListener('resize', revealSoon, { passive: true });
+  document.addEventListener('visibilitychange', revealSoon);
 
   // Which posts are on screen, kept by the browser so scrolling never has
   // to measure the whole list (it can be well over a thousand posts).
@@ -692,7 +714,7 @@
     el.dataset.postKey = key;
     el.dataset.postBody = postBodyKey(post, window.KLAB_USER?.username);
     if (_seenPosts.has(String(post.id)) || !_entryIO || !(window.klabMotionOk?.() ?? true)) el.classList.add('seen');
-    else _entryIO.observe(el);
+    else { _entryIO.observe(el); revealSoon(); }
     _visIO?.observe(el);
     el.querySelectorAll('.feed-post-embed iframe').forEach(f => _embedIO?.observe(f));
     return el;
@@ -849,7 +871,7 @@
   // so a mention seen on the way back in stayed "unread" indefinitely. And
   // a draft restored while another tab was showing was sized against a
   // hidden textarea, clipped to its first two lines.
-  window.klabFeedShown = () => { unfoldShortPosts(); refreshFeedTimes(); updateMentionsDot(); if (textEl.value) autoGrowComposer(); };
+  window.klabFeedShown = () => { revealSoon(); unfoldShortPosts(); refreshFeedTimes(); updateMentionsDot(); if (textEl.value) autoGrowComposer(); };
 
   // Avatar/image/reply resolutions land one at a time; a cold load of 50
   // posts fired ~35 separate full rebuilds, each re-creating every <img> on
