@@ -1,7 +1,7 @@
 // node tests/social.mjs [--url=http://localhost:8791/] [--out=dir]
 // Social: Feed, Chat and Photos as one page with one sidebar. Checks the
 // app's nav (one Social button, lit on all four, back to where you were),
-// the sidebar (its rows, a photo view picked from Feed going to Photos,
+// the sidebar (its rows, Photos' order switch and Slideshow in its head,
 // what lights up where, the same width on every page), Back and Forward
 // between the four, the sidebar button, Tab and the number keys, Social's
 // home (new photos, latest posts) and the phone's chips. Needs the rig in
@@ -85,7 +85,7 @@ try {
     const s = await state();
     widths.add(s.side); lefts.add(s.left);
     check(`${t}: the Social button is lit, and only it`, JSON.stringify(s.nav) === '["social"]', s);
-    check(`${t}: its sidebar row is lit`, t === 'photos' || t === 'chat' ? s.row.length === 0 : JSON.stringify(s.row) === `["${t}"]`, s);
+    check(`${t}: its sidebar row is lit`, t === 'chat' ? s.row.length === 0 : JSON.stringify(s.row) === `["${t}"]`, s);
     check(`${t}: the hash says where`, (await ev('location.hash')) === '#' + t);
   }
   check('the sidebar is the same width on all four, and the page beside it starts at the same place', widths.size === 1 && lefts.size === 1, { widths: [...widths], lefts: [...lefts] });
@@ -101,12 +101,18 @@ try {
   await ev(`document.querySelector('#socNav [data-soc="feed"]').click()`); await sleep(500);
   check('the Feed row goes to Feed', (await at()) === 'feed');
   check('the photo details are Photos only', await ev(`getComputedStyle(document.querySelector('#phSidebar .ph-side-this')).display === 'none' && getComputedStyle(document.getElementById('phNow')).display === 'none'`));
-  check('the photo view underneath isn\'t lit off Photos', await ev(`(() => { const b = document.querySelector('#phOrder button[aria-pressed="true"]'); return getComputedStyle(b).backgroundColor === 'rgba(0, 0, 0, 0)'; })()`));
-  await ev(`document.querySelector('#phOrder button[data-order="posted"]').click()`); await sleep(800);
-  check('What\'s new from Feed goes to Photos, in that order', (await at()) === 'photos' && (await ev(`document.getElementById('phViewTitle').textContent`)) === "What's new");
+  await ev(`document.querySelector('#socNav [data-soc="photos"]').click()`); await sleep(800);
+  check('the Photos row goes to Photos', (await at()) === 'photos');
   check('on Photos its details show', await ev(`getComputedStyle(document.querySelector('#phSidebar .ph-side-this')).display !== 'none'`));
   check('the timeline\'s filmstrip is there', await until(`document.querySelectorAll('#phStrip img, #phStrip .ph-thumb').length > 0`));
+  check('Timeline / What\'s new, Slideshow and Post are in Photos\' head', await ev(`['phOrder', 'phSlideBtn', 'phPostBtn'].every(id => document.getElementById(id).parentElement.id === 'phViewTools' && !!document.getElementById(id).offsetParent)`));
+  await ev(`document.querySelector('#phOrder button[data-order="posted"]').click()`); await sleep(900);
+  check('the switch\'s pill slides to What\'s new', await ev(`(() => { const p = document.querySelector('#phOrder .motion-pill').getBoundingClientRect(), b = document.querySelector('#phOrder [data-order="posted"]').getBoundingClientRect(); return Math.abs(p.left - b.left) < 2 && Math.abs(p.width - b.width) < 2; })()`));
   await ev(`document.querySelector('#phOrder button[data-order="shot"]').click()`); await sleep(500);
+  await ev(`document.getElementById('phSlideBtn').click()`); await sleep(800);
+  check('Slideshow is a toggle: lit while it runs', await ev(`klabSlideshow.isOpen() && document.getElementById('phSlideBtn').getAttribute('aria-pressed') === 'true'`));
+  await ev(`klabSlideshow.close()`); await sleep(600);
+  check('...and not after', await ev(`!klabSlideshow.isOpen() && document.getElementById('phSlideBtn').getAttribute('aria-pressed') === 'false'`));
   check('chat not signed in: "Connect chat", no lists, who\'s online', await ev(`!document.body.classList.contains('chat-on') && !!document.getElementById('socChatConnect').offsetParent && !document.getElementById('chatChannelsList').offsetParent && !!document.getElementById('presenceList').offsetParent`));
   await ev(`document.getElementById('socChatConnect').click()`); await sleep(500);
   check('"Connect chat" goes to Chat', (await at()) === 'chat');

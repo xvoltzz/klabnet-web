@@ -152,7 +152,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.3" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.4" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -164,7 +164,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.3" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.4" />
 </head>
 <body>
 
@@ -523,17 +523,14 @@ window.KLAB_BOOT = (function() {
         <div class="picker-tabs soc-nav" id="socNav">
           <button class="picker-tab" data-soc="social"><i class="ti ti-home"></i><span>Home</span></button>
           <button class="picker-tab" data-soc="feed"><i class="ti ti-news"></i><span>Feed</span><span class="soc-dot" id="socFeedDot" hidden></span></button>
-          <!-- Phones only: there the photo views sit beside the photo, and
-               Chat's list is a screen of its own. -->
           <button class="picker-tab soc-photos-row" data-soc="photos"><i class="ti ti-photo"></i><span>Photos</span></button>
+          <!-- Phones only: Chat's list is a screen of its own there. -->
           <button class="picker-tab soc-chat-row" data-soc="chat"><i class="ti ti-message-circle"></i><span>Chat</span></button>
         </div>
-        <!-- js/14-photos.js moves the views, Post, the photo's details and
-             the Show toggles in here on a wide window, and back beside the
-             photo on a phone. The details and toggles show on Photos only. -->
-        <div class="ph-sidebar soc-group" id="phSidebar" aria-label="Photos">
-          <div class="music-sidebar-label">Photos</div>
-          <div class="ph-side-views" id="phSideViews"></div>
+        <!-- js/14-photos.js moves the photo's details and the Show toggles
+             in here on a wide window, and back beside the photo on a phone.
+             Photos only. -->
+        <div class="ph-sidebar soc-group soc-ph-only" id="phSidebar" aria-label="Photos">
           <div class="ph-side-group ph-side-this soc-ph-only">
             <div class="ph-side-label">This photo</div>
             <div class="ph-side-info" id="phSideInfo"></div>
@@ -725,7 +722,8 @@ window.KLAB_BOOT = (function() {
   <div class="tab-panel" data-tab-panel="photos">
   <div class="ph-shell" id="phShell">
     <div class="ph-main">
-    <div class="ph-view-head"><h2 id="phViewTitle">Timeline</h2><span id="phViewSub"></span></div>
+    <!-- The order switch, Slideshow and Post sit at the head's end on a wide window (js/14-photos.js). -->
+    <div class="ph-view-head"><h2 id="phViewTitle">Photos</h2><span id="phViewSub"></span><div class="ph-view-tools" id="phViewTools"></div></div>
     <div class="ph-panel">
     <div class="ph-stage" id="phStage">
       <!-- The photo with its placard on the left (who, when, caption, tags)
@@ -770,7 +768,7 @@ window.KLAB_BOOT = (function() {
         </div>
         <button type="button" class="ph-btn" id="phInfoBtn" aria-pressed="true"></button>
         <button type="button" class="ph-btn" id="phSoundBtn" aria-pressed="true"></button>
-        <button type="button" class="ph-btn" id="phSlideBtn" title="Slideshow (S)"><i class="ti ti-slideshow"></i><span>Slideshow</span></button>
+        <button type="button" class="ph-btn" id="phSlideBtn" title="Slideshow (S)" aria-pressed="false"><i class="ti ti-slideshow"></i><span>Slideshow</span></button>
         <button type="button" class="ph-btn ph-btn-post" id="phPostBtn" title="Post photos"><i class="ti ti-plus"></i><span>Post</span></button>
       </div>
       <div class="ph-empty" id="phEmpty" hidden>
@@ -1156,38 +1154,38 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.24.3';</script>
-<script defer src="js/00-util.js?v=v2026.10.24.3"></script>
-<script defer src="js/01-shell.js?v=v2026.10.24.3"></script>
-<script defer src="js/02-player.js?v=v2026.10.24.3"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.24.3"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.24.3"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.24.3"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.24.3"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.24.3"></script>
-<script defer src="js/08-chat.js?v=v2026.10.24.3"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.24.3"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.24.3"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.24.3"></script>
-<script defer src="js/11-presence.js?v=v2026.10.24.3"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.24.3"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.24.3"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.24.3"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.24.3"></script>
-<script defer src="js/12-feed.js?v=v2026.10.24.3"></script>
-<script defer src="js/13-tail.js?v=v2026.10.24.3"></script>
-<script defer src="js/14-photos.js?v=v2026.10.24.3"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.24.3"></script>
-<script defer src="js/16-motion.js?v=v2026.10.24.3"></script>
-<script defer src="js/17-history.js?v=v2026.10.24.3"></script>
-<script defer src="js/18-home.js?v=v2026.10.24.3"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.24.3"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.24.3"></script>
-<script defer src="js/21-stars.js?v=v2026.10.24.3"></script>
-<script defer src="js/22-voice.js?v=v2026.10.24.3"></script>
-<script defer src="js/23-session.js?v=v2026.10.24.3"></script>
-<script defer src="js/24-flair.js?v=v2026.10.24.3"></script>
-<script defer src="js/25-social.js?v=v2026.10.24.3"></script>
+<script>const KLABNET_VERSION = 'v2026.10.24.4';</script>
+<script defer src="js/00-util.js?v=v2026.10.24.4"></script>
+<script defer src="js/01-shell.js?v=v2026.10.24.4"></script>
+<script defer src="js/02-player.js?v=v2026.10.24.4"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.24.4"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.24.4"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.24.4"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.24.4"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.24.4"></script>
+<script defer src="js/08-chat.js?v=v2026.10.24.4"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.24.4"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.24.4"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.24.4"></script>
+<script defer src="js/11-presence.js?v=v2026.10.24.4"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.24.4"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.24.4"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.24.4"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.24.4"></script>
+<script defer src="js/12-feed.js?v=v2026.10.24.4"></script>
+<script defer src="js/13-tail.js?v=v2026.10.24.4"></script>
+<script defer src="js/14-photos.js?v=v2026.10.24.4"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.24.4"></script>
+<script defer src="js/16-motion.js?v=v2026.10.24.4"></script>
+<script defer src="js/17-history.js?v=v2026.10.24.4"></script>
+<script defer src="js/18-home.js?v=v2026.10.24.4"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.24.4"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.24.4"></script>
+<script defer src="js/21-stars.js?v=v2026.10.24.4"></script>
+<script defer src="js/22-voice.js?v=v2026.10.24.4"></script>
+<script defer src="js/23-session.js?v=v2026.10.24.4"></script>
+<script defer src="js/24-flair.js?v=v2026.10.24.4"></script>
+<script defer src="js/25-social.js?v=v2026.10.24.4"></script>
 
 </body>
 </html>

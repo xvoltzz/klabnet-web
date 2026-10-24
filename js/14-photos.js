@@ -85,7 +85,7 @@
   }
   // The big title over the photo, the way Music titles its views.
   function renderViewHead() {
-    $('phViewTitle').textContent = order === 'posted' ? "What's new" : 'Timeline';
+    $('phViewTitle').textContent = 'Photos';
     const n = Math.max(total ?? 0, items.length);
     $('phViewSub').textContent = n ? `${n.toLocaleString()}${total == null && hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
   }
@@ -414,7 +414,7 @@
       frame.insertBefore(railR, mainImg.nextSibling);
     } else {
       if (railL.parentElement === $('phSideInfo')) return;
-      $('phSideViews').append(b('phOrder'), b('phSlideBtn'), b('phPostBtn'));
+      $('phViewTools').append(b('phOrder'), b('phSlideBtn'), b('phPostBtn'));
       $('phSideToggles').append(b('phInfoBtn'));
       $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);
@@ -1221,7 +1221,14 @@
   // leaving resumes it, but only if this tab was what paused it.
   let pausedByPhotos = false, shown = false;
   // ── For the slideshow (js/19-slideshow.js) ──
-  $('phSlideBtn')?.addEventListener('click', () => { SFX && SFX.play('click'); window.klabSlideshow?.open(); });
+  // A toggle: lit while the slideshow runs.
+  $('phSlideBtn')?.addEventListener('click', () => {
+    SFX && SFX.play('click');
+    const ss = window.klabSlideshow;
+    if (ss?.isOpen()) ss.close(); else ss?.open();
+  });
+  new MutationObserver(() => $('phSlideBtn')?.setAttribute('aria-pressed', document.body.classList.contains('ss-on')))
+    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
   window.klabPhotos = {
     items: () => items,
     current: () => (sel >= 0 && items[sel] ? items[sel].ph.id : null),

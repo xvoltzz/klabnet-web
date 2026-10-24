@@ -125,7 +125,7 @@
       window.addEventListener('pointerup', release, true);
       window.addEventListener('pointercancel', release, true);
     }
-    new MutationObserver(schedule).observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    new MutationObserver(schedule).observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-pressed'] });
     new ResizeObserver(schedule).observe(container);
     window.addEventListener('resize', () => { corr.x = corr.y = corr.w = corr.h = 0; schedule(); });
     document.fonts?.ready.then(schedule);
@@ -137,6 +137,8 @@
   // each that glides to what you pick.
   slidingPill(document.getElementById('socNav'), '.picker-tab.active', 'motion-pill-music', '.picker-tab');
   slidingPill(document.querySelector('#chatSide .chat-side-scroll'), '.chat-conv.active', 'motion-pill-chat', '.chat-conv');
+  // Photos' Timeline / What's new switch.
+  slidingPill(document.getElementById('phOrder'), 'button[aria-pressed="true"]', 'motion-pill-music', 'button');
 
   // ── Music views ──
   // Fade the whole list in when its content is replaced (a new view), not

@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════
 //  SOCIAL — Feed, Chat and Photos as one page, laid out like Music.
 //    · The sidebar (#socSidebar in index.html) holds Social's own home,
-//      Feed, Photos' views and Chat's people and conversations. Pressing
+//      Feed, Photos and Chat's people and conversations. Pressing
 //      something in it that belongs to another of the four pages goes there.
 //    · Social's home is Music Home's kind of page, kept quiet: the newest
 //      photos in a Cover Flow and the latest posts in a row. It only
@@ -29,10 +29,6 @@
     if (on('chat')) return;
     if (e.target.closest('.chat-channel-close, .chat-icon-btn')) return;
     if (e.target.closest('.chat-conv, #chatPeopleResults [data-username]')) setActiveTab('chat');
-  });
-  // Timeline or What's new from elsewhere: Photos, in that order.
-  $('phSideViews')?.addEventListener('click', e => {
-    if (!on('photos') && e.target.closest('#phOrder button')) setActiveTab('photos');
   });
   $('socChatConnect')?.addEventListener('click', () => {
     setActiveTab('chat');
