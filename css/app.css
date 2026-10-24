@@ -3721,9 +3721,7 @@
     /* ── Narrow phones ── */
     @media (max-width: 480px) and (pointer: coarse) {
       /* Below ~400px the wordmark (nowrap) and the icon row both want more
-         room than exists and the two drew on top of each other. The player
-         toggle goes because the dock it toggles is right there on screen. */
-      #playerToggle { display: none; }
+         room than exists and the two drew on top of each other. */
       .hdr-btn { width: 30px; height: 30px; }
       .prompt-text { font-size: 0.85rem; }
       .prompt-cursor { height: 0.8rem; }
@@ -6000,7 +5998,7 @@
          the "bottom" tab bar over the logo. Opacity alone traps nothing. */
       .header { animation: fadeInSoft 0.6s ease both; }
       .header { grid-template-columns: 1fr auto; grid-template-rows: auto; row-gap: 0; align-items: center; margin-bottom: 0.9rem; }
-      #settingsBtn, #playerToggle, #themeToggle { display: none; }
+      #settingsBtn, #dockPeek, #themeToggle { display: none; }
       .hdr-more-menu .ctx-item.hdr-compact-only { display: flex; }
       .hdr-more-menu .ctx-divider.hdr-compact-only { display: block; }
       .hdr-more-menu .ctx-item { padding: 12px 14px; font-size: 12px; }
@@ -8976,3 +8974,29 @@
       body.tab-photos-active #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
       body.tab-photos-active #socShell .soc-chat-row { display: flex; }
     }
+
+    /* ══ THE DOCK, TUCKED AWAY (js/02-player.js) ══
+       Off Music the dock flies into #dockPeek: a little visualiser at the
+       foot of the sidebar (or in the header), with the song beside it. Its
+       bars move only while something plays. */
+    .eq-ico { display: inline-flex; align-items: flex-end; justify-content: center; gap: 2px; height: 14px; font-style: normal; }
+    .eq-ico b { width: 2.5px; height: 100%; border-radius: 1px; background: currentColor; transform-origin: bottom; transform: scaleY(.3); }
+    .eq-ico b:nth-child(2) { transform: scaleY(.6); }
+    .eq-ico b:nth-child(3) { transform: scaleY(.45); }
+    .eq-ico b:nth-child(4) { transform: scaleY(.25); }
+    body.is-playing .eq-ico b { animation: eqIco 1.1s ease-in-out infinite; }
+    body.is-playing .eq-ico b:nth-child(2) { animation-delay: -.35s; animation-duration: .9s; }
+    body.is-playing .eq-ico b:nth-child(3) { animation-delay: -.7s; animation-duration: 1.25s; }
+    body.is-playing .eq-ico b:nth-child(4) { animation-delay: -.2s; animation-duration: 1s; }
+    @keyframes eqIco { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+    @media (prefers-reduced-motion: reduce) { body.is-playing .eq-ico b { animation: none; } }
+    html[data-fx="low"] body.is-playing .eq-ico b { animation: none; }
+    .hdr-btn .dock-peek-label { display: none; }
+    #sideNav .dock-peek-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; font-size: var(--fs-13); }
+    body.is-playing #dockPeek { color: var(--text); }
+    #dockPeek[aria-pressed="true"] { color: var(--text); background: var(--glass-fill-h); border-color: var(--glass-border); }
+    body.tab-music-active #dockPeek:not(.flying) { display: none; }
+    .player-dock.dock-flying { transition: none !important; }
+    /* Photos hides the dock; brought up there, it shows over the strip. */
+    body.tab-photos-active.dock-peek-open .player-dock { transform: translateX(-50%) !important; opacity: 1 !important; pointer-events: auto !important; }
+    html.klabnet-app body.tab-photos-active.dock-peek-open .player-dock { transform: none !important; }

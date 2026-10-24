@@ -314,7 +314,7 @@ const SFX = (() => {
 
 // Wire SFX to UI elements
 // Header buttons
-['themeToggle','playerToggle'].forEach(id => {
+['themeToggle'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('click', () => SFX.play('click'));
 });

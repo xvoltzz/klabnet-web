@@ -365,7 +365,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   // They just press the real buttons, so all their wiring stays in one place.
   const press = id => () => document.getElementById(id)?.click();
   document.getElementById('menuSettings')?.addEventListener('click', press('settingsBtn'));
-  document.getElementById('menuPlayer')?.addEventListener('click', press('playerToggle'));
+  document.getElementById('menuPlayer')?.addEventListener('click', () => window.klabTogglePlayer?.());
   document.getElementById('menuTheme')?.addEventListener('click', press('themeToggle'));
   function syncCompactItems() {
     const pl = document.querySelector('#menuPlayer span');
@@ -646,6 +646,14 @@ window.klabSideNav = (function() {
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
     // sidebar is hidden.
+    // The tucked-away player: the foot of the sidebar, or the header.
+    const peek = document.getElementById('dockPeek');
+    if (peek) {
+      if (sideOn && peek.parentElement !== foot) foot.prepend(peek);
+      if (!sideOn && peek.parentElement !== headerSlot) headerSlot.insertBefore(peek, document.getElementById('motdToggle'));
+      peek.classList.toggle('side-nav-item', sideOn);
+      peek.classList.toggle('hdr-btn', !sideOn);
+    }
     if (!sideOn) burger.remove();
     else if (root.classList.contains('app-titlebar') || bar || mode() === 'menu') {
       brand.insertBefore(burger, brand.querySelector('.logo'));

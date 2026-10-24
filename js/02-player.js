@@ -1169,26 +1169,123 @@ function dismissToast(item) {
 }
 
 // ══════════════════════════════════════════
-//  PLAYER TOGGLE
+//  THE DOCK: on Music, tucked away elsewhere
+//  On a computer the dock shows on Music. On every other page it tucks
+//  into #dockPeek, a little visualiser at the foot of the sidebar (in the
+//  header when the tabs are on top; js/07-tabnav.js places it). Pressing
+//  that brings the dock up out of it over the page, until you press it
+//  again or change pages. A phone keeps its mini player, which "Hide
+//  player" in the menu still hides (klabnet_player_visible).
 // ══════════════════════════════════════════
 const PLAYER_VIS_KEY = 'klabnet_player_visible';
 let playerVisible = localStorage.getItem(PLAYER_VIS_KEY) !== 'false';
+let dockPeekOpen = false;
+const dockDeskMq = matchMedia(KLAB_DESK_MQ);
+function dockWanted() {
+  if (!dockDeskMq.matches) return playerVisible;
+  return document.body.classList.contains('tab-music-active') || dockPeekOpen;
+}
+// The dock flying into the visualiser and back out of it. It's measured
+// on screen and moved with `translate`/`scale`, which add to the dock's
+// own transform (and to the !important ones that hide it on Photos).
+let dockFlight = null;
+function flyDock(open) {
+  const dock = document.getElementById('playerDock'), peek = document.getElementById('dockPeek');
+  const ok = (window.klabMotionOk?.() ?? true) && dock.animate;
+  peek.classList.add('flying');
+  const icon = peek.querySelector('.eq-ico') || peek;
+  const pr = icon.getBoundingClientRect(), dr = dock.getBoundingClientRect();
+  if (!ok || !pr.width || !dr.width) { peek.classList.remove('flying'); return null; }
+  const z = typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1;
+  const m = new DOMMatrix(getComputedStyle(dock).transform === 'none' ? undefined : getComputedStyle(dock).transform);
+  const sx = Math.max(pr.width / dr.width, 0.01), sy = Math.max(pr.height / dr.height, 0.01);
+  const dx = (pr.left + pr.width / 2 - (dr.left + dr.width / 2)) / z + m.e * (1 - sx);
+  const dy = (pr.top + pr.height / 2 - (dr.top + dr.height / 2)) / z + m.f * (1 - sy);
+  const tucked = { translate: `${dx}px ${dy}px`, scale: `${sx} ${sy}`, opacity: 0 };
+  const shown = { translate: '0px 0px', scale: '1 1', opacity: 1 };
+  const frames = open
+    ? [tucked, { opacity: 1, offset: 0.45 }, shown]
+    : [shown, { opacity: 1, offset: 0.5 }, tucked];
+  const a = dock.animate(frames, { duration: open ? 420 : 380, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+  // Done: the dock's own slide transition comes back only once the
+  // hidden state has settled, or it would play a second, smaller move.
+  const land = () => {
+    peek.classList.remove('flying');
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (dockFlight !== a || !open) dock.classList.remove('dock-flying'); }));
+  };
+  a.finished.then(() => { land(); if (open && dockFlight === a) { a.cancel(); dockFlight = null; dock.classList.remove('dock-flying'); } }, land);
+  // The visualiser gives a little bump as the dock lands in it.
+  if (!open) setTimeout(() => icon.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
+    { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' }), 300);
+  return a;
+}
+function applyDock(animate) {
+  const dock = document.getElementById('playerDock'), peek = document.getElementById('dockPeek');
+  const v = dockWanted();
+  peek?.setAttribute('aria-pressed', String(dockPeekOpen));
+  peek && (peek.title = dockPeekOpen ? 'Tuck the player away' : 'Player');
+  document.body.classList.toggle('dock-peek-open', dockPeekOpen);
+  const was = !dock.classList.contains('hidden');
+  if (v === was) { document.body.classList.toggle('player-hidden', !v); return; }
+  dockFlight?.cancel();
+  dockFlight = null;
+  const flying = animate && peek && dockDeskMq.matches && (window.klabMotionOk?.() ?? true);
+  // No slide transition under the flight (it ran as a second animation).
+  dock.classList.toggle('dock-flying', !!flying);
+  void dock.offsetWidth;
+  if (v) {
+    dock.classList.remove('hidden');
+    document.body.classList.remove('player-hidden');
+    if (flying) dockFlight = flyDock(true);
+    if (!dockFlight) dock.classList.remove('dock-flying');
+  } else {
+    const done = () => {
+      if (dockWanted()) return;
+      dock.classList.add('hidden');
+      document.body.classList.add('player-hidden');
+      dockFlight?.cancel();
+      dockFlight = null;
+    };
+    const a = flying ? flyDock(false) : null;
+    if (a) { dockFlight = a; a.finished.then(done, () => {}); } else { done(); dock.classList.remove('dock-flying'); }
+  }
+}
+// The phone's "Hide player".
 function setPlayerVisible(v) {
   playerVisible = v;
-  const dock = document.getElementById('playerDock');
-  dock.classList.toggle('hidden', !v);
-  document.getElementById('playerToggleIcon').className = v ? 'ti ti-music' : 'ti ti-music-off';
-  document.getElementById('playerToggle').classList.toggle('active', !v);
   localStorage.setItem(PLAYER_VIS_KEY, String(v));
-  // The dock is position:fixed — hiding it just translates it off-screen
-  // (see .player-dock.hidden), so the Chat tab's padding-bottom clearance
-  // for it (see body.tab-chat-active .dash) is pure wasted space once
-  // it's actually hidden, not something that needs preserving for layout
-  // reasons the way it does while the dock is visible and floating on top.
-  document.body.classList.toggle('player-hidden', !v);
+  applyDock(false);
 }
-setPlayerVisible(playerVisible);
-document.getElementById('playerToggle').addEventListener('click', () => { setPlayerVisible(!playerVisible); SFX.play('click'); });
+window.klabTogglePlayer = () => {
+  SFX.play('click');
+  if (!dockDeskMq.matches) { setPlayerVisible(!playerVisible); return; }
+  if (document.body.classList.contains('tab-music-active')) return;
+  dockPeekOpen = !dockPeekOpen;
+  applyDock(true);
+};
+document.getElementById('dockPeek')?.addEventListener('click', window.klabTogglePlayer);
+// Changing pages tucks it away again (and Music brings it out).
+let dockTab = null;
+const tabNow = () => (document.body.className.match(/\btab-([a-z]+)-active\b/) || [])[1] || null;
+new MutationObserver(() => {
+  const t = tabNow();
+  if (t === dockTab) return;
+  const first = dockTab === null;
+  dockTab = t;
+  dockPeekOpen = false;
+  applyDock(!first);
+}).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+dockDeskMq.addEventListener('change', () => { dockPeekOpen = false; applyDock(false); });
+dockTab = tabNow();
+applyDock(false);
+// The song's name beside the visualiser.
+(function() {
+  const title = document.getElementById('playerTitle'), label = document.getElementById('dockPeekLabel');
+  if (!title || !label) return;
+  const sync = () => { label.textContent = (title.style.display !== 'none' && title.textContent.trim()) || 'Player'; };
+  new MutationObserver(sync).observe(title, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+  sync();
+})();
 
 // ══════════════════════════════════════════
 //  FULLSCREEN PLAYER
