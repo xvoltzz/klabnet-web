@@ -60,12 +60,16 @@
   //   scrollbar            an iTunes-style scrollbar under it
   //   hires(item)          Promise of a sharper image URL for the cover,
   //                        swapped in once it's decoded (display only)
+  //   aspect(item)         width / height: photos, shown whole at their own
+  //                        shape (spaced out, tilted less) rather than square
+  //   autoplay             ms: moves on by itself, around and around,
+  //                        except while pointed at, held or focused
   // caption may also return eq: true (a playing glyph before the label) and
   // node: an element of its own to show under the detail line.
   // It keeps one element, so it keeps its place and covers between visits.
-  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize, scrollbar, hires }) {
+  function makeCoverFlow({ label, cover, caption, actions, open, decorate, coverSize, scrollbar, hires, aspect, autoplay }) {
     const el = document.createElement('section');
-    el.className = 'mh-flow';
+    el.className = 'mh-flow' + (aspect ? ' mh-flow-photos' : '');
     el.tabIndex = 0;
     el.setAttribute('aria-label', label);
     el.innerHTML =
@@ -107,6 +111,7 @@
         const c = document.createElement('div');
         c.className = 'mh-cover';
         c.dataset.i = i;
+        if (aspect) c._ar = Math.max(0.5, Math.min(2.2, Number(aspect(it)) || 1));
         decorate?.(c, it);
         const img = new Image();
         img.alt = ''; img.draggable = false; img.decoding = 'async';
@@ -127,7 +132,7 @@
         stage.appendChild(c);
         return c;
       });
-      center = -1;
+      center = -1; laidS = 0;
       render();
     }
 
@@ -150,12 +155,52 @@
       }));
     }
 
+    // Photos: each as wide as its shape says, at the flow's height. Their
+    // places along the row (P) are worked out once per size: side by side
+    // with a gap, each folded back a little (so a little narrower).
+    const TILT = 28, FOLD = Math.cos(TILT * Math.PI / 180);
+    let P = [], laidS = 0;
+    function layPhotos() {
+      laidS = S;
+      let x = 0;
+      P = covers.map((c, i) => {
+        const w = S * c._ar;
+        if (c._w !== w) { c._w = w; c.style.width = w.toFixed(1) + 'px'; c.style.marginLeft = (-w / 2).toFixed(1) + 'px'; }
+        if (i) x += (covers[i - 1]._w + w) / 2 * FOLD + S * 0.07;
+        return x;
+      });
+    }
+    function renderPhotos() {
+      if (laidS !== S || P.length !== covers.length) layPhotos();
+      const lo = Math.floor(pos), f = pos - lo;
+      const at = P[lo] + ((P[lo + 1] ?? P[lo]) - P[lo]) * f;
+      // The middle one faces you at full width, with more room either side.
+      const mid = covers[Math.round(pos)]?._w || S;
+      const push = mid * (1 - FOLD) / 2 + S * 0.09;
+      for (let i = 0; i < covers.length; i++) {
+        const c = covers[i];
+        const d = i - pos, ad = Math.abs(d), sg = Math.sign(d);
+        const x = P[i] - at + sg * Math.min(ad, 1) * push;
+        if (Math.abs(x) > el.clientWidth || ad > 6.5) { if (c._on !== false) { c.style.display = 'none'; c._on = false; } continue; }
+        if (c._on !== true) {
+          c.style.display = ''; c._on = true;
+          if (c._src) { c._img.src = c._src; c._refl.src = c._src; c._src = ''; }
+          if (hires && !c._hi) sharpen(c);
+        }
+        const rot = -Math.max(-1, Math.min(1, d)) * TILT, z = -Math.min(ad, 1) * S * 0.3;
+        c.style.transform = `translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${rot.toFixed(1)}deg)`;
+        const zi = 100 - Math.round(ad * 10);
+        if (c._z !== zi) { c.style.zIndex = String(zi); c._z = zi; }
+      }
+    }
+
     // Each cover's place is a function of its distance from the centre, d:
     // the middle one faces you, the rest fold back at an angle and stack.
     function render() {
       size();
       applySize();
-      for (let i = 0; i < covers.length; i++) {
+      if (aspect) renderPhotos();
+      else for (let i = 0; i < covers.length; i++) {
         const c = covers[i];
         const d = i - pos, ad = Math.abs(d), sg = Math.sign(d);
         // Five either side: the ones further out are slivers anyway, and
@@ -266,7 +311,25 @@
       if (!raf) setBg();
     }
     const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
-    function go(i) { target = clamp(Math.round(i)); kick(); }
+    function go(i) { target = clamp(Math.round(i)); kick(); restartAuto(); }
+
+    // ── Moving on by itself ──
+    // One step every `autoplay` ms, back to the start after the last;
+    // never while it's pointed at, held, focused, or out of sight.
+    let autoT = 0, hover = false;
+    function restartAuto() {
+      if (!autoplay) return;
+      clearTimeout(autoT);
+      autoT = setTimeout(() => {
+        const busy = hover || drag || el.contains(document.activeElement) || document.hidden || !el.isConnected || !el.offsetParent;
+        if (!busy && items.length > 1) go(target >= items.length - 1 ? 0 : target + 1);
+        else restartAuto();
+      }, autoplay);
+    }
+    if (autoplay) {
+      el.addEventListener('pointerenter', () => { hover = true; });
+      el.addEventListener('pointerleave', () => { hover = false; restartAuto(); });
+    }
 
     el.querySelector('.prev').addEventListener('click', () => go(target - 1));
     el.querySelector('.next').addEventListener('click', () => go(target + 1));
@@ -276,7 +339,7 @@
     el.addEventListener('wheel', e => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      target = clamp(target + e.deltaX / (size() * 0.45));
+      target = clamp(target + e.deltaX / (size() * (aspect ? 1.1 : 0.45)));
       kick();
       clearTimeout(idle);
       idle = setTimeout(() => go(target), 140);
@@ -296,7 +359,7 @@
       const dx = (e.clientX - drag.x) / drag.z; // pointer px are zoomed on big screens
       if (!drag.moved && Math.abs(dx) > 4) { drag.moved = true; stage.setPointerCapture(drag.id); el.classList.add('dragging'); }
       if (!drag.moved) return;
-      target = clamp(drag.start - dx / (size() * 0.45));
+      target = clamp(drag.start - dx / (size() * (aspect ? 1.1 : 0.45)));
       kick();
     });
     const end = e => {
@@ -349,13 +412,14 @@
         sizeThumb();
         build();
         if (pos !== target) kick(); else setBg();
+        restartAuto();
       } else {
         target = clamp(at);
         showCaption();   // the same items, but what the buttons say may differ (play/pause)
         kick();
       }
     }
-    return { el, set, go, render, refreshCaption: showCaption };
+    return { el, set, go, step: dir => go(target + dir), render, refreshCaption: showCaption };
   }
   window.klabCoverFlow = makeCoverFlow;
 

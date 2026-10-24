@@ -1010,7 +1010,6 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════════
 loadSettings();
 applySettings();
-syncMotdToggle();
 initTabs();
 // ── Album view ──────────────────────────────────────────
 // backFn is accepted for call-site compatibility but unused — the panel

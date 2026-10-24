@@ -164,6 +164,14 @@ function initTabs() {
   });
   setActiveTab(location.hash.slice(1) || 'home');
 }
+// initTabs() runs from js/09-music-extras.js: if anything before it threw
+// while starting up, no page was ever shown, and klabnet sat empty until a
+// tab was pressed. Once everything has loaded, make sure one is.
+window.addEventListener('load', () => {
+  if (document.querySelector('.tab-panel.active')) return;
+  console.warn('klabnet: no page was shown at start; showing one now');
+  try { setActiveTab(location.hash.slice(1) || 'home'); } catch (e) { console.error(e); }
+}, { once: true });
 
 function openSettings() {
   // Sync UI to current settings
@@ -222,23 +230,6 @@ document.getElementById('desktopNotifToggle')?.addEventListener('click', async e
   if (perm === 'granted') showToast("You'll get desktop notifications for DMs, mentions and replies", 'ti-bell');
 }, true);
 
-// The shell button: the desktop app's typed MOTD, on or off. Off, it
-// backspaces itself away; on again, it types the current one back in.
-function syncMotdToggle() {
-  const b = document.getElementById('motdToggle');
-  if (!b) return;
-  const on = _settings.motdTyping !== false;
-  b.classList.toggle('active', !on);
-  b.setAttribute('aria-pressed', on);
-  b.title = on ? 'Stop typing the MOTD' : 'Type the MOTD';
-}
-document.getElementById('motdToggle')?.addEventListener('click', () => {
-  _settings.motdTyping = _settings.motdTyping === false;
-  saveSettings();
-  syncMotdToggle();
-  typePromptMotd(_motdCurrent);
-  SFX && SFX.play('click');
-});
 
 // Away status: the desktop app knows when the computer's in use; Chrome
 // can too, once the site's allowed to (Idle Detection). Other browsers
@@ -641,7 +632,7 @@ window.klabSideNav = (function() {
     const bar = sideOn && !root.classList.contains('klabnet-app');
     if (bar !== root.classList.contains('web-bar')) {
       root.classList.toggle('web-bar', bar);
-      if (typeof _motdCurrent === 'string') { typePromptMotd(bar ? _motdCurrent : ''); fitMotdText(_motdCurrent); }
+      if (typeof _motdCurrent === 'string') fitMotdText(_motdCurrent);
     }
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
@@ -652,7 +643,7 @@ window.klabSideNav = (function() {
       const el = document.getElementById(id);
       if (!el) return;
       if (sideOn && el.parentElement !== foot) foot.prepend(el);
-      if (!sideOn && el.parentElement !== headerSlot) headerSlot.insertBefore(el, document.getElementById('motdToggle'));
+      if (!sideOn && el.parentElement !== headerSlot) headerSlot.insertBefore(el, document.getElementById('themeToggle'));
       el.classList.toggle('side-nav-item', sideOn);
       el.classList.toggle('hdr-btn', !sideOn);
     });

@@ -20,7 +20,7 @@
 // asset request misses and goes to the network — even if their index.html
 // is itself still cached and still asking for the old URLs.
 // Bump this whenever a deploy MUST reach people who are already running.
-const CACHE = 'klabnet-static-v57';
+const CACHE = 'klabnet-static-v58';
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
@@ -45,6 +45,19 @@ self.addEventListener('message', event => {
   }
 });
 
+const checked = new Set();
+async function recheck(cache, request, hit, clientId) {
+  try {
+    const res = await fetch(request, { cache: 'no-cache' });
+    if (!res.ok || res.type !== 'basic') return;
+    const [was, now] = await Promise.all([hit.text(), res.clone().text()]);
+    if (was === now) return;
+    await cache.put(request, res);
+    const client = clientId && await self.clients.get(clientId);
+    client?.postMessage({ klabAssetStale: new URL(request.url).searchParams.get('v') });
+  } catch (e) {}
+}
+
 function isCacheable(url, request) {
   if (request.method !== 'GET') return false;
   // The document itself — see the header comment.
@@ -61,14 +74,24 @@ self.addEventListener('fetch', event => {
   if (!isCacheable(url, event.request)) return; // straight to the network
 
   // A ?v=<KLABNET_VERSION> URL never changes: served from the cache
-  // without asking the network, and when a deploy brings a new one, the
-  // old versions of that file are dropped (they used to pile up, a
+  // without waiting on the network, and when a deploy brings a new one,
+  // the old versions of that file are dropped (they used to pile up, a
   // megabyte and more per deploy, forever).
+  // "Never changes" has one hole: a page loaded mid-deploy, its new
+  // index.html asking for ?v=NEW before the new file is there, gets the
+  // old file under the new name. Kept forever, that was Feed broken on
+  // every load until Ctrl+Shift+R (which skips this worker), and broken
+  // again on the next plain one. So each one is checked against the
+  // server once in the background, the first time this worker serves it;
+  // a wrong copy is replaced and the page told to reload.
   if (url.searchParams.has('v')) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(event.request);
-      if (hit) return hit;
+      if (hit) {
+        if (!checked.has(url.href)) { checked.add(url.href); event.waitUntil(recheck(cache, event.request, hit.clone(), event.clientId)); }
+        return hit;
+      }
       const res = await fetch(event.request);
       if (res && res.ok && res.type === 'basic') {
         event.waitUntil((async () => {

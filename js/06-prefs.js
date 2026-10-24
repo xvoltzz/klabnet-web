@@ -450,7 +450,6 @@ let _settings = {
   loginSong:     true,
   desktopNotif:  false,   // per device; turning it on asks the browser
   awayStatus:    true,    // per device: tell others when you've stepped away (js/11-presence.js)
-  motdTyping:    true,    // the desktop app types the MOTD after the prompt (js/01-shell.js)
 };
 
 function loadSettings() {
@@ -498,6 +497,9 @@ function klabDesktopNotify({ title, body, icon, tag, onClick }) {
 }
 window.klabDesktopNotify = klabDesktopNotify;
 navigator.serviceWorker?.addEventListener('message', e => {
+  // sw.js found it had given this page an out-of-date copy of a file
+  // (fetched mid-deploy) and has the right one now: load again, once.
+  if (e.data?.klabAssetStale) { if (!reloadStalePage('asset:' + e.data.klabAssetStale)) showUpdateBanner(); return; }
   const tag = e.data?.klabNotifClick;
   if (tag && _notifClicks.has(tag)) { _notifClicks.get(tag)(); _notifClicks.delete(tag); }
 });

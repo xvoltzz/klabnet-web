@@ -56,8 +56,11 @@
   function paintChanges() {
     const el = $('hpChanges');
     if (!commits) {
+      // Only a 502 from klabnet-api is Gitea itself not answering; the
+      // rest is klabnet-api (or the way to it), so it says that instead.
       el.innerHTML = '<p class="hp-note">' + (failed === 404 ? 'What’s new needs the latest klabnet-api.'
-        : failed ? 'Couldn’t reach the git server just now.' : 'Loading…') + '</p>';
+        : failed === 502 ? 'Couldn’t reach the git server just now.'
+        : failed ? 'Couldn’t load what’s new just now.' : 'Loading…') + '</p>';
       return;
     }
     if (!commits.length) { el.innerHTML = '<p class="hp-note">Nothing yet.</p>'; return; }
@@ -85,12 +88,16 @@
     if (Date.now() - loadedAt < REFRESH_MS && commits) return;
     try {
       const r = await fetchTimeout('/api/changes', {}, 12000);
-      if (r.status === 404) throw new Error('no endpoint');
+      // An older klabnet-api has no /api/changes: a 404, or, past a proxy
+      // that answers unknown paths with the page itself, HTML.
+      const json = /json/.test(r.headers.get('content-type') || '');
+      if (r.status === 404 || (r.ok && !json)) throw new Error('no endpoint');
+      if (r.status === 502 && json && (await r.json().catch(() => ({}))).error === 'git unreachable') throw new Error('git');
       if (!r.ok) throw new Error('status ' + r.status);
       commits = (await r.json()).commits || [];
       failed = false;
       loadedAt = Date.now();
-    } catch (e) { failed = e.message === 'no endpoint' ? 404 : true; }
+    } catch (e) { failed = e.message === 'no endpoint' ? 404 : e.message === 'git' ? 502 : true; }
     paintChanges();
     paintFoot();
   }

@@ -23,7 +23,6 @@ function typeNext() {
   } else {
     cursorEl.classList.add('visible');
     if (document.body.classList.contains('tab-chat-active')) promptEl.textContent = CHAT_PROMPT_TEXT;
-    setTimeout(() => typePromptMotd(_motdCurrent), 700);
   }
 }
 setTimeout(typeNext, 400);
@@ -55,9 +54,10 @@ function retypePrompt(target) {
   step();
 }
 
-// The desktop app's header, and the browser's bar like it, have no room
-// for the splash, so the prompt types it instead, after the cursor: "klabnet>_ go touch grass". A new MOTD
-// backspaces the old one and types itself in, like someone at a keyboard:
+// The MOTD is an easter egg now: press klabnet's mark or its prompt and
+// the prompt types one after the cursor ("klabnet>_ go touch grass"),
+// leaves it a few seconds and backspaces it away; press again for another.
+// It types like someone at a keyboard:
 // now and then a finger lands on the next key over, gets a letter or two
 // further, stops, backspaces and fixes it (sometimes fumbling it again),
 // and once in a while the period key gets held down at the end.
@@ -102,21 +102,16 @@ function motdKeystrokes(cur, target) {
   }
   return keys;
 }
-function typePromptMotd(text) {
+function typePromptMotd(text, done) {
   if (!promptMotdEl) return;
-  // The apps' title bar, and the browser's bar like it (js/07-tabnav.js).
-  const root = document.documentElement;
-  if (!root.classList.contains('klabnet-app') && !root.classList.contains('web-bar')) { promptMotdEl.textContent = ''; return; }
   clearTimeout(_promptMotdTimer);
-  // _settings (js/06-prefs.js) isn't there yet while this file first runs.
-  const on = typeof _settings === 'undefined' || _settings.motdTyping !== false;
-  const target = text && on ? ' ' + text : '';
-  if (!(window.klabMotionOk?.() ?? true)) { promptMotdEl.textContent = target; return; }
+  const target = text ? ' ' + text : '';
+  if (!(window.klabMotionOk?.() ?? true)) { promptMotdEl.textContent = target; done?.(); return; }
   const keys = motdKeystrokes(promptMotdEl.textContent, target);
   let i = 0;
   const step = () => {
     const k = keys[i++];
-    if (!k) return;
+    if (!k) { done?.(); return; }
     promptMotdEl.textContent = k.key === null ? promptMotdEl.textContent.slice(0, -1) : promptMotdEl.textContent + k.key;
     _promptMotdTimer = setTimeout(step, k.wait);
   };
@@ -208,7 +203,6 @@ function rerollMotd(auto) {
   if (!motdEl) return;
   _motdCurrent = pickMotd();
   if (!auto) SFX && SFX.play('star');
-  typePromptMotd(_motdCurrent);
 
   // No flip where there's no animation to end it (reduced motion,
   // performance mode, or the splash isn't shown at all: the app, a phone).
@@ -242,16 +236,24 @@ if (motdRefreshBtn) {
   motdRefreshBtn.addEventListener('click', () => rerollMotd(false));
 }
 
-// Cycle to a new splash every so often so a long session gets to see more
-// than one — timing is deliberately a little irregular, not a metronome.
-function scheduleMotdCycle() {
-  const delay = 45000 + Math.random() * 30000; // 45–75s
-  setTimeout(() => {
-    if (!document.hidden) rerollMotd(true); // nobody's looking
-    scheduleMotdCycle();
-  }, delay);
+// The easter egg: a new one each press, typed, held for a read (longer
+// for a longer one) and backspaced away. While it's up the prompt may
+// run past the sidebar's column (html.motd-egg).
+let _motdEggTimer = 0;
+function motdEgg() {
+  const root = document.documentElement;
+  _motdCurrent = pickMotd();
+  clearTimeout(_motdEggTimer);
+  root.classList.add('motd-egg');
+  typePromptMotd(_motdCurrent, () => {
+    _motdEggTimer = setTimeout(() => typePromptMotd('', () => root.classList.remove('motd-egg')), 3500 + _motdCurrent.length * 70);
+  });
 }
-scheduleMotdCycle();
+document.querySelectorAll('.header-left .logo, .header-left .terminal-prompt').forEach(el => {
+  el.addEventListener('click', motdEgg);
+  el.classList.add('motd-egg-btn');
+});
+
 
 // ══════════════════════════════════════════
 //  THEME

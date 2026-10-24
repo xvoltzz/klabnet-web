@@ -569,6 +569,23 @@ function roomPreview(room, ev, isDm) {
   return who + body;
 }
 
+// Messages shows the latest three conversations (the CSS hides the rest,
+// except an open one); this row shows the others, and folds them again.
+const DM_SHOWN = 3;
+function syncDmMore() {
+  const list = document.getElementById('chatDmList'), btn = document.getElementById('chatDmMore');
+  if (!list || !btn) return;
+  const more = list.querySelectorAll(':scope > .chat-conv').length - DM_SHOWN;
+  const open = list.classList.contains('open');
+  btn.hidden = more <= 0;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.querySelector('span').textContent = open ? 'Show less' : `Show ${more} more`;
+}
+document.getElementById('chatDmMore')?.addEventListener('click', () => {
+  document.getElementById('chatDmList')?.classList.toggle('open');
+  syncDmMore();
+});
+
 // Sidebar search: filters conversations, and finds anyone on the site to
 // message (the people you haven't talked to yet aren't listed otherwise).
 function applyChatSearch() {
@@ -783,6 +800,7 @@ function renderChannelList() {
       sync(dmList, dmRooms, 'ti-user');
       const lbl = document.getElementById('chatDmLbl');
       if (lbl) lbl.hidden = !dmRooms.length;
+      syncDmMore();
     }
     applyChatSearch();
   }

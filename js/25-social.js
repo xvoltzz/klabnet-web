@@ -65,9 +65,31 @@
         { label: 'Slideshow', run: () => { setActiveTab('photos'); window.klabSlideshow?.open(); } },
       ],
       open: it => window.klabOpenPhoto?.(it.post.id, it.ph.id),
+      // Photos, not covers: each whole at its own shape, big enough to see,
+      // and on to the next every few seconds.
+      aspect: it => it.ph.w && it.ph.h ? it.ph.w / it.ph.h : 1.5,
+      coverSize: el => matchMedia(KLAB_PHONE_MQ).matches ? 200 : Math.round(Math.max(260, Math.min(460, el.clientWidth * 0.34))),
+      autoplay: 5000,
     });
     if (!f) return null;
     f.el.classList.add('soc-flow');
+    // ←/→ go through them while Social's home is showing (they'd skip the
+    // song anywhere else); capture on window so they win, as in Photos.
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (!active || f.el.hidden || !f.el.offsetParent || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (window.klabAwaitingG?.()) return;
+      // Only when the focus is nowhere in particular (or on this page, or a
+      // tab you just pressed): a slider, a text box and the like keep
+      // their arrows.
+      const a = document.activeElement;
+      if (a && a !== document.body && !f.el.contains(a) && !a.closest?.('#socHome, #socNav, .tab-nav')) return;
+      if (a?.closest?.('input, textarea, select, [contenteditable="true"], .slider-wrap')) return;
+      if (document.body.classList.contains('feed-composer-open') ||
+          document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .ctx-menu.visible, .fs-player.open, .ss.open')) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      f.step(e.key === 'ArrowRight' ? 1 : -1);
+    }, true);
     async function load() {
       if (Date.now() - loadedAt < REFRESH_MS) { f.render(); return; }
       try {

@@ -1391,7 +1391,13 @@ document.getElementById('fsGrabber')?.addEventListener('click', () => closeFS())
   fs.addEventListener('pointercancel', end);
 })();
 document.getElementById('btnFS').addEventListener('click', () => openFS());
-document.getElementById('playerArtWrap').addEventListener('click', () => openFS());
+// The cover goes to its album (the full player is the button beside the
+// volume); on a phone, where the dock is a mini player, it opens that.
+document.getElementById('playerArtWrap').addEventListener('click', () => {
+  const song = playerState.currentSong;
+  if (matchMedia(KLAB_PHONE_MQ).matches || !song?.albumId) { openFS(); return; }
+  goToMusicDetail(() => loadAlbumView(song.albumId, song.album, () => loadPickerTab('albums')));
+});
 // Phone layout: the dock is a mini player, and tapping its title opens the
 // full player too, the way a music app's mini player does.
 document.querySelector('#playerDock .player-info')?.addEventListener('click', () => {

@@ -762,11 +762,12 @@
       opacity: 0;
     }
 
-    /* The MOTD typed after the prompt, in the apps' title bar and the
-       browser's bar (typePromptMotd), and its switch in the header. */
-    .prompt-motd { display: none; }
-    html:not(.klabnet-app):not(.web-bar) #motdToggle { display: none; }
-    :is(html.klabnet-app, html.web-bar) .prompt-motd {
+    /* The MOTD, an easter egg: typed after the prompt when klabnet's mark
+       or prompt is pressed (motdEgg in js/01-shell.js). The old splash
+       under the prompt is gone. */
+    .motd { display: none !important; }
+    .motd-egg-btn { cursor: pointer; -webkit-app-region: no-drag; }
+    .prompt-motd {
       display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
       white-space: pre; vertical-align: middle; line-height: 1.2;
       font: 500 0.82rem 'JetBrains Mono', monospace; letter-spacing: 0; color: var(--text-dimmer);
@@ -4542,6 +4543,9 @@
       padding: 14px 4px 8px;
     }
     #musicShell .picker-list > .picker-section-label:first-child { padding-top: 0; }
+    /* Home's first label (inside its section) sits right under the head,
+       where Social's and Photos' first thing does. */
+    #musicShell .picker-list.mh-home > :first-child > .picker-section-label:first-child { padding-top: 0; margin-top: 0; }
 
     /* Song rows: art, title, artist, length; actions only on hover. */
     #musicShell .picker-list .picker-item, #musicShell .ap-track {
@@ -5279,6 +5283,20 @@
     .chat-side-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 8px; }
     .chat-side-scroll.searching > .chat-lbl:first-child, .chat-side-scroll.searching > #presenceList { display: none; }
     .chat-lbl.search-empty { display: none; }
+    /* Messages: the latest three, then a row for the rest (js/08-chat.js
+       syncDmMore). Searching shows every match, and the open conversation
+       always stays in view. */
+    .chat-side-scroll:not(.searching) #chatDmList:not(.open) > .chat-conv:nth-child(n+4):not(.active) { display: none; }
+    .chat-more {
+      display: flex; align-items: center; gap: 12px; width: 100%; height: 34px; padding: 0 12px; box-sizing: border-box;
+      border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer;
+      font: 500 var(--fs-13) var(--font-ui); color: var(--text-dimmer); text-align: left;
+      transition: background-color .15s, color .15s;
+    }
+    .chat-more:hover { background: var(--glass-fill); color: var(--text-dim); }
+    .chat-more i { font-size: 16px; width: 20px; text-align: center; transition: transform var(--m-med, .2s) ease; }
+    .chat-more[aria-expanded="true"] i { transform: rotate(180deg); }
+    .chat-more[hidden], .chat-side-scroll.searching .chat-more { display: none; }
     .chat-lbl { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); padding: 16px 10px 5px; }
     .chat-lbl[hidden] { display: none; }
     .chat-lbl-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
@@ -7073,7 +7091,7 @@
       .ph-sidebar .ph-likers { padding: 0; }
 
       /* ── The main column: Music's title, then one panel ── */
-      .ph-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 0; flex: none; }
+      .ph-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 2px; flex: none; } /* + the shell's 12px gap: 14px, as under every page's title */
       .ph-view-head h2 { margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text); white-space: nowrap; }
       .ph-view-head > span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
       .ph-panel {
@@ -7108,17 +7126,19 @@
       padding: 4px; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
     }
     .ph-now:has(.ph-song.none), .ph-shell.is-empty .ph-now { display: none; }
-    .ph-sidebar .ph-now .ph-song {
+    .ph-now .ph-song {
       flex: 1; min-width: 0; margin: 0; padding: 4px 8px 4px 4px; border: 0; border-radius: 8px; background: none;
     }
-    .ph-sidebar .ph-now .ph-song:hover { background: var(--glass-fill-h); }
-    .ph-sidebar .ph-now .ph-song-art { width: 40px; height: 40px; }
-    .ph-sidebar .ph-now #phSoundBtn {
+    .ph-now .ph-song:hover { background: var(--glass-fill-h); }
+    .ph-now .ph-song-art { width: 40px; height: 40px; }
+    .ph-now #phSoundBtn {
       flex: none; width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 8px; color: var(--text-dim);
+      border: 1px solid transparent; background: none; box-shadow: none; transition: background-color .15s, color .15s;
     }
-    .ph-sidebar .ph-now #phSoundBtn i { width: auto; }
-    .ph-sidebar .ph-now #phSoundBtn span, .ph-sidebar .ph-now #phSoundBtn .s-toggle { display: none; }
-    .ph-sidebar .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }
+    .ph-now #phSoundBtn:hover { background: var(--glass-fill-h); color: var(--text); }
+    .ph-now #phSoundBtn i { width: auto; }
+    .ph-now #phSoundBtn span, .ph-now #phSoundBtn .s-toggle { display: none; }
+    .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }
 
 
     /* ══ @MENTION SUGGESTIONS (js/20-mentions.js) ══
@@ -8020,10 +8040,9 @@
       /* Beside the full sidebar: a column to the top of the window, and
          klabnet's name keeps to the sidebar's. */
       html.klabnet-app[data-desktop="linux"][data-nav="side"] body::before { top: 0; border-top-width: 0; border-top-left-radius: 0; }
-      html.app-titlebar[data-desktop="linux"][data-nav="side"] .header-left {
+      html.app-titlebar[data-desktop="linux"][data-nav="side"]:not(.motd-egg) .header-left {
         max-width: calc(var(--nav-w) - 22px); overflow: hidden;
       }
-      html.app-titlebar[data-desktop="linux"][data-nav="side"] #promptMotd { display: none; }
     }
 
     /* ── The title bar ──
@@ -8495,12 +8514,17 @@
     .tab-panel[data-tab-panel="feed"] { max-width: none; margin: 0; }
     /* A reading column, centred in the room beside the sidebar. */
     .tab-panel[data-tab-panel="feed"] > .sec { max-width: 900px; margin: 0 auto; }
+    /* Its title where every other page in Social and Music has its own:
+       the same 2px down and 14px of room under it (the mentions button
+       sits in that line rather than pushing it lower). */
+    .soc-main > .tab-panel[data-tab-panel="feed"] .sec-head { margin: 0; padding: 2px 4px 14px; min-height: 0; }
+    .soc-main > .tab-panel[data-tab-panel="feed"] .sec-head .feed-mentions-btn { margin: -1px 0; }
 
     /* ── The sidebar: Music's ── */
     .soc-sidebar { width: 250px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
     .soc-side-scroll {
       flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
-      display: flex; flex-direction: column; gap: 18px; padding-top: 6px;
+      display: flex; flex-direction: column; gap: 18px; padding-top: 4px;
     }
     .soc-side-scroll::-webkit-scrollbar { display: none; }
     #socShell .music-sidebar-label {
@@ -8648,12 +8672,23 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     #socShell .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
-    .soc-home-body { display: flex; flex-direction: column; gap: 6px; }
-    .soc-home-body > .picker-section-label { margin: 14px 4px 8px; }
-    .soc-home-body > .picker-section-label:first-child { margin-top: 0; }
-    /* Photos aren't square: the flow shows them whole, on a soft square. */
-    .soc-flow .mh-cover { background: var(--glass-fill); }
-    .soc-flow .mh-cover img { object-fit: cover; }
+    .soc-home-body { display: flex; flex-direction: column; }
+    /* Music Home's labels exactly (#musicShell .picker-section-label): the
+       same type, 4px in from the boxes' edge, the same room above and below. */
+    .soc-home-body > .picker-section-label, .hp-sec > .picker-section-label {
+      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; color: var(--text-dimmer);
+      padding: 14px 4px 8px; margin: 0.5rem 0 0;
+    }
+    .soc-home-body > .picker-section-label:first-child, .hp-sec > .picker-section-label { padding-top: 0; margin-top: 0; }
+    /* Music's sections are 6px apart besides; here the labels carry it. */
+    .soc-home-body > .picker-section-label:not(:first-child) { margin-top: calc(0.5rem + 6px); }
+    .soc-home-body > .mh-flow { margin-top: 0; }
+    /* Photos: each at its own shape (js sets the width), corners a touch
+       rounder, the blurred backdrop a little stronger. */
+    .mh-flow-photos .mh-cover img { object-fit: cover; border-radius: 6px; background: var(--glass-fill); }
+    .mh-flow-photos .mh-cover::after, .mh-flow-photos .mh-cover .mh-refl { border-radius: 6px; }
+    .mh-flow-photos .mh-flow-stage { perspective: calc(var(--mh-size, 230px) * 6); }
+    .mh-flow-photos .mh-flow-bg.on { opacity: .5; }
     .soc-flow .mh-flow-caption .k { display: none; }
     /* Latest posts: cards in a row you can flick along, like Music's. */
     .soc-post {
@@ -8843,7 +8878,6 @@
     .hp-head { text-align: center; margin-bottom: 44px; }
     .hp-title { margin: 0 0 10px; font: 400 clamp(40px, 6vw, 60px)/1.05 var(--hp-serif); letter-spacing: -0.01em; color: var(--text); }
     .hp-sub { margin: 0; font-size: var(--fs-14); color: var(--text-dimmer); }
-    .hp-sec > .picker-section-label { margin: 0 4px 8px; }
     .hp-log { border: 1px solid var(--glass-border); border-radius: 10px; background: var(--glass-fill); padding: 6px; }
     .hp-note { margin: 10px 12px; font-size: var(--fs-13); color: var(--text-dimmer); }
     .hp-day { margin: 14px 12px 4px; font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
@@ -8903,3 +8937,88 @@
     html.win-idle :is(.prompt-cursor.visible, .eq-ico b, .chat-head-eq i, .mh-eq i),
     html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
 
+
+    /* ══ THE PLAYER BAR, refreshed (2026-10-24) ══
+       Music's language: plain type on a quiet glass surface, one white
+       primary control, the rest quiet icons that light up when you reach
+       for them. A little slimmer than it was (60px), every detail kept.
+       The cover goes to its album (js/02-player.js); the full player is
+       the button at the end. The surface (glass, blur) stays each
+       platform's own, set above. Desktop only: a phone's dock is its
+       mini player. */
+    @media (min-width: 761px), (pointer: fine) {
+      .player-dock {
+        --dock-hgt: 60px;
+        height: var(--dock-hgt); box-sizing: border-box;
+        padding: 8px 14px 8px 8px; gap: 14px; border-radius: 14px;
+      }
+      .player-dock .player-art, .player-dock .player-art-placeholder {
+        width: 44px; height: 44px; border-radius: 8px; border: none;
+        box-shadow: 0 4px 14px var(--shadow-30);
+      }
+      .player-dock .player-art-placeholder { background: var(--glass-fill-h); }
+      .player-dock .art-tilt-wrap { transition: transform .15s ease; }
+      .player-dock .art-tilt-wrap:hover { transform: scale(1.04); }
+      .player-dock .player-info { max-width: 320px; }
+      .player-dock .player-title { font-size: var(--fs-13); font-weight: 600; letter-spacing: 0; line-height: 1.3; }
+      .player-dock .player-title .player-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+      .player-dock .player-artist,
+      .player-dock .player-artist .player-link,
+      [data-theme="light"] .player-dock .player-artist,
+      [data-theme="light"] .player-dock .player-artist .player-link {
+        font-size: var(--fs-12); letter-spacing: 0; line-height: 1.3; margin-top: 1px; color: var(--text-dim);
+      }
+      .player-dock .player-artist .player-link:hover,
+      [data-theme="light"] .player-dock .player-artist .player-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+      .player-dock .player-artist .player-album-sep { opacity: 1; color: var(--text-faint); margin: 0 .45em; }
+      .player-dock .player-artist .player-album { color: var(--text-dimmer); }
+      .player-dock .player-idle { font: 500 var(--fs-12) 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0; text-transform: none; color: var(--text-dimmer); }
+
+      /* Controls: quiet icons; Play the one white button. */
+      .player-dock .player-controls { gap: 2px; }
+      .player-dock .ctrl-btn {
+        width: 32px; height: 32px; border-radius: 8px; font-size: 17px;
+        color: var(--text-dim); border-color: transparent; background: none;
+      }
+      .player-dock .ctrl-btn:hover { color: var(--text); background: var(--glass-fill-h); border-color: transparent; }
+      .player-dock .dock-extra { opacity: 1; font-size: 16px; color: var(--text-dimmer); }
+      .player-dock .dock-extra:hover { color: var(--text); }
+      .player-dock .ctrl-btn.play-btn,
+      .player-dock .ctrl-btn.play-btn:hover {
+        width: 36px; height: 36px; margin: 0 4px; border-radius: 50%; font-size: 17px;
+        background: var(--text); color: var(--bg); border: none;
+        box-shadow: 0 4px 14px var(--shadow-30);
+      }
+      .player-dock .ctrl-btn.play-btn:hover { transform: scale(1.06); }
+      .player-dock .ctrl-btn.play-btn:active { transform: scale(.94); }
+
+      /* Time and the seek bar: thin, white, the dot only when you reach for it. */
+      .player-dock .player-time { font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; padding: 0 2px; }
+      .player-dock .player-progress .slider-track,
+      .player-dock .vol-slider .slider-track { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 16%, transparent); }
+      .player-dock .player-progress .slider-fill,
+      .player-dock .vol-slider .slider-fill { height: 4px; border-radius: 2px; background: var(--text); opacity: .85; }
+      .player-dock .slider-wrap:hover .slider-fill { opacity: 1; }
+      .player-dock .slider-dot { width: 12px; height: 12px; background: var(--text); box-shadow: 0 1px 6px var(--shadow-30); }
+      .player-dock .player-vol { gap: 2px; }
+      .player-dock .player-vol i { font-size: 17px; color: inherit; }
+      .player-dock .vol-slider { width: 80px; }
+
+      /* ── The page runs all the way down, under the bar ──
+         Music's and Social's pages used to stop above it (a 7rem floor on
+         the whole page). Now their scrolling parts reach the window's foot
+         and keep that room inside, at the end of what scrolls, so the last
+         thing can still come up clear of the bar while everything else
+         slides under its glass. Chat keeps its floor: its composer has to
+         stay above the bar. */
+      body { --dock-room: 1.75rem; }
+      body:not(.player-hidden) { --dock-room: calc(60px + 1.1rem + 16px); }
+      body.tab-music-active .dash,
+      body.tab-music-active.player-hidden .dash,
+      body.tab-social-group:not(.tab-photos-active):not(.tab-chat-active) .dash,
+      body.tab-social-group.player-hidden:not(.tab-photos-active):not(.tab-chat-active) .dash { padding-bottom: 0; }
+      body.tab-music-active :is(#pickerList, .ap-scroll, .music-sidebar),
+      body.tab-social-group:not(.tab-photos-active):not(.tab-chat-active) :is(.soc-main > .tab-panel.active, .soc-side-scroll) {
+        padding-bottom: var(--dock-room);
+      }
+    }
