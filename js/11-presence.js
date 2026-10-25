@@ -956,6 +956,12 @@
           artist:   song?.artist || '',
           songId:   song?.id     ?? '', // nullish, not ||  — a falsy-but-real id like 0 must survive
           playing:  !!song && playerState.playing,
+          // Where it's got to, for Music's Activity page (its bar runs on
+          // from this), and what it's on, so a play keeps its cover.
+          position:  song && isFinite(playerState.audio.currentTime) ? Math.round(playerState.audio.currentTime * 10) / 10 : null,
+          duration:  song && isFinite(playerState.audio.duration) ? Math.round(playerState.audio.duration) : (song?.duration || null),
+          album:     song?.album || '',
+          coverArt:  song?.coverArt || '',
           partyHost: _partyHostLabel || '',
           platform:  PLATFORM,
           // Which of your devices this is, and whether it's only showing
@@ -1133,5 +1139,8 @@
   });
   playerState.audio.addEventListener('play',  postPresence);
   playerState.audio.addEventListener('pause', postPresence);
+  // A jump in the song: Activity's bar for it moves now, not at the next beat.
+  let _seekBeat = 0;
+  playerState.audio.addEventListener('seeked', () => { clearTimeout(_seekBeat); _seekBeat = setTimeout(postPresence, 400); });
 })();
 

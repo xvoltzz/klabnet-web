@@ -85,6 +85,7 @@ function setActiveTab(key) {
   // size while hidden). Nothing is fetched here: the tab loads in the background.
   if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
+  if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
   // The header prompt backspaces into klab.chat on this tab and back out
   // of it on the others (see retypePrompt()).
   if (typeof retypePrompt === 'function') retypePrompt(key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT);

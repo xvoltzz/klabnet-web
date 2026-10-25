@@ -769,7 +769,7 @@ async function fetchRandomSongs() {
 
 // Sections something can ask for; anything else (an old link, a stale
 // saved state) opens Home, not an empty list.
-const PICKER_TABS = new Set(['random', 'recent', 'search', 'songs', 'albums', 'artists', 'genres', 'favorites', 'queue', 'playlists', 'requests']);
+const PICKER_TABS = new Set(['random', 'recent', 'search', 'songs', 'albums', 'artists', 'genres', 'favorites', 'queue', 'playlists', 'requests', 'activity']);
 
 async function loadPickerTab(tab) {
   if (!PICKER_TABS.has(tab)) { console.warn('[music] unknown section', tab); tab = 'random'; }

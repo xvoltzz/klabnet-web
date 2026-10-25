@@ -116,6 +116,14 @@ The owner wanted the social parts in one tab, laid out like Music, with a quiet 
 - **The header's sidebar button** hides Social's sidebar as one (`pane-off-social`); the old `pane-off-chat`/`-photos` are gone.
 - **Not done yet:** recent chat on Social's home, and a phone run on a real device.
 
+
+## Music's Activity page
+
+The owner asked for it to make up for the presence cards being gone: "last thing each person listened to and where they're at live if they're listening... total listen time, basic stats. favorite artist".
+- **Where:** Music's sidebar, under Home (`data-tab="activity"`), js/27-activity.js with its own `loadPickerTab` wrapper (the outermost one, so it does what the layers under it would on the way to a view they don't own: `klabBrowse.leave()`, the songs observer, the sort button). The CSS block "Music's Activity page" is at the end of css/app.css.
+- **Data:** klabnet-api's `GET /api/music-requests/activity?tz=` (app/routers/listens.py). Plays are counted server-side from presence's beats, only the beat of the device someone's card shows, into the `listens` table; plays under 30s aren't counted. The beat sends `position`, `duration`, `album` and `coverArt` for it (`postPresence` in js/11-presence.js, plus a beat after `seeked`). Counting starts when that API is deployed, so the numbers start at zero. Under `/api/music-requests/` because Caddy only forwards known prefixes. An API without it answers 405, which reads as "Activity needs the latest klabnet-api".
+- **Live:** polled every 10s while showing (stops off the view or off Music, via `klabMusicTabChanged` in js/07-tabnav.js). The bars of what's playing tick every second from the last poll (`posNow`) without redrawing the page.
+- **Look:** one colour (the accent), no blur and no looping animation; the running progress bar is the motion. Each person's last seven days are a small bar chart with a hover label per day.
 ## Browsing albums and songs (built 2026-10-24)
 js/26-browse.js, asked for as "an alphabetical scrollbar thingy… make the animation for the scroll gorgeous" plus better filters.
 - **The bar** (`#browseBar`, under the view title on Albums and Songs): a find box (title, artist, album; accents ignored), Sort, Decade, Genre (only if anything has one), Type for albums (7+ tracks or fewer), and Favorites / Lossless / Never played toggles. Filters last the session, not saved. The sidebar's sort button stays for the other views. Leaving for any other view (`loadPickerTab` wrapper at the end of the file) takes the bar and the rail away.
