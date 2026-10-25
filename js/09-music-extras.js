@@ -956,7 +956,7 @@ async function loadAlbumView(albumId, albumName, backFn) {
 // ══════════════════════════════════════════
 const MUSIC_VIEW_TITLES = {
   recent: 'Recently played', songs: 'Songs', albums: 'Albums', artists: 'Artists', genres: 'Genres',
-  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', playlists: 'Playlists', activity: 'Activity',
+  favorites: 'Favorites', queue: 'Queue', requests: 'Requests', search: 'Search', playlists: 'Playlists', activity: 'Activity', radio: 'Radio',
 };
 function musicGreeting() {
   const h = new Date().getHours();

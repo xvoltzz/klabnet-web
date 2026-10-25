@@ -2,8 +2,8 @@
 //  HOME — a plain landing page: "hi :)".
 //    · The greeting, today's date and how many are online.
 //    · Changelog: the newest commits to klabnet (klabnet-api's
-//      /api/changes asks Gitea for them), a day at a time, each one opening
-//      to its whole message.
+//      /api/changes asks Gitea for them), a day at a time, each one open to
+//      its whole message (and closable).
 //    · The version and a link to the source at the foot.
 //  It only fetches while Home is showing. Dates are Eastern, where
 //  everyone is.
@@ -64,7 +64,8 @@
       return;
     }
     if (!commits.length) { el.innerHTML = '<p class="hp-note">Nothing yet.</p>'; return; }
-    const open = new Set([...el.querySelectorAll('details[open]')].map(d => d.dataset.sha));
+    // Open by default (the explanations are the point); ones closed stay closed.
+    const shut = new Set([...el.querySelectorAll('details:not([open])')].map(d => d.dataset.sha));
     let html = '', day = '';
     commits.forEach(c => {
       const t = when(c.date), k = dayKey.format(t);
@@ -78,7 +79,7 @@
         '<span class="hp-time">' + esc(timeFmt.format(t)) + '</span></span>';
       const what = '<span class="hp-glyph"><i class="ti ' + glyph(c) + '"></i></span><span class="hp-what">' + esc(c.title) + '</span>';
       html += '<li>' + (c.body
-        ? '<details data-sha="' + esc(c.sha) + '"' + (open.has(c.sha) ? ' open' : '') + '><summary>' + what + meta + '</summary>' +
+        ? '<details data-sha="' + esc(c.sha) + '"' + (shut.has(c.sha) ? '' : ' open') + '><summary>' + what + meta + '</summary>' +
           '<p class="hp-body">' + esc(c.body) + '</p></details>'
         : '<div class="hp-line">' + what + meta + '</div>') + '</li>';
     });
