@@ -9668,3 +9668,43 @@
       .rd-hint { display: none; }
       .radio-form-row-2 { grid-template-columns: 1fr; }
     }
+    /* Activity: someone on the radio (js/27-activity.js radioCard). */
+    .act-radio-art { background: var(--st); color: #fff; font: 700 28px var(--font-ui); }
+
+    /* ── The dock switched to the radio (js/28-radio.js `dock`): the
+       player's own parts step aside for a station, prev / power / next and
+       a small dial. The volume, devices and the radio button stay. ── */
+    .player-dock.radio-mode > .art-tilt-wrap, .player-dock.radio-mode > .player-main { display: none; }
+    .player-dock.radio-mode #btnFS { display: none; }
+    .dock-radio-pane { display: flex; align-items: center; gap: 1.1rem; flex: 1 1 auto; min-width: 0; }
+    .dock-radio-pane[hidden] { display: none; }
+    .drp-main, .drp-top { display: contents; }
+    .drp-art { flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 7px; }
+    .drp-art-in { width: 46px; height: 46px; border-radius: 7px; overflow: hidden; display: grid; place-items: center;
+      background: var(--st, var(--tile-bg)); color: #fff; font: 700 var(--fs-14) var(--font-ui); }
+    .drp-art-in img { width: 100%; height: 100%; object-fit: cover; }
+    .drp-art-in.drp-art-none { background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dimmer); font-size: 18px; }
+    .drp-readout { flex: none; display: flex; align-items: baseline; gap: 4px; color: var(--text-dimmer); transition: color .2s; }
+    .dock-radio-pane.powered .drp-readout { color: rgb(var(--accent-rgb)); }
+    .drp-freq { font: 700 22px/1 'DSEG7', var(--font-mono, monospace); min-width: 4.2ch; text-align: right; }
+    .drp-fm { font: 700 9px var(--font-ui); letter-spacing: .12em; }
+    .drp-info { flex: 0 1 200px; min-width: 70px; display: flex; flex-direction: column; }
+    .drp-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .02em; }
+    .drp-track { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .drp-controls { flex: none; display: flex; align-items: center; gap: .35rem; }
+    .drp-power.on { color: #fff; background: #d94f4f; border-color: transparent; }
+    .drp-tuner { flex: 2 1 220px; min-width: 70px; height: 40px; border-radius: 8px; }
+    .drp-freq-inline { display: none; }
+    .rd-compact .rd-scale { height: 40px; }
+    .rd-compact .rd-ticks { bottom: 3px; }
+    .rd-compact .rd-ticks text { font-size: 9.5px; }
+    .rd-compact .rd-mark { top: 4px; }
+    .rd-compact .rd-mark-pin { width: 7px; height: 7px; }
+    .drp-tuner .rd-needle::before { left: -4px; border-width: 5px; }
+    .dock-radio.active { color: rgb(var(--accent-rgb)); background: var(--glass-fill-h); }
+    /* Narrower, the dial keeps its room: the readout goes first (the
+       frequency moves in front of the name), then the name, then prev/next. */
+    @container dock (max-width: 900px) { .drp-readout { display: none; } .drp-freq-inline { display: inline; } }
+    @container dock (max-width: 640px) { .drp-info { display: none; } .dock-radio-pane { gap: .6rem; } }
+    @container dock (max-width: 470px) { .drp-controls [data-act="prev"], .drp-controls [data-act="next"] { display: none; } }
+    @media (max-width: 520px) { .drp-art-in { width: 36px; height: 36px; } }

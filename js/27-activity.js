@@ -44,7 +44,25 @@
   };
   const songAttr = s => esc(encodeURIComponent(JSON.stringify({ id: s.songId, title: s.song, artist: s.artist, album: s.album, coverArt: s.coverArt })));
 
+  // On the radio (presence's live() says which station): the station, what's
+  // on it, and a way to tune in to the same moment.
+  function radioCard(p) {
+    const r = p.now.radio, mine = p.username === me();
+    const initials = (r.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    return '<div class="act-now is-playing is-radio" data-user="' + esc(p.username) + '">' +
+      '<span class="act-now-art act-radio-art" style="--st:' + esc(r.color || 'var(--glass-fill-h)') + '">' +
+        (r.cover ? '<img src="/api/music-requests/playlists/covers/' + encodeURIComponent(r.cover) + '/s" alt="" loading="lazy" />' : '<b>' + esc(initials) + '</b>') + '</span>' +
+      '<div class="act-now-body">' +
+        '<div class="act-who">' + avatar(p.username) + nameHTML(p.username) +
+          '<span class="act-state"><span class="act-dot" aria-hidden="true"></span>On the radio</span></div>' +
+        '<button type="button" class="act-song" data-radio="' + esc(r.id) + '" title="Tune in">' +
+          '<span class="act-title">' + esc(r.track || r.name) + '</span><span class="act-artist">' + (r.track ? esc(r.name) + ' · ' : '') + Number(r.frequency).toFixed(1) + ' FM · by ' + esc(r.author || '') + '</span></button>' +
+        (!mine && window.klabRadio?.now() !== r.id ? '<button type="button" class="act-along" data-radio="' + esc(r.id) + '"><i class="ti ti-radio"></i>Tune in</button>' : '') +
+      '</div></div>';
+  }
+
   function nowCard(p) {
+    if (p.now.radio) return radioCard(p);
     const n = p.now, mine = p.username === me();
     const pos = posNow(n);
     const pct = pos != null && n.duration ? Math.min(100, pos / n.duration * 100) : 0;
@@ -89,7 +107,7 @@
       return;
     }
     const people = data.people || [];
-    const now = people.filter(p => p.now && p.now.songId);
+    const now = people.filter(p => p.now && (p.now.songId || p.now.radio));
     const counted = people.filter(p => p.stats);
     let html = '<div class="act-page">';
     if (now.length) html += '<div class="picker-section-label">Listening now</div><div class="act-now-grid">' + now.map(nowCard).join('') + '</div>';
@@ -103,7 +121,7 @@
   function step() {
     if (!showing || !data || document.hidden) return;
     (data.people || []).forEach(p => {
-      if (!p.now?.playing || p.now.position == null || !p.now.duration) return;
+      if (!p.now?.playing || p.now.radio || p.now.position == null || !p.now.duration) return;
       const card = pickerList.querySelector('.act-now[data-user="' + CSS.escape(p.username) + '"]');
       if (!card) return;
       const pos = posNow(p.now);
@@ -149,6 +167,8 @@
 
   pickerList.addEventListener('click', e => {
     if (!showing) return;
+    const radio = e.target.closest('[data-radio]');
+    if (radio) { SFX && SFX.play('click'); window.klabRadio?.tune(radio.dataset.radio).then(render); return; }
     const along = e.target.closest('[data-along]');
     if (along) { SFX && SFX.play('click'); window.klabListenAlong?.(along.dataset.along); return; }
     const play = e.target.closest('[data-play]');

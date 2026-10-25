@@ -325,7 +325,7 @@
     return { activeAgo: pageAgo(), idleKnown: false };
   }
 
-  function cardHTML(username, song, artist, isMe, playing, songId, partyHost, platform) {
+  function cardHTML(username, song, artist, isMe, playing, songId, partyHost, platform, radio) {
     ensureAvatarResolved(username);
     const avatarUrl = _avatarCache.get(username);
     const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((username||'?')[0].toUpperCase());
@@ -334,7 +334,8 @@
     // needs it regardless of playable state) — the sync-specific attrs
     // stay conditional on playable.
     const attrs = ' role="link" tabindex="0" aria-label="' + esc(isMe ? 'Open your profile' : 'Message ' + username) + '" data-username="' + esc(username||'') + '"' +
-      (playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
+      (playable && radio ? ' data-radio="' + esc(radio) + '" title="Tune in with ' + esc(username) + '"'
+        : playable ? ' data-song-id="' + esc(songId||'') + '" data-song-title="' + esc(song||'') + '" data-song-artist="' + esc(artist||'') + '" title="Sync up with ' + esc(username) + '"' : '');
     // Every non-me card gets a stable per-person name color (same hash as
     // the chat timeline's nametags, gitea#3) so a busy roster is easier to
     // scan at a glance; a playing card's accent (song-art-derived) still
@@ -564,11 +565,14 @@
     let html = '';
     // "you" always first
     if (me && me !== 'anonymous') {
-      html += cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
+      const myStation = window.klabRadio?.station?.();
+      html += myStation
+        ? cardHTML(me, myStation.track || myStation.name, myStation.name + ' · ' + myStation.frequency.toFixed(1) + ' FM', true, true, undefined, _partyHostLabel)
+        : cardHTML(me, mySong?.title || '', mySong?.artist || '', true, playerState.playing, undefined, _partyHostLabel);
     }
     // Listening first, then everyone else online.
     [...others].sort(byActivity).forEach(l => {
-      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform);
+      html += cardHTML(l.username, l.song, l.artist, false, l.playing, l.songId, l.partyHost, l.platform, l.radio);
     });
     const onlineUsernames = new Set([me, ...others.map(l => l.username)]);
     window.KLAB_ONLINE_USERNAMES = onlineUsernames; // read by the chat module for DM online dots
@@ -623,6 +627,13 @@
   // ── Click a listener's card to sync up and play what they're playing ──
   async function playFromCard(card) {
     const username = card.dataset.username || 'them';
+    // On the radio: tune in to the same station (it's the same moment for everyone).
+    if (card.dataset.radio && window.klabRadio) {
+      await window.klabRadio.tune(card.dataset.radio);
+      if (window.klabRadio.now() === card.dataset.radio) { showToast(`Tuned in with ${username}`, toastPerson(username)); SFX && SFX.play('play'); }
+      else { showToast(`Couldn't tune in with ${username}`, toastPerson(username)); SFX && SFX.play('error'); }
+      return;
+    }
     const songId   = card.dataset.songId;
     const title    = card.dataset.songTitle;
     const artist   = card.dataset.songArtist;
@@ -945,7 +956,10 @@
   window.klabPostPresence = () => postPresence();
   async function postPresence() {
     if (!window.KLAB_USER?.username || window.KLAB_USER.username === 'anonymous') return;
-    const song = playerState.currentSong;
+    // Tuned in to the radio (js/28-radio.js): that's what's playing, the
+    // station's current track and its name, not the song left paused.
+    const station = window.klabRadio?.station?.();
+    const song = station ? null : playerState.currentSong;
     const away = await awayFields();
     try {
       await fetchTimeout(API, {
@@ -953,10 +967,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: window.KLAB_USER.username,
-          song:     song?.title  || '',
-          artist:   song?.artist || '',
+          song:     station ? station.track || station.name : song?.title  || '',
+          artist:   station ? station.name + ' · ' + station.frequency.toFixed(1) + ' FM' : song?.artist || '',
           songId:   song?.id     ?? '', // nullish, not ||  — a falsy-but-real id like 0 must survive
-          playing:  !!song && playerState.playing,
+          playing:  station ? true : !!song && playerState.playing,
           // Where it's got to, for Music's Activity page (its bar runs on
           // from this), and what it's on, so a play keeps its cover.
           position:  song && isFinite(playerState.audio.currentTime) ? Math.round(playerState.audio.currentTime * 10) / 10 : null,

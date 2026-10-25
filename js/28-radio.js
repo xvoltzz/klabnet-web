@@ -84,6 +84,8 @@
   // opts.fromDial: the dial's doing it (no burst of static; it has its
   // own, and it says how strong the signal is).
   async function tune(id, opts = {}) {
+    // From someone else's card, before this page has asked for the stations.
+    if (!byId(id)) await load(true);
     const s = byId(id);
     if (!s) return;
     power = true;
@@ -215,7 +217,7 @@
   function paintNow() {
     const s = byId(tuned);
     // The Radio page says it all already.
-    pill.hidden = !s || dial.showing();
+    pill.hidden = !s || page.showing() || dock.on();
     document.getElementById('dockRadio')?.classList.toggle('on', !!s);
     document.body.classList.toggle('radio-on', !!s);
     if (!s) return;
@@ -458,7 +460,7 @@
       if (cover) { const fd = new FormData(); fd.append('file', cover); s = await send('POST', API + '/' + encodeURIComponent(s.id) + '/cover', fd); }
       await load(true);
       paintManage(s.id);
-      if (tuned === s.id && file) { const t = tuned; tuned = null; tune(t, { fromDial: dial.showing() }); }
+      if (tuned === s.id && file) { const t = tuned; tuned = null; tune(t, { fromDial: dialShowing() }); }
       dial.render();
       showToast?.(id === 'new' ? 'Station made: it’s on ' + s.frequency.toFixed(1) : 'Saved', 'ti-radio');
     } catch (err) {
@@ -480,63 +482,171 @@
     } catch (err) { showToast?.('Couldn’t delete it: ' + err.message, 'ti-alert-triangle'); }
   });
 
-  // ── The tuner: Music → Radio ──
+  // ── The tuner ──
   // An FM band you scroll sideways under a fixed needle. A station comes
   // in over the last 0.25 MHz to its frequency (static fading out as it
   // does) and snaps on when you let go near it. Where the dial was is kept.
-  const PX = 140; // per MHz
-  const dial = (() => {
-    let showing = false, el = null, scroller = null, snapT = 0, tuneT = 0, dropT = 0, infoT = 0, drag = null, fine = false;
-    const strength = d => d <= 0.05 ? 1 : d >= 0.25 ? 0 : (t => t * t * (3 - 2 * t))(1 - (d - 0.05) / 0.2);
-    const nearest = f => stations.reduce((best, s) => !best || Math.abs(s.frequency - f) < Math.abs(best.frequency - f) ? s : best, null);
-    const save = () => { try { localStorage.setItem(FREQ_KEY, dialFreq.toFixed(2)); } catch (e) {} };
+  // Two of them share the one needle: Music → Radio's big one, and the
+  // dock's when it's switched to the radio. Static only plays while one of
+  // them is showing.
+  const strength = d => d <= 0.05 ? 1 : d >= 0.25 ? 0 : (t => t * t * (3 - 2 * t))(1 - (d - 0.05) / 0.2);
+  const nearest = f => stations.reduce((best, s) => !best || Math.abs(s.frequency - f) < Math.abs(best.frequency - f) ? s : best, null);
+  const saveFreq = () => { try { localStorage.setItem(FREQ_KEY, dialFreq.toFixed(2)); } catch (e) {} };
+  const clampFreq = f => Math.max(FREQ_MIN, Math.min(FREQ_MAX, f));
+  const views = [];
+  const dialShowing = () => views.some(v => v.visible());
+  let snapT = 0, tuneT = 0, dropT = 0, fine = false;
+
+  // The needle's at f (moved by view `from`, or by code): every readout,
+  // the signal, and what's heard.
+  function needleAt(f, from, quiet) {
+    dialFreq = clampFreq(f);
+    const s = nearest(dialFreq), lvl = s ? strength(Math.abs(s.frequency - dialFreq)) : 0;
+    views.forEach(v => { if (!v.visible()) return; if (v !== from) v.follow(dialFreq); v.paint(s, lvl); });
+    if (!power) return;
+    level = lvl;
+    staticWanted = dialShowing() ? 1 - lvl : 0;
+    volume();
+    clearTimeout(tuneT); clearTimeout(dropT);
+    if (lvl > 0 && s) {
+      if (tuned !== s.id) tuneT = setTimeout(() => tune(s.id, { fromDial: true }), quiet ? 0 : 180);
+    } else if (tuned) dropT = setTimeout(() => { if (level === 0) dropStation(); }, 1200);
+  }
+  // Let go near a station: onto it. Anywhere else: onto the nearest 0.1.
+  // Fine-tuning with the arrows goes where it's sent, station or not.
+  function snap(v) {
+    const f = v.freq(), s = nearest(f);
+    const to = !fine && s && Math.abs(s.frequency - f) <= 0.3 ? s.frequency : Math.round(f * 10) / 10;
+    saveFreq();
+    if (Math.abs(to - f) > 0.005) v.scrollTo(to, true);
+  }
+  // Sends the needle to f: the showing dial scrolls there (the others follow it).
+  function goTo(f, smooth = true) {
+    fine = false;
+    f = clampFreq(Math.round(f * 10) / 10);
+    const v = views.find(x => x.visible());
+    dialFreq = f; saveFreq();
+    if (v) v.scrollTo(f, smooth); else needleAt(f, null, true);
+  }
+  function stepStation(dir) {
+    if (!stations.length) return;
+    const f = dialFreq;
+    const s = dir > 0 ? stations.find(x => x.frequency > f + 0.05) || stations[0] : [...stations].reverse().find(x => x.frequency < f - 0.05) || stations[stations.length - 1];
+    if (!power) powerOn();
+    goTo(s.frequency);
+  }
+  function powerOn() {
+    power = true;
+    if (!playerState.audio.paused) playerState.audio.pause();
+    needleAt(dialFreq, null, true);
+  }
+  function togglePower() {
+    SFX && SFX.play('click');
+    if (power) off(); else powerOn();
+  }
+  // The last dial's gone: a station that's coming in plays on, clear; static stops.
+  function dialGone() {
+    if (dialShowing()) return;
+    clearTimeout(snapT); clearTimeout(tuneT); clearTimeout(dropT);
+    if (!power) return;
+    if (tuned && level >= 0.5) { level = 1; staticWanted = 0; volume(); const s = byId(tuned); if (s) { dialFreq = s.frequency; saveFreq(); } }
+    else off();
+  }
+
+  // One dial: a scale `px` wide per MHz in `box`, with its needle.
+  function makeDial(box, { px, compact, visible, paint }) {
+    const scroller = document.createElement('div');
+    scroller.className = 'rd-scroll' + (compact ? ' rd-compact' : '');
+    scroller.tabIndex = 0;
+    scroller.setAttribute('role', 'slider');
+    scroller.setAttribute('aria-label', 'Frequency');
+    scroller.setAttribute('aria-valuemin', FREQ_MIN);
+    scroller.setAttribute('aria-valuemax', FREQ_MAX);
+    const needle = document.createElement('span');
+    needle.className = 'rd-needle';
+    needle.setAttribute('aria-hidden', 'true');
+    box.append(scroller, needle);
+    let expect = null, drag = null, key = '';
 
     function scale() {
-      const w = (FREQ_MAX - FREQ_MIN) * PX;
+      const w = (FREQ_MAX - FREQ_MIN) * px, label = compact ? 2 : 1;
       let ticks = '';
       for (let i = 0; i <= (FREQ_MAX - FREQ_MIN) * 10; i++) {
-        const f = FREQ_MIN + i / 10, x = i * PX / 10, whole = Math.abs(f - Math.round(f)) < 0.01, half = !whole && Math.abs(f * 2 - Math.round(f * 2)) < 0.01;
-        ticks += '<line x1="' + x + '" x2="' + x + '" y1="0" y2="' + (whole ? 22 : half ? 15 : 8) + '"' + (whole ? ' class="rd-major"' : '') + '/>';
-        if (whole) ticks += '<text x="' + x + '" y="40">' + Math.round(f) + '</text>';
+        const f = FREQ_MIN + i / 10, x = i * px / 10, whole = Math.abs(f - Math.round(f)) < 0.01, half = !whole && Math.abs(f * 2 - Math.round(f * 2)) < 0.01;
+        if (compact && !whole && !half && i % 2) continue;
+        ticks += '<line x1="' + x + '" x2="' + x + '" y1="0" y2="' + (compact ? (whole ? 10 : half ? 7 : 4) : (whole ? 22 : half ? 15 : 8)) + '"' + (whole ? ' class="rd-major"' : '') + '/>';
+        if (whole && Math.round(f) % label === 0) ticks += '<text x="' + x + '" y="' + (compact ? 21 : 40) + '">' + Math.round(f) + '</text>';
       }
-      const marks = stations.map(s => '<button type="button" class="rd-mark" data-f="' + s.frequency + '" style="left:' + ((s.frequency - FREQ_MIN) * PX) + 'px;--st:' + esc(s.color || 'var(--text-dim)') + '" title="' + esc(s.frequency.toFixed(1) + ' · ' + s.name) + '">' +
-        '<span class="rd-mark-name">' + esc(s.name) + '</span><span class="rd-mark-pin"></span></button>').join('');
+      const marks = stations.map(s => '<button type="button" class="rd-mark" tabindex="-1" data-f="' + s.frequency + '" style="left:' + ((s.frequency - FREQ_MIN) * px) + 'px;--st:' + esc(s.color || 'var(--text-dim)') + '" title="' + esc(s.frequency.toFixed(1) + ' · ' + s.name) + '">' +
+        (compact ? '' : '<span class="rd-mark-name">' + esc(s.name) + '</span>') + '<span class="rd-mark-pin"></span></button>').join('');
+      const h = compact ? 24 : 46;
       return '<div class="rd-scale" style="width:' + w + 'px">' + marks +
-        '<svg class="rd-ticks" width="' + w + '" height="46" viewBox="-1 0 ' + (w + 2) + ' 46" aria-hidden="true">' + ticks + '</svg></div>';
+        '<svg class="rd-ticks" width="' + w + '" height="' + h + '" viewBox="-1 0 ' + (w + 2) + ' ' + h + '" aria-hidden="true">' + ticks + '</svg></div>';
     }
+    const freq = () => clampFreq(FREQ_MIN + scroller.scrollLeft / px);
+    const v = {
+      visible, paint: (s, lvl) => { scroller.setAttribute('aria-valuenow', dialFreq.toFixed(1)); paint(s, lvl); }, freq,
+      // The stations as they are now (a no-op if they haven't changed).
+      build() {
+        const k = stations.map(s => s.id + s.frequency + s.name + s.color).join();
+        if (k !== key || !scroller.firstChild) { key = k; scroller.innerHTML = scale(); }
+      },
+      follow(f) { expect = Math.round((f - FREQ_MIN) * px); scroller.scrollLeft = expect; },
+      scrollTo(f, smooth) { scroller.scrollTo({ left: (f - FREQ_MIN) * px, behavior: smooth ? 'smooth' : 'instant' }); },
+      // Showing again: onto where the needle is, without a sound.
+      sync() { v.build(); v.follow(dialFreq); },
+      scroller,
+    };
+    scroller.addEventListener('scroll', () => {
+      // Where follow() put it: another dial's doing the moving.
+      if (expect !== null && Math.abs(scroller.scrollLeft - expect) < 1.5) { expect = null; return; }
+      expect = null;
+      needleAt(freq(), v);
+      clearTimeout(snapT);
+      snapT = setTimeout(() => { if (!drag) snap(v); }, 160);
+    }, { passive: true });
+    // An up-and-down wheel turns the dial too.
+    scroller.addEventListener('wheel', e => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      fine = false;
+      scroller.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 20 : 1) * 0.6 * px / 140;
+    }, { passive: false });
+    // Dragged with a mouse (touch scrolls it natively).
+    scroller.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      drag = { x: e.clientX, left: scroller.scrollLeft, moved: false };
+      fine = false;
+      scroller.setPointerCapture(e.pointerId);
+    });
+    scroller.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 3) drag.moved = true;
+      scroller.scrollLeft = drag.left - dx;
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) { scroller.dataset.dragged = '1'; setTimeout(() => delete scroller.dataset.dragged, 0); }
+      snap(v);
+    };
+    scroller.addEventListener('pointerup', endDrag);
+    scroller.addEventListener('pointercancel', endDrag);
+    scroller.addEventListener('click', e => {
+      const mark = e.target.closest('.rd-mark');
+      if (!mark || scroller.dataset.dragged) return;
+      if (!power) powerOn();
+      goTo(+mark.dataset.f);
+    });
+    views.push(v);
+    return v;
+  }
 
-    function render() {
-      if (!showing) return;
-      const list = pickerList;
-      if (!el || !list.contains(el)) {
-        list.innerHTML = '<div class="rd-page">' +
-          '<div class="rd-set">' +
-            '<div class="rd-display">' +
-              '<div class="rd-readout"><span class="rd-digits" aria-live="off"></span><span class="rd-fm">FM</span></div>' +
-              '<div class="rd-info"></div>' +
-              '<div class="rd-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>' +
-            '</div>' +
-            '<div class="rd-tuner"><div class="rd-scroll" tabindex="0" role="slider" aria-label="Frequency" aria-valuemin="87.5" aria-valuemax="108"></div><span class="rd-needle" aria-hidden="true"></span></div>' +
-            '<div class="rd-controls">' +
-              '<button type="button" class="rd-btn" data-act="prev" title="Previous station (Page Up)"><i class="ti ti-player-skip-back"></i></button>' +
-              '<button type="button" class="rd-btn rd-power" data-act="power" title="Power (Space)"><i class="ti ti-power"></i></button>' +
-              '<button type="button" class="rd-btn" data-act="next" title="Next station (Page Down)"><i class="ti ti-player-skip-forward"></i></button>' +
-              '<span class="rd-gap"></span>' +
-              '<button type="button" class="rd-pill" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit station</button>' +
-              '<button type="button" class="rd-pill" data-act="manage"><i class="ti ti-upload"></i>Your stations</button>' +
-            '</div>' +
-          '</div>' +
-          '<div class="rd-hint">Scroll or drag the dial · ← → to fine-tune · Page Up / Down for the next station · hold Q for the wheel</div>' +
-          '<div class="picker-section-label">Stations</div><div class="rd-list"></div>' +
-        '</div>';
-        el = list.querySelector('.rd-page');
-        scroller = el.querySelector('.rd-scroll');
-        wire();
-      }
-      scroller.innerHTML = scale();
-      paintList();
-      requestAnimationFrame(() => { scroller.scrollLeft = (dialFreq - FREQ_MIN) * PX; update(true); });
-    }
+  // ── Music → Radio ──
+  const page = (() => {
+    let showing = false, el = null, dialV = null, infoT = 0;
 
     function paintList() {
       if (!el) return;
@@ -551,7 +661,9 @@
       }).join('');
     }
 
-    function paintInfo(s, lvl) {
+    function paint(s, lvl) {
+      if (!el) return;
+      el.querySelector('.rd-digits').textContent = dialFreq.toFixed(1);
       const info = el.querySelector('.rd-info');
       el.querySelector('.rd-set').classList.toggle('powered', power);
       el.querySelector('.rd-power').classList.toggle('on', power);
@@ -561,7 +673,7 @@
       if (s && lvl > 0.5) edit.dataset.id = s.id;
       let key;
       if (!s || lvl <= 0.5) key = power ? 'static' : 'none';
-      else key = s.id + '|' + trackAt(s, posOf(s)).cur + '|' + (s.listeners || []).join() + '|' + power;
+      else key = s.id + '|' + trackAt(s, posOf(s)).cur + '|' + (s.listeners || []).join() + '|' + power + '|' + tuned;
       if (info.dataset.key === key) return;
       info.dataset.key = key;
       if (!s || lvl <= 0.5) {
@@ -577,102 +689,54 @@
           (s.listeners?.length ? ' · ' + s.listeners.slice(0, 4).map(u => '<span style="color:' + (typeof profileColor === 'function' ? profileColor(u) : 'inherit') + '">' + esc(u) + '</span>').join(', ') + (s.listeners.length > 4 ? ' +' + (s.listeners.length - 4) : '') + ' tuned in' : '') + '</div></div>';
     }
 
-    // Where the needle is: the readout, the signal, and what's heard.
-    function update(quiet) {
-      if (!el) return;
-      const f = Math.max(FREQ_MIN, Math.min(FREQ_MAX, FREQ_MIN + scroller.scrollLeft / PX));
-      dialFreq = f;
-      el.querySelector('.rd-digits').textContent = f.toFixed(1);
-      scroller.setAttribute('aria-valuenow', f.toFixed(1));
-      const s = nearest(f), lvl = s ? strength(Math.abs(s.frequency - f)) : 0;
-      paintInfo(s, lvl);
-      if (!power) return;
-      level = lvl;
-      staticWanted = 1 - lvl;
-      volume();
-      clearTimeout(tuneT); clearTimeout(dropT);
-      if (lvl > 0 && s) {
-        if (tuned !== s.id) tuneT = setTimeout(() => tune(s.id, { fromDial: true }), quiet ? 0 : 180);
-      } else if (tuned) dropT = setTimeout(() => { if (level === 0) dropStation(); }, 1200);
+    function render() {
+      if (!showing) return;
+      if (!el || !pickerList.contains(el)) {
+        pickerList.innerHTML = '<div class="rd-page">' +
+          '<div class="rd-set">' +
+            '<div class="rd-display">' +
+              '<div class="rd-readout"><span class="rd-digits" aria-live="off"></span><span class="rd-fm">FM</span></div>' +
+              '<div class="rd-info"></div>' +
+              '<div class="rd-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>' +
+            '</div>' +
+            '<div class="rd-tuner"></div>' +
+            '<div class="rd-controls">' +
+              '<button type="button" class="rd-btn" data-act="prev" title="Previous station (Page Up)"><i class="ti ti-player-skip-back"></i></button>' +
+              '<button type="button" class="rd-btn rd-power" data-act="power" title="Power (Space)"><i class="ti ti-power"></i></button>' +
+              '<button type="button" class="rd-btn" data-act="next" title="Next station (Page Down)"><i class="ti ti-player-skip-forward"></i></button>' +
+              '<span class="rd-gap"></span>' +
+              '<button type="button" class="rd-pill" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit station</button>' +
+              '<button type="button" class="rd-pill" data-act="manage"><i class="ti ti-upload"></i>Your stations</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rd-hint">Scroll or drag the dial · ← → to fine-tune · Page Up / Down for the next station · hold Q for the wheel</div>' +
+          '<div class="picker-section-label">Stations</div><div class="rd-list"></div>' +
+        '</div>';
+        el = pickerList.querySelector('.rd-page');
+        if (dialV) views.splice(views.indexOf(dialV), 1);
+        dialV = makeDial(el.querySelector('.rd-tuner'), { px: 140, visible: () => showing && !!el, paint });
+        el.addEventListener('click', onClick);
+      }
+      dialV.build();
+      paintList();
+      requestAnimationFrame(() => { if (!el) return; dialV.follow(dialFreq); needleAt(dialFreq, dialV, true); });
     }
-
-    // Let go near a station: onto it. Anywhere else: onto the nearest 0.1.
-    function snap() {
-      if (!el || drag) return;
-      const f = FREQ_MIN + scroller.scrollLeft / PX, s = nearest(f);
-      // Fine-tuning with the arrows goes where it's sent, station or not.
-      const to = !fine && s && Math.abs(s.frequency - f) <= 0.3 ? s.frequency : Math.round(f * 10) / 10;
-      save();
-      if (Math.abs(to - f) < 0.005) return;
-      scroller.scrollTo({ left: (to - FREQ_MIN) * PX, behavior: 'smooth' });
-    }
-    function goTo(f, smooth = true) {
-      fine = false;
-      f = Math.max(FREQ_MIN, Math.min(FREQ_MAX, Math.round(f * 10) / 10));
-      dialFreq = f; save();
-      if (!el) return;
-      scroller.scrollTo({ left: (f - FREQ_MIN) * PX, behavior: smooth ? 'smooth' : 'instant' });
-    }
-    function step(dir) {
-      if (!stations.length) return;
-      const f = dialFreq;
-      const s = dir > 0 ? stations.find(x => x.frequency > f + 0.05) || stations[0] : [...stations].reverse().find(x => x.frequency < f - 0.05) || stations[stations.length - 1];
-      if (!power) powerOn();
-      goTo(s.frequency);
-    }
-    function powerOn() {
-      power = true;
-      if (!playerState.audio.paused) playerState.audio.pause();
-      update(true);
-    }
-    function togglePower() {
-      SFX && SFX.play('click');
-      if (power) off(); else powerOn();
-    }
-
-    function wire() {
-      scroller.addEventListener('scroll', () => { update(); clearTimeout(snapT); snapT = setTimeout(snap, 160); }, { passive: true });
-      // An up-and-down wheel turns the dial too.
-      scroller.addEventListener('wheel', e => {
-        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-        e.preventDefault();
-        fine = false;
-        scroller.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 20 : 1) * 0.6;
-      }, { passive: false });
-      // Dragged with a mouse (touch scrolls it natively).
-      scroller.addEventListener('pointerdown', e => {
-        if (e.pointerType !== 'mouse' || e.button !== 0) return;
-        drag = { x: e.clientX, left: scroller.scrollLeft, moved: false };
-        fine = false;
-        scroller.setPointerCapture(e.pointerId);
-      });
-      scroller.addEventListener('pointermove', e => {
-        if (!drag) return;
-        const dx = e.clientX - drag.x;
-        if (Math.abs(dx) > 3) drag.moved = true;
-        scroller.scrollLeft = drag.left - dx;
-      });
-      const endDrag = () => { if (!drag) return; const moved = drag.moved; drag = null; if (moved) { scroller.dataset.dragged = '1'; setTimeout(() => delete scroller.dataset.dragged, 0); } snap(); };
-      scroller.addEventListener('pointerup', endDrag);
-      scroller.addEventListener('pointercancel', endDrag);
-      el.addEventListener('click', e => {
-        const mark = e.target.closest('.rd-mark, .rd-row');
-        if (mark) {
-          if (scroller.dataset.dragged) return;
-          if (!power) powerOn();
-          goTo(+mark.dataset.f, !e.target.closest('.rd-row'));
-          if (e.target.closest('.rd-row')) el.querySelector('.rd-set').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          return;
-        }
-        const b = e.target.closest('[data-act]');
-        if (!b) return;
-        const act = b.dataset.act;
-        if (act === 'power') togglePower();
-        else if (act === 'prev') step(-1);
-        else if (act === 'next') step(1);
-        else if (act === 'edit') openManage(b.dataset.id);
-        else if (act === 'manage') openManage();
-      });
+    function onClick(e) {
+      const row = e.target.closest('.rd-row');
+      if (row) {
+        if (!power) powerOn();
+        goTo(+row.dataset.f, false);
+        el.querySelector('.rd-set').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        return;
+      }
+      const b = e.target.closest('[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'power') togglePower();
+      else if (act === 'prev') stepStation(-1);
+      else if (act === 'next') stepStation(1);
+      else if (act === 'edit') openManage(b.dataset.id);
+      else if (act === 'manage') openManage();
     }
 
     // Keys while it's showing. Ahead of the player's own (←/→ and Space are
@@ -682,11 +746,10 @@
       if (document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open')) return;
       const k = e.key;
       if (k === 'ArrowLeft' || k === 'ArrowRight') {
-        const d = (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1);
-        goTo(dialFreq + d, e.shiftKey);
+        goTo(dialFreq + (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1), e.shiftKey);
         fine = true;
-      } else if (k === 'PageUp') step(-1);
-      else if (k === 'PageDown') step(1);
+      } else if (k === 'PageUp') stepStation(-1);
+      else if (k === 'PageDown') stepStation(1);
       else if (k === ' ' && !document.activeElement?.closest?.('button, a[href], summary')) togglePower();
       else return;
       e.preventDefault(); e.stopImmediatePropagation();
@@ -701,52 +764,123 @@
       if (!showing) return;
       if (power && tuned) { const s = byId(tuned); if (s && Math.abs(s.frequency - dialFreq) > 0.25) dialFreq = s.frequency; }
       render();
+      dock.refresh();
       clearInterval(infoT);
       infoT = setInterval(() => {
         if (!showing || document.hidden) return;
         if (pickerTab !== 'radio') { leave(); return; }
-        if (el && pickerList.contains(el)) { el.querySelector('.rd-info').dataset.key = ''; update(true); }
-        if (Date.now() - loadedAt > 15000) {
-          const was = stations.map(s => s.id + s.frequency + s.name + s.color).join();
-          load(true).then(() => {
-            if (!showing || !el) return;
-            if (stations.map(s => s.id + s.frequency + s.name + s.color).join() !== was) scroller.firstChild.outerHTML = scale();
-            paintList();
-          });
-        } else paintList();
+        if (!el || !pickerList.contains(el)) return;
+        el.querySelector('.rd-info').dataset.key = '';
+        needleAt(dialFreq, dialV, true);
+        if (Date.now() - loadedAt > 15000) load(true).then(() => { if (showing && el) { dialV.build(); paintList(); dock.refresh(); } });
+        else paintList();
       }, 1000);
       document.getElementById('musicViewSub').textContent = stations.length ? klabCount(stations.length, 'station', 'stations') : '';
     }
-    // Off the page: a station that's coming in plays on, clear; static stops.
     function leave() {
       if (!showing) return;
       showing = false;
-      clearInterval(infoT); clearTimeout(snapT); clearTimeout(tuneT); clearTimeout(dropT);
+      clearInterval(infoT);
       el = null;
-      if (power) {
-        if (tuned && level >= 0.5) { level = 1; staticWanted = 0; volume(); const s = byId(tuned); if (s) { dialFreq = s.frequency; save(); } }
-        else off();
-      }
+      dialGone();
+      paintNow();
+    }
+    return { showing: () => showing, start, leave, render: () => { if (showing) render(); } };
+  })();
+
+  // ── The dock, switched to the radio ──
+  // The radio button flips the dock between the player and a small tuner:
+  // the station, prev / power / next, and its own dial. Switching to it
+  // turns the radio on; switching back, or playing music, turns it off.
+  const dock = (() => {
+    const dockEl = document.getElementById('playerDock');
+    if (!dockEl) return { on: () => false, refresh() {}, set() {} };
+    const MODE_KEY = 'klabnet_dock_radio';
+    const pane = document.createElement('div');
+    pane.className = 'dock-radio-pane';
+    pane.hidden = true;
+    pane.innerHTML = '<button type="button" class="drp-art" title="Open Radio"></button>' +
+      '<div class="drp-main">' +
+        '<div class="drp-top">' +
+          '<span class="drp-readout"><span class="drp-freq"></span><span class="drp-fm">FM</span></span>' +
+          '<span class="drp-info"><span class="drp-name"></span><span class="drp-track"></span></span>' +
+          '<span class="drp-controls">' +
+            '<button type="button" class="ctrl-btn" data-act="prev" title="Previous station"><i class="ti ti-player-skip-back"></i></button>' +
+            '<button type="button" class="ctrl-btn play-btn drp-power" data-act="power" title="Power"><i class="ti ti-power"></i></button>' +
+            '<button type="button" class="ctrl-btn" data-act="next" title="Next station"><i class="ti ti-player-skip-forward"></i></button>' +
+          '</span>' +
+        '</div>' +
+        '<div class="rd-tuner drp-tuner"></div>' +
+      '</div>';
+    dockEl.insertBefore(pane, dockEl.querySelector('.player-secondary'));
+    let mode = false;
+    const visible = () => mode && !document.hidden && dockEl.getClientRects().length > 0;
+    const dialV = makeDial(pane.querySelector('.drp-tuner'), { px: 60, compact: true, visible, paint });
+    function paint(s, lvl) {
+      pane.querySelector('.drp-freq').textContent = dialFreq.toFixed(1);
+      pane.classList.toggle('powered', power);
+      pane.querySelector('.drp-power').classList.toggle('on', power);
+      const on = s && lvl > 0.5;
+      const key = on ? s.id + '|' + trackAt(s, posOf(s)).cur + '|' + power : (power ? 'static' : 'off') + stations.length + dialFreq.toFixed(1);
+      if (pane.dataset.key === key) return;
+      pane.dataset.key = key;
+      pane.querySelector('.drp-art').innerHTML = on ? art(s, 'drp-art-in') : '<span class="drp-art-in drp-art-none"><i class="ti ti-radio"></i></span>';
+      pane.querySelector('.drp-name').innerHTML = '<span class="drp-freq-inline">' + dialFreq.toFixed(1) + ' · </span>' + esc(on ? s.name : !stations.length ? 'No stations yet' : power ? 'Static' : 'Radio off');
+      pane.querySelector('.drp-track').textContent = on && !power ? 'Off · press power' : on ? (trackAt(s, posOf(s)).cur || 'by ' + (s.author || s.owner)) : !stations.length ? 'Make one in Music → Radio' : power ? 'Scroll the dial to a station' : 'Press power';
+    }
+    pane.addEventListener('click', e => {
+      if (e.target.closest('.drp-art')) { setActiveTab('music'); document.querySelector('.picker-tab[data-tab="radio"]')?.click(); return; }
+      const b = e.target.closest('[data-act]');
+      if (!b) return;
+      if (b.dataset.act === 'power') togglePower();
+      else stepStation(b.dataset.act === 'next' ? 1 : -1);
+    });
+    let tick = 0;
+    async function set(yes, quiet) {
+      mode = !!yes;
+      try { localStorage.setItem(MODE_KEY, mode ? '1' : ''); } catch (e) {}
+      dockEl.classList.toggle('radio-mode', mode);
+      pane.hidden = !mode;
+      const btn = document.getElementById('dockRadio');
+      btn?.classList.toggle('active', mode);
+      btn?.setAttribute('aria-pressed', String(mode));
+      clearInterval(tick);
+      if (!mode) { if (power && !quiet) off(); dialGone(); paintNow(); return; }
+      await load();
+      dialV.build();
+      requestAnimationFrame(() => { dialV.follow(dialFreq); if (!quiet) powerOn(); else needleAt(dialFreq, dialV, true); });
+      tick = setInterval(() => { if (visible()) { pane.dataset.key = ''; needleAt(dialFreq, dialV, true); } }, 1000);
       paintNow();
     }
     return {
-      showing: () => showing, start, leave, render: () => { if (showing) render(); },
-      paint: () => { if (showing && el) update(true); },
-      // A station picked elsewhere (the wheel): the dial goes there.
-      set(f) { dialFreq = f; save(); if (showing && el) scroller.scrollTo({ left: (f - FREQ_MIN) * PX, behavior: 'instant' }); },
+      on: () => mode, set,
+      refresh() { if (mode) { dialV.build(); pane.dataset.key = ''; if (visible()) needleAt(dialFreq, dialV, true); } },
+      restore() { let m = ''; try { m = localStorage.getItem(MODE_KEY); } catch (e) {} if (m) set(true, true); },
     };
   })();
+  // Music playing takes the dock back.
+  playerState.audio.addEventListener('play', () => { if (dock.on() && !playerState.audio.muted) dock.set(false, true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { staticWanted = 0; setStatic(0); } else if (power && dialShowing()) needleAt(dialFreq, null, true); });
+
+  // The old name the rest of this file uses for "the dials".
+  const dial = {
+    showing: () => page.showing(),
+    paint: () => { if (dialShowing()) needleAt(dialFreq, null, true); },
+    render: () => { page.render(); dock.refresh(); },
+    // A station picked elsewhere (the wheel): the dials go there.
+    set(f) { dialFreq = f; saveFreq(); views.forEach(v => v.visible() && v.follow(f)); if (dialShowing()) needleAt(f, null, true); },
+  };
   function setDialFreq(f) { dial.set(f); }
 
   const musicTabChanged = window.klabMusicTabChanged;
   window.klabMusicTabChanged = isOn => {
     musicTabChanged?.(isOn);
-    if (!isOn) dial.leave();
-    else if (pickerTab === 'radio' && !dial.showing()) dial.start();
+    if (!isOn) page.leave();
+    else if (pickerTab === 'radio' && !page.showing()) page.start();
   };
   const _prevLoadPickerTab = loadPickerTab;
   loadPickerTab = async function(tab) {
-    if (tab !== 'radio') { dial.leave(); return _prevLoadPickerTab(tab); }
+    if (tab !== 'radio') { page.leave(); return _prevLoadPickerTab(tab); }
     // What the layers underneath do on the way to any view they don't own.
     window.klabActivity?.stop();
     window.klabBrowse?.leave();
@@ -756,13 +890,18 @@
     pickerTab = tab;
     pickerList.classList.remove('mh-home', 'picker-list-grid', 'is-stale');
     setMusicViewTitle(tab);
-    dial.start();
+    page.start();
   };
 
-  // ── The dock's button ──
+  // ── The dock's button: the player or the radio ──
   const dockBtn = document.getElementById('dockRadio');
-  dockBtn?.addEventListener('click', () => { SFX && SFX.play('click'); wheel.hidden ? openWheel() : closeWheel(); });
+  dockBtn?.addEventListener('click', () => { SFX && SFX.play('click'); closeWheel(true); dock.set(!dock.on()); });
   syncClock();
+  dock.restore();
 
-  window.klabRadio = { open: openWheel, tune, off, dial: () => dialFreq, openManage, now: () => tuned, offset: () => offset, position: id => { const s = byId(id); return s ? posOf(s) : null; }, audio };
+  window.klabRadio = {
+    open: openWheel, tune, off, dial: () => dialFreq, openManage, dock: yes => dock.set(yes),
+    // What's on, for presence's beat (js/11-presence.js).
+    station: () => { const s = byId(tuned); return s && power && level >= 0.5 ? { id: s.id, name: s.name, frequency: s.frequency, track: trackAt(s, posOf(s)).cur } : null; },
+    now: () => tuned, offset: () => offset, position: id => { const s = byId(id); return s ? posOf(s) : null; }, audio };
 })();
