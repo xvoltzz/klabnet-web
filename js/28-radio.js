@@ -219,13 +219,26 @@
     // The Radio page says it all already.
     pill.hidden = !s || page.showing() || dock.on();
     document.getElementById('dockRadio')?.classList.toggle('on', !!s);
-    document.body.classList.toggle('radio-on', !!s);
+    paintPeek();
     if (!s) return;
     pill.querySelector('.radio-now-art').outerHTML = art(s, 'radio-now-art');
     pill.querySelector('.radio-now-name').textContent = s.frequency.toFixed(1) + ' · ' + s.name;
     placePill();
     paintNowText();
   }
+  // The sidebar's visualiser (#dockPeek, js/02-player.js) moves to the
+  // radio too, and says the station beside it.
+  function paintPeek() {
+    const s = byId(tuned), live = !!s && !audio.paused;
+    document.body.classList.toggle('radio-on', live);
+    const label = document.getElementById('dockPeekLabel');
+    if (!label) return;
+    if (live) label.textContent = s.frequency.toFixed(1) + ' · ' + s.name;
+    else if (label.dataset.radio) { const t = document.getElementById('playerTitle'); label.textContent = (t && t.style.display !== 'none' && t.textContent.trim()) || 'Player'; }
+    label.dataset.radio = live ? '1' : '';
+  }
+  audio.addEventListener('playing', paintPeek);
+  audio.addEventListener('pause', paintPeek);
   function paintNowText() {
     const s = byId(tuned);
     if (!s) return;

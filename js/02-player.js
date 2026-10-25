@@ -1336,7 +1336,8 @@ applyDock(false);
 (function() {
   const title = document.getElementById('playerTitle'), label = document.getElementById('dockPeekLabel');
   if (!title || !label) return;
-  const sync = () => { label.textContent = (title.style.display !== 'none' && title.textContent.trim()) || 'Player'; };
+  // Not while the radio's on: it puts the station there (js/28-radio.js).
+  const sync = () => { if (document.body.classList.contains('radio-on')) return; label.textContent = (title.style.display !== 'none' && title.textContent.trim()) || 'Player'; };
   new MutationObserver(sync).observe(title, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style'] });
   sync();
 })();
