@@ -249,8 +249,10 @@
         clearInterval(alive);
         this._socket = null;
         if (this.connected) { this.connected = false; this.emit('link', false); }
-        if (e.code === 4401) { Games.gate(401); return; }
+        if (e.code === 4401 || e.code === 4403) { Games.gate(e.code === 4401 ? 401 : 403); return; }
         this._retry = Math.min(this._retry + 1, 6);
+        // Never got as far as hello: say so, and keep trying underneath.
+        if (!this.status && this._retry >= 4) Games.gate('live');
         setTimeout(() => { if (Games.wanted) this.connect(); }, 400 * 2 ** this._retry);
       };
     },
@@ -1861,6 +1863,8 @@
     0:   ['ti-plug-connected-x', "Can't reach the server", "The Minecraft dashboard isn't answering. It may be restarting; this tries again by itself."],
     // A wrong or missing secret reads as "sign in first" (401) to it.
     401: ['ti-lock', "The server didn't let klabnet in", "The Minecraft dashboard answers klabnet only with its shared secret, from a proxy it trusts, and with your klabnet sign-in passed along (KLABNET_PROXY_SECRET and TRUSTED_PROXIES there)."],
+    403: ['ti-lock', "The server didn't take klabnet's page as its own", "Its live connection checks that the page comes from the site that asked (Origin against Host). The route has to pass the Host along unchanged, as Caddy does by default."],
+    live: ['ti-plug-connected-x', "Can't open the live connection", "The server answered, but its live connection (a WebSocket, /api/mc/live) didn't open through klabnet's route. This keeps trying."],
     404: ['ti-route-off', 'Not set up yet', "Games needs klabnet's route to the Minecraft dashboard (/api/mc/ in Caddy)."],
   };
 
