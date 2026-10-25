@@ -153,7 +153,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.55" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.10.24.56" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -165,7 +165,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.55" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.10.24.56" />
 </head>
 <body>
 
@@ -389,6 +389,7 @@ window.KLAB_BOOT = (function() {
            whichever of them you were on last. -->
       <button class="tab-nav-btn" data-tab-target="social" data-tab-group="social feed chat photos" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+      <button class="tab-nav-btn" data-tab-target="games" title="Games"><i class="ti ti-device-gamepad-2"></i><span>Games</span></button>
     </nav>
     <div class="header-right">
       <!-- Voice's mute (js/22-voice.js), while you're in a channel: the
@@ -507,6 +508,32 @@ window.KLAB_BOOT = (function() {
         </div>
       </div>
     </div>
+  </div>
+  </div>
+
+  <!-- Games: Music's kind of sidebar, one group per game. Minecraft is the
+       klabcraft dashboard's viewer pages, drawn by js/29-games-mc.js into
+       #gamesMc (a shadow root of its own). See "GAMES" in css/app.css. -->
+  <div class="tab-panel" data-tab-panel="games">
+  <div class="games-shell" id="gamesShell">
+    <nav class="games-sidebar" id="gamesSidebar" aria-label="Games">
+      <div class="games-group">
+        <div class="music-sidebar-label">Minecraft</div>
+        <div class="picker-tabs games-nav" id="gamesNav">
+          <button class="picker-tab" data-mc="overview"><i class="ti ti-layout-dashboard"></i><span>Overview</span></button>
+          <button class="picker-tab" data-mc="players"><i class="ti ti-users"></i><span>Players</span><span class="games-count" id="gamesPlayersCount"></span></button>
+          <button class="picker-tab" data-mc="map"><i class="ti ti-map-2"></i><span>Map</span></button>
+        </div>
+      </div>
+      <button class="games-server" id="gamesServer" type="button" title="Overview">
+        <span class="games-server-icon" id="gamesServerIcon"><i class="ti ti-cube"></i></span>
+        <span class="games-server-info">
+          <span class="games-server-name" id="gamesServerName">Minecraft</span>
+          <span class="games-server-state"><span class="games-dot" id="gamesServerDot"></span><span id="gamesServerState">Connecting</span></span>
+        </span>
+      </button>
+    </nav>
+    <div class="games-main"><div class="games-mc" id="gamesMc"></div></div>
   </div>
   </div>
 
@@ -1174,41 +1201,42 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.10.24.55';</script>
-<script defer src="js/00-util.js?v=v2026.10.24.55"></script>
-<script defer src="js/01-shell.js?v=v2026.10.24.55"></script>
-<script defer src="js/02-player.js?v=v2026.10.24.55"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.10.24.55"></script>
-<script defer src="js/04-sfx.js?v=v2026.10.24.55"></script>
-<script defer src="js/05-favorites.js?v=v2026.10.24.55"></script>
-<script defer src="js/06-prefs.js?v=v2026.10.24.55"></script>
-<script defer src="js/07-tabnav.js?v=v2026.10.24.55"></script>
-<script defer src="js/08-chat.js?v=v2026.10.24.55"></script>
-<script defer src="js/09-music-extras.js?v=v2026.10.24.55"></script>
-<script defer src="js/09b-playlists.js?v=v2026.10.24.55"></script>
-<script defer src="js/10-lyrics.js?v=v2026.10.24.55"></script>
-<script defer src="js/11-presence.js?v=v2026.10.24.55"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.10.24.55"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.10.24.55"></script>
-<script defer src="js/11b-markdown.js?v=v2026.10.24.55"></script>
-<script defer src="js/11c-gifs.js?v=v2026.10.24.55"></script>
-<script defer src="js/12-feed.js?v=v2026.10.24.55"></script>
-<script defer src="js/13-tail.js?v=v2026.10.24.55"></script>
-<script defer src="js/14-photos.js?v=v2026.10.24.55"></script>
-<script defer src="js/15-music-home.js?v=v2026.10.24.55"></script>
-<script defer src="js/16-motion.js?v=v2026.10.24.55"></script>
-<script defer src="js/17-history.js?v=v2026.10.24.55"></script>
-<script defer src="js/18-home.js?v=v2026.10.24.55"></script>
-<script defer src="js/19-slideshow.js?v=v2026.10.24.55"></script>
-<script defer src="js/20-mentions.js?v=v2026.10.24.55"></script>
-<script defer src="js/21-stars.js?v=v2026.10.24.55"></script>
-<script defer src="js/22-voice.js?v=v2026.10.24.55"></script>
-<script defer src="js/23-session.js?v=v2026.10.24.55"></script>
-<script defer src="js/24-flair.js?v=v2026.10.24.55"></script>
-<script defer src="js/25-social.js?v=v2026.10.24.55"></script>
-<script defer src="js/26-browse.js?v=v2026.10.24.55"></script>
-<script defer src="js/27-activity.js?v=v2026.10.24.55"></script>
-<script defer src="js/28-radio.js?v=v2026.10.24.55"></script>
+<script>const KLABNET_VERSION = 'v2026.10.24.56';</script>
+<script defer src="js/00-util.js?v=v2026.10.24.56"></script>
+<script defer src="js/01-shell.js?v=v2026.10.24.56"></script>
+<script defer src="js/02-player.js?v=v2026.10.24.56"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.10.24.56"></script>
+<script defer src="js/04-sfx.js?v=v2026.10.24.56"></script>
+<script defer src="js/05-favorites.js?v=v2026.10.24.56"></script>
+<script defer src="js/06-prefs.js?v=v2026.10.24.56"></script>
+<script defer src="js/07-tabnav.js?v=v2026.10.24.56"></script>
+<script defer src="js/08-chat.js?v=v2026.10.24.56"></script>
+<script defer src="js/09-music-extras.js?v=v2026.10.24.56"></script>
+<script defer src="js/09b-playlists.js?v=v2026.10.24.56"></script>
+<script defer src="js/10-lyrics.js?v=v2026.10.24.56"></script>
+<script defer src="js/11-presence.js?v=v2026.10.24.56"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.10.24.56"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.10.24.56"></script>
+<script defer src="js/11b-markdown.js?v=v2026.10.24.56"></script>
+<script defer src="js/11c-gifs.js?v=v2026.10.24.56"></script>
+<script defer src="js/12-feed.js?v=v2026.10.24.56"></script>
+<script defer src="js/13-tail.js?v=v2026.10.24.56"></script>
+<script defer src="js/14-photos.js?v=v2026.10.24.56"></script>
+<script defer src="js/15-music-home.js?v=v2026.10.24.56"></script>
+<script defer src="js/16-motion.js?v=v2026.10.24.56"></script>
+<script defer src="js/17-history.js?v=v2026.10.24.56"></script>
+<script defer src="js/18-home.js?v=v2026.10.24.56"></script>
+<script defer src="js/19-slideshow.js?v=v2026.10.24.56"></script>
+<script defer src="js/20-mentions.js?v=v2026.10.24.56"></script>
+<script defer src="js/21-stars.js?v=v2026.10.24.56"></script>
+<script defer src="js/22-voice.js?v=v2026.10.24.56"></script>
+<script defer src="js/23-session.js?v=v2026.10.24.56"></script>
+<script defer src="js/24-flair.js?v=v2026.10.24.56"></script>
+<script defer src="js/25-social.js?v=v2026.10.24.56"></script>
+<script defer src="js/26-browse.js?v=v2026.10.24.56"></script>
+<script defer src="js/27-activity.js?v=v2026.10.24.56"></script>
+<script defer src="js/28-radio.js?v=v2026.10.24.56"></script>
+<script defer src="js/29-games-mc.js?v=v2026.10.24.56"></script>
 
 </body>
 </html>

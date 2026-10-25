@@ -75,7 +75,7 @@ try {
   await sleep(4000);
 
   // ── The app's nav ──
-  check('the nav is Home, Social, Music', JSON.stringify(await ev(`[...document.querySelectorAll('#tabNav .tab-nav-btn')].filter(b => !b.hidden).map(b => b.dataset.tabTarget)`)) === '["home","social","music"]');
+  check('the nav is Home, Social, Music, Games', JSON.stringify(await ev(`[...document.querySelectorAll('#tabNav .tab-nav-btn')].filter(b => !b.hidden).map(b => b.dataset.tabTarget)`)) === '["home","social","music","games"]');
   await ev(`localStorage.removeItem('klabnet_social_last'); document.querySelector('.tab-nav-btn[data-tab-target="social"]').click()`);
   await sleep(600);
   check('Social lands on its home', (await at()) === 'social', await state());

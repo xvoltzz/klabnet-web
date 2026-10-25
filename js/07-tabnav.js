@@ -4,7 +4,7 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos'];
+const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos', 'games'];
 // Social is one page with a sidebar, like Music, holding its own home, Feed,
 // Chat and Photos. Each of those is still a tab of its own here (its own
 // panel, hash, body class and Back entry), so everything that sends you to
@@ -73,6 +73,7 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   document.body.classList.toggle('tab-home-active', key === 'home');
   document.body.classList.toggle('tab-feed-active', key === 'feed');
+  document.body.classList.toggle('tab-games-active', key === 'games');
   // Before the paint, so it never shows at the wrong spot first. Something
   // that jumps to a particular post (klabFeedFocus) scrolls after this.
   if (leaving !== key) {
@@ -86,6 +87,8 @@ function setActiveTab(key) {
   if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
   if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
+  // Games opens its connection to the server while it's up (js/29-games-mc.js).
+  if (typeof window.klabGamesTabChanged === 'function') { const on = key === 'games'; afterSwitchPaints(() => window.klabGamesTabChanged(on)); }
   // The header prompt backspaces into klab.chat on this tab and back out
   // of it on the others (see retypePrompt()).
   if (typeof retypePrompt === 'function') retypePrompt(key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT);

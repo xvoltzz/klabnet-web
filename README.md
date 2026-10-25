@@ -20,6 +20,7 @@ Live at [`user.klab.gg`](https://user.klab.gg) · staged at `staging.klab.gg` �
 - **Backend:** `klabnet-api` (FastAPI, separate service on `192.168.0.37:8765`) — handles `/api/me`, `/api/prefs`, `/api/presence`, etc.
 - **Auth:** Authentik, enforced at the Caddy layer via `forward_auth` — the page itself trusts the identity headers Caddy injects after a successful auth check.
 - **Music:** Navidrome (Subsonic API) at `music.klab.gg`.
+- **Games → Minecraft:** the klabcraft dashboard's viewer pages (`mc.klab.gg`), through Caddy's `/api/mc/` route to it. See CLAUDE.md.
 - **Serving:** Caddy, `file_server` off a plain directory — no server-side rendering.
 
 ## Repository layout

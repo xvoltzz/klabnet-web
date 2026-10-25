@@ -5469,6 +5469,9 @@
 
     /* The seven-segment face (DSEG7, OFL, self-hosted): Home's counter. */
     @font-face { font-family: 'DSEG7'; font-weight: 700; font-display: swap; src: url('../fonts/dseg7-classic-bold.woff2?v=1') format('woff2'); }
+    /* Monocraft (Idrees Hassan, OFL, fonts/OFL-Monocraft.txt): the game's own
+       lettering, in Games → Minecraft. Declared out here: its shadow root can't. */
+    @font-face { font-family: 'Monocraft'; font-weight: 400; font-display: swap; src: url('../fonts/monocraft.woff2?v=1') format('woff2'); }
 
     /* ══ FEED, alive: the page takes on the post you're reading, posts are
        shaped by what they are, and days are chapters. ══ */
@@ -9714,3 +9717,86 @@
     @container dock (max-width: 640px) { .drp-info { display: none; } .dock-radio-pane { gap: .6rem; } }
     @container dock (max-width: 470px) { .drp-controls [data-act="prev"], .drp-controls [data-act="next"] { display: none; } }
     @media (max-width: 520px) { .drp-art-in { width: 36px; height: 36px; } }
+
+    /* ══════════════════════════════════════════════════════════════════
+       GAMES — Music's kind of page: a sidebar with a group per game, and
+       the game's own pages beside it (index.html #gamesShell). Minecraft's
+       are the klabcraft dashboard's, in a shadow root with their own
+       stylesheet (js/29-games-mc.js, css/games-mc.css); only the frame
+       around them is here. Full height, scrolling inside, like Social.
+       ══════════════════════════════════════════════════════════════════ */
+    body.tab-games-active { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-games-active .dash { display: flex; flex-direction: column; height: 100%; overflow: hidden; padding-bottom: 7rem; }
+    body.tab-games-active.player-hidden .dash { padding-bottom: 1.75rem; }
+    @media (min-width: 761px), (pointer: fine) {
+      body.tab-games-active .dash { max-width: min(96vw, 2800px); }
+    }
+    body.tab-games-active .dash-body { flex: 1; min-height: 0; }
+    body.tab-games-active .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    body.tab-games-active .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .games-shell { display: flex; gap: 1.4rem; flex: 1; min-height: 0; }
+    .games-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .games-mc { flex: 1; min-height: 0; display: block; margin-top: -28px; }
+    /* The floating parts (drawer, dialogs, the game's toasts) sit on <body>. */
+    .games-mc-layer { display: contents; }
+
+    .games-sidebar { width: 250px; flex: none; display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-top: 4px; }
+    .games-sidebar::-webkit-scrollbar { display: none; }
+    .games-group { display: flex; flex-direction: column; }
+    #gamesShell .music-sidebar-label {
+      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--text-dimmer); padding: 0 12px 6px; margin: 0;
+    }
+    #gamesShell .picker-tabs { gap: 2px; }
+    #gamesShell .picker-tab {
+      height: 38px; padding: 0 12px; gap: 12px; border-radius: 10px;
+      font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim);
+      background: none; border: 1px solid transparent; box-shadow: none;
+    }
+    #gamesShell .picker-tab i { font-size: 18px; width: 20px; color: inherit; opacity: .85; }
+    #gamesShell .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
+    #gamesShell .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
+    #gamesShell .picker-tab.active i { color: var(--text); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+    #gamesShell .games-nav.has-pill .picker-tab,
+    #gamesShell .games-nav.has-pill .picker-tab:hover:not(.active) { background: transparent; border-color: transparent; transition: color var(--m-slow) var(--m-ease); }
+    #gamesShell .picker-tab span:first-of-type { flex: 1; text-align: left; }
+    .games-count { flex: none; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+
+    /* The server, at the foot: its icon, name and how it's doing. */
+    .games-server {
+      margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px; width: 100%;
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      text-align: left; color: var(--text); font-family: var(--font-ui); cursor: pointer;
+      transition: border-color .2s ease;
+    }
+    .games-server:hover { border-color: var(--glass-border-h); }
+    .games-server-icon { width: 34px; height: 34px; border-radius: 6px; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--tile-bg); color: var(--text-dimmer); font-size: 18px; }
+    .games-server-icon img { width: 100%; height: 100%; image-rendering: pixelated; }
+    .games-server-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .games-server-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .games-server-state { display: flex; align-items: center; gap: 7px; font-size: var(--fs-12); color: var(--text-dim); }
+    .games-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: #6b7280; }
+    .games-dot.online { background: var(--success-color); box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+    .games-dot.busy { background: var(--away-color); box-shadow: 0 0 6px rgba(245,185,63,0.6); }
+    .games-dot.error { background: var(--danger-color); box-shadow: 0 0 6px rgba(248,113,113,0.6); }
+
+    /* Desktop: down under the player bar, the room kept inside what scrolls
+       (css/games-mc.css reads --games-room), as Music's and Social's do. */
+    @media (min-width: 761px), (pointer: fine) {
+      body.tab-games-active .dash, body.tab-games-active.player-hidden .dash { padding-bottom: 0; }
+      body.tab-games-active .games-main { --games-room: var(--dock-room); }
+      body.tab-games-active .games-sidebar { padding-bottom: var(--dock-room); }
+    }
+    @media (min-width: 761px) and (max-width: 900px), (pointer: fine) and (max-width: 900px) {
+      .games-sidebar { width: 200px; }
+      .games-shell { gap: 20px; }
+    }
+    /* Phones: the pages are chips along the top, as in Music and Social. */
+    @media (max-width: 760px) and (pointer: coarse) {
+      .games-shell { flex-direction: column; gap: 8px; }
+      .games-sidebar { width: 100%; flex: none; gap: 8px; overflow: visible; padding-top: 0; }
+      #gamesShell .music-sidebar-label, .games-server { display: none; }
+      #gamesShell .games-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      #gamesShell .games-nav::-webkit-scrollbar { display: none; }
+      #gamesShell .games-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+    }
