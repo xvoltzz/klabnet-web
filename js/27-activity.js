@@ -2,8 +2,7 @@
 //  MUSIC ACTIVITY — what everyone's listening to (Music's sidebar,
 //  "Activity"). Who's playing something right now and how far into it
 //  (a bar that runs live), then each person: the last thing they played,
-//  time listened today / this week / ever, plays, favourite artist, the
-//  song they keep going back to, and their last seven days.
+//  and how much they listened this week and to whom, mostly.
 //
 //  klabnet-api counts it from presence's beats (routers/listens.py,
 //  GET /api/music-requests/activity); the beat carries where the song's
@@ -28,16 +27,7 @@
   }
   const nameHTML = u => '<span class="act-name" style="color:' + (typeof profileColor === 'function' ? profileColor(u) : 'inherit') + '">' + esc(u) + '</span>';
   const me = () => window.KLAB_USER?.username;
-  // 42 min, 3 h 20 min, 34 h: how long, at a glance.
-  function dur(s) {
-    s = Math.round(s || 0);
-    if (s < 60) return s ? '<1 min' : '0 min';
-    const m = Math.round(s / 60);
-    if (m < 60) return m + ' min';
-    const h = Math.floor(m / 60), r = m % 60;
-    return h >= 10 || !r ? h + ' h' : h + ' h ' + r + ' min';
-  }
-  // 42m, 2h 21m, 34h: for the tiles and lists, where room is short.
+  // 42m, 2h 21m, 34h.
   function short(s) {
     const m = Math.round((s || 0) / 60);
     if (m < 60) return (s && !m ? '<1' : m) + 'm';
@@ -73,38 +63,21 @@
       '</div></div>';
   }
 
-  const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-  function week(days) {
-    const top = Math.max(...days, 1);
-    const today = new Date();
-    return '<div class="act-days" role="img" aria-label="Minutes listened, last seven days: ' + days.map(s => Math.round(s / 60)).join(', ') + '">' +
-      days.map((s, i) => {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i));
-        const name = i === 6 ? 'Today' : DAY.format(d);
-        return '<span class="act-day" data-tip="' + esc(name + ': ' + dur(s)) + '"><span class="act-day-bar' + (s ? '' : ' none') + '" style="height:' + (s ? Math.max(6, s / top * 100) : 0).toFixed(1) + '%"></span>' +
-          '<span class="act-day-k">' + esc(name === 'Today' ? 'Today' : name.slice(0, 1)) + '</span></span>';
-      }).join('') + '</div>';
-  }
-
+  // Kept basic on purpose ("we're not the NSA"): who, what they last
+  // played, and one line of how much and who. The API has more (plays,
+  // today, all time, the song on repeat, the last seven days) if that's
+  // wanted again.
   function personCard(p) {
     const s = p.stats, n = p.now;
     const status = n?.playing ? '<span class="act-live">Listening now</span>'
-      : p.last ? 'Last played ' + esc(klabRelativeTime(apiDate(p.last.at))) : 'Just started';
+      : p.last ? 'Last played ' + esc(klabRelativeTime(apiDate(p.last.at))) : '';
     const last = n?.playing ? null : p.last;
+    const line = s ? [s.week ? short(s.week) + ' this week' : '', s.topArtist ? 'mostly ' + esc(s.topArtist.name) : ''].filter(Boolean).join(' · ') : '';
     return '<div class="act-person">' +
       '<div class="act-who">' + avatar(p.username) + '<span class="act-who-text">' + nameHTML(p.username) + '<span class="act-state">' + status + '</span></span></div>' +
       (last ? '<button type="button" class="act-last" data-play="' + songAttr(last) + '" title="Play this">' + art(last, 56, 'act-last-art') +
         '<span class="act-last-text"><span class="act-title">' + esc(last.song) + '</span><span class="act-artist">' + esc(last.artist) + '</span></span></button>' : '') +
-      (s ? '<div class="act-stats">' +
-          '<div class="act-stat"><b>' + short(s.today) + '</b><span>Today</span></div>' +
-          '<div class="act-stat"><b>' + short(s.week) + '</b><span>This week</span></div>' +
-          '<div class="act-stat"><b>' + short(s.total) + '</b><span>All time</span></div>' +
-          '<div class="act-stat"><b>' + s.plays.toLocaleString() + '</b><span>' + (s.plays === 1 ? 'Play' : 'Plays') + '</span></div>' +
-        '</div>' +
-        '<dl class="act-facts">' +
-          (s.topArtist ? '<div><dt>Favorite artist</dt><dd>' + esc(s.topArtist.name) + ' <span>' + short(s.topArtist.seconds) + '</span></dd></div>' : '') +
-          (s.topSong ? '<div><dt>On repeat</dt><dd><button type="button" class="act-link" data-play="' + songAttr(s.topSong) + '">' + esc(s.topSong.song) + '</button> <span>' + s.topSong.plays + ' plays</span></dd></div>' : '') +
-        '</dl>' + week(s.days) : '') +
+      (line ? '<div class="act-line">' + line + '</div>' : '') +
     '</div>';
   }
 
@@ -120,18 +93,8 @@
     const counted = people.filter(p => p.stats);
     let html = '<div class="act-page">';
     if (now.length) html += '<div class="picker-section-label">Listening now</div><div class="act-now-grid">' + now.map(nowCard).join('') + '</div>';
-    if (data.week?.seconds) {
-      const top = data.week.artists || [];
-      const max = Math.max(...top.map(a => a.seconds), 1);
-      html += '<div class="picker-section-label">This week</div><div class="act-week">' +
-        '<div class="act-hero"><b>' + dur(data.week.seconds) + '</b><span>listened together</span></div>' +
-        (top.length ? '<ol class="act-top">' + top.map(a => '<li><span class="act-top-name">' + esc(a.name) + '</span>' +
-          '<span class="act-top-bar"><span style="width:' + (a.seconds / max * 100).toFixed(1) + '%"></span></span><span class="act-top-v">' + short(a.seconds) + '</span></li>').join('') + '</ol>' : '') +
-      '</div>';
-    }
     if (counted.length) html += '<div class="picker-section-label">People</div><div class="act-people">' + counted.map(personCard).join('') + '</div>';
     if (!now.length && !counted.length) html += '<div class="picker-empty">Nothing played yet. Activity fills in as people listen.</div>';
-    if (data.since) html += '<p class="act-foot">Counting since ' + esc(new Date(apiDate(data.since)).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })) + '. Plays under 30 seconds aren’t counted.</p>';
     list.innerHTML = html + '</div>';
     document.getElementById('musicViewSub').textContent = now.length ? klabCount(now.filter(p => p.now.playing).length, 'person', 'people') + ' listening' : '';
   }

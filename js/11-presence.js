@@ -942,6 +942,7 @@
   // was filtered out of everyone else's list even if they had. Now it
   // posts (and shows) "on the site" as its own state, with song/artist
   // attached only when actually applicable.
+  window.klabPostPresence = () => postPresence();
   async function postPresence() {
     if (!window.KLAB_USER?.username || window.KLAB_USER.username === 'anonymous') return;
     const song = playerState.currentSong;
@@ -962,6 +963,8 @@
           duration:  song && isFinite(playerState.audio.duration) ? Math.round(playerState.audio.duration) : (song?.duration || null),
           album:     song?.album || '',
           coverArt:  song?.coverArt || '',
+          // The radio station tuned in to (js/28-radio.js), for who's on what.
+          radio:     window.klabRadio?.now?.() || '',
           partyHost: _partyHostLabel || '',
           platform:  PLATFORM,
           // Which of your devices this is, and whether it's only showing

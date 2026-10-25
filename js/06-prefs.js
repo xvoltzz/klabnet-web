@@ -450,6 +450,7 @@ let _settings = {
   loginSong:     true,
   desktopNotif:  false,   // per device; turning it on asks the browser
   awayStatus:    true,    // per device: tell others when you've stepped away (js/11-presence.js)
+  radio:         false,   // per device: Experimental → Radio (js/28-radio.js)
 };
 
 function loadSettings() {
