@@ -9667,7 +9667,6 @@
     .rd-cue-tag { font: 700 9.5px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; }
     .rd-cue-bar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 1px; background: rgba(var(--accent-rgb), .18); overflow: hidden; }
     .rd-cue-bar i { display: block; height: 100%; width: 0; background: rgb(var(--accent-rgb)); transition: width 1s linear; }
-    .rd-cue-next { font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
     .rd-loop { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 4px 0; font-size: var(--fs-12); color: var(--text-dimmer); }
 
     .rd-chat-where { margin-left: auto; min-width: 0; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: var(--fs-12); color: var(--text-dimmer);
