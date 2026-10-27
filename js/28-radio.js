@@ -10,7 +10,7 @@
 //  The tuner is the dock: while the radio's on it switches to an FM dial
 //  you scroll sideways, static between stations and a station coming in
 //  as the needle nears its frequency. Music → Radio lists the stations
-//  and shows the one on the needle: who's tuned in, what it's played and its
+//  and shows the one on the needle: who's tuned in, about it and its
 //  chat. Hold Q for the wheel, a quick jump: point at a station and let
 //  go, or click it. Playing music turns the radio off, and tuning in
 //  pauses the music.
@@ -57,12 +57,17 @@
   }
   const now = () => (Date.now() + offset) / 1000;
   const posOf = s => (((now() - s.epoch) % s.duration) + s.duration) % s.duration;
-  // What's on right now, from the station's tracklist.
+  // What's on right now. The API only sends a listener what's on and when
+  // it ends (a cue with no name; what's next is a surprise), so once that
+  // passes, or the loop comes round, ask it again.
+  let askedAt = 0;
   function trackAt(s, pos) {
     const t = s.tracklist || [];
-    let cur = null, next = null;
-    for (const item of t) { if (item[0] <= pos) cur = item; else { next = item; break; } }
-    return { cur: cur?.[1] || '', next: next?.[1] || '', nextIn: next ? next[0] - pos : null };
+    let cur = null;
+    for (const item of t) { if (item[0] <= pos) cur = item; else break; }
+    const stale = t.length && ((cur && !cur[1]) || (!cur && t[0][1]));
+    if (stale && Date.now() - askedAt > 3000) { askedAt = Date.now(); load(true).then(() => page.paint()); }
+    return { cur: cur?.[1] || '' };
   }
 
   async function load(force) {
@@ -715,7 +720,7 @@
   // ── Music → Radio ──
   // The stations as a list, and the one on the needle beside it: its
   // display (the dock's dial moves it, signal and all), who's tuned in,
-  // what it's played so far (what's next stays a surprise), and its chat. Picking a station
+  // about it, and its chat (no tracklist: what's next is a surprise). Picking a station
   // sends the dock's needle sweeping over to it.
   const page = (() => {
     let showing = false, el = null, tick = 0, ticks = 0, lastShown = null;
@@ -840,41 +845,20 @@
       }).join('');
     }
 
-    // The middle column: who's tuned in, then what's played so far. What's
-    // coming next stays a surprise: no later cues, no count down to them.
+    // The middle column: who's tuned in, then about the station. No
+    // tracklist: the only song shown is the one on now (the display).
     function paintOn() {
       const col = el.querySelector('.rd-col-on'), d = shown();
       if (!d) { col.innerHTML = ''; col.dataset.key = ''; return; }
-      const pos = posOf(d), list = d.tracklist || [];
-      let cur = -1;
-      list.forEach((item, i) => { if (item[0] <= pos) cur = i; });
-      const played = list.slice(0, cur + 1);
       const who = listenersOf(d);
-      const key = d.id + '|' + who.join() + '|' + cur + '|' + d.description;
-      if (col.dataset.key !== key) {
-        const fresh = col.dataset.id !== d.id;
-        col.dataset.key = key; col.dataset.id = d.id;
-        col.innerHTML = '<div class="picker-section-label rd-label">Tuned in' + (who.length ? '<span class="rd-count">' + who.length + '</span>' : '') + '</div>' +
-          (who.length ? '<div class="rd-who">' + who.map(u => '<span class="rd-who-one">' + avatar(u) + '<span style="color:' + colorOf(u) + '">' + esc(u) + (u === me() ? ' <i>(you)</i>' : '') + '</span></span>').join('') + '</div>'
-            : '<div class="rd-quiet">Nobody right now. ' + (onAir(d) ? '' : 'Be the first.') + '</div>') +
-          (played.length
-            ? '<div class="picker-section-label rd-label">Played so far</div>' +
-              '<div class="rd-cues">' + played.map((item, i) => '<div class="rd-cue' + (i < cur ? ' past' : ' now') + '">' +
-                '<span class="rd-cue-t">' + clockOf(item[0]) + '</span><span class="rd-cue-name">' + esc(item[1]) + '</span>' +
-                (i === cur ? '<span class="rd-cue-tag">Now</span><span class="rd-cue-bar"><i></i></span>' : '') +
-              '</div>').join('') + '</div>'
-            : '<div class="picker-section-label rd-label">About</div><div class="rd-quiet">' + esc(d.description || 'Just listen.') + '</div>') +
-          '<div class="rd-loop"><span>' + fmtLen(d.duration) + ' loop</span><span>' + d.frequency.toFixed(1) + ' FM</span><span>by ' + esc(d.author || d.owner) + '</span></div>';
-        // The one on now in view, at the foot of the list (not the page).
-        const box = col.querySelector('.rd-cues');
-        if (box) box.scrollTo({ top: box.scrollHeight, behavior: fresh || calm() ? 'instant' : 'smooth' });
-      }
-      // The bar under what's on.
-      if (cur >= 0) {
-        const start = list[cur][0], end = list[cur + 1]?.[0] ?? d.duration;
-        const bar = col.querySelector('.rd-cue.now .rd-cue-bar i');
-        if (bar) bar.style.width = Math.min(100, (pos - start) / Math.max(1, end - start) * 100).toFixed(2) + '%';
-      }
+      const key = d.id + '|' + who.join() + '|' + d.description;
+      if (col.dataset.key === key) return;
+      col.dataset.key = key;
+      col.innerHTML = '<div class="picker-section-label rd-label">Tuned in' + (who.length ? '<span class="rd-count">' + who.length + '</span>' : '') + '</div>' +
+        (who.length ? '<div class="rd-who">' + who.map(u => '<span class="rd-who-one">' + avatar(u) + '<span style="color:' + colorOf(u) + '">' + esc(u) + (u === me() ? ' <i>(you)</i>' : '') + '</span></span>').join('') + '</div>'
+          : '<div class="rd-quiet">Nobody right now. ' + (onAir(d) ? '' : 'Be the first.') + '</div>') +
+        '<div class="picker-section-label rd-label">About</div><div class="rd-quiet">' + esc(d.description || 'Just listen.') + '</div>' +
+        '<div class="rd-loop"><span>' + fmtLen(d.duration) + ' loop</span><span>' + d.frequency.toFixed(1) + ' FM</span><span>by ' + esc(d.author || d.owner) + '</span></div>';
     }
 
     // ── The chat ──
@@ -917,10 +901,7 @@
       let prev = null;
       log.innerHTML = chat.msgs.map(m => {
         let h = '';
-        // A new song since the last line: say so, like a log of the show.
-        const cue = m.track && (!prev || prev.track !== m.track);
-        if (cue) h += '<div class="rd-chat-cue"><i class="ti ti-music"></i><span>' + esc(m.track) + '</span></div>';
-        const same = prev && !cue && prev.username === m.username && m.ts - prev.ts < 300;
+        const same = prev && prev.username === m.username && m.ts - prev.ts < 300;
         h += '<div class="rd-msg' + (same ? ' cont' : '') + '">' + (same ? '<span class="rd-av-gap"></span>' : avatar(m.username)) +
           '<div class="rd-msg-in">' + (same ? '' : '<div class="rd-msg-head"><b style="color:' + colorOf(m.username) + '">' + esc(m.username) + '</b><time>' + fmtTime(m.ts) + '</time></div>') +
           '<div class="rd-msg-body">' + esc(m.body) + '</div></div></div>';

@@ -9654,19 +9654,6 @@
       border: 1px solid var(--glass-border); background: var(--glass-fill); font: 600 var(--fs-13) var(--font-ui); }
     .rd-who-one .rd-av { width: 22px; height: 22px; font-size: 10px; }
     .rd-who-one i { font-style: normal; font-weight: 400; color: var(--text-dimmer); }
-    .rd-cues { position: relative; max-height: 380px; overflow-y: auto; scrollbar-width: none; padding: 6px;
-      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill); }
-    .rd-cues::-webkit-scrollbar { display: none; }
-    .rd-cue { position: relative; display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; font-size: var(--fs-13); }
-    .rd-cue-t { text-align: right; font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
-    .rd-cue-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-    .rd-cue.past .rd-cue-name { color: var(--text-dimmer); }
-    .rd-cue.now { background: rgba(var(--accent-rgb), .12); }
-    .rd-cue.now .rd-cue-name { font-weight: 600; }
-    .rd-cue.now .rd-cue-t, .rd-cue-tag { color: rgb(var(--accent-rgb)); }
-    .rd-cue-tag { font: 700 9.5px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; }
-    .rd-cue-bar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 1px; background: rgba(var(--accent-rgb), .18); overflow: hidden; }
-    .rd-cue-bar i { display: block; height: 100%; width: 0; background: rgb(var(--accent-rgb)); transition: width 1s linear; }
     .rd-loop { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 4px 0; font-size: var(--fs-12); color: var(--text-dimmer); }
 
     .rd-chat-where { margin-left: auto; min-width: 0; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: var(--fs-12); color: var(--text-dimmer);
@@ -9676,9 +9663,6 @@
     .rd-chat-log::-webkit-scrollbar { display: none; }
     .rd-chat-empty { margin: auto; text-align: center; max-width: 26ch; }
     /* A new song since the last line: a mark across the log, like a show's. */
-    .rd-chat-cue { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: var(--fs-11); color: var(--text-dimmer); }
-    .rd-chat-cue::before, .rd-chat-cue::after { content: ''; flex: 1 1 12px; height: 1px; background: var(--glass-border); }
-    .rd-chat-cue span { max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .rd-msg { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 5px 0 2px; }
     .rd-msg.cont { padding-top: 0; }
     .rd-av-gap { width: 28px; }
