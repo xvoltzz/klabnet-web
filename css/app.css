@@ -8910,7 +8910,8 @@
     .soc-post-av,
     .soc-post-av img,
     .vc-av,
-    .vc-av img { border-radius: var(--av-radius) !important; }
+    .vc-av img,
+    .rd-av { border-radius: var(--av-radius) !important; }
 
     /* ══ HOME — a plain landing page (js/18-home.js) ══
        The app's own look: a big welcome (the one serif on the site), the
@@ -9524,23 +9525,8 @@
     .radio-manage-btn:hover { background: rgba(255,255,255,.12); }
     @media (hover: none) { .radio-hint { display: none; } }
 
-    .radio-now {
-      position: fixed; right: 20px; z-index: 950; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 6px; max-width: min(420px, calc(100vw - 40px));
-      border-radius: 14px; border: 1px solid var(--glass-border); background: var(--modal-glass); box-shadow: 0 8px 24px var(--shadow-30);
-    }
-    .radio-now[hidden] { display: none; }
-    .radio-now-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-    .radio-now-art { --s: 38px; flex: none; width: var(--s); height: var(--s); border-radius: 8px; overflow: hidden; display: grid; place-items: center;
-      background: var(--st, #333); color: #fff; font: 800 13px var(--font-ui); }
-    .radio-now-art img { width: 100%; height: 100%; object-fit: cover; }
-    .radio-now-text { display: flex; flex-direction: column; min-width: 0; }
-    .radio-now-name { font: 600 var(--fs-13) var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .radio-now-track { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .radio-live { display: inline-flex; align-items: center; gap: 5px; font: 700 10px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); flex: none; }
-    .radio-now-off { flex: none; width: 30px; height: 30px; border-radius: 8px; border: 0; background: none; color: var(--text-dim); cursor: pointer; display: grid; place-items: center; font-size: 16px; }
-    .radio-now-off:hover { background: var(--glass-fill-h); color: var(--text); }
     .dock-radio.on { color: rgb(var(--accent-rgb)); }
-    @media (max-width: 760px) { .radio-now { right: 12px; left: 12px; max-width: none; } }
 
     .radio-manage-body { display: flex; flex-direction: column; gap: 10px; max-height: min(70vh, 720px); overflow-y: auto; padding: 2px; }
     .radio-note { margin: 0 2px 4px; font-size: var(--fs-13); color: var(--text-dim); line-height: 1.5; }
@@ -9576,41 +9562,159 @@
     .radio-del { margin-right: auto; color: #ff6b6b !important; }
     @media (prefers-reduced-motion: reduce) { .radio-wheel, .radio-ring, .radio-slot, .radio-loop .radio-loop-fill { transition: none; } }
 
-    /* ── Radio's tuner (Music → Radio): a faceplate with a seven-segment
-       readout, and the FM band scrolling sideways under a fixed needle. ── */
-    .rd-page { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
-    .rd-set {
+    /* ── Music → Radio (js/28-radio.js `page`): the display of what's on
+       the needle, then the stations, who's tuned in with the tracklist,
+       and the station's chat. The dial is the dock's (below). ── */
+    .rd-page { container: rdpage / inline-size; display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px; }
+    .rd-face {
       --rd-ink: rgb(var(--accent-rgb));
-      border-radius: 16px; border: 1px solid var(--glass-border); background: var(--glass-fill);
-      padding: 16px; display: flex; flex-direction: column; gap: 14px;
+      position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 20px;
+      padding: 16px 20px; border-radius: 10px; border: 1px solid var(--glass-border); overflow: hidden;
+      background: rgba(0,0,0,.38); box-shadow: inset 0 2px 12px rgba(0,0,0,.35); color: rgba(255,255,255,.92);
     }
-    .rd-display {
-      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px;
-      padding: 14px 18px; border-radius: 12px; background: rgba(0,0,0,.38); border: 1px solid rgba(255,255,255,.06);
-      box-shadow: inset 0 2px 10px rgba(0,0,0,.35);
-    }
-    [data-theme="light"] .rd-display { background: rgba(20,20,24,.86); }
-    .rd-readout { display: flex; align-items: baseline; gap: 8px; color: rgba(255,255,255,.16); transition: color .2s, text-shadow .2s; }
-    .rd-set.powered .rd-readout { color: var(--rd-ink); text-shadow: 0 0 14px rgba(var(--accent-rgb), .35); }
-    .rd-digits { font: 700 46px/1 'DSEG7', var(--font-mono, monospace); min-width: 4.2ch; text-align: right; font-variant-numeric: tabular-nums; }
-    .rd-fm { font: 700 var(--fs-12) var(--font-ui); letter-spacing: .12em; }
-    .rd-info { display: flex; align-items: center; gap: 12px; min-width: 0; color: rgba(255,255,255,.92); }
-    .rd-set:not(.powered) .rd-info { opacity: .55; }
+    [data-theme="light"] .rd-face { background: rgba(20,20,24,.88); }
+    /* The station's colour glows behind the display while it's coming in. */
+    .rd-face::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s ease;
+      background: radial-gradient(55% 140% at 0% 50%, var(--st), transparent 72%); }
+    .rd-face.powered:not(.static)::before { opacity: .24; }
+    .rd-face > * { position: relative; }
     .rd-art { --s: 54px; flex: none; width: var(--s); height: var(--s); border-radius: 10px; overflow: hidden; display: grid; place-items: center;
-      background: var(--st); color: #fff; font: 700 var(--fs-15) var(--font-ui); }
+      background: var(--st); color: #fff; font: 700 18px var(--font-ui); transition: filter .3s, opacity .3s; }
+    .rd-face-art .rd-art { --s: 84px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+    .rd-art-none { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); font-size: 30px; }
+    .rd-face:not(.powered) .rd-art, .rd-face.static .rd-art { filter: grayscale(.85); opacity: .5; }
     .rd-art img, .rd-row-art img { width: 100%; height: 100%; object-fit: cover; }
-    .rd-info-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .rd-name { display: flex; align-items: center; gap: 10px; font: 600 var(--fs-16) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rd-name.rd-dim { color: rgba(255,255,255,.6); }
-    .rd-name .radio-live { font-size: var(--fs-11); }
-    .rd-sub { font-size: var(--fs-13); color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rd-meta { font-size: var(--fs-12); color: rgba(255,255,255,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rd-signal { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+    .rd-face-mid { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .rd-face-top { display: flex; align-items: center; gap: 14px; }
+    .rd-readout { display: flex; align-items: baseline; gap: 7px; color: rgba(255,255,255,.18); transition: color .2s, text-shadow .2s; }
+    .rd-face.powered .rd-readout { color: var(--rd-ink); text-shadow: 0 0 14px rgba(var(--accent-rgb), .4); }
+    .rd-digits { font: 700 38px/1 'DSEG7', var(--font-mono, monospace); min-width: 4.2ch; text-align: right; font-variant-numeric: tabular-nums; }
+    .rd-fm { font: 700 var(--fs-11) var(--font-ui); letter-spacing: .12em; }
+    .rd-signal { display: flex; align-items: flex-end; gap: 3px; height: 20px; }
     .rd-signal i { width: 4px; border-radius: 1px; background: rgba(255,255,255,.14); transition: background-color .12s; }
     .rd-signal i:nth-child(1) { height: 20%; } .rd-signal i:nth-child(2) { height: 40%; } .rd-signal i:nth-child(3) { height: 60%; }
     .rd-signal i:nth-child(4) { height: 80%; } .rd-signal i:nth-child(5) { height: 100%; }
     .rd-signal i.lit { background: var(--rd-ink); }
+    /* The lamp: On air, Tuning, Static or Off. */
+    .rd-air { flex: none; font: 700 9.5px/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px;
+      border: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.4); transition: background-color .2s, color .2s, box-shadow .2s; }
+    .rd-air-tuning, .rd-air-static { color: rgba(255,255,255,.75); }
+    .rd-air-on-air { color: #fff; background: #e0404f; border-color: transparent; box-shadow: 0 0 12px rgba(224,64,79,.55); }
+    .rd-face-name { font: 700 22px/1.2 var(--font-ui); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rd-face.static .rd-face-name, .rd-face:not(.powered) .rd-face-name { color: rgba(255,255,255,.6); }
+    .rd-face-sub { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-13); color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; }
+    .rd-face-sub > i { flex: none; opacity: .7; }
+    .rd-face-by { color: rgba(255,255,255,.45); margin-left: 8px; overflow: hidden; text-overflow: ellipsis; }
+    .rd-face-ctrl { display: flex; align-items: center; gap: 8px; }
+    .rd-btn {
+      width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #fff; transition: background-color .15s, color .15s, box-shadow .2s;
+    }
+    .rd-btn:hover { background: rgba(255,255,255,.12); }
+    .rd-power { width: 48px; height: 48px; font-size: 21px; color: rgba(255,255,255,.6); }
+    .rd-power.on { color: #fff; background: #d94f4f; border-color: transparent; box-shadow: 0 0 16px rgba(217,79,79,.5); }
+    .rd-hint { font-size: var(--fs-12); color: var(--text-dimmer); padding: 0 4px; }
+    @media (pointer: coarse) { .rd-hint { display: none; } }
 
+    .rd-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.05fr); gap: 22px; align-items: start; }
+    .rd-col { display: flex; flex-direction: column; min-width: 0; }
+    .rd-label { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+    .rd-count { color: var(--text-dimmer); font-weight: 500; }
+    .rd-gap { flex: 1; }
+    .rd-pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; cursor: pointer; text-transform: none; letter-spacing: 0;
+      border: 1px solid var(--glass-border); background: var(--glass-fill); color: var(--text); font: 600 var(--fs-12) var(--font-ui);
+    }
+    .rd-pill[hidden] { display: none; }
+    .rd-pill:hover { background: var(--glass-fill-h); }
+    .rd-quiet { font-size: var(--fs-13); color: var(--text-dim); padding: 2px 4px; line-height: 1.5; }
+
+    .rd-list { display: flex; flex-direction: column; gap: 2px; }
+    .rd-row {
+      display: grid; grid-template-columns: 3.4em 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 7px 10px; border-radius: 10px;
+      border: 1px solid transparent; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color .15s, border-color .15s;
+    }
+    .rd-row:hover { background: var(--glass-fill); }
+    .rd-row.sel { background: var(--glass-fill-h); border-color: var(--glass-border); }
+    .rd-row-f { font: 700 var(--fs-15) 'DSEG7', var(--font-mono, monospace); color: var(--text-dimmer); text-align: right; transition: color .2s, text-shadow .2s; }
+    .rd-row.sel .rd-row-f { color: var(--text-dim); }
+    .rd-row.on .rd-row-f { color: rgb(var(--accent-rgb)); text-shadow: 0 0 10px rgba(var(--accent-rgb), .45); }
+    .rd-row-art { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: var(--st); color: #fff; font: 700 var(--fs-13) var(--font-ui); }
+    .rd-row-text { display: flex; flex-direction: column; min-width: 0; }
+    .rd-row-text b { font: 600 var(--fs-14) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rd-row-text span { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rd-row-side { display: flex; align-items: center; gap: 8px; }
+    .rd-faces { display: flex; align-items: center; padding-left: 6px; }
+    .rd-faces .rd-av { width: 20px; height: 20px; font-size: 9px; margin-left: -6px; box-shadow: 0 0 0 2px var(--bg); }
+    .rd-more { margin-left: 5px; font-size: var(--fs-11); color: var(--text-dimmer); }
+    .rd-av { flex: none; width: 28px; height: 28px; display: grid; place-items: center; object-fit: cover; color: #fff; font: 700 var(--fs-12) var(--font-ui); }
+
+    .rd-who { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rd-who-one { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 4px; border-radius: 8px;
+      border: 1px solid var(--glass-border); background: var(--glass-fill); font: 600 var(--fs-13) var(--font-ui); }
+    .rd-who-one .rd-av { width: 22px; height: 22px; font-size: 10px; }
+    .rd-who-one i { font-style: normal; font-weight: 400; color: var(--text-dimmer); }
+    .rd-cues { position: relative; max-height: 380px; overflow-y: auto; scrollbar-width: none; padding: 6px;
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill); }
+    .rd-cues::-webkit-scrollbar { display: none; }
+    .rd-cue { position: relative; display: grid; grid-template-columns: 4.2em minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; font-size: var(--fs-13); }
+    .rd-cue-t { text-align: right; font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+    .rd-cue-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .rd-cue.past .rd-cue-name { color: var(--text-dimmer); }
+    .rd-cue.now { background: rgba(var(--accent-rgb), .12); }
+    .rd-cue.now .rd-cue-name { font-weight: 600; }
+    .rd-cue.now .rd-cue-t, .rd-cue-tag { color: rgb(var(--accent-rgb)); }
+    .rd-cue-tag { font: 700 9.5px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; }
+    .rd-cue-bar { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 1px; background: rgba(var(--accent-rgb), .18); overflow: hidden; }
+    .rd-cue-bar i { display: block; height: 100%; width: 0; background: rgb(var(--accent-rgb)); transition: width 1s linear; }
+    .rd-cue-next { font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+    .rd-loop { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 4px 0; font-size: var(--fs-12); color: var(--text-dimmer); }
+
+    .rd-chat-where { margin-left: auto; min-width: 0; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: var(--fs-12); color: var(--text-dimmer);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rd-chat-box { display: flex; flex-direction: column; height: min(560px, 62vh); border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill); overflow: hidden; }
+    .rd-chat-log { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 8px 12px; display: flex; flex-direction: column; }
+    .rd-chat-log::-webkit-scrollbar { display: none; }
+    .rd-chat-empty { margin: auto; text-align: center; max-width: 26ch; }
+    /* A new song since the last line: a mark across the log, like a show's. */
+    .rd-chat-cue { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: var(--fs-11); color: var(--text-dimmer); }
+    .rd-chat-cue::before, .rd-chat-cue::after { content: ''; flex: 1 1 12px; height: 1px; background: var(--glass-border); }
+    .rd-chat-cue span { max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rd-msg { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 5px 0 2px; }
+    .rd-msg.cont { padding-top: 0; }
+    .rd-av-gap { width: 28px; }
+    .rd-msg-head { display: flex; align-items: baseline; gap: 8px; }
+    .rd-msg-head b { font: 600 var(--fs-13) var(--font-ui); }
+    .rd-msg-head time { font-size: var(--fs-11); color: var(--text-dimmer); }
+    .rd-msg-body { font-size: var(--fs-14); line-height: 1.45; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    .rd-chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--glass-border); }
+    .rd-chat-input { flex: 1; min-width: 0; font: var(--fs-14) var(--font-ui); color: var(--text); padding: 9px 12px; border-radius: 8px;
+      border: 1px solid var(--glass-border); background: var(--glass-fill-h); outline: none; }
+    .rd-chat-input:focus { border-color: rgba(var(--accent-rgb), .5); }
+    .rd-chat-input:disabled { opacity: .5; }
+    .rd-chat-send { flex: none; width: 40px; border-radius: 8px; border: 0; cursor: pointer; display: grid; place-items: center; font-size: 16px; background: var(--text); color: var(--bg); }
+
+    @container rdpage (max-width: 1080px) {
+      .rd-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .rd-chat { grid-column: 1 / -1; }
+      .rd-chat-box { height: min(440px, 55vh); }
+    }
+    @container rdpage (max-width: 640px) {
+      .rd-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+      .rd-face { grid-template-columns: auto minmax(0, 1fr); gap: 14px; padding: 14px; }
+      .rd-face-ctrl { grid-column: 1 / -1; justify-content: center; }
+      .rd-face-art .rd-art { --s: 60px; }
+      .rd-digits { font-size: 30px; }
+      .rd-face-name { font-size: 18px; }
+      .rd-face-by { display: none; }
+      .rd-row { grid-template-columns: 3em 40px minmax(0, 1fr) auto; gap: 10px; }
+      .rd-row-art { width: 40px; height: 40px; }
+      .rd-chat-box { height: 60vh; }
+    }
+    .radio-form-row-2 { grid-template-columns: 9em 1fr; }
+    @media (max-width: 760px) { .radio-form-row-2 { grid-template-columns: 1fr; } }
+
+    /* The dial (the dock's: makeDial). */
     .rd-tuner { position: relative; border-radius: 10px; background: rgba(0,0,0,.18); border: 1px solid var(--glass-border); overflow: hidden; }
     [data-theme="light"] .rd-tuner { background: rgba(0,0,0,.04); }
     .rd-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; cursor: grab; outline: none; touch-action: pan-x; }
@@ -9634,49 +9738,6 @@
     .rd-needle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: #ff4d5e; pointer-events: none;
       box-shadow: 0 0 8px rgba(255,77,94,.5); }
     .rd-needle::before { content: ''; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top-color: #ff4d5e; }
-
-    .rd-controls { display: flex; align-items: center; gap: 8px; }
-    .rd-gap { flex: 1; }
-    .rd-btn {
-      width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; cursor: pointer;
-      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text); transition: background-color .15s, color .15s, border-color .15s;
-    }
-    .rd-btn:hover { border-color: var(--glass-border-h); }
-    .rd-power { width: 46px; height: 46px; font-size: 20px; color: var(--text-dim); }
-    .rd-power.on { color: #fff; background: #d94f4f; border-color: transparent; }
-    .rd-pill {
-      display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; cursor: pointer;
-      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text); font: 600 var(--fs-13) var(--font-ui);
-    }
-    .rd-pill[hidden] { display: none; }
-    .rd-pill:hover { border-color: var(--glass-border-h); }
-    .rd-hint { font-size: var(--fs-12); color: var(--text-dimmer, var(--text-dim)); padding: 0 4px; }
-
-    .rd-list { display: flex; flex-direction: column; gap: 2px; }
-    .rd-row {
-      display: grid; grid-template-columns: 3.6em auto 1fr auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px;
-      border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color .15s;
-    }
-    .rd-row:hover { background: var(--glass-fill-h); }
-    .rd-row.on { background: var(--glass-fill); }
-    .rd-row-f { font: 700 var(--fs-15) 'DSEG7', var(--font-mono, monospace); color: var(--text-dim); text-align: right; }
-    .rd-row.on .rd-row-f { color: rgb(var(--accent-rgb)); }
-    .rd-row-art { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: var(--st); color: #fff; font: 700 var(--fs-13) var(--font-ui); }
-    .rd-row-text { display: flex; flex-direction: column; min-width: 0; }
-    .rd-row-text b { font: 600 var(--fs-14) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rd-row-text span { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rd-row-by { display: flex; align-items: center; gap: 10px; font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; }
-    .rd-row-n { display: inline-flex; align-items: center; gap: 3px; }
-    .radio-form-row-2 { grid-template-columns: 9em 1fr; }
-    @media (max-width: 760px) {
-      .rd-display { grid-template-columns: 1fr auto; }
-      .rd-info { grid-column: 1 / -1; grid-row: 2; }
-      .rd-digits { font-size: 38px; }
-      .rd-row { grid-template-columns: 3.2em auto 1fr; }
-      .rd-row-by { display: none; }
-      .rd-hint { display: none; }
-      .radio-form-row-2 { grid-template-columns: 1fr; }
-    }
     /* Activity: someone on the radio (js/27-activity.js radioCard). */
     .act-radio-art { background: var(--st); color: #fff; font: 700 28px var(--font-ui); }
 
@@ -9697,6 +9758,10 @@
     .dock-radio-pane.powered .drp-readout { color: rgb(var(--accent-rgb)); }
     .drp-freq { font: 700 22px/1 'DSEG7', var(--font-mono, monospace); min-width: 4.2ch; text-align: right; }
     .drp-fm { font: 700 9px var(--font-ui); letter-spacing: .12em; }
+    .dock-radio-pane { --rd-ink: rgb(var(--accent-rgb)); }
+    .drp-signal { align-self: center; height: 13px; gap: 2px; margin-left: 4px; }
+    .drp-signal i { width: 3px; background: var(--glass-border); }
+    .drp-signal i.lit { background: var(--rd-ink); }
     .drp-info { flex: 0 1 200px; min-width: 70px; display: flex; flex-direction: column; }
     .drp-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .02em; }
     .drp-track { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

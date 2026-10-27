@@ -7,18 +7,27 @@
 //  itself on that line, nudging its speed for small drift and jumping
 //  for big.
 //
-//  Music → Radio is a tuner: an FM dial you scroll sideways, static
-//  between stations and a station coming in as the needle nears its
-//  frequency. Hold Q (or the dock's radio button) for the wheel, a quick
-//  jump: point at a station and let go, or click it. Playing music turns
-//  the radio off, and tuning in pauses the music.
+//  The tuner is the dock: while the radio's on it switches to an FM dial
+//  you scroll sideways, static between stations and a station coming in
+//  as the needle nears its frequency. Music → Radio lists the stations
+//  and shows the one on the needle: who's tuned in, its tracklist and its
+//  chat. Hold Q for the wheel, a quick jump: point at a station and let
+//  go, or click it. Playing music turns the radio off, and tuning in
+//  pauses the music.
 // ══════════════════════════════════════════
 (function() {
   const API = '/api/music-requests/radio';
   const audio = new Audio();
   audio.preload = 'auto';
   audio.loop = true;
-  let stations = [], loadedAt = 0, offset = 0, offsetAt = 0, tuned = null, drift = 0, settleUntil = 0;
+  let stations = [], loadedAt = 0, offset = 0, offsetAt = 0, tuned = null, tuning = null, drift = 0, settleUntil = 0;
+  // The file the element has (without its #t=), and how the browser's idea
+  // of its length compares with ours: phones estimate a long VBR mp3's
+  // length from its size and seek by that, so a position is scaled to it.
+  let loadedUrl = null, stretch = 1;
+  // Jumps that didn't land (a phone still buffering, a seek it dropped).
+  // Three in a row and it stops jumping for a while rather than loop.
+  let misses = 0, calmUntil = 0;
   // power: the radio's on (a station, or static between them on the dial).
   // level: how much of the station's signal is coming in (the dial, near
   // its frequency); the rest is static.
@@ -78,8 +87,26 @@
     setStatic(staticWanted);
   }
   playerState.audio.addEventListener('volumechange', () => { if (power) volume(); });
-  // Music playing takes over from the radio.
-  playerState.audio.addEventListener('play', () => { if (power && !playerState.audio.muted && playerState.audio.volume > 0) off(); });
+  // Music playing takes over from the radio. Not the made-up play events
+  // of a remote (js/23-session.js fires them as another device's news
+  // arrives): only music starting here.
+  playerState.audio.addEventListener('play', () => { if (power && !window.klabSession?.mirror && !playerState.audio.muted && playerState.audio.volume > 0) off(); });
+
+  // Where the station is, in the element's own timeline.
+  const elPos = s => posOf(s) * stretch;
+  const elLen = s => s.duration * stretch;
+  function seekTo(t) {
+    const max = isFinite(audio.duration) && audio.duration > 1 ? audio.duration - 0.5 : Infinity;
+    audio.currentTime = Math.max(0, Math.min(max, t));
+  }
+  // The browser knows the file's length: scale positions to it when it's off by more
+  // than 1% (see `stretch` above).
+  audio.addEventListener('durationchange', () => {
+    const s = byId(tuned), d = audio.duration;
+    if (!s || !isFinite(d) || d <= 0) return;
+    const r = d / s.duration;
+    stretch = Math.abs(r - 1) > 0.01 ? r : 1;
+  });
 
   // opts.fromDial: the dial's doing it (no burst of static; it has its
   // own, and it says how strong the signal is).
@@ -89,23 +116,42 @@
     const s = byId(id);
     if (!s) return;
     power = true;
-    if (!opts.fromDial) { level = 1; staticWanted = 0; setDialFreq(s.frequency, true); }
+    if (!opts.fromDial) {
+      level = 1; staticWanted = 0; setDialFreq(s.frequency);
+      // The dock is the radio's tuner: it switches over to show it.
+      if (!dock.on()) dock.set(true, true);
+    }
     if (tuned === id && !audio.paused) { volume(); paintNow(); return; }
+    if (tuning === id) return;
+    tuning = id;
     if (!playerState.audio.paused) playerState.audio.pause();
     if (!opts.fromDial) staticBurst();
-    if (Date.now() - offsetAt > 10 * 60e3) await syncClock();
+    // The list's clock does until the proper one's in; waiting for it here
+    // would put play() too far from the tap for a phone to allow it.
+    if (Date.now() - offsetAt > 10 * 60e3) syncClock();
     tuned = id;
+    misses = 0; calmUntil = 0;
     volume();
-    if (!audio.src.endsWith(s.audio)) {
-      audio.src = s.audio;
-      await new Promise(res => { audio.addEventListener('loadedmetadata', res, { once: true }); audio.addEventListener('error', res, { once: true }); });
-    }
-    if (tuned !== id) return;
     // A little ahead: it takes a moment to start from a seek.
-    audio.currentTime = (posOf(s) + 0.25) % s.duration;
+    const at = (posOf(s) + 0.25) % s.duration;
+    if (loadedUrl !== s.audio) {
+      // A new file starts where it's at by its URL (#t=): the browser asks
+      // for that part first, and there's no seek before play for a phone
+      // to drop and start from 0:00 instead.
+      loadedUrl = s.audio; stretch = 1;
+      audio.src = s.audio + '#t=' + at.toFixed(2);
+    } else seekTo(at * stretch);
     audio.playbackRate = 1;
-    settleUntil = performance.now() + 2500;
-    try { await audio.play(); } catch (e) { showToast?.('Couldn’t start the radio: ' + (e.message || 'blocked'), 'ti-radio'); off(); return; }
+    settleUntil = performance.now() + 4000;
+    try { await audio.play(); }
+    catch (e) {
+      if (tuning === id) tuning = null;
+      if (tuned !== id) return;
+      showToast?.('Couldn’t start the radio: ' + (e.message || 'blocked'), 'ti-radio');
+      off(); return;
+    }
+    if (tuning === id) tuning = null;
+    if (tuned !== id) return;
     clearInterval(drift);
     drift = setInterval(keepInSync, 1000);
     paintNow();
@@ -113,12 +159,14 @@
   }
   // The station goes quiet; the radio may stay on (static, on the dial).
   function dropStation() {
+    tuning = null;
     if (!tuned) return;
     tuned = null;
     clearInterval(drift);
     audio.pause();
     audio.removeAttribute('src');
     audio.load();
+    loadedUrl = null; stretch = 1;
     paintNow();
     window.klabPostPresence?.();
   }
@@ -131,26 +179,49 @@
     dial.paint();
   }
   // On the line: within 60ms is fine, under 0.8s it eases back by playing
-  // up to 3% faster or slower, and past that it jumps.
+  // up to 3% faster or slower, and past that it jumps. A jump that doesn't
+  // land counts as a miss; after three in a row it stays where it is for a
+  // minute, so a phone that can't seek plays on instead of starting over.
   function keepInSync() {
     const s = byId(tuned);
     if (!s || audio.paused || audio.seeking || audio.readyState < 3) return;
-    const target = posOf(s);
+    const len = elLen(s), target = elPos(s);
     let d = audio.currentTime - target;
-    if (d > s.duration / 2) d -= s.duration; else if (d < -s.duration / 2) d += s.duration;
+    if (d > len / 2) d -= len; else if (d < -len / 2) d += len;
     if (performance.now() < settleUntil) return;
     if (Math.abs(d) > 0.8) {
+      if (performance.now() < calmUntil) { audio.playbackRate = 1; return; }
+      if (++misses > 3) {
+        console.warn('[radio] jumps aren’t landing (off by ' + d.toFixed(1) + 's); playing on');
+        misses = 0; calmUntil = performance.now() + 60e3;
+        audio.playbackRate = 1;
+        return;
+      }
       audio.playbackRate = 1;
-      audio.currentTime = (target + 0.2) % s.duration;
-      settleUntil = performance.now() + 2500;
-    } else if (Math.abs(d) > 0.06) {
-      audio.playbackRate = Math.max(0.97, Math.min(1.03, 1 - d * 0.3));
-    } else audio.playbackRate = 1;
-    paintNowText();
+      seekTo((target + 0.2 * stretch) % len);
+      settleUntil = performance.now() + 4000;
+    } else {
+      misses = 0;
+      audio.playbackRate = Math.abs(d) > 0.06 ? Math.max(0.97, Math.min(1.03, 1 - d * 0.3)) : 1;
+    }
   }
-  audio.addEventListener('playing', () => { settleUntil = performance.now() + 1500; });
+  audio.addEventListener('playing', () => { settleUntil = Math.max(settleUntil, performance.now() + 1500); });
+  // Waiting on the network after a jump: give it until it plays again.
+  audio.addEventListener('waiting', () => { settleUntil = performance.now() + 4000; });
+  // The browser's end of the file isn't the station's (its length was an
+  // estimate): back onto the line rather than round to the start.
+  audio.addEventListener('ended', () => {
+    const s = byId(tuned);
+    if (!s) return;
+    seekTo(elPos(s));
+    audio.play().catch(() => {});
+  });
   // Away and back: the clock may have drifted, and the line moved on.
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && tuned) syncClock(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !tuned) return;
+    misses = 0; calmUntil = 0;
+    syncClock().then(() => { settleUntil = 0; keepInSync(); });
+  });
 
   // A short burst of static between stations, when sounds are on.
   let noiseCtx = null;
@@ -196,35 +267,14 @@
     } catch (e) {}
   }
 
-  // ── What's on: a pill over the dock while tuned in ──
-  const pill = document.createElement('div');
-  pill.className = 'radio-now';
-  pill.hidden = true;
-  pill.innerHTML = '<button type="button" class="radio-now-main" title="Change station (Q)"><span class="radio-now-art"></span>' +
-    '<span class="radio-now-text"><span class="radio-now-name"></span><span class="radio-now-track"></span></span></button>' +
-    '<span class="radio-live"><span class="radio-live-dot"></span>Live</span>' +
-    '<button type="button" class="radio-now-off" title="Radio off" aria-label="Radio off"><i class="ti ti-x"></i></button>';
-  document.body.appendChild(pill);
-  pill.querySelector('.radio-now-main').addEventListener('click', () => openWheel());
-  pill.querySelector('.radio-now-off').addEventListener('click', () => { SFX && SFX.play('click'); off(); });
   const art = (s, cls) => '<span class="' + cls + '" style="--st:' + esc(s.color || 'var(--glass-fill-h)') + '">' +
     (s.cover ? '<img src="/api/music-requests/playlists/covers/' + encodeURIComponent(s.cover) + '/s" alt="" />' : '<b>' + esc(initials(s.name)) + '</b>') + '</span>';
   const initials = n => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  function placePill() {
-    const dock = document.getElementById('playerDock')?.getBoundingClientRect();
-    pill.style.bottom = (dock && dock.height ? innerHeight - dock.top + 10 : 20) + 'px';
-  }
+  // What's on shows in the dock (switched to the radio while it's on) and
+  // on the Radio page; here, the dock's button and the sidebar's visualiser.
   function paintNow() {
-    const s = byId(tuned);
-    // The Radio page says it all already.
-    pill.hidden = !s || page.showing() || dock.on();
-    document.getElementById('dockRadio')?.classList.toggle('on', !!s);
+    document.getElementById('dockRadio')?.classList.toggle('on', !!byId(tuned));
     paintPeek();
-    if (!s) return;
-    pill.querySelector('.radio-now-art').outerHTML = art(s, 'radio-now-art');
-    pill.querySelector('.radio-now-name').textContent = s.frequency.toFixed(1) + ' · ' + s.name;
-    placePill();
-    paintNowText();
   }
   // The sidebar's visualiser (#dockPeek, js/02-player.js) moves to the
   // radio too, and says the station beside it.
@@ -239,14 +289,6 @@
   }
   audio.addEventListener('playing', paintPeek);
   audio.addEventListener('pause', paintPeek);
-  function paintNowText() {
-    const s = byId(tuned);
-    if (!s) return;
-    const t = trackAt(s, posOf(s));
-    pill.querySelector('.radio-now-track').textContent = t.cur || s.description || 'by ' + s.owner;
-  }
-  addEventListener('resize', () => { if (tuned) placePill(); });
-
   // ── The wheel ──
   const wheel = document.createElement('div');
   wheel.className = 'radio-wheel';
@@ -516,13 +558,14 @@
     dialFreq = clampFreq(f);
     const s = nearest(dialFreq), lvl = s ? strength(Math.abs(s.frequency - dialFreq)) : 0;
     views.forEach(v => { if (!v.visible()) return; if (v !== from) v.follow(dialFreq); v.paint(s, lvl); });
+    page.paint();
     if (!power) return;
     level = lvl;
     staticWanted = dialShowing() ? 1 - lvl : 0;
     volume();
     clearTimeout(tuneT); clearTimeout(dropT);
     if (lvl > 0 && s) {
-      if (tuned !== s.id) tuneT = setTimeout(() => tune(s.id, { fromDial: true }), quiet ? 0 : 180);
+      if (tuned !== s.id && tuning !== s.id) tuneT = setTimeout(() => tune(s.id, { fromDial: true }), quiet ? 0 : 180);
     } else if (tuned) dropT = setTimeout(() => { if (level === 0) dropStation(); }, 1200);
   }
   // Let go near a station: onto it. Anywhere else: onto the nearest 0.1.
@@ -534,12 +577,24 @@
     if (Math.abs(to - f) > 0.005) v.scrollTo(to, true);
   }
   // Sends the needle to f: the showing dial scrolls there (the others follow it).
-  function goTo(f, smooth = true) {
+  const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.fx === 'low';
+  function goTo(f, smooth = !calm()) {
     fine = false;
     f = clampFreq(Math.round(f * 10) / 10);
     const v = views.find(x => x.visible());
     dialFreq = f; saveFreq();
-    if (v) v.scrollTo(f, smooth); else needleAt(f, null, true);
+    // Already there (no scroll to follow): the needle's news all the same.
+    if (v && Math.abs(v.freq() - f) > 0.005) v.scrollTo(f, smooth); else needleAt(f, v, true);
+  }
+  // A station picked from a list: the dock's dial sweeps across the band
+  // to it, static and all, and it comes in as the needle lands. Without a
+  // dial showing (a phone, the dock tucked away) it just tunes in.
+  async function tuneTo(s) {
+    if (!s) return;
+    if (!dock.on()) await dock.set(true, true);
+    if (!power) { power = true; if (!playerState.audio.paused) playerState.audio.pause(); }
+    if (dialShowing()) goTo(s.frequency);
+    else tune(s.id);
   }
   function stepStation(dir) {
     if (!stations.length) return;
@@ -658,94 +713,253 @@
   }
 
   // ── Music → Radio ──
+  // The stations as a list, and the one on the needle beside it: its
+  // display (the dock's dial moves it, signal and all), who's tuned in,
+  // its tracklist with what's on now, and its chat. Picking a station
+  // sends the dock's needle sweeping over to it.
   const page = (() => {
-    let showing = false, el = null, dialV = null, infoT = 0;
-
-    function paintList() {
-      if (!el) return;
-      const box = el.querySelector('.rd-list');
-      if (!stations.length) { box.innerHTML = '<div class="picker-empty">No stations yet. Make one: Your stations, above.</div>'; return; }
-      box.innerHTML = stations.map(s => {
-        const t = trackAt(s, posOf(s));
-        return '<button type="button" class="rd-row' + (s.id === tuned ? ' on' : '') + '" data-f="' + s.frequency + '">' +
-          '<span class="rd-row-f">' + s.frequency.toFixed(1) + '</span>' + art(s, 'rd-row-art') +
-          '<span class="rd-row-text"><b>' + esc(s.name) + '</b><span>' + esc(t.cur || s.description || '') + '</span></span>' +
-          '<span class="rd-row-by">' + (s.listeners?.length ? '<span class="rd-row-n"><i class="ti ti-headphones"></i>' + s.listeners.length + '</span>' : '') + 'by ' + esc(s.author || s.owner) + '</span></button>';
-      }).join('');
-    }
-
-    function paint(s, lvl) {
-      if (!el) return;
-      el.querySelector('.rd-digits').textContent = dialFreq.toFixed(1);
-      const info = el.querySelector('.rd-info');
-      el.querySelector('.rd-set').classList.toggle('powered', power);
-      el.querySelector('.rd-power').classList.toggle('on', power);
-      el.querySelectorAll('.rd-signal i').forEach((b, i) => b.classList.toggle('lit', power && lvl * 5 > i + 0.01));
-      const edit = el.querySelector('[data-act="edit"]');
-      edit.hidden = !(s && lvl > 0.5 && s.canEdit);
-      if (s && lvl > 0.5) edit.dataset.id = s.id;
-      let key;
-      if (!s || lvl <= 0.5) key = power ? 'static' : 'none';
-      else key = s.id + '|' + trackAt(s, posOf(s)).cur + '|' + (s.listeners || []).join() + '|' + power + '|' + tuned;
-      if (info.dataset.key === key) return;
-      info.dataset.key = key;
-      if (!s || lvl <= 0.5) {
-        info.innerHTML = '<div class="rd-name rd-dim">' + (!stations.length ? 'No stations yet' : power ? 'Static' : 'Off') + '</div>' +
-          '<div class="rd-sub">' + (!stations.length ? 'Make one with Your stations' : power ? 'Nothing on this frequency' : 'Press power, or pick a station') + '</div>';
-        return;
-      }
-      const t = trackAt(s, posOf(s));
-      info.innerHTML = art(s, 'rd-art') + '<div class="rd-info-text">' +
-        '<div class="rd-name">' + esc(s.name) + (power && tuned === s.id ? '<span class="radio-live"><span class="radio-live-dot"></span>Live</span>' : '') + '</div>' +
-        '<div class="rd-sub">' + esc(t.cur || s.description || '') + '</div>' +
-        '<div class="rd-meta">by ' + esc(s.author || s.owner) +
-          (s.listeners?.length ? ' · ' + s.listeners.slice(0, 4).map(u => '<span style="color:' + (typeof profileColor === 'function' ? profileColor(u) : 'inherit') + '">' + esc(u) + '</span>').join(', ') + (s.listeners.length > 4 ? ' +' + (s.listeners.length - 4) : '') + ' tuned in' : '') + '</div></div>';
+    let showing = false, el = null, tick = 0, ticks = 0, lastShown = null;
+    const chat = { id: null, msgs: [], last: 0, busy: false, off: false, sending: false };
+    const me = () => window.KLAB_USER?.username || '';
+    const colorOf = u => typeof profileColor === 'function' ? profileColor(u) : 'inherit';
+    const avatar = u => {
+      const url = window.klabResolveUserAvatar?.(u);
+      return url ? '<img class="rd-av" src="' + esc(url) + '" alt="" />'
+        : '<span class="rd-av" style="background:' + colorOf(u) + '">' + esc((u || '?')[0].toUpperCase()) + '</span>';
+    };
+    const signalAt = f => { const s = nearest(f); return { s, lvl: s ? strength(Math.abs(s.frequency - f)) : 0 }; };
+    // Playing and coming in (a station lost to static is dropped a moment later).
+    const onAir = s => !!s && power && tuned === s.id && !audio.paused && level >= 0.5;
+    // Who's tuned in: the API's word, with you as soon as you are.
+    const listenersOf = s => {
+      const l = (s.listeners || []).filter(u => u !== me());
+      return onAir(s) && me() ? [me(), ...l] : l;
+    };
+    // The station the page is about: the one coming in on the needle, or
+    // the last one that did (static between stations keeps it).
+    function shown() {
+      const { s, lvl } = signalAt(dialFreq);
+      if (s && lvl > 0.5) lastShown = s.id;
+      return byId(lastShown) || byId(tuned) || s || null;
     }
 
     function render() {
       if (!showing) return;
       if (!el || !pickerList.contains(el)) {
         pickerList.innerHTML = '<div class="rd-page">' +
-          '<div class="rd-set">' +
-            '<div class="rd-display">' +
-              '<div class="rd-readout"><span class="rd-digits" aria-live="off"></span><span class="rd-fm">FM</span></div>' +
-              '<div class="rd-info"></div>' +
-              '<div class="rd-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>' +
+          '<div class="rd-face">' +
+            '<div class="rd-face-art"></div>' +
+            '<div class="rd-face-mid">' +
+              '<div class="rd-face-top"><span class="rd-readout"><span class="rd-digits"></span><span class="rd-fm">FM</span></span>' +
+                '<span class="rd-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="rd-air"></span></div>' +
+              '<div class="rd-face-name"></div><div class="rd-face-sub"></div>' +
             '</div>' +
-            '<div class="rd-tuner"></div>' +
-            '<div class="rd-controls">' +
-              '<button type="button" class="rd-btn" data-act="prev" title="Previous station (Page Up)"><i class="ti ti-player-skip-back"></i></button>' +
-              '<button type="button" class="rd-btn rd-power" data-act="power" title="Power (Space)"><i class="ti ti-power"></i></button>' +
-              '<button type="button" class="rd-btn" data-act="next" title="Next station (Page Down)"><i class="ti ti-player-skip-forward"></i></button>' +
-              '<span class="rd-gap"></span>' +
-              '<button type="button" class="rd-pill" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit station</button>' +
-              '<button type="button" class="rd-pill" data-act="manage"><i class="ti ti-upload"></i>Your stations</button>' +
+            '<div class="rd-face-ctrl">' +
+              '<button type="button" class="rd-btn" data-act="prev" title="Previous station (Page Up)" aria-label="Previous station"><i class="ti ti-player-skip-back"></i></button>' +
+              '<button type="button" class="rd-btn rd-power" data-act="power" title="Power (Space)" aria-label="Power"><i class="ti ti-power"></i></button>' +
+              '<button type="button" class="rd-btn" data-act="next" title="Next station (Page Down)" aria-label="Next station"><i class="ti ti-player-skip-forward"></i></button>' +
             '</div>' +
           '</div>' +
-          '<div class="rd-hint">Scroll or drag the dial · ← → to fine-tune · Page Up / Down for the next station · hold Q for the wheel</div>' +
-          '<div class="picker-section-label">Stations</div><div class="rd-list"></div>' +
+          '<div class="rd-hint">Turn the dial in the player bar · ← → fine-tune · Page Up / Down for the next station · hold Q for the wheel</div>' +
+          '<div class="rd-body">' +
+            '<div class="rd-col rd-col-list"><div class="picker-section-label rd-label">Stations<span class="rd-gap"></span>' +
+              '<button type="button" class="rd-pill" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit</button>' +
+              '<button type="button" class="rd-pill" data-act="manage"><i class="ti ti-upload"></i>Your stations</button></div>' +
+              '<div class="rd-list"></div></div>' +
+            '<div class="rd-col rd-col-on"></div>' +
+            '<div class="rd-col rd-chat">' +
+              '<div class="picker-section-label rd-label">Chat<span class="rd-chat-where"></span></div>' +
+              '<div class="rd-chat-box"><div class="rd-chat-log" aria-live="polite"></div>' +
+              '<form class="rd-chat-form" autocomplete="off"><input class="rd-chat-input" maxlength="500" enterkeyhint="send" />' +
+                '<button type="submit" class="rd-chat-send" title="Send" aria-label="Send"><i class="ti ti-send-2"></i></button></form></div>' +
+            '</div>' +
+          '</div>' +
         '</div>';
         el = pickerList.querySelector('.rd-page');
-        if (dialV) views.splice(views.indexOf(dialV), 1);
-        dialV = makeDial(el.querySelector('.rd-tuner'), { px: 140, visible: () => showing && !!el, paint });
         el.addEventListener('click', onClick);
+        el.querySelector('.rd-chat-form').addEventListener('submit', onSend);
       }
-      dialV.build();
-      paintList();
-      requestAnimationFrame(() => { if (!el) return; dialV.follow(dialFreq); needleAt(dialFreq, dialV, true); });
+      paint(true);
     }
+
+    // Everything from the state as it is. `all` redraws what's keyed too.
+    function paint(all) {
+      if (!showing || !el) return;
+      if (all) el.querySelectorAll('[data-key]').forEach(x => { x.dataset.key = ''; });
+      paintFace();
+      paintList();
+      paintOn();
+      const d = shown();
+      if (d && chat.id !== d.id) chatFetch();
+    }
+
+    // The display: the needle's frequency, its signal, and what's on it.
+    function paintFace() {
+      const face = el.querySelector('.rd-face');
+      const { s, lvl } = signalAt(dialFreq), on = s && lvl > 0.5;
+      const d = on ? s : shown();
+      face.classList.toggle('powered', power);
+      face.classList.toggle('static', power && !on);
+      face.style.setProperty('--st', d?.color || 'rgb(var(--accent-rgb))');
+      el.querySelector('.rd-digits').textContent = dialFreq.toFixed(1);
+      el.querySelector('.rd-power').classList.toggle('on', power);
+      el.querySelectorAll('.rd-signal i').forEach((b, i) => b.classList.toggle('lit', power && lvl * 5 > i + 0.01));
+      const air = !power ? 'Off' : onAir(s) && on ? 'On air' : on ? 'Tuning' : 'Static';
+      const airEl = el.querySelector('.rd-air');
+      if (airEl.textContent !== air) { airEl.textContent = air; airEl.className = 'rd-air rd-air-' + air.toLowerCase().replace(' ', '-'); }
+      const t = d ? trackAt(d, posOf(d)) : null;
+      const key = [d?.id, t?.cur, power, on, stations.length, power && !on ? dialFreq.toFixed(1) : ''].join('|');
+      if (face.dataset.key === key) return;
+      face.dataset.key = key;
+      el.querySelector('.rd-face-art').innerHTML = d ? art(d, 'rd-art') : '<span class="rd-art rd-art-none"><i class="ti ti-radio"></i></span>';
+      const name = el.querySelector('.rd-face-name'), sub = el.querySelector('.rd-face-sub');
+      if (!stations.length) { name.textContent = 'No stations yet'; sub.textContent = 'Make one with Your stations'; return; }
+      if (power && !on) { name.textContent = 'Static'; sub.textContent = 'Nothing on ' + dialFreq.toFixed(1) + '. Keep turning, or pick a station'; return; }
+      name.textContent = d.name;
+      sub.innerHTML = (t.cur ? '<i class="ti ti-music"></i>' + esc(t.cur) : esc(d.description || '')) +
+        '<span class="rd-face-by">by ' + esc(d.author || d.owner) + (power ? '' : ' · press power to tune in') + '</span>';
+    }
+
+    function paintList() {
+      const box = el.querySelector('.rd-list'), d = shown();
+      const edit = el.querySelector('[data-act="edit"]');
+      edit.hidden = !d?.canEdit;
+      if (d) edit.dataset.id = d.id;
+      if (!stations.length) { box.innerHTML = '<div class="picker-empty">No stations yet. Make one: Your stations, above.</div>'; return; }
+      const key = stations.map(s => s.id + s.name + s.color + s.cover + trackAt(s, posOf(s)).cur + listenersOf(s).join() + onAir(s)).join() + '|' + d?.id;
+      if (box.dataset.key === key) return;
+      box.dataset.key = key;
+      box.innerHTML = stations.map(s => {
+        const t = trackAt(s, posOf(s)), who = listenersOf(s);
+        return '<button type="button" class="rd-row' + (s.id === d?.id ? ' sel' : '') + (onAir(s) ? ' on' : '') + '" data-id="' + esc(s.id) + '" style="--st:' + esc(s.color || 'var(--text-dim)') + '">' +
+          '<span class="rd-row-f">' + s.frequency.toFixed(1) + '</span>' + art(s, 'rd-row-art') +
+          '<span class="rd-row-text"><b>' + esc(s.name) + '</b><span>' + esc(t.cur || s.description || 'by ' + (s.author || s.owner)) + '</span></span>' +
+          '<span class="rd-row-side">' + (onAir(s) ? '<span class="rd-air rd-air-on-air">On air</span>' : '') +
+            (who.length ? '<span class="rd-faces" title="' + esc(who.join(', ')) + ' tuned in">' + who.slice(0, 3).map(avatar).join('') + (who.length > 3 ? '<span class="rd-more">+' + (who.length - 3) + '</span>' : '') + '</span>' : '') +
+          '</span></button>';
+      }).join('');
+    }
+
+    // The middle column: who's tuned in, then the tracklist.
+    function paintOn() {
+      const col = el.querySelector('.rd-col-on'), d = shown();
+      if (!d) { col.innerHTML = ''; col.dataset.key = ''; return; }
+      const pos = posOf(d), list = d.tracklist || [];
+      let cur = -1;
+      list.forEach((item, i) => { if (item[0] <= pos) cur = i; });
+      const who = listenersOf(d);
+      const key = d.id + '|' + who.join() + '|' + cur + '|' + list.length + '|' + d.description;
+      if (col.dataset.key !== key) {
+        const fresh = col.dataset.id !== d.id;
+        col.dataset.key = key; col.dataset.id = d.id;
+        col.innerHTML = '<div class="picker-section-label rd-label">Tuned in' + (who.length ? '<span class="rd-count">' + who.length + '</span>' : '') + '</div>' +
+          (who.length ? '<div class="rd-who">' + who.map(u => '<span class="rd-who-one">' + avatar(u) + '<span style="color:' + colorOf(u) + '">' + esc(u) + (u === me() ? ' <i>(you)</i>' : '') + '</span></span>').join('') + '</div>'
+            : '<div class="rd-quiet">Nobody right now. ' + (onAir(d) ? '' : 'Be the first.') + '</div>') +
+          (list.length
+            ? '<div class="picker-section-label rd-label">Tracklist<span class="rd-count">' + list.length + '</span></div>' +
+              '<div class="rd-cues">' + list.map((item, i) => '<div class="rd-cue' + (i < cur ? ' past' : i === cur ? ' now' : '') + '">' +
+                '<span class="rd-cue-t">' + clockOf(item[0]) + '</span><span class="rd-cue-name">' + esc(item[1]) + '</span>' +
+                (i === cur ? '<span class="rd-cue-tag">Now</span><span class="rd-cue-bar"><i></i></span>' : i === cur + 1 ? '<span class="rd-cue-next"></span>' : '') +
+              '</div>').join('') + '</div>'
+            : '<div class="picker-section-label rd-label">About</div><div class="rd-quiet">' + esc(d.description || 'No tracklist for this one. Just listen.') + '</div>') +
+          '<div class="rd-loop"><span>' + fmtLen(d.duration) + ' loop</span><span>' + d.frequency.toFixed(1) + ' FM</span><span>by ' + esc(d.author || d.owner) + '</span></div>';
+        // The one on now in view, inside the list (not the page).
+        const box = col.querySelector('.rd-cues'), now = col.querySelector('.rd-cue.now');
+        if (box && now) box.scrollTo({ top: now.offsetTop - box.clientHeight / 3, behavior: fresh || calm() ? 'instant' : 'smooth' });
+      }
+      // The bar under what's on, and the count down to what's next.
+      if (cur >= 0) {
+        const start = list[cur][0], end = list[cur + 1]?.[0] ?? d.duration;
+        const bar = col.querySelector('.rd-cue.now .rd-cue-bar i');
+        if (bar) bar.style.width = Math.min(100, (pos - start) / Math.max(1, end - start) * 100).toFixed(2) + '%';
+        const next = col.querySelector('.rd-cue-next');
+        if (next) next.textContent = 'in ' + clockOf(Math.max(0, end - pos));
+      }
+    }
+
+    // ── The chat ──
+    const fmtTime = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    async function chatFetch() {
+      const d = shown();
+      if (!d || !el) return;
+      if (chat.id !== d.id) { chat.id = d.id; chat.msgs = []; chat.last = 0; chat.off = false; chat.shown = false; paintChat(true); }
+      if (chat.busy || chat.off) return;
+      const id = d.id;
+      chat.busy = true;
+      try {
+        const r = await fetchTimeout(API + '/' + encodeURIComponent(id) + '/chat?after=' + chat.last, { cache: 'no-store' }, 6000);
+        if (chat.id !== id) return;
+        if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) { chat.off = true; paintChat(true); return; }
+        if (!r.ok) return;
+        const got = (await r.json()).messages || [];
+        if (got.length) add(got);
+        else if (!chat.msgs.length && !chat.shown) paintChat();
+        chat.shown = true;
+      } catch (e) {} finally { chat.busy = false; }
+    }
+    function add(list) {
+      const fresh = list.filter(m => m.id > chat.last || !chat.msgs.some(x => x.id === m.id));
+      if (!fresh.length) return;
+      chat.msgs = chat.msgs.concat(fresh).sort((a, b) => a.id - b.id).slice(-200);
+      chat.last = chat.msgs[chat.msgs.length - 1].id;
+      paintChat();
+    }
+    function paintChat(reset) {
+      if (!el) return;
+      const log = el.querySelector('.rd-chat-log'), d = byId(chat.id);
+      const input = el.querySelector('.rd-chat-input');
+      el.querySelector('.rd-chat-where').textContent = d ? d.frequency.toFixed(1) + ' · ' + d.name : '';
+      input.placeholder = d ? 'Say something on ' + d.name : 'Pick a station';
+      input.disabled = !d || chat.off;
+      if (chat.off) { log.innerHTML = '<div class="rd-quiet rd-chat-empty">Radio chat needs the latest klabnet-api</div>'; return; }
+      if (!chat.msgs.length) { log.innerHTML = '<div class="rd-quiet rd-chat-empty">' + (reset ? '' : 'Nothing said on ' + esc(d?.name || 'this station') + ' yet. Start it off.') + '</div>'; return; }
+      const stick = reset || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+      let prev = null;
+      log.innerHTML = chat.msgs.map(m => {
+        let h = '';
+        // A new song since the last line: say so, like a log of the show.
+        const cue = m.track && (!prev || prev.track !== m.track);
+        if (cue) h += '<div class="rd-chat-cue"><i class="ti ti-music"></i><span>' + esc(m.track) + '</span></div>';
+        const same = prev && !cue && prev.username === m.username && m.ts - prev.ts < 300;
+        h += '<div class="rd-msg' + (same ? ' cont' : '') + '">' + (same ? '<span class="rd-av-gap"></span>' : avatar(m.username)) +
+          '<div class="rd-msg-in">' + (same ? '' : '<div class="rd-msg-head"><b style="color:' + colorOf(m.username) + '">' + esc(m.username) + '</b><time>' + fmtTime(m.ts) + '</time></div>') +
+          '<div class="rd-msg-body">' + esc(m.body) + '</div></div></div>';
+        prev = m;
+        return h;
+      }).join('');
+      if (stick) log.scrollTop = log.scrollHeight;
+    }
+    async function onSend(e) {
+      e.preventDefault();
+      const input = el.querySelector('.rd-chat-input'), body = input.value.trim(), id = chat.id;
+      if (!body || !id || chat.sending) return;
+      chat.sending = true;
+      try {
+        const r = await fetchTimeout(API + '/' + encodeURIComponent(id) + '/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) }, 8000);
+        const m = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(m.error || 'failed (' + r.status + ')');
+        input.value = '';
+        if (chat.id === id) add([m]);
+        SFX && SFX.play('send');
+      } catch (err) { showToast?.('Couldn’t send it: ' + err.message, 'ti-alert-triangle'); }
+      finally { chat.sending = false; }
+    }
+
     function onClick(e) {
       const row = e.target.closest('.rd-row');
       if (row) {
-        if (!power) powerOn();
-        goTo(+row.dataset.f, false);
-        el.querySelector('.rd-set').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const s = byId(row.dataset.id);
+        if (!s) return;
+        SFX && SFX.play('click');
+        lastShown = s.id;
+        tuneTo(s);
+        paint();
         return;
       }
       const b = e.target.closest('[data-act]');
       if (!b) return;
       const act = b.dataset.act;
-      if (act === 'power') togglePower();
+      if (act === 'power') { if (power) togglePower(); else { SFX && SFX.play('click'); tuneTo(shown()); if (!stations.length) powerOn(); } }
       else if (act === 'prev') stepStation(-1);
       else if (act === 'next') stepStation(1);
       else if (act === 'edit') openManage(b.dataset.id);
@@ -759,7 +973,8 @@
       if (document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open')) return;
       const k = e.key;
       if (k === 'ArrowLeft' || k === 'ArrowRight') {
-        goTo(dialFreq + (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1), e.shiftKey);
+        if (!power) powerOn();
+        goTo(dialFreq + (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1), e.shiftKey && !calm());
         fine = true;
       } else if (k === 'PageUp') stepStation(-1);
       else if (k === 'PageDown') stepStation(1);
@@ -771,34 +986,34 @@
     async function start() {
       showing = true;
       el = null;
-      paintNow();
       render();
       await load(true);
       if (!showing) return;
-      if (power && tuned) { const s = byId(tuned); if (s && Math.abs(s.frequency - dialFreq) > 0.25) dialFreq = s.frequency; }
+      if (power && tuned) { const s = byId(tuned); if (s && Math.abs(s.frequency - dialFreq) > 0.25) dial.set(s.frequency); }
       render();
       dock.refresh();
-      clearInterval(infoT);
-      infoT = setInterval(() => {
+      chatFetch();
+      clearInterval(tick);
+      ticks = 0;
+      tick = setInterval(() => {
         if (!showing || document.hidden) return;
         if (pickerTab !== 'radio') { leave(); return; }
         if (!el || !pickerList.contains(el)) return;
-        el.querySelector('.rd-info').dataset.key = '';
-        needleAt(dialFreq, dialV, true);
-        if (Date.now() - loadedAt > 15000) load(true).then(() => { if (showing && el) { dialV.build(); paintList(); dock.refresh(); } });
-        else paintList();
+        ticks++;
+        paint();
+        if (ticks % 3 === 0) chatFetch();
+        if (Date.now() - loadedAt > 15000) load(true).then(() => { if (showing && el) { paint(true); dock.refresh(); } });
       }, 1000);
       document.getElementById('musicViewSub').textContent = stations.length ? klabCount(stations.length, 'station', 'stations') : '';
     }
     function leave() {
       if (!showing) return;
       showing = false;
-      clearInterval(infoT);
+      clearInterval(tick);
       el = null;
-      dialGone();
-      paintNow();
+      chat.id = null; chat.msgs = [];
     }
-    return { showing: () => showing, start, leave, render: () => { if (showing) render(); } };
+    return { showing: () => showing, start, leave, render: () => { if (showing) render(); }, paint: () => { if (showing && el) { paintFace(); paintList(); } } };
   })();
 
   // ── The dock, switched to the radio ──
@@ -815,7 +1030,8 @@
     pane.innerHTML = '<button type="button" class="drp-art" title="Open Radio"></button>' +
       '<div class="drp-main">' +
         '<div class="drp-top">' +
-          '<span class="drp-readout"><span class="drp-freq"></span><span class="drp-fm">FM</span></span>' +
+          '<span class="drp-readout"><span class="drp-freq"></span><span class="drp-fm">FM</span>' +
+            '<span class="rd-signal drp-signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></span>' +
           '<span class="drp-info"><span class="drp-name"></span><span class="drp-track"></span></span>' +
           '<span class="drp-controls">' +
             '<button type="button" class="ctrl-btn" data-act="prev" title="Previous station"><i class="ti ti-player-skip-back"></i></button>' +
@@ -827,12 +1043,15 @@
       '</div>';
     dockEl.insertBefore(pane, dockEl.querySelector('.player-secondary'));
     let mode = false;
-    const visible = () => mode && !document.hidden && dockEl.getClientRects().length > 0;
+    // Tucked into the sidebar's visualiser (off Music on a computer,
+    // js/02-player.js) it's not showing, though it's still laid out.
+    const visible = () => mode && !document.hidden && (typeof dockWanted !== 'function' || dockWanted()) && dockEl.getClientRects().length > 0;
     const dialV = makeDial(pane.querySelector('.drp-tuner'), { px: 60, compact: true, visible, paint });
     function paint(s, lvl) {
       pane.querySelector('.drp-freq').textContent = dialFreq.toFixed(1);
       pane.classList.toggle('powered', power);
       pane.querySelector('.drp-power').classList.toggle('on', power);
+      pane.querySelectorAll('.drp-signal i').forEach((b, i) => b.classList.toggle('lit', power && lvl * 5 > i + 0.01));
       const on = s && lvl > 0.5;
       const key = on ? s.id + '|' + trackAt(s, posOf(s)).cur + '|' + power : (power ? 'static' : 'off') + stations.length + dialFreq.toFixed(1);
       if (pane.dataset.key === key) return;
@@ -848,7 +1067,18 @@
       if (b.dataset.act === 'power') togglePower();
       else stepStation(b.dataset.act === 'next' ? 1 : -1);
     });
-    let tick = 0;
+    let tick = 0, wasVisible = false;
+    // Once a second: what's on (the track changes), and the dial going out
+    // of sight (tucked away) counts as it gone: static stops, and a station
+    // that's only half in turns off.
+    function beat() {
+      // A hidden page isn't the dial going away (the screen's off, another tab).
+      if (document.hidden) return;
+      const vis = visible();
+      if (vis) { pane.dataset.key = ''; needleAt(dialFreq, dialV, true); }
+      else if (wasVisible) dialGone();
+      wasVisible = vis;
+    }
     async function set(yes, quiet) {
       mode = !!yes;
       try { localStorage.setItem(MODE_KEY, mode ? '1' : ''); } catch (e) {}
@@ -859,15 +1089,28 @@
       btn?.setAttribute('aria-pressed', String(mode));
       clearInterval(tick);
       if (!mode) { if (power && !quiet) off(); dialGone(); paintNow(); return; }
-      await load();
-      dialV.build();
-      requestAnimationFrame(() => { dialV.follow(dialFreq); if (!quiet) powerOn(); else needleAt(dialFreq, dialV, true); });
-      tick = setInterval(() => { if (visible()) { pane.dataset.key = ''; needleAt(dialFreq, dialV, true); } }, 1000);
       paintNow();
+      await load();
+      if (!mode) return;
+      dialV.build();
+      // Laid out first, so the dial can be scrolled to the needle.
+      await new Promise(r => requestAnimationFrame(r));
+      if (!mode) return;
+      dialV.follow(dialFreq);
+      if (!quiet) powerOn(); else needleAt(dialFreq, dialV, true);
+      wasVisible = visible();
+      tick = setInterval(beat, 1000);
     }
     return {
       on: () => mode, set,
-      refresh() { if (mode) { dialV.build(); pane.dataset.key = ''; if (visible()) needleAt(dialFreq, dialV, true); } },
+      // soft: just what's on (the track may have changed), not the dial.
+      refresh(soft) {
+        if (!mode) return;
+        pane.dataset.key = '';
+        if (soft) { const s = nearest(dialFreq); paint(s, s ? strength(Math.abs(s.frequency - dialFreq)) : 0); return; }
+        dialV.build();
+        if (visible()) needleAt(dialFreq, dialV, true);
+      },
       restore() { let m = ''; try { m = localStorage.getItem(MODE_KEY); } catch (e) {} if (m) set(true, true); },
     };
   })();
