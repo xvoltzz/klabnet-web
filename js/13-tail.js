@@ -11,34 +11,36 @@
     }, true); // capture so it fires before the back button's own handler
   }
 
-  // Mouse back/forward buttons (button 3 = back, button 4 = forward)
-  document.addEventListener('mousedown', e => {
-    if (e.button === 3 || e.button === 4) {
-      e.preventDefault();
-      // Forward has no in-app "forward stack" to mirror the back logic
-      // below (this app's panels/tabs don't track a forward direction) —
-      // the closest correct behavior is the browser's own history-forward,
-      // not silently re-running the back logic (which is what button 4
-      // used to fall through to here).
-      if (e.button === 4) { history.forward(); return; }
-      // The full-screen player first: it's on top of everything, the
-      // album page included.
-      if (document.getElementById('fsPlayer')?.classList.contains('open')) {
-        closeFS();
-        return;
-      }
-      // If the artist/album detail view is open, step back to the browse list
-      if (document.getElementById('apPanel')?.classList.contains('open')) {
-        document.getElementById('apBack')?.click();
-        return;
-      }
-      // Anywhere else, back along this tab's own trail (js/17-history.js:
-      // Music's sections, genres and playlists, chat rooms), and from the
-      // start of it, the browser's Back, but never off klabnet's first
-      // screen (that left the app, or reloaded it and stopped the music).
-      if (window.klabNav?.back()) return;
-      if (history.state?.klabAt > 0) history.back();
+  // Mouse back/forward buttons (button 3 = back, button 4 = forward).
+  // The owner: Back on the mouse should press the Back that's on the page,
+  // not walk the site's history (that went back through other tabs and
+  // screens you'd left, which felt random). So, in order:
+  //   1. something over the page (the full player, a dialog, the picture
+  //      viewer, a menu, the slideshow): close it, as Escape would;
+  //   2. a Back button showing on the page: press it;
+  //   3. otherwise nothing.
+  // Forward has nothing on the page to mirror, so it does nothing.
+  const OVERLAYS = '.fs-player.open, .ss.open, .add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible, .ctx-menu.visible, .hdr-more-menu.visible, .modal-backdrop.open, .drawer-backdrop.open, [id$="Backdrop"].open';
+  // The page's own Back buttons: the album/artist page's arrow, "← Genres",
+  // a conversation's back to the list (phone layout).
+  const BACKS = '#apBack, .picker-back, [data-chat-back], #chatMobileBack';
+  const shown = el => el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : el.offsetParent !== null;
+  function mouseBack() {
+    if (document.querySelector('.fs-player.open')) { closeFS(); return; }
+    if ([...document.querySelectorAll(OVERLAYS)].some(shown) || document.body.classList.contains('feed-composer-open')) {
+      const t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document;
+      t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+      return;
     }
+    // The topmost one showing: the album page sits over Music's list.
+    const back = [...document.querySelectorAll(BACKS)].filter(shown).pop();
+    if (back) back.click();
+  }
+  window.klabMouseBack = mouseBack;
+  document.addEventListener('mousedown', e => {
+    if (e.button !== 3 && e.button !== 4) return;
+    e.preventDefault();
+    if (e.button === 3) mouseBack();
   });
 
   // Prevent browser from handling mouse 3/4 as history navigation

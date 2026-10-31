@@ -758,7 +758,6 @@
        so it blinked all through the intro). */
     .prompt-cursor.visible { opacity: 1; animation: blink-cursor 1.1s step-end infinite; }
     @media (prefers-reduced-motion: reduce) { .prompt-cursor.visible { animation: none; } }
-    html[data-fx="low"] .prompt-cursor.visible { animation: none; }
 
     @keyframes blink-cursor {
       0%,100% { opacity: 1; }
@@ -5571,17 +5570,20 @@
 
     /* ══ Performance mode ══
        html[data-fx="low"], set by KLAB_FX in index.html (Settings ->
-       Appearance, or automatically without a GPU). Everything here is what
-       costs a slow machine the most: full-screen album-art backdrops, glass
-       that re-blurs whatever's behind it, and animations that never stop.
-       Transitions stay (some code waits on transitionend), and so does the
-       loading spinner, which is how you know something's happening. */
-    html[data-fx="low"] .hm-backdrop,
-    html[data-fx="low"] .fs-bg,
-    html[data-fx="low"] .ph-bd-layer,
-    html[data-fx="low"] .mh-flow-bg,
-    html[data-fx="low"] .feed-post-backart,
-    html[data-fx="low"] #musicShell .ap-bg { display: none !important; }
+       Appearance, or by itself on a machine without a usable GPU). What it
+       promises, in one place:
+         - nothing blurred: no full-window album-art backdrops, no glow,
+           no glass re-blurring what's behind it (glass turns solid);
+         - nothing that never stops moving: equalizers, rings, pulses,
+           cursors and the disc all stand still (the loading spinners keep
+           going: they're how you know something's happening);
+         - motion in JS checks klabMotionOk() (js/16-motion.js), which
+           counts this as reduced motion, and the cover colour changes in
+           one step (tweenAccentRgb, js/10-lyrics.js).
+       Transitions stay (some code waits on transitionend). Components keep
+       a few rules of their own beside them (search data-fx="low"): solid
+       backings for the bars, menus and Photos' panels. */
+    html[data-fx="low"] :is(.ambient-glow, .hm-backdrop, .fs-bg, .ph-bd-layer, .mh-flow-bg, .mh-refl, .feed-post-backart, #musicShell .ap-bg) { display: none !important; }
 
     html[data-fx="low"] *,
     html[data-fx="low"] *::before,
@@ -5589,16 +5591,17 @@
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
     }
-    html[data-fx="low"] .boot-glow,
-    html[data-fx="low"] .boot-logo,
-    html[data-fx="low"] .motd,
-    html[data-fx="low"] #socialUnreadBadge:not(:empty),
-    html[data-fx="low"] .ph-song.playing .ph-eq b,
-    html[data-fx="low"] .chat-head-eq i,
-    html[data-fx="low"] .presence-card.is-playing .presence-card-online::after,
-    html[data-fx="low"] #feedList .feed-post.is-song.playing .feed-rec-disc { animation: none !important; }
-    /* The listening ring (below), still: a frozen one is just a ring. */
-    html[data-fx="low"] .presence-card.is-playing .presence-card-online::after { opacity: 0; }
+    html[data-fx="low"] :is(
+      .boot-glow, .boot-logo, .motd, .prompt-cursor.visible,
+      #socialUnreadBadge:not(:empty),
+      .ph-song.playing .ph-eq b, .chat-head-eq i, .mh-flow.is-playing .mh-eq i,
+      body.is-playing .eq-ico b, body.radio-on .eq-ico b,
+      #feedList .feed-post.is-song.playing .feed-rec-disc
+    ) { animation: none !important; }
+    html[data-fx="low"] .mh-flow.is-playing .mh-eq i { transform: scaleY(.7); }
+    html[data-fx="low"] #promptMotd::after { animation: none !important; }
+    /* The listening ring, still, is just a ring: hide it. */
+    html[data-fx="low"] .presence-card.is-playing .presence-card-online::after { animation: none !important; opacity: 0; }
 
     /* ══ Same bounds on every tab ══
        Each tab used to pick its own page width (Feed and Photos the full
@@ -6683,7 +6686,6 @@
     body.tab-photos-active .ph-backdrop { visibility: visible; transition-delay: 0s; }
 
     /* Cover Flow's reflections double the raster work: off in performance mode. */
-    html[data-fx="low"] .mh-refl { display: none; }
 
     /* The desktop player dock slides when hidden instead of snapping. */
     .player-dock { transition: background 0.2s ease, border-color 0.2s ease, transform .3s var(--m-ease), opacity .2s ease; }
@@ -6828,7 +6830,6 @@
     }
     .mh-cover .mh-eq i { height: 14px; width: 3px; background: #fff; }
     @media (prefers-reduced-motion: reduce) { .mh-flow.is-playing .mh-eq i { animation: none; transform: scaleY(.7); } }
-    html[data-fx="low"] .mh-flow.is-playing .mh-eq i { animation: none; transform: scaleY(.7); }
 
     /* Where the current song's at. */
     .mh-flow-caption .x[hidden] { display: none; }
@@ -7755,7 +7756,6 @@
       #chatSide .chat-conv:has(.chat-channel-close) .chat-conv-tx { padding-right: 26px; }
     }
     /* Performance mode: the "listening" ring runs on ::after now. */
-    html[data-fx="low"] .presence-card.is-playing .presence-card-online::after { animation: none !important; opacity: 0; }
     /* Performance mode (and reduced transparency) on a Mac: no blur on the
        toolbar capsule and the segmented tabs either. */
     html[data-fx="low"].app-titlebar[data-platform="darwin"] .header-right,
@@ -8040,6 +8040,15 @@
       opacity: 0; transition: opacity .2s ease, left .28s var(--m-ease);
     }
     html.app-titlebar[data-desktop="linux"][data-nav="top"] .header::before { left: 0; }
+    /* Where the sidebar starts under the title bar (the icon rail, or a
+       window under 1100px), the backing is the whole bar: starting at the
+       sidebar's edge it cut through klabnet's logo, square, over the
+       page's rounded corner. The page's column, rounded, starts under it,
+       and its own top edge is the line. */
+    html.app-titlebar[data-desktop="linux"] .header::before { left: 0; box-shadow: none; }
+    @media (min-width: 1100px) {
+      html.app-titlebar[data-desktop="linux"][data-nav="side"] .header::before { left: var(--nav-w, 0px); box-shadow: 0 1px 0 var(--lx-line); }
+    }
     html.app-titlebar[data-desktop="linux"].app-scrolled .header::before { opacity: 1; }
     html.app-titlebar[data-desktop="linux"] .prompt-text { font-size: 0.9rem; }
 
@@ -8793,7 +8802,6 @@
     body.radio-on .eq-ico b:nth-child(4) { animation-delay: -.2s; animation-duration: 1s; }
     body.radio-on #dockPeek { color: var(--text); }
     @media (prefers-reduced-motion: reduce) { body.is-playing .eq-ico b, body.radio-on .eq-ico b { animation: none; } }
-    html[data-fx="low"] body.is-playing .eq-ico b { animation: none; }
     /* Shrunk away on Music: nothing to animate (it redrew under the dock). */
     #dockPeek.peek-hidden .eq-ico b { animation: none; }
     .hdr-btn .dock-peek-label { display: none; }
@@ -9918,4 +9926,73 @@
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .soc-dot { position: absolute; top: 6px; right: 8px; margin: 0; }
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .pane-foot { justify-content: center; }
       html.pane-off-games #gamesSidebar .games-server { margin-top: 0; padding: 6px 0; }
+    }
+
+    /* ══ OLED BLACK (Settings -> Appearance, html.oled) ══
+       The dark theme on pure black: every pixel that isn't content is
+       #000 and opaque. No cover colour in the page, no window glass, no
+       glow, no blurred art behind anything. The dark theme only: the
+       toggle switches to it (js/07-tabnav.js). */
+    html.oled[data-theme="dark"] {
+      --bg: #000 !important; --bg-tint: #000; --sheet: #000;
+      --lx-sheet: #000; --lx-bar: #000; --modal-glass: var(--modal-bg);
+    }
+    html.oled[data-theme="dark"],
+    html.oled[data-theme="dark"] body,
+    html.oled[data-theme="dark"] body::before,
+    html.oled[data-theme="dark"] :is(.header, .side-nav, #sideNav, #tabNav, #playerDock, .player-dock) { background: #000 !important; }
+    html.oled[data-theme="dark"] .header::before { background: #000 !important; }
+    html.oled[data-theme="dark"] :is(.ambient-glow, .hm-backdrop, .hm-bd-layer, .fs-bg, .ph-bd-layer, .mh-flow-bg, .feed-post-backart, #musicShell .ap-bg, .boot-glow) { display: none !important; }
+    html.oled[data-theme="dark"] :is(.header, .side-nav, #sideNav, #tabNav, #playerDock, .player-dock) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+    /* ══ AERO GLASS (Settings -> Appearance -> Window glass; html.glass-aero) ══
+       The owner's idea: the page stays frosted, and only the window's
+       perimeter (sidebar, title bar, rim) gets a hint of Vista's and 7's
+       Aero gloss. The first demo was far too much ("WAY TOO AERO", "not
+       like HEY THIS IS FRUTIGER AERO GUYS"): glossier glass, not a theme.
+       No streaks, and no reflection over it ("that silly reflection
+       effect"): the gloss is in the edges. Glass tinted with the accent (Aero's "colorization", here the
+       cover's colour) and a little lifted, with a crisp highlight along its
+       edges (the rim, the title bar's top), and the
+       page set into it with a dark line and a light one. All of it is one
+       paint fixed to the window, so the sidebar, the title bar and the
+       title bar's backing when scrolled are one continuous pane.
+       The Linux app only, for now (the window has to be see-through). */
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] {
+      --aero-sheen:
+        linear-gradient(rgba(255,255,255,.025), rgba(255,255,255,.025)),
+        linear-gradient(180deg, rgba(var(--accent-rgb), .10), rgba(var(--accent-rgb), .05));
+    }
+    /* The paint goes on the sidebar and the title bar themselves, not the
+       window behind everything: under the page's translucent column the
+       streaks showed through the content. */
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] #sideNav,
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header {
+      background: var(--aero-sheen) !important;
+      background-attachment: fixed !important;
+    }
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header { box-shadow: inset 0 1px 0 rgba(255,255,255,.09); }
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] #sideNav { box-shadow: inset 1px 0 0 rgba(255,255,255,.05); }
+    /* Beside the full sidebar the page's column runs to the top: only the
+       title bar's part above the sidebar is glass, the rest stays clear
+       (its backing, scrolled, is below). The paint is the same all the
+       way across, so sizing it to the sidebar's width changes nothing. */
+    @media (min-width: 1100px) {
+      html.glass-aero.klabnet-app.app-material[data-desktop="linux"][data-nav="side"] .header {
+        background-size: var(--nav-w) 100% !important; background-repeat: no-repeat !important;
+      }
+    }
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header::before {
+      background: var(--aero-sheen), color-mix(in srgb, var(--bg) 84%, transparent);
+      background-attachment: fixed;
+      box-shadow: 0 1px 0 rgba(0,0,0,.3), 0 2px 0 rgba(255,255,255,.04);
+    }
+    /* The page, set into the glass. */
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] body::before {
+      border-color: rgba(255,255,255,.12);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.3), 0 0 12px rgba(0,0,0,.14);
+    }
+    /* The rim: a bright edge with a softer glow inside it. */
+    html.glass-aero.app-round::after {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 1px 0 1px rgba(255,255,255,.05);
     }

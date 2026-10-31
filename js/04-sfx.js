@@ -251,15 +251,47 @@ const SFX = (() => {
     }
   }
 
+  // A real click, like Vista's and 7's Explorer: no melody, no room, just
+  // two tiny transients (the press and its catch a few ms later). Each is
+  // noise through a narrow, resonant band, so it's a round "tock" rather
+  // than a hiss, with the top rolled off. Subtle because it's short and
+  // dry, not because it's quiet: as loud as the old mallet click over its
+  // first 10ms (within the compressor's ceiling). pitch moves the whole
+  // thing up or down (forward and back).
+  function clack(vel, pitch) {
+    pitch = pitch || 1;
+    const c = getCtx();
+    const t0 = c.currentTime + 0.005, v = wob(vel, 0.08);
+    const src = c.createBufferSource();
+    src.buffer = noiseBuf(c);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3200 * pitch; lp.Q.value = 0.5;
+    lp.connect(dry);
+    const hit = (at, freq, q, gain, decay) => {
+      const bp = c.createBiquadFilter(), g = c.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = wob(freq * pitch, 0.04); bp.Q.value = q;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(gain * v, at + 0.0008);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+      src.connect(bp); bp.connect(g); g.connect(lp);
+    };
+    hit(t0, 1900, 4, 4.8, 0.012);            // the press
+    hit(t0, 720, 5, 4.8, 0.02);              // its body
+    hit(t0 + 0.012, 1500, 4, 2.1, 0.01);     // the catch, smaller
+    // A different stretch of noise each time: no two clicks identical.
+    src.start(t0, Math.random() * 0.8, 0.06);
+  }
+
   const SOUNDS = {
-    click:    () => { note(N.A5, 0.62, 0.16, 0, { bright: 0.7 }); },
+    click:    () => clack(0.62),
     glass:    () => SOUNDS.click(),
     browse:   () => { note(N.D6, 0.14, 0.06, 0, { dry: 1, tine: 0.6 }); },
     // The shuffle wheel's pointer clacking over a peg: short, dry, woody.
     tick:     () => { note(N.A6, 0.18, 0.03, 0, { dry: 1, bright: 0.5, tine: 0.2 }); },
     hover:    () => { note(N.D6, 0.3, 0.05, 0, { dry: 1, bright: 0.4, tine: 0.5 }); },
-    nav:      () => { note(N.D5, 0.26, 0.16); note(N.A5, 0.2, 0.2, 0.05); },
-    nav_back: () => { note(N.A5, 0.24, 0.16); note(N.D5, 0.2, 0.2, 0.05); },
+    // Going somewhere / coming back: the same click, a little higher or lower.
+    nav:      () => clack(0.62, 1.25),
+    nav_back: () => clack(0.62, 0.78),
     open:     () => { air(500, 1800, 0.05, 0.28); note(N.D4, 0.3, 0.4); note(N.A4, 0.26, 0.4, 0.05); note(N.D5, 0.22, 0.5, 0.1); },
     close:    () => { air(1600, 450, 0.045, 0.26); note(N.D5, 0.24, 0.3); note(N.A4, 0.2, 0.4, 0.06); },
     play:     () => { note(N.D4, 0.34, 0.6); note(N.A4, 0.26, 0.6, 0.012); note(N.Fs5, 0.24, 0.7, 0.07); },
@@ -290,6 +322,7 @@ const SFX = (() => {
     _sfxVol = Math.max(0, Math.min(1, v));
     if (master && ctx) master.gain.setTargetAtTime(_sfxVol * LEVEL, ctx.currentTime, 0.02);
   }
+  let _anyAt = -Infinity;
   let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity, _lastRecvAt = -Infinity;
   function playGated(type, from) {
     // Before any gesture the context can't run: notes scheduled then all
@@ -305,10 +338,23 @@ const SFX = (() => {
     // A burst of messages is one sound, not a pileup.
     if (NOTIF.has(type)) { if (now - _lastNotifAt < 900) return; _lastNotifAt = now; }
     if (type === 'receive') { if (now - _lastRecvAt < 600) return; _lastRecvAt = now; }
-    _lastType = type; _lastAt = now;
+    _lastType = type; _lastAt = now; _anyAt = now;
     play(type, from);
     setVolume(_sfxVol);
   }
+  // Everything you can press clicks. Anything with a sound of its own
+  // (play, skip, send, a tab...) has played it by the time this runs, a
+  // tick after the click's own handlers, and this stays quiet. Back
+  // buttons click lower. data-silent opts an element out.
+  const PRESSABLE = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], summary, .picker-tab, .picker-item, .s-toggle, .ctx-item, select';
+  const BACKS = '#apBack, .picker-back, [data-chat-back], #chatMobileBack, [title="Back"]';
+  document.addEventListener('click', e => {
+    const el = e.target.closest?.(PRESSABLE);
+    if (!el || el.closest('[data-silent]') || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+    const at = performance.now();
+    setTimeout(() => { if (_anyAt < at) playGated(el.matches(BACKS) ? 'nav_back' : 'click'); }, 0);
+  });
+
   return { play: playGated, setVolume, motif, _getCtx: () => ctx };
 })();
 

@@ -194,6 +194,8 @@ function openSettings() {
   syncDesktopNotifRow();
   syncAwayRow();
   syncLowFxRow();
+  syncOledRow();
+  syncGlassRow();
   window.syncAppSettings?.(); // inside klabnet for Windows only
 
   const volVal = document.getElementById('sfxVolumeVal');
@@ -288,6 +290,45 @@ document.getElementById('lowFxToggle')?.addEventListener('click', e => {
   window.KLAB_FX.apply(_settings.lowFx);
   syncLowFxRow();
 }, true);
+
+// OLED black: html.oled (applied at load by the <head> script). It's a
+// dark-theme look, so turning it on switches to the dark theme.
+function syncOledRow() {
+  const t = document.getElementById('oledToggle');
+  if (!t) return;
+  const on = document.documentElement.classList.contains('oled');
+  t.classList.toggle('on', on);
+  t.setAttribute('aria-checked', String(on));
+}
+document.getElementById('oledToggle')?.addEventListener('click', e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  _settings.oled = !document.documentElement.classList.contains('oled');
+  saveSettings();
+  document.documentElement.classList.toggle('oled', _settings.oled);
+  if (_settings.oled && currentTheme !== 'dark') applyTheme('dark');
+  syncOledRow();
+}, true);
+
+// Window glass: html.glass-aero (applied at load by the <head> script).
+// Only where the window itself is glass: the Linux app, for now.
+function syncGlassRow() {
+  const row = document.getElementById('glassRow');
+  if (!row) return;
+  const r = document.documentElement;
+  row.hidden = !(r.classList.contains('app-material') && r.dataset.desktop === 'linux');
+  const v = r.classList.contains('glass-aero') ? 'aero' : 'frost';
+  row.querySelectorAll('button[data-v]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+document.getElementById('glassStyle')?.addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  SFX && SFX.play('click');
+  _settings.glass = b.dataset.v;
+  saveSettings();
+  document.documentElement.classList.toggle('glass-aero', b.dataset.v === 'aero');
+  syncGlassRow();
+});
 
 // Wire toggles
 document.querySelectorAll('.s-toggle').forEach(toggle => {
