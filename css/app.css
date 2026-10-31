@@ -10179,3 +10179,33 @@
     .hdr-pagenav-sep::before { content: '|'; }
     .hdr-find-btn { width: auto; height: 30px; padding: 0 7px; font: 500 13px 'JetBrains Mono', monospace; color: var(--text-dimmer); }
     .hdr-find-btn:hover { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+
+    /* ══ TUI TOUCHES (2026-10-31) ══
+       The owner: lean into the terminal/desktop look in places, not a
+       redesign. Section headings read as comments ("// your library"),
+       in the prompt's monospace; small numbers and times are monospace
+       like a terminal's output; the loading spinner is a braille one. */
+    :is(.picker-section-label, .music-sidebar-label, #musicShell .music-sidebar-label, .chat-lbl, .ph-side-label, .sec-label, .dash .sec-head .sec-label, #feedList .feed-day h3, .hp-day, .games-group .music-sidebar-label) {
+      font-family: 'JetBrains Mono', monospace !important; font-weight: 500 !important;
+      text-transform: lowercase !important; letter-spacing: 0 !important; font-size: 12px !important;
+    }
+    :is(.picker-section-label, .music-sidebar-label, .chat-lbl, .ph-side-label, .sec-label, #feedList .feed-day h3, .hp-day)::before {
+      content: '// '; opacity: .55;
+    }
+    /* A heading row that holds its label in a span (Channels). */
+    .chat-lbl-row > span:first-child { font: inherit; }
+    :is(.feed-post-time, .chat-conv-when, .music-view-head > span, #socShell .music-view-head > span, #feedList .feed-day span, .soc-label-count, .picker-item-sub .dur, .abc-bubble small) {
+      font-family: 'JetBrains Mono', monospace; letter-spacing: 0; font-variant-numeric: tabular-nums;
+    }
+    #feedList .feed-day span, .music-view-head > span { font-size: 12px; }
+    /* Loading: a braille spinner, like a terminal's. */
+    .ti.ti-loader.loading-spinner { animation: none; }
+    .ti.ti-loader.loading-spinner::before {
+      font-family: 'JetBrains Mono', monospace; content: '⠋';
+      animation: brailleSpin .8s steps(1) infinite;
+    }
+    @keyframes brailleSpin {
+      0% { content: '⠋'; } 10% { content: '⠙'; } 20% { content: '⠹'; } 30% { content: '⠸'; } 40% { content: '⠼'; }
+      50% { content: '⠴'; } 60% { content: '⠦'; } 70% { content: '⠧'; } 80% { content: '⠇'; } 90% { content: '⠏'; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ti.ti-loader.loading-spinner::before { animation: none; } }
