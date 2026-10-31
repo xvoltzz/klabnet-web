@@ -8740,7 +8740,11 @@
       .soc-wall .soc-post { width: auto; min-height: 0; gap: 10px; }
       .soc-wall .soc-post-text { -webkit-line-clamp: 12; }
       .soc-wall .soc-post.short .soc-post-text { font-size: 17px; line-height: 1.35; color: var(--text); }
-      .soc-wall .soc-post-pic { display: block; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h); }
+      /* Pictures edge to edge: inset in the card, with their own corners
+         and a grey backing, they looked framed twice (the owner). */
+      .soc-wall .soc-post { overflow: hidden; }
+      .soc-wall .soc-post-pic { display: block; margin: 0 -14px; border-radius: 0; overflow: hidden; background: none; }
+      .soc-wall .soc-post-pic:has(+ .soc-post-meta:empty) { margin-bottom: -12px; }
       .soc-wall .soc-post-pic img { width: 100%; height: auto; max-height: 640px; object-fit: cover; display: block; }
       .soc-wall .soc-post-meta:empty { display: none; }
     }
