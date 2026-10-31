@@ -120,12 +120,8 @@ document.addEventListener('keydown', e => {
     // press it (Next, a heart) after this has paused: let go of it.
     if (document.activeElement?.closest?.('button, a[href], [role="button"], [role="menuitem"], summary')) document.activeElement.blur();
     document.getElementById('btnPlay')?.click();
-  } else if (e.code === 'ArrowRight' && !e.shiftKey) {
-    e.preventDefault();
-    document.getElementById('btnNext')?.click();
-  } else if (e.code === 'ArrowLeft' && !e.shiftKey) {
-    e.preventDefault();
-    document.getElementById('btnPrev')?.click();
+  // (←/→ used to skip tracks here, on top of moving around the site. The
+  // owner: the keyboard's media keys are for that; ←/→ are the site's.)
   } else if (e.code === 'KeyM') {
     document.getElementById('volIcon')?.closest('button')?.click();
   } else if (e.code === 'KeyF' && document.getElementById('fsPlayer')?.classList.contains('open')) {

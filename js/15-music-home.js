@@ -384,8 +384,8 @@
       drag = null;
     });
 
-    // Arrow keys while it has focus. Stopped here so they don't also skip
-    // tracks, which is what ←/→ do everywhere else.
+    // Arrow keys while it has focus. Stopped here so they don't also move
+    // along the title bar, which is what ←/→ do everywhere else.
     el.addEventListener('keydown', e => {
       if (e.key === 'ArrowLeft') go(target - 1);
       else if (e.key === 'ArrowRight') go(target + 1);

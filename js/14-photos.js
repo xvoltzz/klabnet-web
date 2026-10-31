@@ -1316,7 +1316,7 @@
 
   // ── Keyboard ──
   // Capture phase on window, so while this tab is showing its keys win over
-  // the global ones (←/→ are prev/next track elsewhere, j/k scroll).
+  // the global ones (←/→ step the title bar elsewhere, j/k scroll).
   function anyModalOpen() {
     // A right-click menu too: this handler runs before the menu's own (window
     // capture beats document capture), so ↑/↓ moved the photo instead of the
