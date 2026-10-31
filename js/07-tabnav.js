@@ -806,51 +806,9 @@ window.klabSideNav = (function() {
   roomy.addEventListener('change', () => { close(); place(); });
   set(mode(), { save: false });
 
-  // ── One list of names at a time ──
-  // On a page with a sidebar of its own (Music, Social, Games, while it's
-  // open), the full sidebar folds to its icons by itself: two lists of
-  // names side by side, out of step, took a third of the window (the
-  // owner: "awkward", "wasting space"). Back to names elsewhere. The saved
-  // choice stays "Sidebar"; ☰ still opens it on such a page, until you
-  // move on.
-  const saved = () => { try { return localStorage.getItem('klabnet_nav') || 'side'; } catch (e) { return 'side'; } };
-  const SOC = ['social', 'feed', 'chat', 'photos'];
-  let opened = false;
-  function pagePane() {
-    const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
-    // Social's home, the Feed and Photos have no sidebar of their own in a wide
-    // window (css: Chat's lists only on Chat).
-    if (['social', 'feed', 'photos'].includes(t) && root.classList.contains('hdr-pagenav-on')) return false;
-    const g = SOC.includes(t) ? 'social' : t;
-    return ['music', 'social', 'games'].includes(g) && !root.classList.contains('pane-off-' + g);
-  }
-  function auto() {
-    if (saved() !== 'side' || !roomy.matches) return;
-    const want = pagePane() && !opened ? 'rail' : 'side';
-    if (want === mode()) return;
-    slidePage(() => {
-      root.setAttribute('data-nav', want);
-      place();
-      document.querySelectorAll('#navStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === 'side')));
-    });
-  }
-  // ☰ on such a page: the names, for now (not a new saved choice).
-  burger.addEventListener('click', e => {
-    if (saved() !== 'side' || !pagePane() || !roomy.matches) return;
-    e.stopImmediatePropagation();
-    SFX && SFX.play('click');
-    opened = mode() === 'rail';
-    auto();
-  }, true);
-  let lastTab = '';
-  new MutationObserver(() => {
-    const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
-    if (t !== lastTab) { lastTab = t; opened = false; }
-    auto();
-  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  new MutationObserver(auto).observe(root, { attributes: true, attributeFilter: ['class'] });
-  roomy.addEventListener('change', auto);
-  auto();
+  // (It used to fold to its icons by itself on a page with a sidebar of
+  // its own, and open again when that one closed. The owner: each sidebar
+  // stays as you leave it.)
   return { on, set, mode };
 })();
 

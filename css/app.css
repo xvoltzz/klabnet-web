@@ -10154,11 +10154,10 @@
     html.hdr-pagenav-on #socNav:not(:has(.picker-tab)) { display: none; }
     /* Chat's lists and Voice only on Chat (the owner: not on every page
        now that things moved). With the rows and search in the title bar,
-       that leaves nothing much on Social's home, the Feed or Photos (its
-       "Photo info" switch is i), so their sidebar
-       goes (js/07-tabnav.js auto() then keeps the main sidebar open). */
+       that leaves nothing on Social's home or the Feed, so their sidebar
+       goes. Photos keeps its own (this photo's info, its switches). */
     html.hdr-pagenav-on body:not(.tab-chat-active) #socShell :is(#chatSide, #socVoice) { display: none !important; }
-    html.hdr-pagenav-on body:is(.tab-social-active, .tab-feed-active, .tab-photos-active) #socSidebar { display: none !important; }
+    html.hdr-pagenav-on body:is(.tab-social-active, .tab-feed-active) #socSidebar { display: none !important; }
 
     /* The prompt, typed into (js/32-terminal.js). */
     .term-btn { cursor: default; -webkit-app-region: no-drag; }

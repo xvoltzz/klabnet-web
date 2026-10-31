@@ -67,9 +67,8 @@
     empty.textContent = 'No photos yet.';
     empty.hidden = true;
 
-    const GAP = 4, EVERY = 9000;
-    const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let items = [], order = [], keys = '', loadedAt = 0, step = 0, timer = 0, held = false, inView = true, drawn = false;
+    const GAP = 4;
+    let items = [], order = [], keys = '', loadedAt = 0, step = 0, drawn = false;
     const tiles = new Map(); // photo id -> its tile
     const aspect = it => Math.max(0.5, Math.min(2.2, it.ph.w && it.ph.h ? it.ph.w / it.ph.h : 1.5));
 
@@ -161,65 +160,10 @@
       drawn = true;
     }
 
-    // Each move: the photo after this one up front (so each gets the big
-    // spot in turn), and two others trade places.
-    // ←/→ (and now and then on its own) is the whole wall moving: a new
-    // order and the hero to the other side. On its own it's mostly one
-    // photo trading places with one not shown (or two shown, if all are),
-    // since the whole wall going every few seconds was "nervewracking".
-    function shuffle(dir = 1) {
-      step += 1;
-      if (order.length < 3) return;
-      if (dir > 0) order.push(order.shift()); else order.unshift(order.pop());
-      const n = Math.min(order.length, 12);
-      const i = 1 + Math.floor(Math.random() * (n - 1)), j = 1 + Math.floor(Math.random() * (n - 1));
-      [order[i], order[j]] = [order[j], order[i]];
-      layout();
-    }
-    let ticks = 0;
-    function drift() {
-      if (++ticks % 6 === 0) return shuffle(1);
-      const shown = order.filter(it => tiles.get(it.ph.id) && !tiles.get(it.ph.id).classList.contains('off')).length || Math.min(order.length, 12);
-      // Its partner about the same shape, so the rows around it hardly
-      // change: one of the three closest, from those not shown if any.
-      const i = Math.floor(Math.random() * shown);
-      const pool = order.map((it, j) => j).filter(j => j !== i && (order.length > shown ? j >= shown : true));
-      pool.sort((a, b) => Math.abs(aspect(order[a]) - aspect(order[i])) - Math.abs(aspect(order[b]) - aspect(order[i])));
-      const j = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
-      [order[i], order[j]] = [order[j], order[i]];
-      layout();
-    }
-    function schedule() {
-      clearTimeout(timer);
-      if (!active || document.hidden || held || !inView || calm() || items.length < 3) return;
-      timer = setTimeout(() => { drift(); schedule(); }, EVERY);
-    }
-    el.addEventListener('pointerenter', () => { held = true; clearTimeout(timer); });
-    el.addEventListener('pointerleave', () => { held = false; schedule(); });
-    el.addEventListener('focusin', () => { held = true; clearTimeout(timer); });
-    el.addEventListener('focusout', () => { held = false; schedule(); });
-    new IntersectionObserver(([e]) => { inView = e.isIntersecting; schedule(); }).observe(el);
+    // It stays still (the owner): no shuffling with ←/→, no drifting on
+    // its own. schedule() and stop() stay as the page's hooks.
+    const schedule = () => {};
     new ResizeObserver(() => { if (drawn) layout(); }).observe(el);
-    document.addEventListener('visibilitychange', schedule);
-
-    // ←/→ shuffle it along while Social's home is showing (they'd skip the
-    // song anywhere else); capture on window so they win, as in Photos.
-    window.addEventListener('keydown', e => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      if (!active || el.hidden || !el.offsetParent || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (window.klabAwaitingG?.()) return;
-      // Only when the focus is nowhere in particular (or on this page, or a
-      // tab you just pressed): a slider, a text box and the like keep
-      // their arrows.
-      const a = document.activeElement;
-      if (a && a !== document.body && !el.contains(a) && !a.closest?.('#socHome, #socNav, .hdr-pagenav, .tab-nav')) return;
-      if (a?.closest?.('input, textarea, select, [contenteditable="true"], .slider-wrap')) return;
-      if (document.body.classList.contains('feed-composer-open') ||
-          document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .ctx-menu.visible, .fs-player.open, .ss.open')) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      shuffle(e.key === 'ArrowRight' ? 1 : -1);
-      schedule();
-    }, true);
 
     async function load() {
       if (Date.now() - loadedAt < REFRESH_MS) { layout(); schedule(); return; }
@@ -245,7 +189,7 @@
         requestAnimationFrame(() => { layout(); schedule(); });
       } catch (e) { if (!keys) { el.hidden = true; empty.textContent = 'Couldn’t load photos just now.'; empty.hidden = false; } }
     }
-    return { el, empty, load, stop: () => clearTimeout(timer), schedule };
+    return { el, empty, load, stop: () => {}, schedule };
   })();
 
   // Latest posts: Feed's own, as it has them (no fetch of its own).
