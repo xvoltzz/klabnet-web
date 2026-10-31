@@ -693,7 +693,14 @@ window.klabSideNav = (function() {
   burger.setAttribute('aria-label', 'Navigation');
   burger.innerHTML = '<i class="ti ti-menu-2"></i>';
 
+  // Two states (the owner, 2026-10-31: an icons-only sidebar was
+  // awkward): open with names ("side"), or hidden ("menu"), the page then
+  // taking the whole window. Hidden, it slides out over the page from the
+  // window's left edge or ☰. html[data-nav] is what's shown; `want` is
+  // what you chose. A small window always hides it.
   const mode = () => root.getAttribute('data-nav') || 'side';
+  let want = mode() === 'menu' ? 'menu' : 'side';
+  try { if (localStorage.getItem('klabnet_nav') === 'menu') want = 'menu'; } catch (e) {}
   const on = () => desk.matches && mode() !== 'top';
   // Showing names inline, or only icons (or nothing) with the full
   // sidebar a click away over the page.
@@ -734,20 +741,25 @@ window.klabSideNav = (function() {
     root.classList.toggle('nav-side-on', sideOn);
     if (sideOn) document.body.classList.remove('nav-mini');
     burger.setAttribute('aria-expanded', String(inlineFull() || root.classList.contains('nav-flyout')));
+    burger.title = (mode() === 'menu' ? 'Show sidebar' : 'Hide sidebar') + ' (b)';
     // The sliding highlight measures on resize.
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   }
 
   function close() {
+    clearTimeout(peekT);
+    peeking = false;
     if (!root.classList.contains('nav-flyout')) return;
     root.classList.remove('nav-flyout');
     burger.setAttribute('aria-expanded', 'false');
   }
+  let peekT = 0, peeking = false;
   burger.addEventListener('click', () => {
     SFX && SFX.play('click');
-    // Only where the sidebar is icons for lack of room: it opens over the
-    // page. (With room it's always open: no folding it by hand.)
-    {
+    // With room: hide it, or bring it back for good. In a small window:
+    // open it over the page, and close it again.
+    if (roomy.matches) set(want === 'side' ? 'menu' : 'side');
+    else {
       root.classList.toggle('nav-flyout');
       burger.setAttribute('aria-expanded', String(root.classList.contains('nav-flyout')));
     }
@@ -783,9 +795,10 @@ window.klabSideNav = (function() {
     apply(v, save);
   }
   function apply(v, save) {
-    v = 'side'; // always the sidebar: no tabs in the header, no folding it by hand
+    want = v === 'menu' ? 'menu' : 'side'; // (no tabs in the header, no icons-only rail)
+    if (save) { try { localStorage.setItem('klabnet_nav', want); } catch (e) {} }
+    v = roomy.matches ? want : 'menu';
     root.setAttribute('data-nav', v);
-    if (save) { try { localStorage.setItem('klabnet_nav', v); } catch (e) {} }
     place();
     document.querySelectorAll('#navStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
   }
@@ -803,12 +816,38 @@ window.klabSideNav = (function() {
   }, { passive: true });
 
   desk.addEventListener('change', () => { close(); place(); });
-  roomy.addEventListener('change', () => { close(); place(); });
-  set(mode(), { save: false });
+  roomy.addEventListener('change', () => { close(); apply(want, false); });
+  set(want, { save: false });
+
+  // ── Peeking ──
+  // Hidden, the sidebar slides out over the page while the pointer rests
+  // on the window's left edge, and goes again when it leaves the sidebar.
+  // A click inside (a page, a section) takes you there and it goes.
+  const edge = document.createElement('div');
+  edge.className = 'side-nav-edge';
+  edge.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(edge);
+  edge.addEventListener('pointerenter', e => {
+    if (e.pointerType !== 'mouse' || mode() !== 'menu' || !on()) return;
+    clearTimeout(peekT);
+    peekT = setTimeout(() => {
+      if (root.classList.contains('nav-flyout')) return;
+      peeking = true;
+      root.classList.add('nav-flyout');
+      burger.setAttribute('aria-expanded', 'true');
+    }, 110);
+  });
+  edge.addEventListener('pointerleave', () => { if (!peeking) clearTimeout(peekT); });
+  side.addEventListener('pointerenter', () => { if (peeking) clearTimeout(peekT); });
+  side.addEventListener('pointerleave', e => {
+    if (!peeking || side.contains(e.relatedTarget) || edge === e.relatedTarget) return;
+    clearTimeout(peekT);
+    peekT = setTimeout(() => { if (peeking && !side.matches(':hover') && !side.contains(document.activeElement)) close(); }, 320);
+  });
 
   // ── Dragging its edge ──
-  // Wider or narrower (180–420px, kept). It doesn't fold: only a small
-  // window does that. Only where it sits beside the page with names.
+  // Wider or narrower (180–420px, kept); dragged well past its narrowest,
+  // it hides, like Finder's. Only where it sits beside the page.
   const grip = document.createElement('div');
   grip.className = 'side-nav-grip';
   grip.setAttribute('role', 'separator');
@@ -816,7 +855,7 @@ window.klabSideNav = (function() {
   grip.setAttribute('aria-label', 'Sidebar width');
   grip.title = 'Drag to resize · double-click to reset';
   document.body.appendChild(grip);
-  const W_MIN = 180, W_MAX = 420;
+  const W_MIN = 180, W_MAX = 420, W_HIDE = 110;
   const zf = () => (typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1);
   let drag = null, raf = 0;
   const setW = w => root.style.setProperty('--nav-side-w', Math.round(w) + 'px');
@@ -832,6 +871,7 @@ window.klabSideNav = (function() {
     if (!drag) return;
     const w = drag.w0 + (e.clientX - drag.x) / zf();
     drag.w = w;
+    if (w < W_HIDE) { endDrag(); set('menu'); SFX && SFX.play('click'); return; }
     setW(Math.max(W_MIN, Math.min(W_MAX, w)));
     // The sliding highlights and anything else that measures.
     if (!raf) raf = requestAnimationFrame(() => { raf = 0; window.dispatchEvent(new Event('resize')); });
@@ -855,7 +895,7 @@ window.klabSideNav = (function() {
   // (It used to fold to its icons by itself on a page with a sidebar of
   // its own, and open again when that one closed. The owner: each sidebar
   // stays as you leave it.)
-  return { on, set, mode };
+  return { on, set, mode, want: () => want };
 })();
 
 // ══════════════════════════════════════════
@@ -1331,7 +1371,7 @@ async function offerAppUpdate(current) {
   });
 
   const mode = () => root.getAttribute('data-nav') || 'side';
-  const treeOn = () => desk.matches && ['side', 'rail'].includes(mode()) && tabNav.closest('#sideNav');
+  const treeOn = () => desk.matches && tabNav.closest('#sideNav');
   let last = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
   let was = null;
   function place(key) {
@@ -1353,7 +1393,7 @@ async function offerAppUpdate(current) {
     });
     bar.hidden = !find.firstElementChild;
     root.classList.toggle('nav-tree', tree);
-    root.classList.toggle('nav-icons', tree && !root.classList.contains('nav-flyout') && (mode() === 'rail' || !roomy.matches));
+    root.classList.remove('nav-icons'); // (no icons-only sidebar any more)
     // (The CSS that hides what's left of the page sidebars keys on this.)
     root.classList.toggle('hdr-pagenav-on', tree);
     // The sliding highlights measure again where their rows are now.

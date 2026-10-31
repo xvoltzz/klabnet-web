@@ -6310,9 +6310,13 @@
       /* Settings lives at the foot of the sidebar, like a desktop app's. */
       html.nav-side-on #settingsBtn { display: none; }
       html.nav-side-on .nav-burger { display: grid; place-items: center; }
-      /* With room, the sidebar is always open: ☰ is only for a small
-         window, where it opens the folded sidebar over the page. */
-      @media (min-width: 1100px) { html.nav-side-on .nav-burger { display: none; } }
+      /* Hidden: a strip along the window's left edge brings it out over
+         the page while the pointer rests there (js/07-tabnav.js). */
+      .side-nav-edge { display: none; }
+      html.nav-side-on[data-nav="menu"]:not(.nav-flyout) .side-nav-edge {
+        display: block; position: fixed; z-index: 58; left: 0; width: 6px;
+        top: var(--nav-top, 0px); bottom: var(--nav-bottom, 0px); -webkit-app-region: no-drag;
+      }
 
       /* The floating player centres on the page, not the window. */
       html:not([data-nav="top"]) .player-dock {
@@ -6331,7 +6335,7 @@
       html[data-nav="menu"]:not(.nav-flyout) .side-nav { visibility: hidden; transition: width .28s var(--m-ease), visibility 0s .28s; }
       /* Opened over the page. */
       html.nav-flyout .side-nav {
-        width: 264px; z-index: 59; visibility: visible;
+        width: max(var(--nav-side-w, 232px), 248px); z-index: 59; visibility: visible;
         background: color-mix(in srgb, var(--modal-bg) 94%, transparent);
         -webkit-backdrop-filter: blur(30px) saturate(1.5); backdrop-filter: blur(30px) saturate(1.5);
         box-shadow: 1px 0 0 var(--glass-border-h), 12px 0 40px var(--shadow-40);
@@ -10259,35 +10263,6 @@
       #sideNav .nav-sub #phSideToggles .ph-btn > .s-toggle { flex: none; margin: 0; transform: scale(.78); transform-origin: right center; }
       #sideNav .nav-sub #phNow { margin-top: 12px; }
 
-      /* ── Folded to icons: the same tree, in icons ──
-         The open page's rows sit in a faint tray under its icon; headings
-         are hairlines; playlists are their covers, conversations faces.
-         What can't be an icon (a photo's details, voice) waits for the
-         sidebar to open. */
-      html.nav-icons #sideNav .nav-sub-pad { padding: 3px 0; margin: 2px 0 4px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--text) 4.5%, transparent); }
-      html.nav-icons #sideNav .nav-sub-pad::before { display: none; }
-      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn, .music-playlist-row, #chatSide .chat-conv, .chat-more) {
-        width: 100%; height: 36px; margin: 0; padding: 0; justify-content: center; gap: 0; font-size: 0;
-      }
-      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) i { font-size: 16px; }
-      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) > :not(i):not(.soc-dot) { display: none; }
-      html.nav-icons #sideNav .nav-sub .soc-dot { position: absolute; top: 7px; right: 9px; margin: 0; }
-      html.nav-icons #sideNav .nav-sub :is(.music-sidebar-label, .chat-lbl, .soc-label-row) {
-        height: 1px; padding: 0; margin: 6px 10px; font-size: 0; overflow: hidden; background: var(--glass-border-h);
-      }
-      html.nav-icons #sideNav .nav-sub .music-playlist-row > :not(.music-playlist-row-art),
-      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv > :not(.chat-conv-face):not(.chat-conv-lead) { display: none; }
-      html.nav-icons #sideNav .nav-sub .music-playlist-row-art { width: 24px; height: 24px; }
-      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face { width: 24px; height: 24px; font-size: 10px; }
-      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead { width: auto; font-size: 15px; }
-      /* A heading's buttons (Channels' browse and +) would draw as marks on its hairline. */
-      html.nav-icons #sideNav .nav-sub :is(.chat-lbl, .soc-label-row) .chat-icon-btn { display: none; }
-      /* Online: a dot sized to the small face, inside its corner. */
-      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face .chat-channel-online-dot {
-        width: 7px; height: 7px; right: -1px; bottom: -1px; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--bg) 85%, var(--text));
-      }
-      html.nav-icons #sideNav .nav-sub :is(#chatSide, #socVoice) { margin: 0; }
-      html.nav-icons #sideNav .nav-sub :is(#phSidebar, #phNow, #socVoice, #chatDmMore, #chatPeopleResults) { display: none !important; }
     }
     /* Chat's lists and Voice only on Chat (the owner: not on every page
        now that things moved). With the rows and search in the title bar,
