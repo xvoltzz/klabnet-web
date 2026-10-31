@@ -398,6 +398,8 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
   // And the Navigation choice made in this same panel, and what the sync
   // thought the server had.
   localStorage.removeItem('klabnet_nav');
+  localStorage.removeItem('klabnet_nav_w');
+  document.documentElement.style.removeProperty('--nav-side-w');
   localStorage.removeItem('klabnet_prefs_base');
   localStorage.removeItem('klabnet_voice'); // microphone, push to talk (js/22-voice.js)
   // Clear server prefs
@@ -805,6 +807,57 @@ window.klabSideNav = (function() {
   desk.addEventListener('change', () => { close(); place(); });
   roomy.addEventListener('change', () => { close(); place(); });
   set(mode(), { save: false });
+
+  // ── Dragging its edge ──
+  // Wider or narrower (180–420px, kept), or past its narrowest (under
+  // 140px) down to icons, and out of icons back to names, in the one drag.
+  // Only where the sidebar sits beside the page with room for names.
+  const grip = document.createElement('div');
+  grip.className = 'side-nav-grip';
+  grip.setAttribute('role', 'separator');
+  grip.setAttribute('aria-orientation', 'vertical');
+  grip.setAttribute('aria-label', 'Sidebar width');
+  grip.title = 'Drag to resize · double-click to reset';
+  document.body.appendChild(grip);
+  const W_MIN = 180, W_MAX = 420, W_FOLD = 140;
+  const zf = () => (typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1);
+  let drag = null, raf = 0;
+  const setW = w => root.style.setProperty('--nav-side-w', Math.round(w) + 'px');
+  grip.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !roomy.matches) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    const w0 = mode() === 'rail' ? W_FOLD : side.getBoundingClientRect().width / zf();
+    drag = { x: e.clientX, w0, w: w0 };
+    root.classList.add('nav-resizing');
+  });
+  grip.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const w = drag.w0 + (e.clientX - drag.x) / zf();
+    drag.w = w;
+    if (w < W_FOLD) { if (mode() !== 'rail') { apply('rail', true); SFX && SFX.play('click'); } }
+    else {
+      if (mode() !== 'side') { apply('side', true); SFX && SFX.play('click'); }
+      setW(Math.max(W_MIN, Math.min(W_MAX, w)));
+    }
+    // The sliding highlights and anything else that measures.
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; window.dispatchEvent(new Event('resize')); });
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    drag = null;
+    root.classList.remove('nav-resizing');
+    const w = parseInt(getComputedStyle(root).getPropertyValue('--nav-side-w'), 10);
+    if (w) { try { localStorage.setItem('klabnet_nav_w', String(w)); } catch (e) {} }
+    window.dispatchEvent(new Event('resize'));
+  };
+  grip.addEventListener('pointerup', endDrag);
+  grip.addEventListener('pointercancel', endDrag);
+  grip.addEventListener('dblclick', () => {
+    root.style.removeProperty('--nav-side-w');
+    try { localStorage.removeItem('klabnet_nav_w'); } catch (e) {}
+    slidePage(() => apply('side', true));
+  });
 
   // (It used to fold to its icons by itself on a page with a sidebar of
   // its own, and open again when that one closed. The owner: each sidebar

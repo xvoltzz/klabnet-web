@@ -6282,7 +6282,22 @@
     @media (max-width: 760px) and (pointer: coarse) { #navStyleRow { display: none; } }
 
     @media (min-width: 761px), (pointer: fine) {
-      html[data-nav="side"] { --nav-w: 232px; }
+      html[data-nav="side"] { --nav-w: var(--nav-side-w, 232px); }
+      /* Its edge, to drag (js/07-tabnav.js): wider, narrower, or past its
+         narrowest down to icons and back. Double-click: back to 232px. */
+      .side-nav-grip { display: none; }
+      html.nav-side-on:is([data-nav="side"], [data-nav="rail"]):not(.nav-flyout) .side-nav-grip {
+        display: block; position: fixed; z-index: 58; left: calc(var(--nav-w) - 4px); top: var(--nav-top, 0px); bottom: var(--nav-bottom, 0px);
+        width: 8px; cursor: col-resize; -webkit-app-region: no-drag; touch-action: none;
+        transition: left .28s var(--m-ease);
+      }
+      .side-nav-grip::after {
+        content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; border-radius: 1px;
+        background: var(--glass-border-h); opacity: 0; transition: opacity .15s ease .1s;
+      }
+      .side-nav-grip:hover::after, html.nav-resizing .side-nav-grip::after { opacity: 1; }
+      html.nav-resizing, html.nav-resizing * { cursor: col-resize !important; -webkit-user-select: none !important; user-select: none !important; }
+      html.nav-resizing :is(.side-nav, .side-nav-grip, body, .player-dock, body::before) { transition: none !important; }
       html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
       :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
