@@ -947,6 +947,23 @@
     return _feedRefreshPromise;
   }
 
+  // fetchTimeout's clock stops when the headers arrive, and the body had
+  // none: a response that stalled halfway (a network blip, sleep and wake)
+  // left r.json() waiting forever with _feedPending set, so every poll,
+  // visibilitychange and visit to Feed returned at once and Feed sat on
+  // "Loading feed…" (or never updated) until a reload. This deadline
+  // covers the body too: aborting makes r.json() throw, and the caller's
+  // retry takes over.
+  async function getPostsJSON(url) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetchTimeout(url, { signal: ctrl.signal }, 8000);
+      if (!r.ok) throw new Error('bad status');
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+
   async function fetchFeedPage() {
     if (_feedPending) return;
     // Was polled every 30s unconditionally, including in a backgrounded
@@ -976,9 +993,7 @@
     }
     const startedAt = performance.now();
     try {
-      const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}`, {}, 8000);
-      if (!r.ok) throw new Error('bad status');
-      const data = await r.json();
+      const data = await getPostsJSON(`/api/posts?limit=${FEED_PAGE_SIZE}`);
       _feedFetchedAt = Date.now();
       const page = data.posts || [];
       const fresh = page.filter(p => !_locallyDeleted.has(p.id));
@@ -1073,9 +1088,7 @@
     _feedPending = true;
     const oldestId = _feedPosts[_feedPosts.length - 1].id;
     try {
-      const r = await fetchTimeout(`/api/posts?limit=${FEED_PAGE_SIZE}&before_id=${oldestId}`, {}, 8000);
-      if (!r.ok) return;
-      const data = await r.json();
+      const data = await getPostsJSON(`/api/posts?limit=${FEED_PAGE_SIZE}&before_id=${oldestId}`);
       const older = data.posts || [];
       _feedPosts = _feedPosts.concat(older.filter(p => !_locallyDeleted.has(p.id)));
       // Was unbounded — "Load older" had no cap, so a long session that
