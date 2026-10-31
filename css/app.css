@@ -10068,3 +10068,12 @@
     #socShell .music-view-head:has(#socHomeTitle) { display: none; }
     .header-right .feed-mentions-btn { position: relative; }
     .header-right .feed-mentions-btn:not(.is-active) { border-color: transparent; background: none; }
+
+    /* The title bar keeps only what you use all the time: the theme and the
+       ⋯ menu's items live in Settings now (Appearance, Account). Phones
+       keep the menu: it's where their header buttons fold. */
+    @media (min-width: 761px), (pointer: fine) {
+      html.nav-side-on :is(#themeToggle, #headerMoreBtn) { display: none !important; }
+    }
+    .settings-link { width: 100%; text-align: left; cursor: pointer; }
+    .settings-link > i { color: var(--text-dimmer); font-size: 15px; }

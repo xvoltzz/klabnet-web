@@ -204,6 +204,7 @@ function openSettings() {
   syncLowFxRow();
   syncOledRow();
   syncGlassRow();
+  syncThemeRow();
   window.syncAppSettings?.(); // inside klabnet for Windows only
 
   const volVal = document.getElementById('sfxVolumeVal');
@@ -337,6 +338,27 @@ document.getElementById('glassStyle')?.addEventListener('click', e => {
   document.documentElement.classList.toggle('glass-aero', b.dataset.v === 'aero');
   syncGlassRow();
 });
+
+// Theme, here since it left the title bar.
+function syncThemeRow() {
+  document.querySelectorAll('#themeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === currentTheme)));
+  const get = document.getElementById('getAppBtn'), row = document.getElementById('settingsGetApp');
+  if (row) row.hidden = !get || get.hidden;
+}
+document.getElementById('themeSeg')?.addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]');
+  if (!b || b.dataset.v === currentTheme) return;
+  SFX && SFX.play('click');
+  applyTheme(b.dataset.v);
+  syncThemeRow();
+});
+// What the ⋯ menu held: each row presses the menu's own item.
+document.querySelectorAll('.settings-link[data-press]').forEach(row => row.addEventListener('click', () => {
+  const t = document.getElementById(row.dataset.press);
+  if (!t) return;
+  if (row.dataset.press === 'keyHintsBtn' || row.dataset.press === 'feedbackBtn') closeSettings?.();
+  t.click();
+}));
 
 // Wire toggles
 document.querySelectorAll('.s-toggle').forEach(toggle => {
