@@ -561,6 +561,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         const search = document.getElementById('pickerSearch');
         const onMusic = document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active');
         // The search box is in Music's sidebar: bring that back if it's hidden.
+        // In the title bar (its search icon), open it there; else the sidebar's.
+        if (window.klabOpenHeaderFind?.()) { e.preventDefault(); break; }
         if (onMusic && search) { e.preventDefault(); window.klabPane?.show('music'); search.focus(); }
         break;
       }

@@ -90,8 +90,12 @@
     return '';
   }
 
+  // The _ stays exactly where it is until something's typed (no second
+  // cursor, no jump): the input is as wide as its text, and a space
+  // separates it from the prompt only once there is text.
   function size() {
-    input.style.width = Math.max(1, input.value.length + 0.2) + 'ch';
+    input.style.width = input.value.length + 'ch';
+    input.classList.toggle('has-text', input.value.length > 0);
     ghost.textContent = input.selectionStart === input.value.length ? suggest(input.value) : '';
   }
 
@@ -108,7 +112,9 @@
     ghost = document.createElement('span');
     ghost.className = 'term-ghost';
     ghost.setAttribute('aria-hidden', 'true');
-    textEl.after(document.createTextNode(' '), input, ghost);
+    const fs = getComputedStyle(textEl).fontSize;
+    input.style.fontSize = ghost.style.fontSize = fs;
+    textEl.after(input, ghost);
     root.classList.add('term-on');
     hIdx = history.length;
     size();
@@ -119,9 +125,7 @@
   }
   function close() {
     if (!input) return;
-    const sp = input.previousSibling;
     input.remove(); ghost.remove();
-    if (sp && sp.nodeType === 3) sp.remove();
     input = ghost = null;
     root.classList.remove('term-on');
   }

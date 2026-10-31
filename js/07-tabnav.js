@@ -1257,38 +1257,101 @@ async function offerAppUpdate(current) {
 }
 
 // ══════════════════════════════════════════
-//  THE PAGE'S SEARCH, IN THE TITLE BAR
-//  Music's and Social's search boxes sit in the middle of the title bar
-//  while their page is up, instead of at the top of their sidebars (the
-//  owner: use the top bar, save space). The box itself moves, handlers and
-//  all, and goes back to its sidebar on other pages and on a phone.
+//  THE PAGE'S NAV, IN THE TITLE BAR
+//  On Music, Social and Games, the page's own sections (Music's Home,
+//  Radio... Albums; Social's Home, Feed, Photos, Chat; Games' tabs) are a
+//  row of icons in the middle of the title bar, and its search is an icon
+//  there that opens into a box (the owner: no box by default, use the top
+//  bar, save space). Their sidebars keep their lists (playlists,
+//  conversations, servers). The rows themselves move, handlers and all,
+//  and go back on other pages, on a phone, and in a window too narrow for
+//  a row in the middle.
 // ══════════════════════════════════════════
 (function () {
   const header = document.querySelector('.header');
   if (!header) return;
-  const desk = matchMedia('(min-width: 761px), (pointer: fine)');
-  const slot = document.createElement('div');
-  slot.className = 'hdr-search';
-  header.appendChild(slot);
+  const wide = matchMedia('(min-width: 1000px)');
+  const bar = document.createElement('div');
+  bar.className = 'hdr-pagenav';
+  bar.setAttribute('role', 'toolbar');
+  header.appendChild(bar);
   const SOC = ['social', 'feed', 'chat', 'photos'];
-  const boxes = [
-    { pages: ['music'], el: document.querySelector('#musicSidebar .picker-search') },
-    { pages: SOC, el: document.querySelector('#socSidebar .soc-search') },
-  ].filter(b => b.el);
-  // Where each goes back to.
-  boxes.forEach(b => { b.home = document.createComment('search'); b.el.before(b.home); });
+  const $$ = sel => [...document.querySelectorAll(sel)];
+  // Only the core sections, whose icons say what they are; the rest keep
+  // their names in the sidebar (the owner: "not EVERY sidebar element").
+  // Each group is a run of buttons, with a divider between groups.
+  const tab = t => document.querySelector(`#musicSidebar .picker-tab[data-tab="${t}"]`);
+  const soc = t => document.querySelector(`#socNav .picker-tab[data-soc="${t}"]`);
+  const pages = [
+    { pages: ['music'], groups: [[tab('random')], [tab('songs'), tab('albums'), tab('artists')]], search: document.querySelector('#musicSidebar .picker-search') },
+    { pages: SOC, groups: [[soc('social'), soc('feed'), soc('photos'), soc('chat')]], search: document.querySelector('#socSidebar .soc-search') },
+  ].map(p => ({ ...p, groups: p.groups.map(g => g.filter(Boolean)).filter(g => g.length) }));
+  pages.forEach(p => { p.navs = p.groups.map(g => { const d = document.createElement('div'); d.className = 'picker-tabs hdr-pagenav-group'; d._items = g; return d; }); });
+  // Where each part goes back to.
+  pages.forEach(p => [...p.groups.flat(), p.search].filter(Boolean).forEach(el => { el._home = document.createComment('pagenav'); el.before(el._home); }));
+  // Icon-only up here: each row's label becomes its tooltip.
+  pages.forEach(p => p.groups.flat().forEach(b => { if (!b.title) b.title = b.textContent.trim(); }));
+
+  // The search: an icon that opens into the box.
+  const find = document.createElement('div');
+  find.className = 'hdr-find';
+  const findBtn = document.createElement('button');
+  findBtn.type = 'button';
+  findBtn.className = 'hdr-find-btn';
+  findBtn.title = 'Search (/)';
+  findBtn.innerHTML = '<i class="ti ti-search"></i>';
+  find.appendChild(findBtn);
+  const openFind = () => {
+    find.classList.add('open');
+    find.querySelector('input')?.focus();
+  };
+  findBtn.addEventListener('click', openFind);
+  find.addEventListener('focusin', () => find.classList.add('open'));
+  find.addEventListener('focusout', () => setTimeout(() => {
+    const inp = find.querySelector('input');
+    if (!find.contains(document.activeElement) && !(inp && inp.value)) find.classList.remove('open');
+  }, 0));
+  find.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const inp = find.querySelector('input');
+    if (inp && inp.value) return;
+    e.stopPropagation();
+    inp?.blur();
+    find.classList.remove('open');
+  });
+
   let last = '';
   function place(key) {
     if (key) last = key;
-    const want = desk.matches ? boxes.find(b => b.pages.includes(last)) : null;
-    boxes.forEach(b => {
-      if (b === want) { if (b.el.parentElement !== slot) { b.el.classList.remove('pop'); slot.appendChild(b.el); } }
-      else if (b.el.parentElement === slot) b.home.after(b.el);
+    const want = wide.matches ? pages.find(p => p.pages.includes(last)) : null;
+    bar.querySelectorAll('.hdr-pagenav-sep').forEach(s => s.remove());
+    pages.forEach(p => {
+      const up = p === want;
+      p.navs.forEach((n, i) => {
+        if (up) {
+          if (i) bar.appendChild(Object.assign(document.createElement('span'), { className: 'hdr-pagenav-sep' }));
+          n._items.forEach(b => { if (b.parentElement !== n) n.appendChild(b); });
+          bar.appendChild(n);
+        } else {
+          n._items.forEach(b => { if (b.parentElement === n) b._home.after(b); });
+          n.remove();
+        }
+      });
+      if (p.search) {
+        if (up && p.search.parentElement !== find) { p.search.classList.remove('pop'); find.appendChild(p.search); }
+        else if (!up && p.search.parentElement === find) p.search._home.after(p.search);
+      }
     });
-    slot.hidden = !want;
-    document.documentElement.classList.toggle('hdr-search-on', !!want);
+    if (want?.search) bar.appendChild(find); else find.remove();
+    find.classList.toggle('open', !!find.querySelector('input')?.value);
+    bar.hidden = !want;
+    document.documentElement.classList.toggle('hdr-pagenav-on', !!want);
+    document.documentElement.dataset.hdrPage = want ? (want.pages[0]) : '';
+    // The sliding highlights measure again where their rows are now.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   }
   window.klabHeaderSearch = place;
-  desk.addEventListener('change', () => place());
+  window.klabOpenHeaderFind = () => { if (!bar.hidden && find.isConnected) { openFind(); return true; } return false; };
+  wide.addEventListener('change', () => place());
   place(document.querySelector('.tab-panel.active')?.dataset.tabPanel || '');
 })();
