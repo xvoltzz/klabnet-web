@@ -200,9 +200,15 @@ function sampleImageColor(imgUrl) {
         // time made klabnet hard to read): the cover only tints the theme's
         // own accent, 60% of the way, over a slower tween, and the room no
         // longer flashes on every new track.
+        // 85% since: at 60% everything coloured looked washed out.
         const base = _defaultAccentRgb();
         const cover = dominantColorFromPixels(px);
-        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.6)) : base, 1200);
+        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.85)) : base, 1200);
+        // The window's tint (--bg-tint, css "LEGIBILITY") is the cover's own
+        // colour or nothing: tinting it with the default accent, a light
+        // grey, laid a grey film over everything.
+        if (cover) document.documentElement.style.setProperty('--cover', `rgb(${cover.join(',')})`);
+        else document.documentElement.style.removeProperty('--cover');
       } catch(e) { /* CORS blocked — keep default accent */ }
     };
     img.src = src;
@@ -238,6 +244,7 @@ function sampleImageColor(imgUrl) {
       tweenAccentRgb(_defaultAccentRgb(), 550, () => {
         document.documentElement.style.removeProperty('--accent-rgb');
       });
+      document.documentElement.style.removeProperty('--cover');
       _last = ''; // cleared so resume re-triggers extraction
     } else {
       // Resumed — _last was cleared on pause so sample() will re-run

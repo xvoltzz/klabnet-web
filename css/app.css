@@ -9830,7 +9830,9 @@
        column is mostly solid (--sheet-mix), and what sits behind text
        (the playing glow, Home's and Music's cover backdrops) is quieter.
        The cover colour itself is toned down in js/13-tail.js. */
-    :root { --sheet-mix: 58%; }
+    /* Lighter since (the owner: colours "washed", "a gray overlay"). */
+    @property --cover { syntax: '<color>'; inherits: true; initial-value: black; }
+    :root { --sheet-mix: 46%; transition: --cover 1.2s ease; }
     body.is-playing .ambient-glow { opacity: .7; }
     .hm-bd-layer.on { opacity: .7; }
     .hm-bd-layer.on.soft-grad { opacity: .5; }
@@ -9841,7 +9843,11 @@
        sidebar's tint and the title bar alike, so it isn't colour in one
        place and grey around it. */
     :root {
-      --bg-tint: color-mix(in srgb, var(--bg) 88%, rgb(var(--accent-rgb)));
+      /* The cover's colour while music plays (js/13-tail.js sets --cover),
+         otherwise the plain background: never the default accent, whose
+         light grey made a grey film over the whole window. */
+      --cover: var(--bg);
+      --bg-tint: color-mix(in srgb, var(--bg) 90%, var(--cover));
       --sheet: color-mix(in srgb, var(--bg-tint) var(--sheet-mix), transparent);
     }
     html.klabnet-app.app-material:not([data-desktop="linux"]),
@@ -10021,3 +10027,19 @@
       :is(.picker-tab.active, .chat-channel-item.active, .games-server.active) { color: var(--text); }
     :is(html:not(.pane-off-music) #musicSidebar, html:not(.pane-off-social) #socSidebar, html:not(.pane-off-games) #gamesSidebar)
       :is(.picker-tab.active > span, .games-server.active > span, .chat-channel-item.active .chat-channel-name) { font-weight: 700; }
+
+    /* Feed: its scroll area reaches up to the title bar (the page's
+       1.1rem of top room moves inside it, as the first thing's margin:
+       sticky counts the scroll area's own padding), so the date hangs right
+       off the title bar instead of 20px below it with a gap. */
+    :is(html.app-titlebar, html.web-bar) body.tab-feed-active #socMain { margin-top: -1.1rem; }
+    :is(html.app-titlebar, html.web-bar) body.tab-feed-active #socMain > .tab-panel.active > :first-child { margin-top: 1.1rem; }
+
+    /* Feed photos stay inside their post. They used to bleed to the card's
+       edges by fixed amounts (72px + 18px) from an older layout; the post
+       is laid out differently now, so a photo shown full width overshot
+       the card (thenoob91's portrait one, Oct 26). Whole, never cropped,
+       on the dark band when the screen is too short for it. */
+    #feedList .feed-post.is-photo :is(.feed-post-image, .feed-post-image-ph) {
+      width: 100%; max-width: 100%; margin: 10px 0 0; border-radius: 10px;
+    }
