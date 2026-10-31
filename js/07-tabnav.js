@@ -835,9 +835,9 @@ window.klabPane = (function() {
     social: { el: 'socSidebar',   search: '.soc-search',    mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
     games:  { el: 'gamesSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-games-active' },
   };
-  // (With the sections in the main sidebar, Music and Games have none.)
+  // (With everything in the main sidebar, no page has one of its own.)
   const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches
-    && !(t !== 'social' && root.classList.contains('nav-tree'))) || null;
+    && !root.classList.contains('nav-tree')) || null;
   const hidden = t => root.classList.contains('pane-off-' + t);
   // Each sidebar's foot, which the one button moves between.
   for (const [t, p] of Object.entries(PANES)) {
@@ -1235,9 +1235,14 @@ async function offerAppUpdate(current) {
 //      bar, on pages that have one.
 //    · A page's own lists (Chat's conversations, a photo's details) stay
 //      in that page's sidebar, which only shows where it has some.
-//  The rows move with their handlers. They go back to their page's
-//  sidebar when the sidebar is only icons (a narrow window, the rail),
-//  and on a phone.
+//  Chat's conversations and Photos' details come along too, under
+//  Social's sections while you're on Chat or Photos (like Slack's
+//  sidebar), so there's never a second sidebar beside this one.
+//  Folded to icons (the rail, a narrow window) it's the same tree in
+//  icons: sections, playlist covers, faces (html.nav-icons); a row says
+//  its name on hover.
+//  The rows move with their handlers, and go back to their page's own
+//  sidebar only with Navigation: Menu and on a phone.
 // ══════════════════════════════════════════
 (function () {
   const header = document.querySelector('.header');
@@ -1247,7 +1252,7 @@ async function offerAppUpdate(current) {
   const desk = matchMedia(KLAB_DESK_MQ);
   const roomy = matchMedia('(min-width: 1100px)');
   const PAGES = [
-    { tab: 'social', pages: ['social', 'feed', 'chat', 'photos'], parts: [document.getElementById('socNav')], search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
+    { tab: 'social', pages: ['social', 'feed', 'chat', 'photos'], parts: ['socNav', 'phSidebar', 'phNow', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
     { tab: 'music', pages: ['music'], parts: [document.querySelector('#musicSidebar .music-nav')], search: document.querySelector('#musicSidebar .picker-search') },
     { tab: 'games', pages: ['games'], parts: [document.querySelector('#gamesSidebar .games-group')] },
   ];
@@ -1279,7 +1284,8 @@ async function offerAppUpdate(current) {
     inp?.blur();
   });
 
-  const treeOn = () => desk.matches && roomy.matches && (root.getAttribute('data-nav') || 'side') === 'side' && tabNav.closest('#sideNav');
+  const mode = () => root.getAttribute('data-nav') || 'side';
+  const treeOn = () => desk.matches && ['side', 'rail'].includes(mode()) && tabNav.closest('#sideNav');
   let last = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
   let was = null;
   function place(key) {
@@ -1301,6 +1307,7 @@ async function offerAppUpdate(current) {
     });
     bar.hidden = !find.firstElementChild;
     root.classList.toggle('nav-tree', tree);
+    root.classList.toggle('nav-icons', tree && !root.classList.contains('nav-flyout') && (mode() === 'rail' || !roomy.matches));
     // (The CSS that hides what's left of the page sidebars keys on this.)
     root.classList.toggle('hdr-pagenav-on', tree);
     // The sliding highlights measure again where their rows are now.
@@ -1327,5 +1334,21 @@ async function offerAppUpdate(current) {
   roomy.addEventListener('change', () => place());
   // Settings → Navigation, and ☰ folding the sidebar to its icons.
   new MutationObserver(() => place()).observe(root, { attributes: true, attributeFilter: ['data-nav'] });
+  // The folded sidebar opened over the page (☰ in a narrow window) has room for names.
+  let flyout = root.classList.contains('nav-flyout');
+  new MutationObserver(() => {
+    if (root.classList.contains('nav-flyout') === flyout) return;
+    flyout = !flyout;
+    place();
+  }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  // Folded, a row is only its icon: it says what it is on hover. Asked as
+  // the pointer arrives, since chat's and the playlists' rows are rebuilt.
+  document.getElementById('sideNav')?.addEventListener('pointerover', e => {
+    if (!root.classList.contains('nav-icons')) return;
+    const row = e.target.closest('.nav-sub :is(.picker-tab, .chat-conv, .music-playlist-row, .music-new-playlist-btn)');
+    if (!row || row.title) return;
+    const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, span:not(.soc-dot):not(:empty)');
+    row.title = (name || row).textContent.trim();
+  });
   place();
 })();

@@ -8541,17 +8541,17 @@
     /* Photos' group: the photo's details, the Show toggles and its song,
        while Photos is up. */
     @media (min-width: 901px), (pointer: fine) {
-      #socShell .ph-sidebar {
+      :is(#socShell, #sideNav) .ph-sidebar {
         display: flex; flex-direction: column; gap: 18px; width: auto; flex: none;
         min-height: auto; overflow: visible; padding-top: 0;
       }
     }
     /* The same test as Photos' own (narrowMq in js/14-photos.js). */
     @media (max-width: 900px) and (not (pointer: fine)) {
-      #socShell .ph-sidebar { display: none; }
+      :is(#socShell, #sideNav) .ph-sidebar { display: none; }
     }
-    body:not(.tab-photos-active) #socShell .soc-ph-only { display: none; }
-    body:has(#phShell.is-empty) #socShell .ph-now { display: none; }
+    body:not(.tab-photos-active) :is(#socShell, #sideNav) .soc-ph-only { display: none; }
+    body:has(#phShell.is-empty) :is(#socShell, #sideNav) .ph-now { display: none; }
     .soc-sidebar > .ph-now { margin-top: 0; }
 
     /* Photos' head: Timeline and What's new as one switch (a pill that
@@ -8584,30 +8584,30 @@
 
     /* Chat's group: who's online always (it's presence, not chat); the
        channels and messages once chat is signed in, "Connect chat" until. */
-    #socShell .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
-    #socShell .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
-    #socShell .chat-side > .music-sidebar-label { display: none; }
-    #socShell .chat-lbl { padding: 16px 12px 6px; }
-    #socShell .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
-    body:not(.chat-on) #socShell .chat-side > .music-sidebar-label { display: block; }
-    #socShell .soc-chat-connect { width: 100%; margin-bottom: 10px; }
-    body.chat-on #socShell .soc-chat-connect { display: none; }
+    :is(#socShell, #sideNav) .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
+    :is(#socShell, #sideNav) .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
+    :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: none; }
+    :is(#socShell, #sideNav) .chat-lbl { padding: 16px 12px 6px; }
+    :is(#socShell, #sideNav) .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
+    body:not(.chat-on) :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: block; }
+    :is(#socShell, #sideNav) .soc-chat-connect { width: 100%; margin-bottom: 10px; }
+    body.chat-on :is(#socShell, #sideNav) .soc-chat-connect { display: none; }
     body:not(.chat-on) #socShell :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
     body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
     /* Voice: its channels are sidebar rows you press to join, who's in
        each under it, and the connected strip as a small card. */
-    #socShell .soc-voice { display: flex; flex-direction: column; }
-    #socShell .soc-voice[hidden] { display: none; }
-    #socShell .soc-label-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
-    #socShell .soc-label-row::after { content: ''; flex: 1; order: 1; }
-    #socShell .soc-label-row .chat-icon-btn {
+    :is(#socShell, #sideNav) .soc-voice { display: flex; flex-direction: column; }
+    :is(#socShell, #sideNav) .soc-voice[hidden] { display: none; }
+    :is(#socShell, #sideNav) .soc-label-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
+    :is(#socShell, #sideNav) .soc-label-row::after { content: ''; flex: 1; order: 1; }
+    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn {
       order: 2; width: 24px; height: 24px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
       color: var(--text-dimmer); letter-spacing: 0;
     }
-    #socShell .soc-label-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
-    #socShell .soc-label-row .chat-icon-btn[hidden] { display: none; }
+    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
+    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn[hidden] { display: none; }
     .soc-label-count {
       margin-left: 6px; padding: 1px 6px; border-radius: 99px; letter-spacing: 0;
       background: rgba(74,222,128,0.14); color: var(--success-color); font-weight: 600;
@@ -8761,10 +8761,10 @@
       #socShell .soc-nav::-webkit-scrollbar { display: none; }
       #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
       #socShell .soc-chat-row { display: flex; }
-      #socShell .soc-search, #socShell #chatSide, #socShell #socVoice { display: none; }
+      #socShell .soc-search, :is(#socShell, #sideNav) #chatSide, :is(#socShell, #sideNav) #socVoice { display: none; }
       body.tab-chat-active.chat-rooms-view #socShell .soc-search { display: flex; }
-      body.tab-chat-active.chat-rooms-view #socShell #chatSide,
-      body.tab-chat-active.chat-rooms-view #socShell #socVoice:not([hidden]) { display: flex; }
+      body.tab-chat-active.chat-rooms-view :is(#socShell, #sideNav) #chatSide,
+      body.tab-chat-active.chat-rooms-view :is(#socShell, #sideNav) #socVoice:not([hidden]) { display: flex; }
       body.tab-chat-active.chat-rooms-view .soc-sidebar { flex: 1; min-height: 0; }
       body.tab-chat-active.chat-rooms-view .soc-side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
       body.tab-chat-active.chat-rooms-view .soc-main { display: none; }
@@ -8790,7 +8790,7 @@
        and wants the width (js/14-photos.js narrowMq): Social's pages are
        chips along the top there, as on a phone, and the song box is empty. */
     @media (max-width: 900px) and (not (pointer: fine)) {
-      #socShell .ph-now { display: none; }
+      :is(#socShell, #sideNav) .ph-now { display: none; }
       body.tab-photos-active .soc-shell { flex-direction: column; gap: 8px; }
       body.tab-photos-active .soc-sidebar { width: 100%; flex: none; }
       body.tab-photos-active .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; }
@@ -8994,10 +8994,10 @@
        Photos: its nav, the photo, the switch and the song. Chat and Online
        now step aside, and Voice too unless you're in a channel; leaving
        Photos brings them back. */
-    body.ph-bare.tab-photos-active #socShell .ph-side-this { display: none; }
+    body.ph-bare.tab-photos-active :is(#socShell, #sideNav) .ph-side-this { display: none; }
     @media (min-width: 901px), (pointer: fine) {
-      body.tab-photos-active #socShell #chatSide,
-      body.tab-photos-active #socShell #socVoice:not(:has(#vcFoot:not([hidden]))) { display: none; }
+      body.tab-photos-active :is(#socShell, #sideNav) #chatSide,
+      body.tab-photos-active :is(#socShell, #sideNav) #socVoice:not(:has(#vcFoot:not([hidden]))) { display: none; }
     }
 
     /* ══ Pages under the player bar (desktop; a phone's dock is its mini player) ══ */
@@ -9028,38 +9028,38 @@
        the groups. The nav rows keep Music's 38px so the two sidebars
        line up. */
     #socShell .soc-side-scroll { gap: 12px; }
-    #socShell .chat-lbl { padding: 10px 12px 4px; }
-    #socShell .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
+    :is(#socShell, #sideNav) .chat-lbl { padding: 10px 12px 4px; }
+    :is(#socShell, #sideNav) .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
     #socShell .music-sidebar-label { padding-bottom: 4px; }
 
     /* Channels and conversations: 32px rows. */
-    #socShell #chatSide .chat-conv { height: 32px; padding: 0 8px 0 10px; gap: 8px; margin: 0 0 1px; border-radius: 8px; }
-    #socShell #chatSide .chat-conv-lead { width: 20px; font-size: 15px; }
-    #socShell #chatSide .chat-conv-face { width: 22px; height: 22px; font-size: 10px; margin-left: -1px; }
-    #socShell #chatSide .chat-conv-face .chat-channel-online-dot { width: 7px; height: 7px; right: -2px; bottom: -2px; }
-    #socShell #chatSide .chat-conv-tx { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-    #socShell #chatSide .chat-conv-top { display: contents; }
-    #socShell #chatSide .chat-channel-name { order: 0; flex: 0 1 auto; font-size: var(--fs-13); }
-    #socShell #chatSide .chat-channel-unread-dot { order: 1; align-self: center; width: 6px; height: 6px; }
-    #socShell #chatSide .chat-conv-last { order: 2; flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--fs-12); }
-    #socShell #chatSide .chat-conv-when { order: 3; margin-left: auto; font-size: var(--fs-11); }
+    :is(#socShell, #sideNav) #chatSide .chat-conv { height: 32px; padding: 0 8px 0 10px; gap: 8px; margin: 0 0 1px; border-radius: 8px; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-lead { width: 20px; font-size: 15px; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-face { width: 22px; height: 22px; font-size: 10px; margin-left: -1px; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-face .chat-channel-online-dot { width: 7px; height: 7px; right: -2px; bottom: -2px; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-tx { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-top { display: contents; }
+    :is(#socShell, #sideNav) #chatSide .chat-channel-name { order: 0; flex: 0 1 auto; font-size: var(--fs-13); }
+    :is(#socShell, #sideNav) #chatSide .chat-channel-unread-dot { order: 1; align-self: center; width: 6px; height: 6px; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-last { order: 2; flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--fs-12); }
+    :is(#socShell, #sideNav) #chatSide .chat-conv-when { order: 3; margin-left: auto; font-size: var(--fs-11); }
     /* A channel's name says enough; the preview is a conversation's. */
-    #socShell #chatChannelsList .chat-conv-last { display: none; }
-    #socShell #chatSide .chat-channel-close {
+    :is(#socShell, #sideNav) #chatChannelsList .chat-conv-last { display: none; }
+    :is(#socShell, #sideNav) #chatSide .chat-channel-close {
       right: 4px; width: 22px; height: 22px; opacity: 0; background: none; box-shadow: none; border: none;
       color: var(--text-dimmer); font-size: 13px; transition: opacity .15s ease;
     }
-    #socShell #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    #socShell #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
-    #socShell #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
-    #socShell #chatSide .chat-more { height: 28px; padding: 0 10px; gap: 8px; }
-    #socShell #chatSide .chat-more i { width: 20px; }
+    :is(#socShell, #sideNav) #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    :is(#socShell, #sideNav) #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
+    :is(#socShell, #sideNav) #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
+    :is(#socShell, #sideNav) #chatSide .chat-more { height: 28px; padding: 0 10px; gap: 8px; }
+    :is(#socShell, #sideNav) #chatSide .chat-more i { width: 20px; }
 
     /* Voice: rows like the others. */
     #socVoice .vc-row { height: 32px; padding: 0 10px; gap: 8px; border-radius: 8px; font-size: var(--fs-13); }
     #socVoice .vc-row i { font-size: 16px; width: 20px; }
 
-    #socShell #presenceList[hidden] { display: none; }
+    :is(#socShell, #sideNav) #presenceList[hidden] { display: none; }
     /* Online now (hidden for now): rows, not tiles. Name, then what they're up to (or
        their note) faded on the same line; your own note to add on hover. */
     #presenceList.soc-presence { gap: 1px; }
@@ -10202,14 +10202,54 @@
       #sideNav .nav-sub :is(.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]) { display: none; }
       html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
       html.nav-tree #sideNav .tab-nav-btn.active:has(+ .nav-sub.open) { color: var(--text); font-weight: 600; }
-      /* Music's and Games' sidebars have nothing left in them. */
-      html.nav-tree :is(#musicSidebar, #gamesSidebar) { display: none !important; }
+      /* The pages' own sidebars have nothing left in them. */
+      html.nav-tree :is(#musicSidebar, #gamesSidebar, #socSidebar) { display: none !important; }
+
+      /* Chat's conversations and Photos' details, under Social's sections
+         on their page: indented like the rows, in the rows' type. */
+      #sideNav .nav-sub :is(#chatSide, #socVoice, #phSidebar, #phNow) { margin-left: 30px; width: auto; padding: 0; }
+      #sideNav .nav-sub :is(#chatSide, #socVoice) { margin-top: 4px; }
+      #sideNav .nav-sub :is(.chat-lbl, .soc-label-row) {
+        padding: 12px 4px 5px 10px; margin: 0; font: 600 10.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-dimmer);
+      }
+      #sideNav .nav-sub .chat-side-scroll > .chat-lbl:first-child { padding-top: 8px; }
+      #sideNav .nav-sub #chatSide .chat-conv { padding-left: 9px; }
+      #sideNav .nav-sub #chatSide .chat-conv-face { width: 20px; height: 20px; margin: 0; }
+      #sideNav .nav-sub #chatSide .chat-conv-lead { width: 18px; }
+      #sideNav .nav-sub #chatSide .chat-channel-name { font: 500 13.5px/1.2 var(--font-ui); }
+      #sideNav .nav-sub #phSidebar { gap: 14px; padding: 10px 6px 0 10px; }
+      #sideNav .nav-sub #phNow { margin-top: 12px; }
+      #sideNav .nav-sub #phSidebar :is(label, span, b) { white-space: nowrap; }
+
+      /* ── Folded to icons: the same tree, in icons ──
+         The open page's rows sit in a faint tray under its icon; headings
+         are hairlines; playlists are their covers, conversations faces.
+         What can't be an icon (a photo's details, voice) waits for the
+         sidebar to open. */
+      html.nav-icons #sideNav .nav-sub-pad { padding: 3px 0; margin: 2px 0 4px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--text) 4.5%, transparent); }
+      html.nav-icons #sideNav .nav-sub-pad::before { display: none; }
+      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn, .music-playlist-row, #chatSide .chat-conv, .chat-more) {
+        width: 100%; height: 36px; margin: 0; padding: 0; justify-content: center; gap: 0; font-size: 0;
+      }
+      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) i { font-size: 16px; }
+      html.nav-icons #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) > :not(i):not(.soc-dot) { display: none; }
+      html.nav-icons #sideNav .nav-sub .soc-dot { position: absolute; top: 7px; right: 9px; margin: 0; }
+      html.nav-icons #sideNav .nav-sub :is(.music-sidebar-label, .chat-lbl, .soc-label-row) {
+        height: 1px; padding: 0; margin: 6px 10px; font-size: 0; overflow: hidden; background: var(--glass-border-h);
+      }
+      html.nav-icons #sideNav .nav-sub .music-playlist-row > :not(.music-playlist-row-art),
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv > :not(.chat-conv-face):not(.chat-conv-lead) { display: none; }
+      html.nav-icons #sideNav .nav-sub .music-playlist-row-art { width: 24px; height: 24px; }
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face { width: 24px; height: 24px; font-size: 10px; }
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead { width: auto; font-size: 15px; }
+      html.nav-icons #sideNav .nav-sub :is(#chatSide, #socVoice) { margin: 0; }
+      html.nav-icons #sideNav .nav-sub :is(#phSidebar, #phNow, #socVoice, #chatDmMore, #chatPeopleResults) { display: none !important; }
     }
     /* Chat's lists and Voice only on Chat (the owner: not on every page
        now that things moved). With the rows and search in the title bar,
        that leaves nothing on Social's home or the Feed, so their sidebar
        goes. Photos keeps its own (this photo's info, its switches). */
-    html.hdr-pagenav-on body:not(.tab-chat-active) #socShell :is(#chatSide, #socVoice) { display: none !important; }
+    html.hdr-pagenav-on body:not(.tab-chat-active) :is(#socShell, #sideNav) :is(#chatSide, #socVoice) { display: none !important; }
     html.hdr-pagenav-on body:is(.tab-social-active, .tab-feed-active) #socSidebar { display: none !important; }
 
     /* The prompt, typed into (js/32-terminal.js). */

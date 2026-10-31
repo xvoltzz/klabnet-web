@@ -596,7 +596,14 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       case 'ArrowUp': case 'ArrowDown':
         if (!e.defaultPrevented && !e.shiftKey && arrowsFree() && stepSubTab(e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault();
         break;
-      case 'b': if (window.klabPane?.toggle()) e.preventDefault(); break;
+      // b: the page's own sidebar where there is one, otherwise (the one
+      // sidebar: html.nav-tree) the main sidebar, folded and back.
+      case 'b': {
+        if (window.klabPane?.toggle()) { e.preventDefault(); break; }
+        const burger = document.getElementById('navBurger');
+        if (burger?.offsetParent) { e.preventDefault(); burger.click(); }
+        break;
+      }
       case 'n': e.preventDefault(); document.getElementById('btnNext')?.click(); break;
       case 'p': e.preventDefault(); document.getElementById('btnPrev')?.click(); break;
       case '?': e.preventDefault(); toggleKeyHints(); break;
