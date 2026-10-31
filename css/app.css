@@ -9819,27 +9819,35 @@
        (the playing glow, Home's and Music's cover backdrops) is quieter.
        The cover colour itself is toned down in js/13-tail.js. */
     :root { --sheet-mix: 58%; }
-    body.is-playing .ambient-glow { opacity: .45; }
-    .hm-bd-layer.on { opacity: .5; }
-    .hm-bd-layer.on.soft-grad { opacity: .35; }
-    .mh-flow-bg.on { opacity: .28; }
-    html.app-material .hm-bd-layer.on, html.app-material .mh-flow-bg.on { opacity: .25 !important; }
+    body.is-playing .ambient-glow { opacity: .7; }
+    .hm-bd-layer.on { opacity: .7; }
+    .hm-bd-layer.on.soft-grad { opacity: .5; }
+    .mh-flow-bg.on { opacity: .36; }
+    html.app-material .hm-bd-layer.on, html.app-material .mh-flow-bg.on { opacity: .35 !important; }
+    /* The page's column carries a breath of the accent (the cover's
+       colour while music plays), so solid doesn't mean soulless. */
+    :root { --sheet: color-mix(in srgb, color-mix(in srgb, var(--bg) 88%, rgb(var(--accent-rgb))) var(--sheet-mix), transparent); }
     /* The apps: the page's column over the window's blur. */
-    html.klabnet-app.app-material[data-desktop="linux"] { --lx-sheet: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent); }
-    html.klabnet-app.app-material[data-platform="darwin"] body::before { background: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent); }
+    html.klabnet-app.app-material[data-desktop="linux"] { --lx-sheet: var(--sheet); }
+    html.klabnet-app.app-material[data-platform="darwin"] body::before { background: var(--sheet); }
     @media (min-width: 761px), (pointer: fine) {
       html.klabnet-app.app-material[data-platform="win32"].nav-side-on body::before,
       html.klabnet-app.app-material[data-platform="win32"][data-theme="light"].nav-side-on body::before {
-        background: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent);
+        background: var(--sheet);
       }
     }
 
     /* ══ A PAGE'S SIDEBAR, FOLDED (klabPane in js/07-tabnav.js) ══
-       Music's and Social's sidebars end in a foot holding the button that
-       folds them. Folded, a sidebar is a slim strip with only that button
-       left, in the same place, so the way back is where you left it. */
-    /* Its centre level with the main sidebar's avatar beside it. */
-    .pane-foot { margin-top: auto; flex: none; display: flex; padding: 8px 0 17px; }
+       Music's, Social's and Games' sidebars end in a foot holding the
+       button that folds them. Folded, a sidebar is a rail of its icons,
+       like the main sidebar's: rows are their icon (a conversation its
+       face or #, a playlist its cover), headings are hairlines, and what
+       can't be an icon (search, the photo's details, voice) waits for it
+       to open. The button stays in the same place either way. */
+    .pane-foot { margin-top: auto; flex: none; display: flex; padding: 8px 0 var(--pane-foot-room, 17px); }
+    /* Clear of the player while it's up; otherwise its centre is level
+       with the main sidebar's avatar beside it. */
+    body:not(.player-hidden) { --pane-foot-room: var(--dock-room); }
     .pane-btn {
       flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
       border-radius: 8px; background: none; border: 1px solid transparent;
@@ -9850,14 +9858,33 @@
     .pane-btn:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .6); outline-offset: 1px; }
     .pane-btn[hidden] { display: none; }
     @media (min-width: 761px), (pointer: fine) {
-      /* Music's search and foot stay put; its list scrolls between them. */
-      body.tab-music-active #musicShell .music-sidebar { overflow: hidden; }
+      /* Music's search and foot stay put; its list scrolls between them.
+         (Its sidebar has 16px of room all round, for the highlight; the
+         foot sits in it, so it lines up with Social's and Games'.) */
+      body.tab-music-active #musicShell .music-sidebar { overflow: hidden; padding-bottom: 16px; }
       #musicShell .music-nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
       #musicShell .music-nav::-webkit-scrollbar { display: none; }
+      #musicSidebar .pane-foot { margin-bottom: -16px; }
+      /* The foot keeps the room for the player now. */
+      body.tab-games-active .games-sidebar { padding-bottom: 0; }
 
-      html.pane-off-social #socShell #socSidebar { width: 36px; }
-      html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(36px + 32px); }
-      html.pane-off-social #socShell #socSidebar > :not(.pane-foot),
-      html.pane-off-music #musicShell #musicSidebar > :not(.pane-foot) { display: none; }
+      /* ── Folded: a rail ── */
+      html.pane-off-social #socShell #socSidebar,
+      html.pane-off-games #gamesShell #gamesSidebar { width: 48px; }
+      html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(48px + 32px); }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar)
+        :is(.soc-search, .picker-search, #phSidebar, #socVoice, #chatDmMore, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .music-sidebar-label {
+        height: 1px; padding: 0; margin: 4px 10px; background: var(--glass-border); font-size: 0; overflow: hidden;
+      }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) :is(.picker-tab, .chat-conv, .music-playlist-row, .games-server) {
+        justify-content: center; gap: 0; padding-left: 0; padding-right: 0; width: 100%;
+      }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .picker-tab > :not(i):not(.soc-dot),
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .chat-conv > :not(.chat-conv-face):not(.chat-conv-lead),
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .music-playlist-row > :not(.music-playlist-row-art),
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .games-server > :not(.games-server-icon) { display: none; }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .soc-dot { position: absolute; top: 6px; right: 8px; margin: 0; }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .pane-foot { justify-content: center; }
+      html.pane-off-games #gamesSidebar .games-server { margin-top: 0; padding: 6px 0; }
     }
-

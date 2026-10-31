@@ -196,11 +196,11 @@ function sampleImageColor(imgUrl) {
         // read clearly against this UI regardless of theme.
         // Calmer since 2026-10-31 (the owner: the colour changing all the
         // time made klabnet hard to read): the cover only tints the theme's
-        // own accent, 40% of the way, over a slower tween, and the room no
+        // own accent, 60% of the way, over a slower tween, and the room no
         // longer flashes on every new track.
         const base = _defaultAccentRgb();
         const cover = dominantColorFromPixels(px);
-        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.4)) : base, 1200);
+        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.6)) : base, 1200);
       } catch(e) { /* CORS blocked — keep default accent */ }
     };
     img.src = src;

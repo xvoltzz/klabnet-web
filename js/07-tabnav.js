@@ -739,11 +739,12 @@ window.klabSideNav = (function() {
 
 // ══════════════════════════════════════════
 //  HIDING A PAGE'S SIDEBAR
-//  Music and Social each have a sidebar of their own beside the page. A
-//  button at the sidebar's foot (and "b") folds it down to a slim strip
-//  holding just that button, in the same place, and opens it again, so a
-//  small window can be all music, or all conversation. (It was in the
-//  header; the owner wanted it in the sidebar, 2026-10-31.) Kept per page
+//  Music, Social and Games each have a sidebar of their own beside the
+//  page. A button at the sidebar's foot (and "b") folds it down to its
+//  icons, like the main sidebar's rail, with the button in the same place,
+//  and opens it again, so a small window can be all music, or all
+//  conversation, and still get around. (It was in the header and hid the
+//  sidebar outright; the owner wanted it in the sidebar, 2026-10-31.) Kept per page
 //  and per device: html.pane-off-<page>, set in <head> from localStorage
 //  and laid out by the CSS. Phones have no sidebars to hide.
 // ══════════════════════════════════════════
@@ -757,16 +758,26 @@ window.klabPane = (function() {
   const PANES = {
     music:  { el: 'musicSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-music-active' },
     social: { el: 'socSidebar',   mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
+    games:  { el: 'gamesSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-games-active' },
   };
   const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches) || null;
   const hidden = t => root.classList.contains('pane-off-' + t);
   // Each sidebar's foot, which the one button moves between.
-  for (const p of Object.values(PANES)) {
+  for (const [t, p] of Object.entries(PANES)) {
     const side = document.getElementById(p.el);
     if (!side) continue;
     p.foot = document.createElement('div');
     p.foot.className = 'pane-foot';
     side.append(p.foot);
+    // Folded, a row is only its icon: it says what it is on hover. Asked
+    // as the pointer arrives, since chat's rows are rebuilt all the time.
+    side.addEventListener('pointerover', e => {
+      if (!hidden(t)) return;
+      const row = e.target.closest('.picker-tab, .chat-conv, .music-playlist-row, .games-server');
+      if (!row || row.title) return;
+      const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, .games-server-name, span:not(.soc-dot):not(:empty)');
+      if (name) row.title = name.textContent.trim();
+    });
   }
   btn.classList.replace('hdr-btn', 'pane-btn');
 
@@ -819,6 +830,8 @@ window.klabPane = (function() {
         .catch(() => {}).then(() => {
           glide(el, () => apply(t, true));
           out.forEach(c => c.getAnimations().forEach(a => a.cancel()));
+          // The icons it folds down to come in after.
+          parts().forEach(c => c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }));
           busy = false;
         });
     } else {
