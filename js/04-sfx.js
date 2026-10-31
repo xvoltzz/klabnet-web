@@ -251,35 +251,41 @@ const SFX = (() => {
     }
   }
 
-  // A real click, like Vista's and 7's Explorer: no melody, no room, just
-  // two tiny transients (the press and its catch a few ms later). Each is
-  // noise through a narrow, resonant band, so it's a round "tock" rather
-  // than a hiss, with the top rolled off. Subtle because it's short and
-  // dry, not because it's quiet: as loud as the old mallet click over its
-  // first 10ms (within the compressor's ceiling). pitch moves the whole
-  // thing up or down (forward and back).
+  // A click, like Vista's and 7's Explorer, but soft: mostly tone, not
+  // noise. A short wooden "tok" (a sine falling from 1150 to 640 Hz over
+  // 25ms) on a low body, with only a trace of noise for the tick, all
+  // rolled off above 2.6kHz. Smooth because there's almost no hiss and the
+  // attack takes 2.5ms; about as loud as the old one (people found the
+  // noisier version rough). pitch moves it up or down (forward and back).
   function clack(vel, pitch) {
     pitch = pitch || 1;
     const c = getCtx();
-    const t0 = c.currentTime + 0.005, v = wob(vel, 0.08);
-    const src = c.createBufferSource();
-    src.buffer = noiseBuf(c);
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 3200 * pitch; lp.Q.value = 0.5;
-    lp.connect(dry);
-    const hit = (at, freq, q, gain, decay) => {
-      const bp = c.createBiquadFilter(), g = c.createGain();
-      bp.type = 'bandpass'; bp.frequency.value = wob(freq * pitch, 0.04); bp.Q.value = q;
-      g.gain.setValueAtTime(0.0001, at);
-      g.gain.linearRampToValueAtTime(gain * v, at + 0.0008);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + decay);
-      src.connect(bp); bp.connect(g); g.connect(lp);
+    const t = c.currentTime + 0.005, v = wob(vel, 0.08) * 1.3, p = wob(pitch, 0.03);
+    const out = c.createBiquadFilter();
+    out.type = 'lowpass'; out.frequency.value = 2600 * Math.min(1.2, pitch); out.Q.value = 0.4;
+    out.connect(dry);
+    const tone = (f0, f1, glide, peak, attack, decay) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0 * p, t);
+      o.frequency.exponentialRampToValueAtTime(f1 * p, t + glide);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(peak * v, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      o.connect(g); g.connect(out);
+      o.start(t); o.stop(t + decay + 0.02);
     };
-    hit(t0, 1900, 4, 4.8, 0.012);            // the press
-    hit(t0, 720, 5, 4.8, 0.02);              // its body
-    hit(t0 + 0.012, 1500, 4, 2.1, 0.01);     // the catch, smaller
-    // A different stretch of noise each time: no two clicks identical.
-    src.start(t0, Math.random() * 0.8, 0.06);
+    tone(1150, 640, 0.025, 0.5, 0.0025, 0.055);   // the tok
+    tone(380, 260, 0.03, 0.28, 0.003, 0.045);     // its body
+    // The tick: a wisp of noise, a few ms.
+    const src = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain();
+    src.buffer = noiseBuf(c);
+    bp.type = 'bandpass'; bp.frequency.value = 2100 * p; bp.Q.value = 1.2;
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.linearRampToValueAtTime(0.5 * v, t + 0.0008);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.006);
+    src.connect(bp); bp.connect(ng); ng.connect(out);
+    src.start(t, Math.random() * 0.8, 0.02);
   }
 
   const SOUNDS = {

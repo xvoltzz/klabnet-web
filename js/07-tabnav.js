@@ -60,7 +60,7 @@ function setActiveTab(key) {
   document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tabTarget === topTab(key)));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === key));
   // Social's sidebar: the row for the page you're on.
-  document.querySelectorAll('#socNav [data-soc]').forEach(b => b.classList.toggle('active', b.dataset.soc === key));
+  document.querySelectorAll('#socNav [data-soc], .hdr-pagenav [data-soc]').forEach(b => b.classList.toggle('active', b.dataset.soc === key));
   document.body.classList.toggle('tab-social-group', topTab(key) === 'social');
   document.body.classList.toggle('tab-social-active', key === 'social');
   // Chat wants to feel like its own app screen, not another section on
@@ -164,10 +164,10 @@ function initTabs() {
       } else setActiveTab(key);
     });
   });
-  document.getElementById('socNav')?.addEventListener('click', e => {
-    const row = e.target.closest('[data-soc]');
-    if (row) { SFX && SFX.play('click'); setActiveTab(row.dataset.soc); }
-  });
+  // On each row, not delegated: in a wide window they live in the title bar.
+  document.querySelectorAll('#socNav [data-soc]').forEach(b => b.addEventListener('click', e => {
+    SFX && SFX.play('click'); setActiveTab(b.dataset.soc);
+  }));
   // A click already switched; the hash it set shouldn't do it all again.
   window.addEventListener('hashchange', () => {
     const key = location.hash.slice(1) || 'home';

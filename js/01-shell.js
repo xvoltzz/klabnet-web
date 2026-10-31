@@ -575,19 +575,18 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       }
       case 'w': case 's': if (stepSubTab(e.key === 's' ? 1 : -1)) e.preventDefault(); break;
       // ←/→, TUI style: along the title bar's row of sections (Music's,
-      // Social's), or between the pages where there's no row; with Shift,
-      // always between the pages. Photos keeps its own ←/→ (photo to photo).
+      // Social's), stopping at its ends. Pages change only with Tab.
+      // Photos keeps its own ←/→ (photo to photo).
       case 'ArrowLeft': case 'ArrowRight': {
-        if (e.defaultPrevented || e.altKey || !arrowsFree()) break;
+        if (e.defaultPrevented || e.altKey || e.shiftKey || !arrowsFree()) break;
+        if (document.body.classList.contains('tab-photos-active')) break;
         const dir = e.key === 'ArrowRight' ? 1 : -1;
-        if (!e.shiftKey && document.body.classList.contains('tab-photos-active')) break;
         const row = [...document.querySelectorAll('.hdr-pagenav:not([hidden]) .picker-tab')];
+        if (!row.length) break;
         e.preventDefault();
-        if (e.shiftKey || !row.length) { flipPage(dir); break; }
         const at = row.findIndex(b => b.classList.contains('active'));
         const to = at < 0 ? (dir > 0 ? 0 : row.length - 1) : at + dir;
-        // Off either end of the row: the next page over.
-        if (to < 0 || to >= row.length) { flipPage(dir); break; }
+        if (to < 0 || to >= row.length) break;
         row[to].click();
         if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
         break;

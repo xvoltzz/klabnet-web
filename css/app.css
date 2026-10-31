@@ -10175,6 +10175,21 @@
     .hdr-pagenav .picker-tab.active { color: var(--text); font-weight: 800; }
     .hdr-pagenav .picker-tab.active > span:first-of-type { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
     .hdr-pagenav .picker-tab.active::after { display: none; }
+    /* A small glyph before each word (the owner: "some subtle glyphs
+       wouldn't hurt"): faint, and only lit with its word. */
+    .hdr-pagenav .picker-tab::before {
+      margin-right: .45em; font: 400 11px 'JetBrains Mono', monospace; opacity: .45;
+      transition: opacity .15s;
+    }
+    .hdr-pagenav .picker-tab:hover::before { opacity: .7; }
+    .hdr-pagenav .picker-tab.active::before { opacity: .9; }
+    .hdr-pagenav .picker-tab[data-tab="random"]::before, .hdr-pagenav .picker-tab[data-soc="social"]::before { content: '~'; font-size: 13px; }
+    .hdr-pagenav .picker-tab[data-tab="songs"]::before { content: '♪'; }
+    .hdr-pagenav .picker-tab[data-tab="albums"]::before { content: '◫'; }
+    .hdr-pagenav .picker-tab[data-tab="artists"]::before { content: '◉'; }
+    .hdr-pagenav .picker-tab[data-soc="feed"]::before { content: '≡'; font-size: 13px; position: relative; top: 2px; }
+    .hdr-pagenav .picker-tab[data-soc="photos"]::before { content: '▢'; }
+    .hdr-pagenav .picker-tab[data-soc="chat"]::before { content: '»'; font-size: 13px; }
     .hdr-pagenav-sep { width: auto; height: auto; background: none; margin: 0 2px; color: var(--text-faint, var(--text-dimmer)); opacity: .5; font: 500 13px 'JetBrains Mono', monospace; }
     .hdr-pagenav-sep::before { content: '|'; }
     .hdr-find-btn { width: auto; height: 30px; padding: 0 7px; font: 500 13px 'JetBrains Mono', monospace; color: var(--text-dimmer); }

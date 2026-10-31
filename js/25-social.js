@@ -212,7 +212,7 @@
       // tab you just pressed): a slider, a text box and the like keep
       // their arrows.
       const a = document.activeElement;
-      if (a && a !== document.body && !el.contains(a) && !a.closest?.('#socHome, #socNav, .tab-nav')) return;
+      if (a && a !== document.body && !el.contains(a) && !a.closest?.('#socHome, #socNav, .hdr-pagenav, .tab-nav')) return;
       if (a?.closest?.('input, textarea, select, [contenteditable="true"], .slider-wrap')) return;
       if (document.body.classList.contains('feed-composer-open') ||
           document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .ctx-menu.visible, .fs-player.open, .ss.open')) return;
