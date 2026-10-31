@@ -214,25 +214,7 @@
     body.is-playing .ambient-glow { opacity: 1; }
     html[data-theme="light"] .ambient-glow { opacity: 0 !important; }
 
-    /* One-shot bloom the instant playback starts — settles into the steady glow above */
-    .ambient-glow::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: radial-gradient(circle at 50% 32%, rgba(var(--accent-rgb),0.4), transparent 62%);
-      opacity: 0;
-    }
-    body.ambient-flash .ambient-glow::before {
-      animation: ambientFlash 1.1s ease-out;
-    }
-    @keyframes ambientFlash {
-      0%   { opacity: 0; }
-      12%  { opacity: 1; }
-      100% { opacity: 0; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .ambient-glow { transition: none; }
-      body.ambient-flash .ambient-glow::before { animation: none; }
-    }
+    @media (prefers-reduced-motion: reduce) { .ambient-glow { transition: none; } }
 
     /* ══ BOOT OVERLAY — masks the page while Matrix/presence/feed's first
        round trips settle (see window.KLAB_BOOT in the inline script right
@@ -3501,21 +3483,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ══════════════════════════════════════════
-       SECTION SCROLL REVEAL
-    ══════════════════════════════════════════ */
-    body.sec-reveal .sec {
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.52s cubic-bezier(0.2,0.8,0.2,1), transform 0.52s cubic-bezier(0.2,0.8,0.2,1);
-    }
-    body.sec-reveal .sec.in-view {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      body.sec-reveal .sec { opacity: 1 !important; transform: none !important; transition: none !important; }
-    }
 
     /* Desktop shows both chat panes at once, so there's nothing to go back
        to and the sidebar already names the room — the bar only exists
@@ -9847,4 +9814,26 @@
       #gamesShell .games-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
       #gamesShell .games-nav::-webkit-scrollbar { display: none; }
       #gamesShell .games-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+    }
+
+    /* ══ LEGIBILITY (2026-10-31) ══
+       The owner: the glass and the colour changing all the time made the
+       site hard to read. The glass stays in the sidebar; the page's own
+       column is mostly solid (--sheet-mix), and what sits behind text
+       (the playing glow, Home's and Music's cover backdrops) is quieter.
+       The cover colour itself is toned down in js/13-tail.js. */
+    :root { --sheet-mix: 58%; }
+    body.is-playing .ambient-glow { opacity: .45; }
+    .hm-bd-layer.on { opacity: .5; }
+    .hm-bd-layer.on.soft-grad { opacity: .35; }
+    .mh-flow-bg.on { opacity: .28; }
+    html.app-material .hm-bd-layer.on, html.app-material .mh-flow-bg.on { opacity: .25 !important; }
+    /* The apps: the page's column over the window's blur. */
+    html.klabnet-app.app-material[data-desktop="linux"] { --lx-sheet: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent); }
+    html.klabnet-app.app-material[data-platform="darwin"] body::before { background: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent); }
+    @media (min-width: 761px), (pointer: fine) {
+      html.klabnet-app.app-material[data-platform="win32"].nav-side-on body::before,
+      html.klabnet-app.app-material[data-platform="win32"][data-theme="light"].nav-side-on body::before {
+        background: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent);
+      }
     }

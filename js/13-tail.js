@@ -47,29 +47,11 @@
   });
 })();
 
-// ══════════════════════════════════════════
-//  SECTION SCROLL REVEAL
-// ══════════════════════════════════════════
-(function() {
-  if (!window.IntersectionObserver) return;
-
-  document.body.classList.add('sec-reveal');
-
-  const secs = document.querySelectorAll('.sec');
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-view');
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.06, rootMargin: '0px 0px -30px 0px' });
-
-  secs.forEach((sec, i) => {
-    sec.style.transitionDelay = `${i * 0.03}s`;
-    io.observe(sec);
-  });
-})();
+// Section scroll reveal: removed 2026-10-31. It hid every .sec until 6%
+// of it was on screen, and Feed's section (thousands of px tall, scrolling
+// inside a window-high panel) could never show 6%: Feed stayed invisible,
+// though clickable, until a reload caught it while it was still short.
+// Tab panels fade in on their own.
 
 // ── Picker item sounds ──────────────────────
 (function() {
@@ -212,13 +194,13 @@ function sampleImageColor(imgUrl) {
         // mostly-white art with black line-art/text like Circles) falls
         // back to the theme's own neutral accent — it's already tuned to
         // read clearly against this UI regardless of theme.
-        const bestRgb = dominantColorFromPixels(px) || _defaultAccentRgb();
-        tweenAccentRgb(bestRgb, 650);
-        // The room "lights up" the instant we actually know the color —
-        // not the instant playback starts, so the flash always lands in the right hue.
-        document.body.classList.remove('ambient-flash');
-        void document.body.offsetWidth;
-        document.body.classList.add('ambient-flash');
+        // Calmer since 2026-10-31 (the owner: the colour changing all the
+        // time made klabnet hard to read): the cover only tints the theme's
+        // own accent, 40% of the way, over a slower tween, and the room no
+        // longer flashes on every new track.
+        const base = _defaultAccentRgb();
+        const cover = dominantColorFromPixels(px);
+        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.4)) : base, 1200);
       } catch(e) { /* CORS blocked — keep default accent */ }
     };
     img.src = src;
