@@ -569,9 +569,9 @@ function roomPreview(room, ev, isDm) {
   return who + body;
 }
 
-// Messages shows the latest three conversations (the CSS hides the rest,
-// except an open one); this row shows the others, and folds them again.
-const DM_SHOWN = 3;
+// Messages used to show only the latest three, with this row for the rest.
+// It shows them all now; the row stays hidden.
+const DM_SHOWN = Infinity;
 function syncDmMore() {
   const list = document.getElementById('chatDmList'), btn = document.getElementById('chatDmMore');
   if (!list || !btn) return;

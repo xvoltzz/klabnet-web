@@ -251,18 +251,18 @@ const SFX = (() => {
     }
   }
 
-  // A click, like Vista's and 7's Explorer, but soft: mostly tone, not
-  // noise. A short wooden "tok" (a sine falling from 1150 to 640 Hz over
-  // 25ms) on a low body, with only a trace of noise for the tick, all
-  // rolled off above 2.6kHz. Smooth because there's almost no hiss and the
-  // attack takes 2.5ms; about as loud as the old one (people found the
-  // noisier version rough). pitch moves it up or down (forward and back).
+  // A click, after 7's Explorer: a crisp tick with a little body. A short
+  // tone (a sine falling 1500 to 900 Hz in 12ms) on a low body, and a
+  // brief band of noise at 3kHz for the tick, rolled off above 3.4kHz.
+  // Between the first (noisy, "rough") and second (all tone, too soft)
+  // versions: half the first's brightness, at its level. pitch moves it
+  // up or down (forward and back).
   function clack(vel, pitch) {
     pitch = pitch || 1;
     const c = getCtx();
-    const t = c.currentTime + 0.005, v = wob(vel, 0.08) * 1.3, p = wob(pitch, 0.03);
+    const t = c.currentTime + 0.005, v = wob(vel, 0.08) * 1.55, p = wob(pitch, 0.03);
     const out = c.createBiquadFilter();
-    out.type = 'lowpass'; out.frequency.value = 2600 * Math.min(1.2, pitch); out.Q.value = 0.4;
+    out.type = 'lowpass'; out.frequency.value = 3400 * Math.min(1.2, pitch); out.Q.value = 0.4;
     out.connect(dry);
     const tone = (f0, f1, glide, peak, attack, decay) => {
       const o = c.createOscillator(), g = c.createGain();
@@ -275,15 +275,15 @@ const SFX = (() => {
       o.connect(g); g.connect(out);
       o.start(t); o.stop(t + decay + 0.02);
     };
-    tone(1150, 640, 0.025, 0.5, 0.0025, 0.055);   // the tok
-    tone(380, 260, 0.03, 0.28, 0.003, 0.045);     // its body
-    // The tick: a wisp of noise, a few ms.
+    tone(1500, 900, 0.012, 0.54, 0.001, 0.03);    // the tok
+    tone(420, 300, 0.02, 0.25, 0.0015, 0.03);     // its body
+    // The tick: a few ms of noise.
     const src = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain();
     src.buffer = noiseBuf(c);
-    bp.type = 'bandpass'; bp.frequency.value = 2100 * p; bp.Q.value = 1.2;
+    bp.type = 'bandpass'; bp.frequency.value = 3000 * p; bp.Q.value = 1.5;
     ng.gain.setValueAtTime(0.0001, t);
-    ng.gain.linearRampToValueAtTime(0.5 * v, t + 0.0008);
-    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.006);
+    ng.gain.linearRampToValueAtTime(1.2 * v, t + 0.0005);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.005);
     src.connect(bp); bp.connect(ng); ng.connect(out);
     src.start(t, Math.random() * 0.8, 0.02);
   }

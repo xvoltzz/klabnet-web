@@ -818,6 +818,9 @@ window.klabSideNav = (function() {
   let opened = false;
   function pagePane() {
     const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
+    // Social's home, the Feed and Photos have no sidebar of their own in a wide
+    // window (css: Chat's lists only on Chat).
+    if (['social', 'feed', 'photos'].includes(t) && root.classList.contains('hdr-pagenav-on')) return false;
     const g = SOC.includes(t) ? 'social' : t;
     return ['music', 'social', 'games'].includes(g) && !root.classList.contains('pane-off-' + g);
   }
