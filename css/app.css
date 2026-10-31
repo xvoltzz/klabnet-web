@@ -9824,9 +9824,18 @@
     .hm-bd-layer.on.soft-grad { opacity: .5; }
     .mh-flow-bg.on { opacity: .36; }
     html.app-material .hm-bd-layer.on, html.app-material .mh-flow-bg.on { opacity: .35 !important; }
-    /* The page's column carries a breath of the accent (the cover's
-       colour while music plays), so solid doesn't mean soulless. */
-    :root { --sheet: color-mix(in srgb, color-mix(in srgb, var(--bg) 88%, rgb(var(--accent-rgb))) var(--sheet-mix), transparent); }
+    /* The window carries a breath of the accent (the cover's colour while
+       music plays), so solid doesn't mean soulless: the page's column, the
+       sidebar's tint and the title bar alike, so it isn't colour in one
+       place and grey around it. */
+    :root {
+      --bg-tint: color-mix(in srgb, var(--bg) 88%, rgb(var(--accent-rgb)));
+      --sheet: color-mix(in srgb, var(--bg-tint) var(--sheet-mix), transparent);
+    }
+    html.klabnet-app.app-material:not([data-desktop="linux"]),
+    html.klabnet-app.app-material:not([data-desktop="linux"]) body { background: color-mix(in srgb, var(--bg-tint) 18%, transparent); }
+    html.klabnet-app.app-material[data-desktop="linux"] body { background: color-mix(in srgb, var(--bg-tint) var(--app-tint, 40%), transparent); }
+    html.klabnet-app.app-material[data-desktop="linux"] { --lx-bar: color-mix(in srgb, var(--bg-tint) calc(var(--app-tint, 40%) + 42%), transparent); }
     /* The apps: the page's column over the window's blur. */
     html.klabnet-app.app-material[data-desktop="linux"] { --lx-sheet: var(--sheet); }
     html.klabnet-app.app-material[data-platform="darwin"] body::before { background: var(--sheet); }
@@ -9873,7 +9882,29 @@
       html.pane-off-games #gamesShell #gamesSidebar { width: 48px; }
       html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(48px + 32px); }
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar)
-        :is(.soc-search, .picker-search, #phSidebar, #socVoice, #chatDmMore, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
+        :is(#phSidebar, #socVoice, #chatDmMore, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
+      /* The search, folded: its icon. The box stays in the page, unseen,
+         so focusing it works; then it pops out over the page, wider than
+         the rail, from where the icon was. */
+      html.pane-off-music #musicShell #musicSidebar { overflow: visible; }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar) :is(.soc-search, .picker-search) {
+        position: relative; z-index: 40; align-self: flex-start; box-sizing: border-box;
+        width: 40px; height: 40px; margin: 0 4px 8px; padding: 0; gap: 0; justify-content: center;
+        background: none; border-color: transparent; cursor: pointer;
+        transition: background-color var(--m-fast) ease;
+      }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar) :is(.soc-search, .picker-search):not(.pop):hover { background: var(--glass-fill); }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar) :is(.soc-search, .picker-search):not(.pop) input {
+        position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; pointer-events: none;
+      }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar) :is(.soc-search, .picker-search):not(.pop) > :not(i):not(input) { display: none; }
+      :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar) :is(.soc-search, .picker-search).pop {
+        width: 280px; margin-left: 0; padding: 0 8px 0 12px; gap: 10px; justify-content: flex-start; cursor: auto;
+        background: var(--modal-bg); border-color: var(--glass-border-h);
+        box-shadow: 0 12px 32px rgba(0,0,0,.35);
+        animation: searchPop var(--m-med) var(--m-ease);
+      }
+      @keyframes searchPop { from { width: 40px; opacity: .6; } }
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar) .music-sidebar-label {
         height: 1px; padding: 0; margin: 4px 10px; background: var(--glass-border); font-size: 0; overflow: hidden;
       }

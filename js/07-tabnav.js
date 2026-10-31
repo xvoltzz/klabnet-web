@@ -756,8 +756,8 @@ window.klabPane = (function() {
   // Each page's sidebar, where that page lays it out as one, and the body
   // class that says you're on it (Social's is all four of its pages).
   const PANES = {
-    music:  { el: 'musicSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-music-active' },
-    social: { el: 'socSidebar',   mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
+    music:  { el: 'musicSidebar', search: '.picker-search', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-music-active' },
+    social: { el: 'socSidebar',   search: '.soc-search',    mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
     games:  { el: 'gamesSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-games-active' },
   };
   const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches) || null;
@@ -777,6 +777,20 @@ window.klabPane = (function() {
       if (!row || row.title) return;
       const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, .games-server-name, span:not(.soc-dot):not(:empty)');
       if (name) row.title = name.textContent.trim();
+    });
+    // Folded, the search is its icon. Its box is still there, unseen, so
+    // a click on the icon (or anything that focuses the search) lands in
+    // it, and it pops out over the page until you're done with it.
+    const search = p.search && side.querySelector(':scope > ' + p.search);
+    if (!search) continue;
+    p.searchEl = search;
+    search.addEventListener('click', () => { if (hidden(t)) search.querySelector('input')?.focus(); });
+    search.addEventListener('focusin', () => { if (hidden(t)) search.classList.add('pop'); });
+    search.addEventListener('focusout', e => { if (!search.contains(e.relatedTarget)) search.classList.remove('pop'); });
+    search.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !search.classList.contains('pop')) return;
+      e.stopPropagation();
+      document.activeElement?.blur();
     });
   }
   btn.classList.replace('hdr-btn', 'pane-btn');
@@ -811,6 +825,7 @@ window.klabPane = (function() {
   }
   function apply(t, off) {
     root.classList.toggle('pane-off-' + t, off);
+    PANES[t].searchEl?.classList.remove('pop');
     try { localStorage.setItem(KEY, JSON.stringify(Object.keys(PANES).filter(hidden))); } catch (e) {}
     sync();
     // The sliding highlights and the photo measure on resize.
