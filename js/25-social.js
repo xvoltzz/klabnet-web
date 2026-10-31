@@ -142,21 +142,13 @@
         const coming = t.classList.contains('off');
         // A wave across the block: left to right, top to bottom.
         t.style.setProperty('--d', Math.round((p.x / W) * 160 + (p.y / H) * 80) + 'ms');
-        if (coming) {
-          // From nowhere: put where it goes first, then shown.
-          t.style.transition = 'none';
-          t.style.transform = `translate(${p.x}px, ${p.y}px) scale(.86)`;
-          t.style.width = p.w + 'px'; t.style.height = p.h + 'px';
-          void t.offsetWidth;
-          t.style.transition = '';
-          t.classList.remove('off');
-        }
+        if (coming) requestAnimationFrame(() => t.classList.remove('off'));
         t.style.transform = `translate(${p.x}px, ${p.y}px)`;
         t.style.width = p.w + 'px'; t.style.height = p.h + 'px';
         // Big enough to need it: the sharper file.
         if (p.w * (devicePixelRatio || 1) > 520 && !t._big) { t._big = true; const pre = new Image(); pre.onload = () => { t.firstChild.src = pre.src; }; pre.src = photoFile(p.it.ph.id, 'medium'); }
       });
-      tiles.forEach(t => { if (!on.has(t) && !t.classList.contains('off')) { t.classList.add('off'); t.style.transform += ' scale(.86)'; } });
+      tiles.forEach(t => { if (!on.has(t)) t.classList.add('off'); });
       drawn = true;
     }
 
@@ -241,13 +233,23 @@
     let cards = [], shown = 0, placeQueued = false, settleUntil = 0;
     const scroller = () => sec.closest('.tab-panel');
     function cols() { return [...wall.children]; }
+    // Cards into the shortest columns. Measured all at once (one layout),
+    // then moved: measuring each as it went forced a layout per card,
+    // dozens a frame while the page filled in ("choppy", the owner).
     function addCards(upTo) {
-      const cs = cols(), h = cs.map(c => c.offsetHeight);
-      for (; shown < Math.min(upTo, cards.length); shown++) {
-        const i = h.indexOf(Math.min(...h));
-        cs[i].appendChild(cards[shown]);
-        h[i] += cards[shown].offsetHeight + GAP;
-      }
+      const cs = cols();
+      if (!cs.length) return;
+      const batch = cards.slice(shown, Math.min(upTo, cards.length));
+      if (!batch.length) return;
+      const h = cs.map(c => c.offsetHeight);
+      batch.forEach(c => cs[0].appendChild(c));
+      const hs = batch.map(c => c.offsetHeight);
+      batch.forEach((c, i) => {
+        const at = h.indexOf(Math.min(...h));
+        if (c.parentElement !== cs[at]) cs[at].appendChild(c);
+        h[at] += hs[i] + GAP;
+      });
+      shown += batch.length;
     }
     function place() {
       placeQueued = false;
@@ -263,7 +265,6 @@
       const keep = Math.max(shown, n * 3);
       wall.textContent = '';
       for (let i = 0; i < n; i++) wall.appendChild(Object.assign(document.createElement('div'), { className: 'soc-wall-col' }));
-      cards.forEach(c => c.remove());
       shown = 0;
       addCards(keep);
       more();

@@ -9361,11 +9361,12 @@
     .soc-tile {
       position: absolute; left: 0; top: 0; padding: 0; border: 0; margin: 0; cursor: pointer; overflow: hidden;
       border-radius: 4px; background: var(--glass-fill); transform-origin: center;
-      transition:
-        transform 1.8s var(--collage-ease) var(--d, 0ms), width 1.8s var(--collage-ease) var(--d, 0ms),
-        height 1.8s var(--collage-ease) var(--d, 0ms), opacity .9s ease var(--d, 0ms), border-radius .4s ease;
+      /* Fading and growing in, in a wave (--d). Not moving or resizing:
+         animating width and height redid the layout every frame for
+         every tile while the page filled in ("choppy"); it's still now. */
+      transition: opacity .7s ease var(--d, 0ms), scale .9s var(--collage-ease) var(--d, 0ms), border-radius .4s ease;
     }
-    .soc-tile.off { opacity: 0; pointer-events: none; }
+    .soc-tile.off { opacity: 0; scale: .94; pointer-events: none; }
     .soc-tile img {
       position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
       opacity: 0; scale: 1.04; transition: opacity .5s ease, scale 1.2s cubic-bezier(.2,.8,.2,1);
