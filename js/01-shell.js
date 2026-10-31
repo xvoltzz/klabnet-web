@@ -561,9 +561,16 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         const search = document.getElementById('pickerSearch');
         const onMusic = document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active');
         // The search box is in Music's sidebar: bring that back if it's hidden.
-        // In the title bar (its search icon), open it there; else the sidebar's.
-        if (window.klabOpenHeaderFind?.()) { e.preventDefault(); break; }
-        if (onMusic && search) { e.preventDefault(); window.klabPane?.show('music'); search.focus(); }
+        // / is search, everywhere (vim's): the title bar's /search on Music
+        // and Social; on a page with nothing to search, Music's.
+        e.preventDefault();
+        if (window.klabOpenHeaderFind?.()) break;
+        if (!onMusic) {
+          setActiveTab('music');
+          setTimeout(() => { if (!window.klabOpenHeaderFind?.()) { window.klabPane?.show('music'); search?.focus(); } }, 80);
+          break;
+        }
+        if (search) { window.klabPane?.show('music'); search.focus(); }
         break;
       }
       case 'w': case 's': if (stepSubTab(e.key === 's' ? 1 : -1)) e.preventDefault(); break;

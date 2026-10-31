@@ -10182,16 +10182,16 @@
 
     /* ══ TUI TOUCHES (2026-10-31) ══
        The owner: lean into the terminal/desktop look in places, not a
-       redesign. Section headings read as comments ("// your library"),
+       redesign. Content headings read as comments ("// jump back in"),
        in the prompt's monospace; small numbers and times are monospace
        like a terminal's output; the loading spinner is a braille one. */
     :is(.picker-section-label, .music-sidebar-label, #musicShell .music-sidebar-label, .chat-lbl, .ph-side-label, .sec-label, .dash .sec-head .sec-label, #feedList .feed-day h3, .hp-day, .games-group .music-sidebar-label) {
       font-family: 'JetBrains Mono', monospace !important; font-weight: 500 !important;
       text-transform: lowercase !important; letter-spacing: 0 !important; font-size: 12px !important;
     }
-    :is(.picker-section-label, .music-sidebar-label, .chat-lbl, .ph-side-label, .sec-label, #feedList .feed-day h3, .hp-day)::before {
-      content: '// '; opacity: .55;
-    }
+    /* "//" only where it matters (the owner): on the headings that start a
+       block of the page's content, not on sidebar groups or dates. */
+    :is(.picker-section-label, .sec-label)::before { content: '// '; opacity: .4; }
     /* A heading row that holds its label in a span (Channels). */
     .chat-lbl-row > span:first-child { font: inherit; }
     :is(.feed-post-time, .chat-conv-when, .music-view-head > span, #socShell .music-view-head > span, #feedList .feed-day span, .soc-label-count, .picker-item-sub .dur, .abc-bubble small) {
@@ -10209,3 +10209,24 @@
       50% { content: '⠴'; } 60% { content: '⠦'; } 70% { content: '⠧'; } 80% { content: '⠇'; } 90% { content: '⠏'; }
     }
     @media (prefers-reduced-motion: reduce) { .ti.ti-loader.loading-spinner::before { animation: none; } }
+
+    /* /search, open: vim's / line, not a box (the owner: the box looked
+       silly next to the words). "/" then what you type, monospace, an
+       underscore caret, a faint rule under it; nothing else. */
+    .hdr-find.open :is(.picker-search, .soc-search) {
+      width: 260px; height: 30px; padding: 0 2px; gap: 0; border: 0 !important; border-radius: 0;
+      background: none !important; box-shadow: none !important;
+      border-bottom: 1px solid var(--glass-border-h) !important;
+      animation: findOpen .16s var(--m-ease, ease) both;
+    }
+    @keyframes findOpen { from { width: 70px; opacity: .5; } }
+    .hdr-find.open :is(.picker-search, .soc-search) > i,
+    .hdr-find.open .picker-sort-btn { display: none !important; }
+    .hdr-find.open :is(.picker-search, .soc-search)::before {
+      content: '/'; font: 700 13px 'JetBrains Mono', monospace; color: var(--text); margin-right: 1px;
+    }
+    .hdr-find.open :is(.picker-search, .soc-search) input {
+      font: 500 13px 'JetBrains Mono', monospace !important; color: var(--text); letter-spacing: 0;
+      caret-color: var(--text); caret-shape: underscore;
+    }
+    .hdr-find.open :is(.picker-search, .soc-search) input::placeholder { color: var(--text-dimmer); opacity: .6; text-transform: lowercase; }
