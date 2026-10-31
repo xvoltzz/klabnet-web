@@ -6,11 +6,16 @@
 //  than scattered). Each cell is someone's face and name, their note over
 //  it (online or not: notes are back) and what they're playing under it.
 //  The most active are in the middle and drawn bigger: posts, replies and
-//  hours listened (klabnet-api /api/posts/people). Online: a green dot;
-//  away, a yellow one; offline people smaller and dimmer.
+//  hours listened (klabnet-api /api/posts/people). Online: a green dot,
+//  and their system's or browser's mark (what they're on); away, a yellow
+//  dot; offline people smaller and dimmer. Listening, a bubble comes
+//  alive: it glows in the song's colour, rings ripple out from it, it
+//  pulses, the song's cover spins out from behind it like a record, and
+//  bars move by the song's name (the owner: "we want it to feel alive").
 //
-//  Near the pointer the faces ease aside a little and the one under it
-//  grows. Pressing one opens that person's profile; your own edits your
+//  Each sits a little off the grid and floats slowly on its own path
+//  (alive, not a static diamond: the owner). Near the pointer the faces
+//  ease aside a little and the one under it grows. Pressing one opens that person's profile; your own edits your
 //  note. It animates only while that happens; still in Performance mode
 //  and with reduced motion.
 // ══════════════════════════════════════════
@@ -59,20 +64,34 @@
     const p = window.klabPresenceOf?.(u) || {};
     const me = u === window.KLAB_USER?.username;
     const on = me || p.online;
-    return { me, on, away: on && !me && !!p.away, note: p.note || '', song: p.song || '', avatar: window.klabResolveUserAvatar?.(u) || null };
+    return {
+      me, on, away: on && !me && !!p.away, note: p.note || '', avatar: window.klabResolveUserAvatar?.(u) || null,
+      song: on ? p.song || '' : '', artist: p.artist || '', radio: !!p.radio,
+      cover: on ? p.cover : null, color: on ? p.color : null,
+      plat: on ? p.platformInfo : null,
+    };
   }
   function inner(u, s) {
     const color = typeof profileColor === 'function' ? profileColor(u) : 'var(--text)';
     const note = s.note
-      ? '<div class="pz-note">' + esc(s.note) + '</div>'
+      ? '<div class="pz-note"><span>' + esc(s.note) + '</span></div>'
       : s.me ? '<div class="pz-note pz-note-add">add a note</div>' : '';
     const face = s.avatar
       ? '<img src="' + esc(s.avatar) + '" alt="" draggable="false" />'
       : '<span style="--c:' + color + '">' + esc(u[0].toUpperCase()) + '</span>';
-    return note +
-      '<div class="pz-face">' + face + '<i class="pz-dot"></i></div>' +
+    // Listening: the song's cover as a record spinning out from behind the
+    // face (a radio when it's a station), and bars by the song's name.
+    const disc = s.song
+      ? '<div class="pz-disc">' + (s.cover && typeof ND_URL !== 'undefined'
+          ? '<img src="' + esc(ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(s.cover) + '&size=' + klabArtSize(48) + '&' + subsonicParams()) + '" alt="" draggable="false" />'
+          : '<i class="ti ' + (s.radio ? 'ti-radio' : 'ti-vinyl') + '"></i>') + '</div>'
+      : '';
+    // Where they are: their system's or browser's mark.
+    const plat = s.plat ? '<i class="pz-plat ti ' + s.plat[0] + '" title="' + esc(s.plat[1]) + '"></i>' : '';
+    return note + disc +
+      '<div class="pz-face">' + face + '<i class="pz-dot"></i>' + plat + '</div>' +
       '<div class="pz-name">' + esc(s.me ? 'you' : u) + '</div>' +
-      (s.song ? '<div class="pz-song"><i class="ti ti-music"></i>' + esc(s.song) + '</div>' : '');
+      (s.song ? '<div class="pz-song" title="' + esc(s.song + (s.artist ? ' · ' + s.artist : '')) + '"><span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + '</div>' : '');
   }
 
   // ── The stage ──
@@ -113,10 +132,18 @@
     }
     // Shrink the cells until there are a few more than people.
     // Bigger while there's plenty of room (up to 1.35×), smaller until
-    // there are a few more cells than people.
+    // there are a few more cells than people, but never so small a note
+    // runs into the name over it (0.85×). Still not enough room: the
+    // plaza is taller than its space and scrolls (no bar).
+    const fits = k => Math.floor(W / (CELL_W * k)) * Math.floor(H / (CELL_H * k * 0.9));
     let k = 1.35;
-    while (k > 0.55 && Math.floor(W / (CELL_W * k)) * Math.floor(H / (CELL_H * k * 0.9)) < n * 2) k -= 0.05;
+    while (k > 0.85 && fits(k) < n * 1.5) k -= 0.05;
     cell = { w: CELL_W * k, h: CELL_H * k * 0.9, k };
+    if (fits(k) < n) {
+      const cols = Math.max(1, Math.floor(W / cell.w));
+      H = (Math.ceil(n / cols) + 1) * cell.h;
+    }
+    stage.style.height = H + 'px';
     stage.style.setProperty('--k', k.toFixed(2));
   }
 
@@ -163,6 +190,10 @@
       b.el.classList.toggle('away', s.away);
       b.el.classList.toggle('off', !s.on);
       b.el.classList.toggle('me', s.me);
+      b.el.classList.toggle('playing', !!s.song);
+      if (s.color) b.el.style.setProperty('--glow', s.color.join(','));
+      else b.el.style.removeProperty('--glow');
+      if (s.plat) b.el.setAttribute('aria-label', u + ', ' + s.plat[1] + (s.song ? ', listening to ' + s.song : ''));
       const html = inner(u, s);
       if (html !== b.html) { b.html = html; b.float.innerHTML = html; }
     }
@@ -183,11 +214,36 @@
       const r = Math.round((27 + 19 * t) * cell.k);
       b.el.style.setProperty('--r', r + 'px');
       const p = spots[i] || { x: W / 2, y: H / 2 };
-      b.hx = p.x; b.hy = p.y;
+      // Off the grid a little, the same way each time for each person, so
+      // it reads as a crowd rather than a diamond (the owner: "boring").
+      const h = hash(b.u);
+      b.hx = p.x + ((h % 1000) / 1000 - 0.5) * cell.w * 0.34;
+      b.hy = p.y + (((h >> 10) % 1000) / 1000 - 0.5) * cell.h * 0.22;
+      // Room for the note over the top row and the name under the bottom one.
+      b.hy = Math.max(r + 58 * cell.k, Math.min(H - r - 44 * cell.k, b.hy));
+      b.hx = Math.max(r + 70 * cell.k, Math.min(W - r - 70 * cell.k, b.hx));
+      if (!b.drift) {
+        // And each floats on its own slow path (css pzDrift).
+        b.drift = true;
+        const r = n => (((h >> n) % 1000) / 1000);
+        const a = (6 + 6 * r(3)) * cell.k;
+        b.el.style.setProperty('--dx1', ((r(5) - 0.5) * 2 * a).toFixed(1) + 'px');
+        b.el.style.setProperty('--dy1', ((r(7) - 0.5) * 2 * a).toFixed(1) + 'px');
+        b.el.style.setProperty('--dx2', ((r(9) - 0.5) * 2 * a).toFixed(1) + 'px');
+        b.el.style.setProperty('--dy2', ((r(11) - 0.5) * 2 * a).toFixed(1) + 'px');
+        b.el.style.setProperty('--drift', (8 + 6 * r(13)).toFixed(2) + 's');
+        b.el.style.setProperty('--drift-at', (-12 * r(15)).toFixed(2) + 's');
+      }
       if (b.fresh || still()) { b.x = b.hx; b.y = b.hy; b.vx = b.vy = 0; b.fresh = false; }
     });
     draw();
     wake();
+  }
+
+  function hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
   }
 
   // ── Easing aside for the pointer ──

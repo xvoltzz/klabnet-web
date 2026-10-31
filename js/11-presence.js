@@ -138,6 +138,7 @@
   // one extra getSong lookup to find it, same endpoint playFromCard()
   // already uses for the sync-up feature.
   const _songColorCache   = new Map(); // songId -> [r,g,b] or null
+  const _songCoverCache   = new Map(); // songId -> its coverArt id (Home's bubbles show it)
   const _songColorPending = new Set();
   function ensureSongColorResolved(songId) {
     if (!songId || _songColorCache.has(songId) || _songColorPending.has(songId)) return;
@@ -147,6 +148,7 @@
         const r = await fetchTimeout(`${ND_URL}/rest/getSong?id=${encodeURIComponent(songId)}&${subsonicParams()}`, {}, 6000);
         const data = await r.json();
         const coverArt = data['subsonic-response']?.song?.coverArt;
+        if (coverArt) _songCoverCache.set(songId, coverArt);
         _songColorCache.set(songId, coverArt
           ? await sampleImageColor(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverArt)}&size=64&${subsonicParams()}`)
           : null);
@@ -379,8 +381,8 @@
           (isMe ? ' <i class="ti ti-x"></i>' : '') +
         '</div>'
       : '';
-    // Instagram-Notes-style ephemeral status text (klabnet-api /api/notes,
-    // 24h TTL) — your own card always shows *something* here (a faint
+    // Each person's note, their latest: it no longer expires (klabnet-api
+    // /api/notes) — your own card always shows *something* here (a faint
     // "Add a note…" invite when you don't have one), so it reads as an
     // always-available thing to do rather than a hidden feature; other
     // people's cards only show the line when they actually have a note.
@@ -528,8 +530,22 @@
   let _lastRoster = [];
   // For chat: who's around and what they're doing, by username.
   window.klabPresenceOf = function(username) {
-    const l = (_lastOthers || []).find(x => x && x.username === username);
+    const me = window.KLAB_USER?.username;
+    let l = (_lastOthers || []).find(x => x && x.username === username);
+    // You: from the player here.
+    if (username === me) {
+      const cur = playerState.currentSong, st = window.klabRadio?.station?.();
+      l = { platform: PLATFORM, playing: !!(st || playerState.playing), song: st ? (st.track || st.name) : cur?.title || '', artist: st ? st.name : cur?.artist || '', songId: st ? '' : cur?.id || '' };
+    }
+    const songId = l && l.playing ? l.songId : '';
+    if (songId) ensureSongColorResolved(songId);
     return {
+      // What they're on ("app:linux", "web:windows:firefox"): platformInfo()'s
+      // icon and words for it.
+      platform: l?.platform || '', platformInfo: platformInfo(l?.platform),
+      // The song's cover and its colour, once known (Home's bubbles).
+      cover: songId ? _songCoverCache.get(songId) || null : null, color: songId ? _songColorCache.get(songId) || null : null,
+      radio: !!(l && l.playing && l.radio),
       online: !!(window.KLAB_ONLINE_USERNAMES && window.KLAB_ONLINE_USERNAMES.has(username)),
       away: awayLabel(username),
       song: l && l.playing ? l.song : '', artist: l && l.playing ? l.artist : '', songId: l && l.playing ? l.songId : '',
@@ -1020,7 +1036,7 @@
   }
 
 
-  // ── Notes — Instagram-Notes-style ephemeral status text, one per user.
+  // ── Notes — each person's latest note, one per user (kept until replaced).
   // One bulk GET decorates every card (online AND offline) rather than a
   // request per person; doesn't need 8s freshness, same cadence as the
   // offline roster above.
@@ -1041,7 +1057,7 @@
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;
-    const text = await showInputDialog('// share a note', 'Visible to everyone for 24h (max 60 characters).', 'Note text', _notesCache.get(me) || '', { maxLength: 60 });
+    const text = await showInputDialog('// share a note', 'Everyone sees it until you write a new one (max 60 characters).', 'Note text', _notesCache.get(me) || '', { maxLength: 60 });
     if (text === null) return; // cancelled
     try {
       const r = await fetchTimeout('/api/notes', {

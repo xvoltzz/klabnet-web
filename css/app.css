@@ -10255,7 +10255,9 @@
     .hp-plaza { --pz-note: color-mix(in srgb, #fff 70%, var(--bg)); }
     html[data-theme="light"] .hp-plaza { --pz-note: #fff; }
     .hp-plaza { position: relative; width: var(--pw, 100%); margin: -12px 0 40px calc((100% - var(--pw, 100%)) / 2); }
-    .pz-stage { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .pz-stage { position: absolute; left: 0; top: 0; width: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .hp-plaza { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+    .hp-plaza::-webkit-scrollbar { display: none; }
     .pz-b { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 1; cursor: pointer; outline: none; will-change: transform; }
     .pz-b.hover, .pz-b:focus-visible { z-index: 5; }
     .pz-float { position: absolute; left: 0; top: 0; }
@@ -10297,15 +10299,16 @@
       max-width: calc(var(--k, 1) * 140px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       font: 500 var(--fs-11)/1.2 var(--font-ui); color: var(--text-dim);
     }
-    .pz-song i { margin-right: 4px; color: var(--accent); }
     .pz-note {
       position: absolute; left: 0; bottom: calc(var(--r) + 11px); transform: translateX(-50%);
       width: max-content; max-width: calc(var(--k, 1) * 136px); padding: 5px 10px; border-radius: 12px;
       background: var(--pz-note); color: #232120; font: 500 11.5px/1.3 var(--font-ui); text-align: center;
       box-shadow: 0 3px 10px rgba(0,0,0,.16);
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+      overflow-wrap: anywhere;
       transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
     }
+    /* Clamped inside, so the padding doesn't show a sliver of a third line. */
+    .pz-note > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     /* Its tail (outside the clamp's overflow: a second, unclipped layer). */
     .pz-note::after { content: none; }
     .pz-float:has(.pz-note:not(.pz-note-add))::before {
@@ -10315,8 +10318,7 @@
     .pz-b.hover .pz-note { transform: translateX(-50%) translateY(-3px); }
     .pz-note-add { background: none; color: var(--text-dimmer); box-shadow: none; border: 1.5px dashed var(--glass-border-h); font-weight: 500; }
     .pz-b.me.hover .pz-note-add { color: var(--text); border-color: var(--text-dimmer); }
-    html[data-fx="low"] .pz-float, html[data-fx="low"] .pz-face { animation: none !important; transition: none; }
-    @media (prefers-reduced-motion: reduce) { .pz-float, .pz-face { animation: none !important; } }
+
     /* Wide: the bubbles on the left, the changelog a column on the right,
        and only it scrolls (js/33-plaza.js fitPage() sets the height). */
     .hp.hp-split {
@@ -10337,3 +10339,60 @@
     .hp-title .hp-kao { font-weight: 400; font-size: .8em; white-space: nowrap; letter-spacing: 0; color: var(--text-dim); margin-left: .15em; }
     .hp-split .hp-title { font-size: clamp(28px, 2.6vw, 42px); }
     .hp-day-msg { margin: 0 0 8px; font: 600 var(--fs-15)/1.3 var(--font-ui); color: var(--accent); }
+    /* Where they are: their system's or browser's mark, bottom left. */
+    .pz-plat {
+      position: absolute; left: 1%; bottom: 1%; width: max(18px, calc(var(--r) * .38)); height: max(18px, calc(var(--r) * .38));
+      border-radius: 50%; border: 2px solid var(--bg); background: color-mix(in srgb, var(--bg) 82%, #fff);
+      display: flex; align-items: center; justify-content: center; font-size: max(11px, calc(var(--r) * .22)); color: var(--text-dim);
+      font-style: normal;
+    }
+    /* Listening: alive. A glow in the song's colour (--glow, from its
+       cover), rings rippling out, a gentle beat, the cover spinning out
+       from behind like a record, bars by the song. All transform and
+       opacity: the compositor's, not the page's. */
+    .pz-face { z-index: 1; }
+    .pz-b.playing .pz-face {
+      box-shadow: 0 0 0 2px rgba(var(--glow, var(--accent-rgb)), .9), 0 0 26px 4px rgba(var(--glow, var(--accent-rgb)), .4), 0 6px 18px rgba(0,0,0,.28);
+      animation: pzBeat 1.1s ease-in-out infinite;
+    }
+    @keyframes pzBeat { 0%, 100% { scale: 1; } 12% { scale: 1.045; } 40% { scale: 1.01; } }
+    .pz-b.playing .pz-face::before, .pz-b.playing .pz-face::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: -1; pointer-events: none;
+      border: 2px solid rgba(var(--glow, var(--accent-rgb)), .55);
+      animation: pzRipple 2.6s cubic-bezier(.2, .6, .4, 1) infinite;
+    }
+    .pz-b.playing .pz-face::after { animation-delay: 1.3s; }
+    @keyframes pzRipple { from { transform: scale(1); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+    .pz-disc {
+      position: absolute; z-index: 0; width: calc(var(--r) * .95); height: calc(var(--r) * .95);
+      left: calc(var(--r) * .5); top: calc(var(--r) * -.82);
+      border-radius: 50%; overflow: hidden; background: #141414;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,.12), 0 4px 12px rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.75); font-size: calc(var(--r) * .45);
+      animation: pzDiscIn .6s cubic-bezier(.25, 1.3, .5, 1) both, pzSpin 3.4s linear .6s infinite;
+    }
+    .pz-disc img { width: 100%; height: 100%; object-fit: cover; -webkit-mask: radial-gradient(circle, transparent 11%, #000 12.5%); mask: radial-gradient(circle, transparent 11%, #000 12.5%); }
+    @keyframes pzDiscIn { from { transform: translate(-45%, 45%) scale(.6); opacity: 0; } }
+    @keyframes pzSpin { to { transform: rotate(1turn); } }
+    .pz-eq { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 9px; margin-right: 5px; vertical-align: -1px; }
+    .pz-eq i { width: 2px; height: 100%; border-radius: 1px; background: rgb(var(--glow, var(--accent-rgb))); transform-origin: bottom; animation: pzEq .9s ease-in-out infinite alternate; }
+    .pz-eq i:nth-child(2) { animation-duration: .7s; animation-delay: -.3s; }
+    .pz-eq i:nth-child(3) { animation-duration: 1.1s; animation-delay: -.6s; }
+    @keyframes pzEq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+    .pz-b.playing .pz-song { color: var(--text); }
+    html[data-fx="low"] :is(.pz-float, .pz-face, .pz-face::before, .pz-face::after, .pz-disc, .pz-eq i) { animation: none !important; transition: none; }
+    html[data-fx="low"] .pz-face::before, html[data-fx="low"] .pz-face::after { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      :is(.pz-float, .pz-face, .pz-disc, .pz-eq i) { animation: none !important; }
+      .pz-face::before, .pz-face::after { display: none; }
+    }
+    /* Each floats on its own slow path (js/33-plaza.js sets --dx/--dy,
+       --drift): alive, not a static diamond. */
+    .pz-float { animation: pzDrift var(--drift, 10s) ease-in-out var(--drift-at, 0s) infinite; }
+    @keyframes pzDrift {
+      0%, 100% { translate: 0 0; }
+      33% { translate: var(--dx1, 0) var(--dy1, 0); }
+      66% { translate: var(--dx2, 0) var(--dy2, 0); }
+    }
+    html[data-fx="low"] .pz-float { animation: none; }
+    @media (prefers-reduced-motion: reduce) { .pz-float { animation: none; } }
