@@ -513,6 +513,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     // defaultPrevented: someone already used this Tab (list indenting in the markdown editor).
     if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || dialogOpen() || covered()) return;
     e.preventDefault();
+    // Forward's click, or back's (Shift+Tab), like the title bar's.
+    SFX && SFX.play(e.shiftKey ? 'nav_back' : 'nav');
     flipPage(e.shiftKey ? -1 : 1);
   });
 
