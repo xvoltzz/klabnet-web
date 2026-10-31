@@ -9963,25 +9963,17 @@
         linear-gradient(rgba(255,255,255,.025), rgba(255,255,255,.025)),
         linear-gradient(180deg, rgba(var(--accent-rgb), .10), rgba(var(--accent-rgb), .05));
     }
-    /* The paint goes on the sidebar and the title bar themselves, not the
-       window behind everything: under the page's translucent column the
-       streaks showed through the content. */
-    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] #sideNav,
-    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header {
-      background: var(--aero-sheen) !important;
-      background-attachment: fixed !important;
+    /* The paint is the window behind everything, so the page's rounded
+       corner sits in one pane. On the sidebar and title bar alone, the
+       little square behind that corner was left unpainted and the corner
+       read as square. It's even all over (no streaks or reflection now),
+       so what reaches the page through its column is a faint lift. */
+    html.glass-aero.klabnet-app.app-material[data-desktop="linux"] body {
+      background: var(--aero-sheen), color-mix(in srgb, var(--bg-tint) var(--app-tint, 40%), transparent);
+      background-attachment: fixed;
     }
     html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header { box-shadow: inset 0 1px 0 rgba(255,255,255,.09); }
     html.glass-aero.klabnet-app.app-material[data-desktop="linux"] #sideNav { box-shadow: inset 1px 0 0 rgba(255,255,255,.05); }
-    /* Beside the full sidebar the page's column runs to the top: only the
-       title bar's part above the sidebar is glass, the rest stays clear
-       (its backing, scrolled, is below). The paint is the same all the
-       way across, so sizing it to the sidebar's width changes nothing. */
-    @media (min-width: 1100px) {
-      html.glass-aero.klabnet-app.app-material[data-desktop="linux"][data-nav="side"] .header {
-        background-size: var(--nav-w) 100% !important; background-repeat: no-repeat !important;
-      }
-    }
     html.glass-aero.klabnet-app.app-material[data-desktop="linux"] .header::before {
       background: var(--aero-sheen), color-mix(in srgb, var(--bg) 84%, transparent);
       background-attachment: fixed;
