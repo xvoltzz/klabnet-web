@@ -9093,7 +9093,8 @@
       gap: 12px; padding: 16px 10px 12px; border-radius: 0;
       background: none; border: none; border-bottom: 1px solid var(--glass-border); box-shadow: none;
     }
-    #feedList .feed-post:hover, #feedList .feed-post.in-focus:hover { background: color-mix(in srgb, var(--glass-fill) 60%, transparent); border-color: var(--glass-border); }
+    /* No highlight on hover (the owner: it "looks weird"; a post isn't a button). */
+    #feedList .feed-post:hover, #feedList .feed-post.in-focus:hover { background: none; border-color: var(--glass-border); }
     #feedList .feed-day + .feed-post { border-top: none; }
     #feedList .feed-post-backart, #feedList .feed-post.is-shout::before { display: none; }
     #feedList .feed-post-avatar { width: 34px; height: 34px; font-size: 14px; }
@@ -10043,3 +10044,12 @@
     #feedList .feed-post.is-photo :is(.feed-post-image, .feed-post-image-ph) {
       width: 100%; max-width: 100%; margin: 10px 0 0; border-radius: 10px;
     }
+
+    /* Feed's date rail (js/31-feed-rail.js): the letter rail's look, down
+       the Feed's right edge; the feed keeps clear of it. */
+    #socMain { position: relative; }
+    body.tab-feed-active .feed-rail ~ .abc-bubble, .feed-rail-bubble { right: 46px; }
+    @media (min-width: 761px), (pointer: fine) {
+      body.tab-feed-active #socMain > .tab-panel[data-tab-panel="feed"] { padding-right: 34px; }
+    }
+    .feed-rail-bubble small { text-transform: none; }
