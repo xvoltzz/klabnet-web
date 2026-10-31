@@ -89,11 +89,11 @@ function setActiveTab(key) {
   if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
   // Games opens its connection to the server while it's up (js/29-games-mc.js).
   if (typeof window.klabGamesTabChanged === 'function') { const on = key === 'games'; afterSwitchPaints(() => window.klabGamesTabChanged(on)); }
-  // The header prompt backspaces into klab.chat on this tab and back out
-  // of it on the others (see retypePrompt()).
-  // Elsewhere it names the page ("klabnet/feed>_"), so the page needn't
-  // spend a row on its own title (the owner: use the top bar, save space).
+  // The header prompt cds into this page ("cd feed", then klabnet/feed>;
+  // see retypePrompt()), so the page needn't spend a row on its own title
+  // (the owner: use the top bar, save space).
   if (typeof retypePrompt === 'function') retypePrompt(klabPromptFor(key));
+  window.klabHeaderSearch?.(key);
   // Feed's mentions button sits in the title bar while Feed is up.
   const mBtn = document.getElementById('feedMentionsBtn'), hdrR = document.querySelector('.header-right');
   if (mBtn && hdrR) {
@@ -1255,3 +1255,40 @@ async function offerAppUpdate(current) {
   });
   document.body.appendChild(el);
 }
+
+// ══════════════════════════════════════════
+//  THE PAGE'S SEARCH, IN THE TITLE BAR
+//  Music's and Social's search boxes sit in the middle of the title bar
+//  while their page is up, instead of at the top of their sidebars (the
+//  owner: use the top bar, save space). The box itself moves, handlers and
+//  all, and goes back to its sidebar on other pages and on a phone.
+// ══════════════════════════════════════════
+(function () {
+  const header = document.querySelector('.header');
+  if (!header) return;
+  const desk = matchMedia('(min-width: 761px), (pointer: fine)');
+  const slot = document.createElement('div');
+  slot.className = 'hdr-search';
+  header.appendChild(slot);
+  const SOC = ['social', 'feed', 'chat', 'photos'];
+  const boxes = [
+    { pages: ['music'], el: document.querySelector('#musicSidebar .picker-search') },
+    { pages: SOC, el: document.querySelector('#socSidebar .soc-search') },
+  ].filter(b => b.el);
+  // Where each goes back to.
+  boxes.forEach(b => { b.home = document.createComment('search'); b.el.before(b.home); });
+  let last = '';
+  function place(key) {
+    if (key) last = key;
+    const want = desk.matches ? boxes.find(b => b.pages.includes(last)) : null;
+    boxes.forEach(b => {
+      if (b === want) { if (b.el.parentElement !== slot) { b.el.classList.remove('pop'); slot.appendChild(b.el); } }
+      else if (b.el.parentElement === slot) b.home.after(b.el);
+    });
+    slot.hidden = !want;
+    document.documentElement.classList.toggle('hdr-search-on', !!want);
+  }
+  window.klabHeaderSearch = place;
+  desk.addEventListener('change', () => place());
+  place(document.querySelector('.tab-panel.active')?.dataset.tabPanel || '');
+})();

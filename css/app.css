@@ -5592,7 +5592,7 @@
       backdrop-filter: none !important;
     }
     html[data-fx="low"] :is(
-      .boot-glow, .boot-logo, .motd, .prompt-cursor.visible,
+      .boot-glow, .boot-logo, .motd,
       #socialUnreadBadge:not(:empty),
       .ph-song.playing .ph-eq b, .chat-head-eq i, .mh-flow.is-playing .mh-eq i,
       body.is-playing .eq-ico b, body.radio-on .eq-ico b,
@@ -8016,7 +8016,7 @@
          klabnet's name keeps to the sidebar's. */
       html.klabnet-app[data-desktop="linux"][data-nav="side"] body::before { top: 0; border-top-width: 0; border-top-left-radius: 0; }
       html.app-titlebar[data-desktop="linux"][data-nav="side"] .header-left {
-        max-width: calc(var(--nav-w) - 22px); overflow: hidden;
+        max-width: none; overflow: visible; /* the prompt may run past the sidebar's column: the search is in the middle */
       }
       /* The MOTD (motdEgg) doesn't fit in the sidebar's column and mustn't
          run over its edge: it's typed in the page's column instead, just
@@ -8956,7 +8956,7 @@
        js/16-motion.js sets html.win-idle while the window doesn't have
        focus. The animations that loop for as long as something lasts
        pause until it's back. */
-    html.win-idle :is(.prompt-cursor.visible, .eq-ico b, .chat-head-eq i, .mh-eq i),
+    html.win-idle :is(.eq-ico b, .chat-head-eq i, .mh-eq i),
     html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
 
 
@@ -10077,3 +10077,54 @@
     }
     .settings-link { width: 100%; text-align: left; cursor: pointer; }
     .settings-link > i { color: var(--text-dimmer); font-size: 15px; }
+
+    /* The prompt's cursor is the _ after "klabnet>", blinking: the only
+       cursor (it was a bar after a typed "_"). It takes the prompt's own
+       font, whatever size the prompt is. */
+    .terminal-prompt .prompt-cursor {
+      width: auto; height: auto !important; background: none; margin-left: 0;
+      font: inherit; color: var(--text); vertical-align: baseline; line-height: 1;
+    }
+    .terminal-prompt { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    :is(html.app-titlebar, html.web-bar) .terminal-prompt { font-size: 0.95rem; letter-spacing: 0.02em; }
+    .terminal-prompt .prompt-text { white-space: pre; }
+
+    /* The page's search in the middle of the title bar (js/07-tabnav.js). */
+    .hdr-search {
+      position: absolute; left: 50%; top: 0; height: var(--tb-h, 44px); transform: translateX(-50%);
+      width: min(440px, 36vw); display: flex; align-items: center; z-index: 2;
+      -webkit-app-region: no-drag;
+    }
+    .hdr-search[hidden] { display: none; }
+    .hdr-search :is(.picker-search, .soc-search) {
+      position: static; width: 100%; height: 30px; margin: 0; padding: 0 6px 0 10px; box-sizing: border-box;
+      display: flex; align-items: center; gap: 8px; opacity: 1;
+      background: var(--glass-fill); border: 1px solid var(--glass-border); border-radius: 8px;
+      transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease;
+    }
+    .hdr-search :is(.picker-search, .soc-search):focus-within { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
+    .hdr-search :is(.picker-search, .soc-search) > i { font-size: 14px; color: var(--text-dimmer); flex: none; }
+    .hdr-search :is(.picker-search, .soc-search) input {
+      position: static; flex: 1; min-width: 0; width: auto; height: 100%; opacity: 1; pointer-events: auto;
+      padding: 0; border: 0; background: none; outline: none; box-shadow: none;
+      font: 400 13px var(--font-ui); color: var(--text);
+    }
+    .hdr-search :is(.picker-search, .soc-search) > :not(i):not(input) { display: revert; }
+    .hdr-search .picker-sort-btn { flex: none; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dimmer); cursor: pointer; }
+    .hdr-search .picker-sort-btn:hover { background: var(--glass-fill-h); color: var(--text); }
+
+    /* The prompt, typed into (js/32-terminal.js). */
+    .term-btn { cursor: text; -webkit-app-region: no-drag; }
+    .term-input {
+      font: inherit; color: var(--text); background: none; border: 0; outline: none; padding: 0; margin: 0;
+      caret-color: transparent; letter-spacing: inherit; line-height: 1;
+    }
+    .term-ghost { color: var(--text-faint, var(--text-dimmer)); opacity: .55; white-space: pre; }
+    html.term-said .prompt-motd { display: inline-block; font: inherit; font-weight: 500; color: var(--text-dimmer); max-width: 46vw; }
+    /* The cursor always blinks, like a terminal's, quicker than it did
+       (the owner): not paused when the window's in the background, not in
+       Performance mode (a 1-bit opacity flip costs nothing). */
+    .prompt-cursor.visible, html[data-fx="low"] .prompt-cursor.visible, html.win-idle .prompt-cursor.visible {
+      animation: blink-cursor .8s step-end infinite !important;
+    }
+    @media (prefers-reduced-motion: reduce) { .prompt-cursor.visible { animation: none !important; } }

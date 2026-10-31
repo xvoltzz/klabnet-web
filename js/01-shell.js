@@ -2,12 +2,12 @@
 // ══════════════════════════════════════════
 //  TERMINAL TYPING ANIMATION
 // ══════════════════════════════════════════
-const FULL_TEXT = 'klabnet>_';
-// The prompt on each page: Home is just klabnet, Chat is klab.chat (below),
-// the rest name themselves.
+// The blinking _ after it is the cursor (#promptCursor), the only one.
+const FULL_TEXT = 'klabnet>';
+// The prompt on each page: Home is just klabnet>, each page is a
+// directory under it (klabnet/feed>), Chat included.
 function klabPromptFor(key) {
-  if (key === 'chat') return CHAT_PROMPT_TEXT;
-  return !key || key === 'home' ? FULL_TEXT : `klabnet/${key}>_`;
+  return !key || key === 'home' ? FULL_TEXT : `klabnet/${key}>`;
 }
 // Shown instead, while on the Chat tab — klab.chat is a domain the user
 // has picked up with an eye toward possibly spinning Chat out as its own
@@ -16,7 +16,7 @@ function klabPromptFor(key) {
 // intro typing animation below has finished, or by this animation itself
 // if it's still mid-typing at that point (e.g. a page load landing
 // directly on the #chat hash).
-const CHAT_PROMPT_TEXT = 'klab.chat>_';
+const CHAT_PROMPT_TEXT = 'klabnet/chat>'; // was klab.chat>_; every page is a directory now
 let typed = 0;
 const promptEl  = document.getElementById('promptText');
 const cursorEl  = document.getElementById('promptCursor');
@@ -33,29 +33,32 @@ function typeNext() {
   }
 }
 setTimeout(typeNext, 400);
+// The _ cursor is the prompt's own size, whatever size that is here.
+const syncCursorFont = () => { if (cursorEl && promptEl) cursorEl.style.fontSize = getComputedStyle(promptEl).fontSize; };
+syncCursorFont();
+window.addEventListener('resize', syncCursorFont);
 
-// Going to Chat, the prompt backspaces "klabnet>_" down to "klab" and
-// types ".chat>_" back on; leaving Chat does the reverse. Works from
-// whatever is on screen, so switching tabs mid-animation just changes
-// where it's headed.
+// Going to a page, it's a shell: "cd feed" is typed after the prompt and
+// entered, and the prompt is in that directory ("klabnet/feed>"); Home is
+// "cd ~". Works from whatever is on screen, so switching pages mid-command
+// just types the new one.
 let _retypeTimer = 0;
 function retypePrompt(target) {
   clearTimeout(_retypeTimer);
   // Still on the intro? It lands on the right text by itself.
   if (typed < FULL_TEXT.length) return;
-  if (!(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
+  const base = promptEl.textContent.replace(/ .*$/, '');
+  // Typed into the prompt itself (js/32-terminal.js): already cd'd.
+  if (base === target || window._klabTermJump || !(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
+  const cmd = ' cd ' + (target === FULL_TEXT ? '~' : target.slice(target.indexOf('/') + 1, -1));
+  let i = 0;
   const step = () => {
-    const cur = promptEl.textContent;
-    if (cur === target) return;
-    let same = 0;
-    while (same < cur.length && same < target.length && cur[same] === target[same]) same++;
-    if (cur.length > same) {
-      promptEl.textContent = cur.slice(0, -1);
-      // Backspacing is quicker than typing, with a beat before retyping.
-      _retypeTimer = setTimeout(step, cur.length - 1 === same ? 150 : 34 + Math.random() * 20);
+    if (i < cmd.length) {
+      promptEl.textContent = base + cmd.slice(0, ++i);
+      _retypeTimer = setTimeout(step, i === 1 ? 70 : 30 + Math.random() * 28);
     } else {
-      promptEl.textContent = target.slice(0, cur.length + 1);
-      _retypeTimer = setTimeout(step, 55 + Math.random() * 45);
+      // Enter.
+      _retypeTimer = setTimeout(() => { promptEl.textContent = target; }, 150);
     }
   };
   step();
@@ -549,6 +552,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         window.klabAwaitingG = () => awaitingG; // Photos' own keys stand aside for the second key
         awaitingGTimer = setTimeout(() => { awaitingG = false; }, 700);
         break;
+      // The prompt takes typing (js/32-terminal.js): cd music, ls, help.
+      case 'd': e.preventDefault(); window.klabTerminal?.open(); break;
       case 'j': e.preventDefault(); scrollPane(90); break;
       case 'k': e.preventDefault(); scrollPane(-90); break;
       case 'G': e.preventDefault(); scrollPaneToEdge(false); break;
