@@ -279,10 +279,68 @@
       row.classList.toggle('tall', cell >= 220);
     }
     new ResizeObserver(() => { fit(); edges(); }).observe(row);
+
+    // On a desktop (the owner: the row of same-size cards looked goofy at
+    // 4K, "we shouldn't be wasting space"): a wall. Each card as tall as
+    // what it holds, pictures in their own shape, every post into the
+    // shortest column, so the columns stay level; as many columns as fit
+    // at least COL_W, and the page scrolls down. Phones keep the row.
+    const wall = document.createElement('div');
+    wall.className = 'soc-wall';
+    sec.appendChild(wall);
+    const COL_W = 300, WALL_MAX = 50;
+    // Placed a few rows at a time as you scroll down (their pictures load
+    // as they're placed); a card once placed stays in its column. All of
+    // them are placed again only when the number of columns changes, or
+    // as pictures arrive just after a render (to level the columns by
+    // their real heights).
+    let cards = [], shown = 0, placeQueued = false, settleUntil = 0;
+    const scroller = () => sec.closest('.tab-panel');
+    function cols() { return [...wall.children]; }
+    function addCards(upTo) {
+      const cs = cols(), h = cs.map(c => c.offsetHeight);
+      for (; shown < Math.min(upTo, cards.length); shown++) {
+        const i = h.indexOf(Math.min(...h));
+        cs[i].appendChild(cards[shown]);
+        h[i] += cards[shown].offsetHeight + GAP;
+      }
+    }
+    function place() {
+      placeQueued = false;
+      const desk = roomy.matches;
+      sec.classList.toggle('as-wall', desk);
+      if (!desk) {
+        if (cards.some(c => c.parentElement !== row)) { cards.forEach(c => row.appendChild(c)); wall.textContent = ''; fit(); edges(); }
+        return;
+      }
+      const W = wall.clientWidth;
+      if (!W) return; // not showing: the ResizeObserver brings it back
+      const n = Math.max(1, Math.floor((W + GAP) / (COL_W + GAP)));
+      const keep = Math.max(shown, n * 3);
+      wall.textContent = '';
+      for (let i = 0; i < n; i++) wall.appendChild(Object.assign(document.createElement('div'), { className: 'soc-wall-col' }));
+      cards.forEach(c => c.remove());
+      shown = 0;
+      addCards(keep);
+      more();
+    }
+    // Near the bottom: the next rows.
+    function more() {
+      const sc = scroller();
+      if (!sec.classList.contains('as-wall') || shown >= cards.length || !sc) return;
+      const bottom = Math.min(...cols().map(c => c.getBoundingClientRect().bottom));
+      if (bottom < sc.getBoundingClientRect().bottom + 600) { addCards(shown + cols().length * 2); requestAnimationFrame(more); }
+    }
+    const queuePlace = () => { if (!placeQueued) { placeQueued = true; requestAnimationFrame(place); } };
+    let lastW = 0;
+    new ResizeObserver(() => { if (wall.clientWidth !== lastW) { lastW = wall.clientWidth; queuePlace(); } }).observe(wall);
+    roomy.addEventListener('change', queuePlace);
+    requestAnimationFrame(() => scroller()?.addEventListener('scroll', more, { passive: true }));
+    wall.addEventListener('load', () => { if (performance.now() < settleUntil) queuePlace(); }, true);
     const page = dir => row.scrollBy({ left: dir * row.clientWidth * 0.85, behavior: 'smooth' });
     sec.querySelector('.mh-row-nav.prev').addEventListener('click', () => page(-1));
     sec.querySelector('.mh-row-nav.next').addEventListener('click', () => page(1));
-    row.addEventListener('click', e => {
+    sec.addEventListener('click', e => {
       const card = e.target.closest('.soc-post');
       if (card) window.klabFeedFocus?.(+card.dataset.post);
     });
@@ -302,13 +360,16 @@
     let lastKey = '';
     function render(list) {
       if (!list) return;
+      if (!roomy.matches) list = list.slice(0, 12);
       const key = list.map(p => p.id + ':' + (p.reply_count || 0) + ':' + !!window.klabResolveUserAvatar?.(p.username) + ':' + (pic(p) || '')).join('|');
       if (key === lastKey) { refreshTimes(); return; }
       lastKey = key;
       row.innerHTML = list.length ? list.map(p => {
         const reacts = Object.values(p.reactions || {}).reduce((n, r) => n + (r.count || 0), 0);
         const text = plain(p.text) || (p.image_mxc ? 'Posted a picture' : p.song ? 'Shared ' + (p.song.title || 'a song') : '');
-        return '<div class="soc-post" role="link" tabindex="0" data-post="' + p.id + '">' +
+        // A few words on their own read big, as in the Feed.
+        const short = !pic(p) && text.length <= 80;
+        return '<div class="soc-post' + (short ? ' short' : '') + '" role="link" tabindex="0" data-post="' + p.id + '">' +
           '<div class="soc-post-who">' + avatar(p.username) +
             '<span class="soc-post-name" style="color:' + (typeof profileColor === 'function' ? profileColor(p.username) : 'inherit') + '">' + esc(p.username) + '</span>' +
             '<span class="soc-post-when" data-t="' + apiTime(p.created) + '">' + klabRelativeTime(apiTime(p.created)) + '</span></div>' +
@@ -319,24 +380,28 @@
             (reacts ? '<span><i class="ti ti-mood-smile"></i>' + reacts + '</span>' : '') + '</div>' +
         '</div>';
       }).join('') : '<div class="soc-home-empty">No posts yet.</div>';
+      cards = [...row.children];
+      shown = 0;
+      settleUntil = performance.now() + 1500;
       fit();
       edges();
+      place();
     }
     function refreshTimes() {
       row.querySelectorAll('.soc-post-when[data-t]').forEach(el => { el.textContent = klabRelativeTime(+el.dataset.t); });
     }
     // Keyboard: the cards are links.
-    row.addEventListener('keydown', e => {
+    sec.addEventListener('keydown', e => {
       const card = e.target.closest('.soc-post');
       if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); card.click(); }
     });
-    return { el: sec, render, load: () => window.klabLoadFeed?.().then(() => render(window.klabFeedPosts?.())) };
+    return { el: sec, render, max: WALL_MAX, load: () => window.klabLoadFeed?.().then(() => render(window.klabFeedPosts?.(WALL_MAX))) };
   })();
   // Feed tells Home when its posts change; Social's home listens in too.
   const homeFeedChanged = window.klabHomeFeedChanged;
   window.klabHomeFeedChanged = list => {
     homeFeedChanged?.(list);
-    if (active) posts.render(list);
+    if (active) posts.render(window.klabFeedPosts?.(posts.max) || list);
   };
 
   if (photos) body.append(label('New photos'), photos.el, photos.empty);

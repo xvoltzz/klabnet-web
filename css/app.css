@@ -8729,6 +8729,21 @@
       .soc-posts .tall .soc-post:has(.soc-post-pic) .soc-post-text { -webkit-line-clamp: 3; flex: none; }
     }
     .soc-post-pic { display: none; }
+    /* On a desktop, a wall instead (js/25-social.js place()): columns of
+       cards as tall as what they hold, pictures in their own shape (up to
+       a tall phone shot's), a few words big. */
+    @media (min-width: 761px), (pointer: fine) {
+      .soc-posts.as-wall { flex: none; display: block; min-height: 0; }
+      .soc-posts.as-wall .mh-row-wrap { display: none; }
+      .soc-wall { display: flex; gap: 14px; align-items: flex-start; }
+      .soc-wall-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+      .soc-wall .soc-post { width: auto; min-height: 0; gap: 10px; }
+      .soc-wall .soc-post-text { -webkit-line-clamp: 12; }
+      .soc-wall .soc-post.short .soc-post-text { font-size: 17px; line-height: 1.35; color: var(--text); }
+      .soc-wall .soc-post-pic { display: block; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h); }
+      .soc-wall .soc-post-pic img { width: 100%; height: auto; max-height: 640px; object-fit: cover; display: block; }
+      .soc-wall .soc-post-meta:empty { display: none; }
+    }
 
     /* (Social's sidebar folded away: "A PAGE'S SIDEBAR, FOLDED" at the end.) */
 

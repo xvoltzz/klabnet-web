@@ -888,7 +888,7 @@
   // color/bio/banner — renderFeed/listEl are private to this IIFE, same
   // reason presence exposes window.KLAB_REFRESH_MY_AVATAR.
   window.KLAB_REFRESH_FEED = renderFeed;
-  window.klabFeedPosts = () => _feedLoadedOk ? _feedPosts.slice(0, 12) : null;
+  window.klabFeedPosts = (n = 12) => _feedLoadedOk ? _feedPosts.slice(0, n) : null;
   // A post's picture for Social's home: the URL once it's loaded (null
   // till then; the load re-renders the feed, which tells Social's home).
   window.klabFeedImage = mxc => { ensureFeedImage(mxc); return _feedImageCache.get(mxc) || null; };
