@@ -10,8 +10,7 @@
 //  and their system's or browser's mark (what they're on); away, a yellow
 //  dot; offline people smaller and dimmer. Listening, a bubble comes
 //  alive: it glows in the song's colour, rings ripple out from it, it
-//  pulses, the song's cover spins out from behind it like a record, and
-//  bars move by the song's name (the owner: "we want it to feel alive").
+//  pulses, and bars move by the song's name (the owner: "we want it to feel alive").
 //
 //  Each sits a little off the grid and floats slowly on its own path
 //  (alive, not a static diamond: the owner). Near the pointer the faces
@@ -67,7 +66,7 @@
     return {
       me, on, away: on && !me && !!p.away, note: p.note || '', avatar: window.klabResolveUserAvatar?.(u) || null,
       song: on ? p.song || '' : '', artist: p.artist || '', radio: !!p.radio,
-      cover: on ? p.cover : null, color: on ? p.color : null,
+      color: on ? p.color : null,
       plat: on ? p.platformInfo : null,
     };
   }
@@ -79,16 +78,9 @@
     const face = s.avatar
       ? '<img src="' + esc(s.avatar) + '" alt="" draggable="false" />'
       : '<span style="--c:' + color + '">' + esc(u[0].toUpperCase()) + '</span>';
-    // Listening: the song's cover as a record spinning out from behind the
-    // face (a radio when it's a station), and bars by the song's name.
-    const disc = s.song
-      ? '<div class="pz-disc">' + (s.cover && typeof ND_URL !== 'undefined'
-          ? '<img src="' + esc(ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(s.cover) + '&size=' + klabArtSize(48) + '&' + subsonicParams()) + '" alt="" draggable="false" />'
-          : '<i class="ti ' + (s.radio ? 'ti-radio' : 'ti-vinyl') + '"></i>') + '</div>'
-      : '';
     // Where they are: their system's or browser's mark.
     const plat = s.plat ? '<i class="pz-plat ti ' + s.plat[0] + '" title="' + esc(s.plat[1]) + '"></i>' : '';
-    return note + disc +
+    return note +
       '<div class="pz-face">' + face + '<i class="pz-dot"></i>' + plat + '</div>' +
       '<div class="pz-name">' + esc(s.me ? 'you' : u) + '</div>' +
       (s.song ? '<div class="pz-song" title="' + esc(s.song + (s.artist ? ' · ' + s.artist : '')) + '"><span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + '</div>' : '');

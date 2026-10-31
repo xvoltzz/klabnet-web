@@ -10352,8 +10352,8 @@
       font-style: normal;
     }
     /* Listening: alive. A glow in the song's colour (--glow, from its
-       cover), rings rippling out, a gentle beat, the cover spinning out
-       from behind like a record, bars by the song. All transform and
+       cover), rings rippling out, a gentle beat, bars by the song. (Its
+       cover spinning out from behind looked wrong: the owner.) All transform and
        opacity: the compositor's, not the page's. */
     .pz-face { z-index: 1; }
     .pz-b.playing .pz-face {
@@ -10368,27 +10368,16 @@
     }
     .pz-b.playing .pz-face::after { animation-delay: 1.3s; }
     @keyframes pzRipple { from { transform: scale(1); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
-    .pz-disc {
-      position: absolute; z-index: 0; width: calc(var(--r) * .95); height: calc(var(--r) * .95);
-      left: calc(var(--r) * .5); top: calc(var(--r) * -.82);
-      border-radius: 50%; overflow: hidden; background: #141414;
-      box-shadow: 0 0 0 1.5px rgba(255,255,255,.12), 0 4px 12px rgba(0,0,0,.4);
-      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.75); font-size: calc(var(--r) * .45);
-      animation: pzDiscIn .6s cubic-bezier(.25, 1.3, .5, 1) both, pzSpin 3.4s linear .6s infinite;
-    }
-    .pz-disc img { width: 100%; height: 100%; object-fit: cover; -webkit-mask: radial-gradient(circle, transparent 11%, #000 12.5%); mask: radial-gradient(circle, transparent 11%, #000 12.5%); }
-    @keyframes pzDiscIn { from { transform: translate(-45%, 45%) scale(.6); opacity: 0; } }
-    @keyframes pzSpin { to { transform: rotate(1turn); } }
     .pz-eq { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 9px; margin-right: 5px; vertical-align: -1px; }
     .pz-eq i { width: 2px; height: 100%; border-radius: 1px; background: rgb(var(--glow, var(--accent-rgb))); transform-origin: bottom; animation: pzEq .9s ease-in-out infinite alternate; }
     .pz-eq i:nth-child(2) { animation-duration: .7s; animation-delay: -.3s; }
     .pz-eq i:nth-child(3) { animation-duration: 1.1s; animation-delay: -.6s; }
     @keyframes pzEq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
     .pz-b.playing .pz-song { color: var(--text); }
-    html[data-fx="low"] :is(.pz-float, .pz-face, .pz-face::before, .pz-face::after, .pz-disc, .pz-eq i) { animation: none !important; transition: none; }
+    html[data-fx="low"] :is(.pz-float, .pz-face, .pz-eq i) { animation: none !important; transition: none; }
     html[data-fx="low"] .pz-face::before, html[data-fx="low"] .pz-face::after { display: none; }
     @media (prefers-reduced-motion: reduce) {
-      :is(.pz-float, .pz-face, .pz-disc, .pz-eq i) { animation: none !important; }
+      :is(.pz-float, .pz-face, .pz-eq i) { animation: none !important; }
       .pz-face::before, .pz-face::after { display: none; }
     }
     /* Each floats on its own slow path (js/33-plaza.js sets --dx/--dy,
