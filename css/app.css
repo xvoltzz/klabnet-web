@@ -10277,6 +10277,12 @@
       html.nav-icons #sideNav .nav-sub .music-playlist-row-art { width: 24px; height: 24px; }
       html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face { width: 24px; height: 24px; font-size: 10px; }
       html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead { width: auto; font-size: 15px; }
+      /* A heading's buttons (Channels' browse and +) would draw as marks on its hairline. */
+      html.nav-icons #sideNav .nav-sub :is(.chat-lbl, .soc-label-row) .chat-icon-btn { display: none; }
+      /* Online: a dot sized to the small face, inside its corner. */
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face .chat-channel-online-dot {
+        width: 7px; height: 7px; right: -1px; bottom: -1px; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--bg) 85%, var(--text));
+      }
       html.nav-icons #sideNav .nav-sub :is(#chatSide, #socVoice) { margin: 0; }
       html.nav-icons #sideNav .nav-sub :is(#phSidebar, #phNow, #socVoice, #chatDmMore, #chatPeopleResults) { display: none !important; }
     }
