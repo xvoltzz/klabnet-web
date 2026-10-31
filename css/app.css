@@ -10060,3 +10060,11 @@
     :root { --day-bar: color-mix(in srgb, color-mix(in srgb, var(--bg-tint) 80%, var(--text) 6%) 97%, transparent); }
     html.app-titlebar[data-desktop="linux"].feed-stuck body.tab-feed-active .header::before { opacity: 1; background: var(--day-bar) !important; box-shadow: none !important; }
     :is(html.app-titlebar:not([data-desktop="linux"]), html.web-bar).feed-stuck body.tab-feed-active .header { background: var(--day-bar) !important; box-shadow: none !important; }
+
+    /* The title bar names the page now (the prompt: klabnet/feed>_), so
+       pages don't spend a row on their own heading. Feed's @ is in the
+       title bar while it's up (js/07-tabnav.js). */
+    .tab-panel[data-tab-panel="feed"] .sec[data-sec="feed"] > .sec-head { display: none; }
+    #socShell .music-view-head:has(#socHomeTitle) { display: none; }
+    .header-right .feed-mentions-btn { position: relative; }
+    .header-right .feed-mentions-btn:not(.is-active) { border-color: transparent; background: none; }

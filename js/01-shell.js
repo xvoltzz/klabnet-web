@@ -3,6 +3,12 @@
 //  TERMINAL TYPING ANIMATION
 // ══════════════════════════════════════════
 const FULL_TEXT = 'klabnet>_';
+// The prompt on each page: Home is just klabnet, Chat is klab.chat (below),
+// the rest name themselves.
+function klabPromptFor(key) {
+  if (key === 'chat') return CHAT_PROMPT_TEXT;
+  return !key || key === 'home' ? FULL_TEXT : `klabnet/${key}>_`;
+}
 // Shown instead, while on the Chat tab — klab.chat is a domain the user
 // has picked up with an eye toward possibly spinning Chat out as its own
 // site later; this previews that branding without actually splitting
@@ -22,7 +28,8 @@ function typeNext() {
     setTimeout(typeNext, delay);
   } else {
     cursorEl.classList.add('visible');
-    if (document.body.classList.contains('tab-chat-active')) promptEl.textContent = CHAT_PROMPT_TEXT;
+    const t = (/\btab-(\w+)-active\b/.exec(document.body.className) || [])[1];
+    if (t) promptEl.textContent = klabPromptFor(t);
   }
 }
 setTimeout(typeNext, 400);
@@ -249,7 +256,10 @@ function motdEgg() {
     _motdEggTimer = setTimeout(() => typePromptMotd('', () => root.classList.remove('motd-egg')), 3500 + _motdCurrent.length * 70);
   });
 }
-document.querySelectorAll('.header-left .logo, .header-left .terminal-prompt').forEach(el => {
+// Off for now (the owner, 2026-10-31: the title bar is for the page; the
+// phrases stay). Set to true to bring the easter egg back.
+const MOTD_EGG = false;
+if (MOTD_EGG) document.querySelectorAll('.header-left .logo, .header-left .terminal-prompt').forEach(el => {
   el.addEventListener('click', motdEgg);
   el.classList.add('motd-egg-btn');
 });

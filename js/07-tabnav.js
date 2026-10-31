@@ -91,7 +91,15 @@ function setActiveTab(key) {
   if (typeof window.klabGamesTabChanged === 'function') { const on = key === 'games'; afterSwitchPaints(() => window.klabGamesTabChanged(on)); }
   // The header prompt backspaces into klab.chat on this tab and back out
   // of it on the others (see retypePrompt()).
-  if (typeof retypePrompt === 'function') retypePrompt(key === 'chat' ? CHAT_PROMPT_TEXT : FULL_TEXT);
+  // Elsewhere it names the page ("klabnet/feed>_"), so the page needn't
+  // spend a row on its own title (the owner: use the top bar, save space).
+  if (typeof retypePrompt === 'function') retypePrompt(klabPromptFor(key));
+  // Feed's mentions button sits in the title bar while Feed is up.
+  const mBtn = document.getElementById('feedMentionsBtn'), hdrR = document.querySelector('.header-right');
+  if (mBtn && hdrR) {
+    if (key === 'feed' && mBtn.parentElement !== hdrR) { hdrR.prepend(mBtn); mBtn.classList.add('hdr-btn'); }
+    else if (key !== 'feed' && mBtn.parentElement === hdrR) { document.querySelector('.sec[data-sec="feed"] > .sec-head')?.appendChild(mBtn); mBtn.classList.remove('hdr-btn'); }
+  }
   // Landing on Chat with a room already selected but nothing else
   // happening to trigger a re-render (e.g. clicking the nav tab itself)
   // still counts as reading whatever's currently open.
@@ -775,6 +783,49 @@ window.klabSideNav = (function() {
   desk.addEventListener('change', () => { close(); place(); });
   roomy.addEventListener('change', () => { close(); place(); });
   set(mode(), { save: false });
+
+  // ── One list of names at a time ──
+  // On a page with a sidebar of its own (Music, Social, Games, while it's
+  // open), the full sidebar folds to its icons by itself: two lists of
+  // names side by side, out of step, took a third of the window (the
+  // owner: "awkward", "wasting space"). Back to names elsewhere. The saved
+  // choice stays "Sidebar"; ☰ still opens it on such a page, until you
+  // move on.
+  const saved = () => { try { return localStorage.getItem('klabnet_nav') || 'side'; } catch (e) { return 'side'; } };
+  const SOC = ['social', 'feed', 'chat', 'photos'];
+  let opened = false;
+  function pagePane() {
+    const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
+    const g = SOC.includes(t) ? 'social' : t;
+    return ['music', 'social', 'games'].includes(g) && !root.classList.contains('pane-off-' + g);
+  }
+  function auto() {
+    if (saved() !== 'side' || !roomy.matches) return;
+    const want = pagePane() && !opened ? 'rail' : 'side';
+    if (want === mode()) return;
+    slidePage(() => {
+      root.setAttribute('data-nav', want);
+      place();
+      document.querySelectorAll('#navStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === 'side')));
+    });
+  }
+  // ☰ on such a page: the names, for now (not a new saved choice).
+  burger.addEventListener('click', e => {
+    if (saved() !== 'side' || !pagePane() || !roomy.matches) return;
+    e.stopImmediatePropagation();
+    SFX && SFX.play('click');
+    opened = mode() === 'rail';
+    auto();
+  }, true);
+  let lastTab = '';
+  new MutationObserver(() => {
+    const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
+    if (t !== lastTab) { lastTab = t; opened = false; }
+    auto();
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(auto).observe(root, { attributes: true, attributeFilter: ['class'] });
+  roomy.addEventListener('change', auto);
+  auto();
   return { on, set, mode };
 })();
 
