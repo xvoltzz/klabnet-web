@@ -6387,7 +6387,6 @@
        html.pane-off-music / -chat / -photos on, and the page takes the
        room. Not on phones: there the same pieces are strips and screens. */
     @media (min-width: 761px), (pointer: fine) {
-      html.pane-off-music #musicShell #musicSidebar,
       html.pane-off-chat #chatApp #chatSide,
       html.pane-off-photos #phShell #phSidebar { display: none; }
       html.pane-off-chat #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -8722,10 +8721,7 @@
     }
     .soc-post-pic { display: none; }
 
-    /* ── The sidebar, hidden (the header's button or "b") ── */
-    @media (min-width: 761px), (pointer: fine) {
-      html.pane-off-social #socShell #socSidebar { display: none; }
-    }
+    /* (Social's sidebar folded away: "A PAGE'S SIDEBAR, FOLDED" at the end.) */
 
     /* ── Phones: the pages are chips along the top, as in Music, and
        Chat's list is the Chat page's first screen ── */
@@ -9837,3 +9833,31 @@
         background: color-mix(in srgb, var(--bg) var(--sheet-mix), transparent);
       }
     }
+
+    /* ══ A PAGE'S SIDEBAR, FOLDED (klabPane in js/07-tabnav.js) ══
+       Music's and Social's sidebars end in a foot holding the button that
+       folds them. Folded, a sidebar is a slim strip with only that button
+       left, in the same place, so the way back is where you left it. */
+    /* Its centre level with the main sidebar's avatar beside it. */
+    .pane-foot { margin-top: auto; flex: none; display: flex; padding: 8px 0 17px; }
+    .pane-btn {
+      flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
+      border-radius: 8px; background: none; border: 1px solid transparent;
+      color: var(--text-dimmer); font-size: 18px; cursor: pointer;
+      transition: background-color var(--m-fast) ease, color var(--m-fast) ease;
+    }
+    .pane-btn:hover { background: var(--glass-fill); color: var(--text); }
+    .pane-btn:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .6); outline-offset: 1px; }
+    .pane-btn[hidden] { display: none; }
+    @media (min-width: 761px), (pointer: fine) {
+      /* Music's search and foot stay put; its list scrolls between them. */
+      body.tab-music-active #musicShell .music-sidebar { overflow: hidden; }
+      #musicShell .music-nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+      #musicShell .music-nav::-webkit-scrollbar { display: none; }
+
+      html.pane-off-social #socShell #socSidebar { width: 36px; }
+      html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(36px + 32px); }
+      html.pane-off-social #socShell #socSidebar > :not(.pane-foot),
+      html.pane-off-music #musicShell #musicSidebar > :not(.pane-foot) { display: none; }
+    }
+

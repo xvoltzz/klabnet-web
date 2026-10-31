@@ -739,9 +739,11 @@ window.klabSideNav = (function() {
 
 // ══════════════════════════════════════════
 //  HIDING A PAGE'S SIDEBAR
-//  Music and Social each have a sidebar of their own beside the page. The
-//  header's button (and "b") hides the current page's and brings it back,
-//  so a small window can be all music, or all conversation. Kept per page
+//  Music and Social each have a sidebar of their own beside the page. A
+//  button at the sidebar's foot (and "b") folds it down to a slim strip
+//  holding just that button, in the same place, and opens it again, so a
+//  small window can be all music, or all conversation. (It was in the
+//  header; the owner wanted it in the sidebar, 2026-10-31.) Kept per page
 //  and per device: html.pane-off-<page>, set in <head> from localStorage
 //  and laid out by the CSS. Phones have no sidebars to hide.
 // ══════════════════════════════════════════
@@ -758,19 +760,30 @@ window.klabPane = (function() {
   };
   const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches) || null;
   const hidden = t => root.classList.contains('pane-off-' + t);
+  // Each sidebar's foot, which the one button moves between.
+  for (const p of Object.values(PANES)) {
+    const side = document.getElementById(p.el);
+    if (!side) continue;
+    p.foot = document.createElement('div');
+    p.foot.className = 'pane-foot';
+    side.append(p.foot);
+  }
+  btn.classList.replace('hdr-btn', 'pane-btn');
 
   function sync() {
     const t = page();
     btn.hidden = !t;
     if (!t) return;
+    if (PANES[t].foot && btn.parentElement !== PANES[t].foot) PANES[t].foot.append(btn);
     const off = hidden(t);
     btn.setAttribute('aria-pressed', String(!off));
     btn.title = (off ? 'Show sidebar' : 'Hide sidebar') + ' (b)';
     btn.firstElementChild.className = 'ti ' + (off ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse');
   }
 
-  // Hiding: the sidebar fades and slides out, then what's beside it glides
-  // over into the room. Showing: it glides aside as the sidebar slides in.
+  // Hiding: the sidebar's contents fade and slide out, then what's beside
+  // it glides over into the room. Showing: it glides aside as they slide
+  // in. The button stays put throughout.
   // The content takes its new place at once and slides there from where
   // it was (a transform), so nothing re-flows frame by frame.
   const EASE = 'cubic-bezier(.2,.8,.2,1)';
@@ -798,17 +811,19 @@ window.klabPane = (function() {
     // (A hidden sidebar has no box yet: its page being up is what counts.)
     const motion = !!el && page() === t && (window.klabMotionOk?.() ?? true);
     if (!motion) { apply(t, off); return; }
+    const parts = () => [...el.children].filter(c => c !== PANES[t].foot && c.getClientRects().length);
     if (off) {
       busy = true;
-      el.animate([{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-12px 0' }], { duration: 160, easing: 'ease-in', fill: 'forwards' })
-        .finished.catch(() => {}).then(() => {
+      const out = parts();
+      Promise.all(out.map(c => c.animate([{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-12px 0' }], { duration: 160, easing: 'ease-in', fill: 'forwards' }).finished))
+        .catch(() => {}).then(() => {
           glide(el, () => apply(t, true));
-          el.getAnimations().forEach(a => a.cancel());
+          out.forEach(c => c.getAnimations().forEach(a => a.cancel()));
           busy = false;
         });
     } else {
       glide(el, () => apply(t, false));
-      el.animate([{ opacity: 0, translate: '-12px 0' }, { opacity: 1, translate: '0 0' }], { duration: 280, easing: EASE });
+      parts().forEach(c => c.animate([{ opacity: 0, translate: '-12px 0' }, { opacity: 1, translate: '0 0' }], { duration: 280, easing: EASE }));
     }
   }
   // True when there was a sidebar to toggle.
