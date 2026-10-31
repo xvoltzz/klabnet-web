@@ -10276,7 +10276,17 @@
       html.nav-icons #sideNav .nav-sub #chatSide .chat-conv > :not(.chat-conv-face):not(.chat-conv-lead) { display: none; }
       html.nav-icons #sideNav .nav-sub .music-playlist-row-art { width: 24px; height: 24px; }
       html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-face { width: 24px; height: 24px; font-size: 10px; }
-      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead { width: auto; font-size: 15px; }
+      /* A channel: an outlined tile with its initial in its colour (people
+         are filled faces), not a column of identical #s. */
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead[data-ini] {
+        width: 24px; height: 24px; box-sizing: border-box; display: grid; place-items: center;
+        border-radius: 7px; border: 1.5px solid color-mix(in srgb, var(--c, var(--text)) 70%, transparent);
+        background: color-mix(in srgb, var(--c, var(--text)) 10%, transparent); font-size: 0;
+      }
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead[data-ini]::before {
+        content: attr(data-ini); font: 700 11px/1 var(--font-ui); color: var(--c, var(--text));
+      }
+      html.nav-icons #sideNav .nav-sub #chatSide .chat-conv-lead:not([data-ini]) { width: auto; font-size: 15px; }
       /* A heading's buttons (Channels' browse and +) would draw as marks on its hairline. */
       html.nav-icons #sideNav .nav-sub :is(.chat-lbl, .soc-label-row) .chat-icon-btn { display: none; }
       /* Online: a dot sized to the small face, inside its corner. */

@@ -684,7 +684,11 @@ function buildChannelItem(room, icon) {
   else if (isDm) {
     const face = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(other) : null;
     lead = `<span class="chat-conv-face" style="--c:${profileColor(other || room.name || '')}">${face ? `<img src="${esc(face)}" alt="" />` : esc(((other || room.name || '?')[0] || '?').toUpperCase())}${dmOnline ? `<span class="chat-channel-online-dot${window.KLAB_AWAY?.has(other) ? ' away' : ''}"></span>` : ''}</span>`;
-  } else lead = '<span class="chat-conv-lead">#</span>';
+  } else {
+    // Its initial and colour, for the folded sidebar's tile (css: data-ini).
+    const ini = ((room.name || '').match(/[\p{L}\p{N}]/u) || ['#'])[0].toUpperCase();
+    lead = `<span class="chat-conv-lead" data-ini="${esc(ini)}" style="--c:${profileColor(room.name || '')}">#</span>`;
+  }
   const last = roomLastMessage(room);
   item.innerHTML = lead +
     `<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name"${isDm && other ? ` style="color:${profileColor(other)}"` : ''}>${esc(room.name || 'Unnamed room')}</span>` +
