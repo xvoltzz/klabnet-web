@@ -745,11 +745,9 @@ window.klabSideNav = (function() {
   }
   burger.addEventListener('click', () => {
     SFX && SFX.play('click');
-    if (mode() === 'side' && roomy.matches) set('rail');
-    // Only with room for it: in a narrow window "side" looks the same as
-    // "rail", so the click did nothing but change the saved choice.
-    else if (mode() === 'rail' && roomy.matches) set('side');
-    else {
+    // Only where the sidebar is icons for lack of room: it opens over the
+    // page. (With room it's always open: no folding it by hand.)
+    {
       root.classList.toggle('nav-flyout');
       burger.setAttribute('aria-expanded', String(root.classList.contains('nav-flyout')));
     }
@@ -785,7 +783,7 @@ window.klabSideNav = (function() {
     apply(v, save);
   }
   function apply(v, save) {
-    if (!['side', 'rail', 'menu'].includes(v)) v = 'side'; // no more tabs in the header
+    v = 'side'; // always the sidebar: no tabs in the header, no folding it by hand
     root.setAttribute('data-nav', v);
     if (save) { try { localStorage.setItem('klabnet_nav', v); } catch (e) {} }
     place();
@@ -809,9 +807,8 @@ window.klabSideNav = (function() {
   set(mode(), { save: false });
 
   // ── Dragging its edge ──
-  // Wider or narrower (180–420px, kept), or past its narrowest (under
-  // 140px) down to icons, and out of icons back to names, in the one drag.
-  // Only where the sidebar sits beside the page with room for names.
+  // Wider or narrower (180–420px, kept). It doesn't fold: only a small
+  // window does that. Only where it sits beside the page with names.
   const grip = document.createElement('div');
   grip.className = 'side-nav-grip';
   grip.setAttribute('role', 'separator');
@@ -819,7 +816,7 @@ window.klabSideNav = (function() {
   grip.setAttribute('aria-label', 'Sidebar width');
   grip.title = 'Drag to resize · double-click to reset';
   document.body.appendChild(grip);
-  const W_MIN = 180, W_MAX = 420, W_FOLD = 140;
+  const W_MIN = 180, W_MAX = 420;
   const zf = () => (typeof zoomFactor === 'function' ? zoomFactor() || 1 : 1);
   let drag = null, raf = 0;
   const setW = w => root.style.setProperty('--nav-side-w', Math.round(w) + 'px');
@@ -827,7 +824,7 @@ window.klabSideNav = (function() {
     if (e.button !== 0 || !roomy.matches) return;
     e.preventDefault();
     grip.setPointerCapture(e.pointerId);
-    const w0 = mode() === 'rail' ? W_FOLD : side.getBoundingClientRect().width / zf();
+    const w0 = side.getBoundingClientRect().width / zf();
     drag = { x: e.clientX, w0, w: w0 };
     root.classList.add('nav-resizing');
   });
@@ -835,11 +832,7 @@ window.klabSideNav = (function() {
     if (!drag) return;
     const w = drag.w0 + (e.clientX - drag.x) / zf();
     drag.w = w;
-    if (w < W_FOLD) { if (mode() !== 'rail') { apply('rail', true); SFX && SFX.play('click'); } }
-    else {
-      if (mode() !== 'side') { apply('side', true); SFX && SFX.play('click'); }
-      setW(Math.max(W_MIN, Math.min(W_MAX, w)));
-    }
+    setW(Math.max(W_MIN, Math.min(W_MAX, w)));
     // The sliding highlights and anything else that measures.
     if (!raf) raf = requestAnimationFrame(() => { raf = 0; window.dispatchEvent(new Event('resize')); });
   });
@@ -856,7 +849,7 @@ window.klabSideNav = (function() {
   grip.addEventListener('dblclick', () => {
     root.style.removeProperty('--nav-side-w');
     try { localStorage.removeItem('klabnet_nav_w'); } catch (e) {}
-    slidePage(() => apply('side', true));
+    window.dispatchEvent(new Event('resize'));
   });
 
   // (It used to fold to its icons by itself on a page with a sidebar of

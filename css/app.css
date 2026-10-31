@@ -6283,10 +6283,10 @@
 
     @media (min-width: 761px), (pointer: fine) {
       html[data-nav="side"] { --nav-w: var(--nav-side-w, 232px); }
-      /* Its edge, to drag (js/07-tabnav.js): wider, narrower, or past its
-         narrowest down to icons and back. Double-click: back to 232px. */
+      /* Its edge, to drag (js/07-tabnav.js): wider or narrower, 180–420px.
+         Double-click: back to 232px. */
       .side-nav-grip { display: none; }
-      html.nav-side-on:is([data-nav="side"], [data-nav="rail"]):not(.nav-flyout) .side-nav-grip {
+      html.nav-side-on[data-nav="side"]:not(.nav-icons):not(.nav-flyout) .side-nav-grip {
         display: block; position: fixed; z-index: 58; left: calc(var(--nav-w) - 4px); top: var(--nav-top, 0px); bottom: var(--nav-bottom, 0px);
         width: 8px; cursor: col-resize; -webkit-app-region: no-drag; touch-action: none;
         transition: left .28s var(--m-ease);
@@ -6310,6 +6310,9 @@
       /* Settings lives at the foot of the sidebar, like a desktop app's. */
       html.nav-side-on #settingsBtn { display: none; }
       html.nav-side-on .nav-burger { display: grid; place-items: center; }
+      /* With room, the sidebar is always open: ☰ is only for a small
+         window, where it opens the folded sidebar over the page. */
+      @media (min-width: 1100px) { html.nav-side-on .nav-burger { display: none; } }
 
       /* The floating player centres on the page, not the window. */
       html:not([data-nav="top"]) .player-dock {
