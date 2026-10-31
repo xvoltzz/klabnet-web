@@ -328,7 +328,8 @@ const SFX = (() => {
     _sfxVol = Math.max(0, Math.min(1, v));
     if (master && ctx) master.gain.setTargetAtTime(_sfxVol * LEVEL, ctx.currentTime, 0.02);
   }
-  let _anyAt = -Infinity;
+  let _anyAt = -Infinity, _tapAt = -Infinity;
+  const TAPS = new Set(['click', 'nav', 'nav_back', 'tick', 'hover', 'glass', 'browse']);
   let _lastType = '', _lastAt = 0, _lastNotifAt = -Infinity, _lastRecvAt = -Infinity;
   function playGated(type, from) {
     // Before any gesture the context can't run: notes scheduled then all
@@ -341,6 +342,9 @@ const SFX = (() => {
     }
     const now = performance.now();
     if (_lastType === type && now - _lastAt < 42) return;
+    // One press, one sound: a row's own handler and a shared one (a tab's
+    // 'nav' and its page's 'click') both used to play, a double click.
+    if (TAPS.has(type)) { if (now - _tapAt < 70) return; _tapAt = now; }
     // A burst of messages is one sound, not a pileup.
     if (NOTIF.has(type)) { if (now - _lastNotifAt < 900) return; _lastNotifAt = now; }
     if (type === 'receive') { if (now - _lastRecvAt < 600) return; _lastRecvAt = now; }
