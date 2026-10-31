@@ -352,7 +352,9 @@ const SFX = (() => {
   // (play, skip, send, a tab...) has played it by the time this runs, a
   // tick after the click's own handlers, and this stays quiet. Back
   // buttons click lower. data-silent opts an element out.
-  const PRESSABLE = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], summary, .picker-tab, .picker-item, .s-toggle, .ctx-item, select';
+  const PRESSABLE = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], summary, .picker-tab, .picker-item, .s-toggle, .ctx-item, select' +
+    // Rows and names that are pressable without being buttons (Chat had none).
+    ', .chat-conv, .chat-msg-avatar, .chat-msg-sender, .chat-msg-reply-quote, .feed-post-avatar, .feed-post-name, .feed-post-song';
   const BACKS = '#apBack, .picker-back, [data-chat-back], #chatMobileBack, [title="Back"]';
   document.addEventListener('click', e => {
     const el = e.target.closest?.(PRESSABLE);
