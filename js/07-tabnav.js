@@ -1299,7 +1299,7 @@ async function offerAppUpdate(current) {
   findBtn.type = 'button';
   findBtn.className = 'hdr-find-btn';
   findBtn.title = 'Search (/)';
-  findBtn.innerHTML = '<i class="ti ti-search"></i>';
+  findBtn.textContent = '/search';
   find.appendChild(findBtn);
   const openFind = () => {
     find.classList.add('open');

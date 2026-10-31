@@ -10092,8 +10092,12 @@
     /* The page's nav in the middle of the title bar (js/07-tabnav.js
        "THE PAGE'S NAV"): icons, the current one in the text colour with a
        short line under it; the search an icon that opens into a box. */
+    /* Centred without a transform: Electron works out the window's drag
+       area from the CSS and ignores transforms, so with translateX(-50%)
+       it put the buttons' no-drag area half a row to the right of them and
+       clicks dragged the window instead. */
     .hdr-pagenav {
-      position: absolute; left: 50%; top: 0; height: var(--tb-h, 44px); transform: translateX(-50%);
+      position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; top: 0; height: var(--tb-h, 44px);
       display: flex; align-items: center; gap: 2px; z-index: 2; -webkit-app-region: no-drag;
     }
     .hdr-pagenav[hidden] { display: none; }
@@ -10155,3 +10159,23 @@
       animation: blink-cursor .8s step-end infinite !important;
     }
     @media (prefers-reduced-motion: reduce) { .prompt-cursor.visible { animation: none !important; } }
+
+    /* Words, not glyphs (the owner: the icons were "too generic"): the
+       toolbar reads like the prompt beside it, lowercase monospace; a
+       word underlines on hover like a link, and the current one is bold
+       and underlined. */
+    .hdr-pagenav { gap: 4px; }
+    .hdr-pagenav .picker-tab {
+      width: auto; height: 30px; padding: 0 7px; display: flex; align-items: center;
+      font: 500 13px 'JetBrains Mono', monospace; letter-spacing: 0; text-transform: lowercase; color: var(--text-dimmer);
+    }
+    .hdr-pagenav .picker-tab > i { display: none !important; }
+    .hdr-pagenav .picker-tab > span:first-of-type { display: inline !important; }
+    .hdr-pagenav .picker-tab:hover > span:first-of-type { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+    .hdr-pagenav .picker-tab.active { color: var(--text); font-weight: 800; }
+    .hdr-pagenav .picker-tab.active > span:first-of-type { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+    .hdr-pagenav .picker-tab.active::after { display: none; }
+    .hdr-pagenav-sep { width: auto; height: auto; background: none; margin: 0 2px; color: var(--text-faint, var(--text-dimmer)); opacity: .5; font: 500 13px 'JetBrains Mono', monospace; }
+    .hdr-pagenav-sep::before { content: '|'; }
+    .hdr-find-btn { width: auto; height: 30px; padding: 0 7px; font: 500 13px 'JetBrains Mono', monospace; color: var(--text-dimmer); }
+    .hdr-find-btn:hover { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
