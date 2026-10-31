@@ -164,7 +164,7 @@ function initTabs() {
       } else setActiveTab(key);
     });
   });
-  // On each row, not delegated: in a wide window they live in the title bar.
+  // On each row, not delegated: in a wide window they live in the main sidebar.
   document.querySelectorAll('#socNav [data-soc]').forEach(b => b.addEventListener('click', e => {
     SFX && SFX.play('click'); setActiveTab(b.dataset.soc);
   }));
@@ -835,7 +835,9 @@ window.klabPane = (function() {
     social: { el: 'socSidebar',   search: '.soc-search',    mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
     games:  { el: 'gamesSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-games-active' },
   };
-  const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches) || null;
+  // (With the sections in the main sidebar, Music and Games have none.)
+  const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches
+    && !(t !== 'social' && root.classList.contains('nav-tree'))) || null;
   const hidden = t => root.classList.contains('pane-off-' + t);
   // Each sidebar's foot, which the one button moves between.
   for (const [t, p] of Object.entries(PANES)) {
@@ -939,6 +941,7 @@ window.klabPane = (function() {
   btn.addEventListener('click', () => { SFX && SFX.play('click'); toggle(); });
   // The page changed (setActiveTab's body classes), or the layout did.
   new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['class'] });
   Object.values(PANES).forEach(p => p.mq.addEventListener('change', sync));
   sync();
   return { toggle, show: t => set(t, false), hide: t => set(t, true), hidden };
@@ -1218,101 +1221,111 @@ async function offerAppUpdate(current) {
 }
 
 // ══════════════════════════════════════════
-//  THE PAGE'S NAV, IN THE TITLE BAR
-//  On Music, Social and Games, the page's own sections (Music's Home,
-//  Radio... Albums; Social's Home, Feed, Photos, Chat; Games' tabs) are a
-//  row of icons in the middle of the title bar, and its search is an icon
-//  there that opens into a box (the owner: no box by default, use the top
-//  bar, save space). Their sidebars keep their lists (playlists,
-//  conversations, servers). The rows themselves move, handlers and all,
-//  and go back on other pages, on a phone, and in a window too narrow for
-//  a row in the middle.
+//  ONE PLACE TO GET AROUND (2026-10-31)
+//  The owner found the title bar's row of section words beside the
+//  sidebar awkward, and asked for navigation that feels obvious. So each
+//  kind of thing has one home, the same on every page:
+//    · Where you can go is the sidebar. The page you're on unfolds its
+//      sections under its own row (Social: Home, Feed, Photos, Chat;
+//      Music: Home… Requests and your playlists; Games: Minecraft), the
+//      way Finder's and Music's sidebars do. Only one row in the whole
+//      sidebar is highlighted: the section you're on.
+//    · Where you are is the prompt in the title bar (klabnet/feed>).
+//    · Finding something is the search box in the middle of the title
+//      bar, on pages that have one.
+//    · A page's own lists (Chat's conversations, a photo's details) stay
+//      in that page's sidebar, which only shows where it has some.
+//  The rows move with their handlers. They go back to their page's
+//  sidebar when the sidebar is only icons (a narrow window, the rail),
+//  and on a phone.
 // ══════════════════════════════════════════
 (function () {
   const header = document.querySelector('.header');
-  if (!header) return;
-  const wide = matchMedia('(min-width: 1000px)');
+  const tabNav = document.getElementById('tabNav');
+  if (!header || !tabNav) return;
+  const root = document.documentElement;
+  const desk = matchMedia(KLAB_DESK_MQ);
+  const roomy = matchMedia('(min-width: 1100px)');
+  const PAGES = [
+    { tab: 'social', pages: ['social', 'feed', 'chat', 'photos'], parts: [document.getElementById('socNav')], search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
+    { tab: 'music', pages: ['music'], parts: [document.querySelector('#musicSidebar .music-nav')], search: document.querySelector('#musicSidebar .picker-search') },
+    { tab: 'games', pages: ['games'], parts: [document.querySelector('#gamesSidebar .games-group')] },
+  ];
+  PAGES.forEach(p => {
+    p.parts = p.parts.filter(Boolean);
+    // Where each part goes back to.
+    [...p.parts, p.search].filter(Boolean).forEach(el => { el._home = document.createComment('nav'); el.before(el._home); });
+    p.sub = document.createElement('div');
+    p.sub.className = 'nav-sub';
+    p.sub.dataset.for = p.tab;
+    p.sub.innerHTML = '<div class="nav-sub-in"><div class="nav-sub-pad"></div></div>';
+    p.in = p.sub.querySelector('.nav-sub-pad');
+    tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`)?.after(p.sub);
+  });
+
+  // The title bar's search: the page's own box, moved up.
   const bar = document.createElement('div');
   bar.className = 'hdr-pagenav';
-  bar.setAttribute('role', 'toolbar');
-  header.appendChild(bar);
-  const SOC = ['social', 'feed', 'chat', 'photos'];
-  const $$ = sel => [...document.querySelectorAll(sel)];
-  // Only the core sections, whose icons say what they are; the rest keep
-  // their names in the sidebar (the owner: "not EVERY sidebar element").
-  // Each group is a run of buttons, with a divider between groups.
-  const tab = t => document.querySelector(`#musicSidebar .picker-tab[data-tab="${t}"]`);
-  const soc = t => document.querySelector(`#socNav .picker-tab[data-soc="${t}"]`);
-  const pages = [
-    { pages: ['music'], groups: [[tab('random')], [tab('songs'), tab('albums'), tab('artists')]], search: document.querySelector('#musicSidebar .picker-search') },
-    { pages: SOC, groups: [[soc('social'), soc('feed'), soc('photos'), soc('chat')]], search: document.querySelector('#socSidebar .soc-search') },
-  ].map(p => ({ ...p, groups: p.groups.map(g => g.filter(Boolean)).filter(g => g.length) }));
-  pages.forEach(p => { p.navs = p.groups.map(g => { const d = document.createElement('div'); d.className = 'picker-tabs hdr-pagenav-group'; d._items = g; return d; }); });
-  // Where each part goes back to.
-  pages.forEach(p => [...p.groups.flat(), p.search].filter(Boolean).forEach(el => { el._home = document.createComment('pagenav'); el.before(el._home); }));
-  // Icon-only up here: each row's label becomes its tooltip.
-  pages.forEach(p => p.groups.flat().forEach(b => { if (!b.title) b.title = b.textContent.trim(); }));
-
-  // The search: an icon that opens into the box.
+  bar.hidden = true;
   const find = document.createElement('div');
   find.className = 'hdr-find';
-  const findBtn = document.createElement('button');
-  findBtn.type = 'button';
-  findBtn.className = 'hdr-find-btn';
-  findBtn.title = 'Search (/)';
-  findBtn.textContent = '/search';
-  find.appendChild(findBtn);
-  const openFind = () => {
-    find.classList.add('open');
-    find.querySelector('input')?.focus();
-  };
-  findBtn.addEventListener('click', openFind);
-  find.addEventListener('focusin', () => find.classList.add('open'));
-  find.addEventListener('focusout', () => setTimeout(() => {
-    const inp = find.querySelector('input');
-    if (!find.contains(document.activeElement) && !(inp && inp.value)) find.classList.remove('open');
-  }, 0));
+  bar.appendChild(find);
+  header.appendChild(bar);
   find.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     const inp = find.querySelector('input');
     if (inp && inp.value) return;
     e.stopPropagation();
     inp?.blur();
-    find.classList.remove('open');
   });
 
-  let last = '';
+  const treeOn = () => desk.matches && roomy.matches && (root.getAttribute('data-nav') || 'side') === 'side' && tabNav.closest('#sideNav');
+  let last = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
+  let was = null;
   function place(key) {
     if (key) last = key;
-    const want = wide.matches ? pages.find(p => p.pages.includes(last)) : null;
-    bar.querySelectorAll('.hdr-pagenav-sep').forEach(s => s.remove());
-    pages.forEach(p => {
-      const up = p === want;
-      p.navs.forEach((n, i) => {
-        if (up) {
-          if (i) bar.appendChild(Object.assign(document.createElement('span'), { className: 'hdr-pagenav-sep' }));
-          n._items.forEach(b => { if (b.parentElement !== n) n.appendChild(b); });
-          bar.appendChild(n);
-        } else {
-          n._items.forEach(b => { if (b.parentElement === n) b._home.after(b); });
-          n.remove();
-        }
+    const tree = !!treeOn();
+    const cur = PAGES.find(p => p.pages.includes(last));
+    PAGES.forEach(p => {
+      p.parts.forEach(el => {
+        if (tree && el.parentElement !== p.in) p.in.appendChild(el);
+        if (!tree && el.parentElement === p.in) el._home.after(el);
       });
+      p.sub.classList.toggle('open', tree && p === cur);
       if (p.search) {
+        // (Social's finds conversations: only on Chat, where they are.)
+        const up = tree && p === cur && (!p.searchOn || p.searchOn.includes(last));
         if (up && p.search.parentElement !== find) { p.search.classList.remove('pop'); find.appendChild(p.search); }
         else if (!up && p.search.parentElement === find) p.search._home.after(p.search);
       }
     });
-    if (want?.search) bar.appendChild(find); else find.remove();
-    find.classList.toggle('open', !!find.querySelector('input')?.value);
-    bar.hidden = !want;
-    document.documentElement.classList.toggle('hdr-pagenav-on', !!want);
-    document.documentElement.dataset.hdrPage = want ? (want.pages[0]) : '';
+    bar.hidden = !find.firstElementChild;
+    root.classList.toggle('nav-tree', tree);
+    // (The CSS that hides what's left of the page sidebars keys on this.)
+    root.classList.toggle('hdr-pagenav-on', tree);
     // The sliding highlights measure again where their rows are now.
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    if (tree !== was || key) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    was = tree;
   }
+  // The page's own row, clicked while you're on that page: its front.
+  PAGES.forEach(p => {
+    const btn = tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`);
+    const front = p.in.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]') || p.parts[0]?.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]');
+    if (!btn || !front) return;
+    btn.addEventListener('click', () => {
+      if (root.classList.contains('nav-tree') && p.sub.classList.contains('open') && btn.classList.contains('active') && !front.classList.contains('active')) front.click();
+    }, true);
+  });
   window.klabHeaderSearch = place;
-  window.klabOpenHeaderFind = () => { if (!bar.hidden && find.isConnected) { openFind(); return true; } return false; };
-  wide.addEventListener('change', () => place());
-  place(document.querySelector('.tab-panel.active')?.dataset.tabPanel || '');
+  window.klabOpenHeaderFind = () => {
+    const inp = !bar.hidden && find.querySelector('input');
+    if (!inp) return false;
+    inp.focus(); inp.select?.();
+    return true;
+  };
+  desk.addEventListener('change', () => place());
+  roomy.addEventListener('change', () => place());
+  // Settings → Navigation, and ☰ folding the sidebar to its icons.
+  new MutationObserver(() => place()).observe(root, { attributes: true, attributeFilter: ['data-nav'] });
+  place();
 })();

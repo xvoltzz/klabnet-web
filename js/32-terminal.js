@@ -22,7 +22,7 @@
   // Music's sections: name -> its sidebar row.
   function musicDirs() {
     const m = new Map();
-    document.querySelectorAll('#musicSidebar .picker-tab[data-tab]').forEach(b => {
+    document.querySelectorAll('.music-nav .picker-tab[data-tab]').forEach(b => {
       const name = slug(b.textContent);
       if (name && name !== 'home') m.set(name, b);
     });

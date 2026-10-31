@@ -140,7 +140,7 @@
     schedule();
   }
   slidingPill(document.getElementById('tabNav'), '.tab-nav-btn.active', 'motion-pill-tabs', '.tab-nav-btn');
-  slidingPill(document.querySelector('#musicShell .music-nav'), '.picker-tab.active, .music-playlist-row.active', 'motion-pill-music', '.picker-tab, .music-playlist-row');
+  slidingPill(document.querySelector('.music-nav'), '.picker-tab.active, .music-playlist-row.active', 'motion-pill-music', '.picker-tab, .music-playlist-row');
   // Social's sidebar, like Music's, and its conversations: one highlight
   // each that glides to what you pick.
   slidingPill(document.getElementById('socNav'), '.picker-tab.active', 'motion-pill-music', '.picker-tab');

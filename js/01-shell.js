@@ -481,10 +481,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   function subTabs() {
     const page = currentPage();
     if (page === 'music') {
-      const all = [...document.querySelectorAll('#musicShell .picker-tab[data-tab]')];
+      const all = [...document.querySelectorAll('.music-nav .picker-tab[data-tab]')];
       const shown = all.filter(b => b.offsetParent);
-      return { rows: (shown.length ? shown : all).map(b => b.dataset.tab), at: document.querySelector('#musicShell .picker-tab[data-tab].active')?.dataset.tab,
-        go: key => document.querySelector(`#musicShell .picker-tab[data-tab="${CSS.escape(key)}"]`)?.click() };
+      return { rows: (shown.length ? shown : all).map(b => b.dataset.tab), at: document.querySelector('.music-nav .picker-tab[data-tab].active')?.dataset.tab,
+        go: key => document.querySelector(`.music-nav .picker-tab[data-tab="${CSS.escape(key)}"]`)?.click() };
     }
     if (page === 'social') {
       const rows = ['social', 'feed', 'photos', 'chat'].filter(isTabEnabled);
@@ -576,14 +576,14 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         break;
       }
       case 'w': case 's': if (stepSubTab(e.key === 's' ? 1 : -1)) e.preventDefault(); break;
-      // ←/→, TUI style: along the title bar's row of sections (Music's,
-      // Social's), stopping at its ends. Pages change only with Tab.
+      // ←/→: along the page's sections in the sidebar (Music's, Social's,
+      // Games'), stopping at the ends. Pages change only with Tab.
       // Photos keeps its own ←/→ (photo to photo).
       case 'ArrowLeft': case 'ArrowRight': {
         if (e.defaultPrevented || e.altKey || e.shiftKey || !arrowsFree()) break;
         if (document.body.classList.contains('tab-photos-active')) break;
         const dir = e.key === 'ArrowRight' ? 1 : -1;
-        const row = [...document.querySelectorAll('.hdr-pagenav:not([hidden]) .picker-tab')];
+        const row = [...document.querySelectorAll('html.nav-tree #sideNav .nav-sub.open .picker-tab')];
         if (!row.length) break;
         e.preventDefault();
         const at = row.findIndex(b => b.classList.contains('active'));

@@ -10105,58 +10105,106 @@
     :is(html.app-titlebar, html.web-bar) .terminal-prompt { font-size: 0.95rem; letter-spacing: 0.02em; }
     .terminal-prompt .prompt-text { white-space: pre; }
 
-    /* The page's nav in the middle of the title bar (js/07-tabnav.js
-       "THE PAGE'S NAV"): icons, the current one in the text colour with a
-       short line under it; the search an icon that opens into a box. */
+    /* ══ ONE PLACE TO GET AROUND (js/07-tabnav.js, 2026-10-31) ══
+       The page you're on unfolds its sections under its row in the
+       sidebar; the title bar has the prompt and, in the middle, the page's
+       search box. */
     /* Centred without a transform: Electron works out the window's drag
        area from the CSS and ignores transforms, so with translateX(-50%)
-       it put the buttons' no-drag area half a row to the right of them and
-       clicks dragged the window instead. */
+       it put the box's no-drag area off to the side of it. */
     .hdr-pagenav {
       position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; top: 0; height: var(--tb-h, 44px);
-      display: flex; align-items: center; gap: 2px; z-index: 2; -webkit-app-region: no-drag;
+      display: flex; align-items: center; z-index: 2; -webkit-app-region: no-drag;
     }
     .hdr-pagenav[hidden] { display: none; }
-    .hdr-pagenav .picker-tabs { display: flex; flex-direction: row; gap: 2px; padding: 0; margin: 0; background: none; border: 0; }
-    .hdr-pagenav .motion-pill, .hdr-pagenav .picker-tabs > span:not([class]) { display: none !important; }
-    .hdr-pagenav .picker-tab {
-      position: relative; width: 34px; height: 34px; min-height: 0; padding: 0; margin: 0; gap: 0;
-      display: grid; place-items: center; border-radius: 8px;
-      background: none !important; border: 0 !important; box-shadow: none !important; color: var(--text-dimmer);
+    .hdr-find { display: flex; align-items: center; }
+    .hdr-find :is(.picker-search, .soc-search) {
+      display: flex !important; position: static; width: clamp(240px, 30vw, 440px); height: 30px; margin: 0; padding: 0 6px 0 11px; box-sizing: border-box;
+      align-items: center; gap: 8px; opacity: 1; cursor: text;
+      background: var(--glass-fill); border: 1px solid var(--glass-border); border-radius: 8px; box-shadow: none !important; outline: none;
+      transition: background-color .15s, border-color .15s;
     }
-    .hdr-pagenav .picker-tab > :not(i) { display: none !important; }
-    .hdr-pagenav .picker-tab i { font-size: 18px; margin: 0; }
-    .hdr-pagenav .picker-tab:hover { color: var(--text); }
-    .hdr-pagenav .picker-tab.active { color: var(--text); }
-    .hdr-pagenav .picker-tab.active::after {
-      content: ''; position: absolute; left: 10px; right: 10px; bottom: 2px; height: 2px; border-radius: 1px; background: currentColor;
-    }
-    .hdr-pagenav-sep { width: 1px; height: 16px; margin: 0 6px; background: var(--glass-border-h); flex: none; }
-    /* Search: an icon, opening into a box. */
-    .hdr-find { position: relative; display: flex; align-items: center; margin-left: 6px; }
-    .hdr-find-btn { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--text-dimmer); cursor: pointer; font-size: 18px; }
-    .hdr-find-btn:hover { color: var(--text); }
-    .hdr-find :is(.picker-search, .soc-search) { display: none !important; }
-    .hdr-find.open .hdr-find-btn { display: none; }
-    .hdr-find.open :is(.picker-search, .soc-search) {
-      display: flex !important; position: static; width: 240px; height: 30px; margin: 0; padding: 0 6px 0 10px; box-sizing: border-box;
-      align-items: center; gap: 8px; opacity: 1;
-      background: var(--glass-fill-h); border: 1px solid var(--glass-border-h); border-radius: 8px; box-shadow: none !important; outline: none;
-      animation: findOpen .18s var(--m-ease, ease) both;
-    }
-    @keyframes findOpen { from { width: 34px; opacity: .4; } }
+    .hdr-find :is(.picker-search, .soc-search):hover { background: var(--glass-fill-h); }
+    .hdr-find :is(.picker-search, .soc-search):focus-within { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
     .hdr-find :is(.picker-search, .soc-search) > i { font-size: 14px; color: var(--text-dimmer); flex: none; }
     .hdr-find :is(.picker-search, .soc-search) input {
       position: static; flex: 1; min-width: 0; width: auto; height: 100%; opacity: 1; pointer-events: auto;
       padding: 0; border: 0; background: none; outline: none; box-shadow: none; font: 400 13px var(--font-ui); color: var(--text);
     }
+    .hdr-find :is(.picker-search, .soc-search) input::placeholder { color: var(--text-dimmer); }
     .hdr-find .picker-sort-btn { display: grid !important; flex: none; width: 24px; height: 24px; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dimmer); cursor: pointer; }
-    /* What's left in the sidebars: their lists. A heading with nothing
-       under it any more goes too. */
-    html.hdr-pagenav-on #musicSidebar .music-sidebar-group:not(:has(.picker-tab, .music-playlist-nav > *)) { display: none; }
-    /* Social's sections are all up there: its nav (and its sliding
-       highlight) has nothing left to show. */
-    html.hdr-pagenav-on #socNav:not(:has(.picker-tab)) { display: none; }
+    .hdr-find .picker-sort-btn:hover { color: var(--text); background: var(--glass-fill); }
+
+    /* The sections, under their page's row. */
+    .nav-sub { display: none; }
+    @media (min-width: 761px), (pointer: fine) {
+      html.nav-tree #sideNav .nav-sub {
+        display: grid; grid-template-rows: 0fr; flex: none;
+        transition: grid-template-rows .28s var(--m-ease);
+      }
+      html.nav-tree #sideNav .nav-sub.open { grid-template-rows: 1fr; }
+      #sideNav .nav-sub-in { min-height: 0; overflow: hidden; opacity: 0; transition: opacity .18s ease; }
+      #sideNav .nav-sub.open .nav-sub-in { opacity: 1; transition: opacity .28s ease .06s; }
+      #sideNav .nav-sub-pad { position: relative; padding: 2px 0 10px; }
+      /* A faint guide down from the page's icon, like a tree's. */
+      #sideNav .nav-sub-pad::before {
+        content: ''; position: absolute; left: 22px; top: 0; bottom: 14px; width: 1px;
+        background: var(--glass-border-h); opacity: .7;
+      }
+      #sideNav .nav-sub :is(.picker-tabs, .music-nav, .games-group, .music-sidebar-group, .music-playlist-nav) {
+        position: relative; display: flex; flex-direction: column; gap: 1px;
+        margin: 0; padding: 0; background: none; border: 0; box-shadow: none; overflow: visible; flex: none;
+      }
+      #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) {
+        position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+        height: 32px; min-height: 0; box-sizing: border-box; flex: none;
+        padding: 0 10px 0 9px; margin: 0 0 0 30px; width: calc(100% - 30px); border: 1px solid transparent; border-radius: var(--radius-md);
+        background: none; box-shadow: none; color: var(--text-dim);
+        font: 500 13.5px/1 var(--font-ui); letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; cursor: pointer;
+        transition: background-color .15s, color .15s;
+      }
+      #sideNav .nav-sub .picker-tab > span { overflow: hidden; text-overflow: ellipsis; }
+      #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn) i { font-size: 16px; width: 18px; flex: none; text-align: center; opacity: .8; color: inherit; }
+      #sideNav .nav-sub :is(.picker-tab, .music-new-playlist-btn):hover:not(.active) { background: var(--glass-fill); color: var(--text); }
+      /* The one highlight: the sliding pill behind the row you're on. */
+      #sideNav .nav-sub .picker-tab.active { background: none; color: var(--text); border-color: transparent; }
+      #sideNav .nav-sub .picker-tab.active i { opacity: 1; }
+      #sideNav .nav-sub .motion-pill-music { border-radius: var(--radius-md); }
+      #sideNav .nav-sub :is(#favCount, #queueCount, #requestsCount, .games-count, .soc-dot) {
+        margin-left: auto; flex: none; font-size: 11px; color: var(--text-dimmer); font-variant-numeric: tabular-nums;
+      }
+      #sideNav .nav-sub .music-nav { gap: 0; }
+      #sideNav .nav-sub .music-sidebar-label {
+        padding: 12px 10px 5px 40px; margin: 0; font: 600 10.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase;
+        color: var(--text-dimmer);
+      }
+      /* Games has one game: its name says what the rows are, so the rows read on. */
+      #sideNav .nav-sub .games-group > .music-sidebar-label { padding-top: 6px; }
+      /* Playlists: their cover small, the name in the row's type. */
+      #sideNav .nav-sub .music-playlist-nav { margin-top: 1px; }
+      #sideNav .nav-sub .music-playlist-row {
+        position: relative; display: flex; align-items: center; gap: 10px; height: 32px; box-sizing: border-box;
+        margin-left: 30px; padding: 0 6px 0 8px; border: 1px solid transparent; border-radius: var(--radius-md); background: none; cursor: pointer;
+      }
+      #sideNav .nav-sub .music-playlist-row:hover:not(.active) { background: var(--glass-fill); }
+      #sideNav .nav-sub .music-playlist-row.active { background: none; border-color: transparent; }
+      #sideNav .nav-sub .music-playlist-row-art { width: 20px; height: 20px; border-radius: 4px; border: 0; font-size: 11px; }
+      #sideNav .nav-sub .music-playlist-row-name { font: 500 13.5px/1.2 var(--font-ui); color: var(--text-dim); }
+      #sideNav .nav-sub .music-playlist-row.active .music-playlist-row-name { color: var(--text); }
+      #sideNav .nav-sub .music-playlist-row-meta { display: none; }
+      #sideNav .nav-sub .music-new-playlist-btn { border-style: solid; color: var(--text-dimmer); font-size: 13px; }
+      #sideNav .nav-sub .music-new-playlist-btn i { font-size: 15px; }
+      /* The page's own row: it heads its sections, and the highlight is
+         on the section, so it's just bright. */
+      /* A page's front (Music's Home, Social's) is its own row: the
+         highlight stays on that row, and the sections' Home rows go (three
+         Homes in one sidebar read as a puzzle). */
+      #sideNav .nav-sub :is(.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]) { display: none; }
+      html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
+      html.nav-tree #sideNav .tab-nav-btn.active:has(+ .nav-sub.open) { color: var(--text); font-weight: 600; }
+      /* Music's and Games' sidebars have nothing left in them. */
+      html.nav-tree :is(#musicSidebar, #gamesSidebar) { display: none !important; }
+    }
     /* Chat's lists and Voice only on Chat (the owner: not on every page
        now that things moved). With the rows and search in the title bar,
        that leaves nothing on Social's home or the Feed, so their sidebar
@@ -10182,34 +10230,6 @@
       animation: blink-cursor .8s step-end infinite !important;
     }
     @media (prefers-reduced-motion: reduce) { .prompt-cursor.visible { animation: none !important; } }
-
-    /* Words, not glyphs (the owner: the icons were "too generic"): the
-       toolbar reads like the prompt beside it, lowercase monospace; a
-       word underlines on hover like a link, and the current one is bold
-       and underlined. */
-    .hdr-pagenav { gap: 4px; }
-    .hdr-pagenav .picker-tab {
-      width: auto; height: 30px; padding: 0 7px; display: flex; align-items: center;
-      font: 500 13px 'JetBrains Mono', monospace; letter-spacing: 0; text-transform: lowercase; color: var(--text-dimmer);
-    }
-    .hdr-pagenav .picker-tab > span:first-of-type { display: inline !important; }
-    .hdr-pagenav .picker-tab:hover > span:first-of-type { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
-    .hdr-pagenav .picker-tab.active { color: var(--text); font-weight: 800; }
-    .hdr-pagenav .picker-tab.active > span:first-of-type { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
-    .hdr-pagenav .picker-tab.active::after { display: none; }
-    /* Each word has its page's icon before it (the owner: subtle, clean,
-       legible; not terminal glyphs): the row's own icon, small and faint,
-       lit with its word. */
-    .hdr-pagenav .picker-tab > i {
-      display: inline-block !important; font-size: 15px; width: auto; margin: 0 6px 0 0;
-      opacity: .5; transition: opacity .15s;
-    }
-    .hdr-pagenav .picker-tab:hover > i { opacity: .75; }
-    .hdr-pagenav .picker-tab.active > i { opacity: 1; }
-    .hdr-pagenav-sep { width: auto; height: auto; background: none; margin: 0 2px; color: var(--text-faint, var(--text-dimmer)); opacity: .5; font: 500 13px 'JetBrains Mono', monospace; }
-    .hdr-pagenav-sep::before { content: '|'; }
-    .hdr-find-btn { width: auto; height: 30px; padding: 0 7px; font: 500 13px 'JetBrains Mono', monospace; color: var(--text-dimmer); }
-    .hdr-find-btn:hover { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
 
     /* ══ TUI TOUCHES (2026-10-31) ══
        The owner: lean into the terminal look in places, not a redesign,
