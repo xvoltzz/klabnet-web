@@ -1,5 +1,6 @@
 // ══════════════════════════════════════════
-//  HOME — a plain landing page: "hi :)".
+//  HOME — a landing page: "welcome to gleepnet", and a word for the day
+//  when there is one (DAYS).
 //    · The greeting, today's date and how many are online.
 //    · Changelog: the newest commits to klabnet (klabnet-api's
 //      /api/changes asks Gitea for them), a day at a time, each one open to
@@ -19,8 +20,23 @@
   const timeFmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
   let active = false, timer = 0, loadedAt = 0, commits = null, failed = false;
 
+  // ── A word for the day ──
+  // Month-day (Eastern) -> what Home says under its title that day.
+  const DAYS = {
+    '10-31': 'happy halloween 🎃',
+    '11-01': 'happy birthday wes and nikko!!! 🎂',
+  };
+  function paintDay() {
+    const md = dayKey.format(new Date()).slice(5);
+    const msg = DAYS[md];
+    const el = $('hpDayMsg');
+    el.hidden = !msg;
+    el.textContent = msg || '';
+  }
+
   // ── Who's here ──
   function paintPeople() {
+    paintDay();
     const n = Math.max(1, window.KLAB_ONLINE_USERNAMES?.size || 1);
     $('hpSub').textContent = dayFmt.format(new Date()) + ' · ' + n + ' online';
   }

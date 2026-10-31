@@ -10247,72 +10247,73 @@
     .hdr-find.open :is(.picker-search, .soc-search) input::placeholder { color: var(--text-dimmer); opacity: .6; text-transform: lowercase; }
 
     /* ══ HOME: THE PLAZA (js/33-plaza.js) ══
-       Everyone as bubbles, after the 3DS and Wii U's plazas: a face in a
-       white ring, the name under it, the note over it in a white speech
-       bubble. Wider than Home's column (--pw, from the script), and no box:
+       Everyone as a honeycomb of faces: the name under each, the note over
+       it in a soft speech bubble. Calm (the owner): no bobbing, a faint
+       ring, letters in their colour, offline smaller and dimmer. Wider than Home's column (--pw, from the script), and no box:
        the bubbles sit on the page. */
     /* The notes' bubble: white, softened into the page (pure white was
        too stark, the owner). */
-    .hp-plaza { --pz-note: color-mix(in srgb, #fff 74%, var(--bg)); }
+    .hp-plaza { --pz-note: color-mix(in srgb, #fff 70%, var(--bg)); }
     html[data-theme="light"] .hp-plaza { --pz-note: #fff; }
     .hp-plaza { position: relative; width: var(--pw, 100%); margin: -12px 0 40px calc((100% - var(--pw, 100%)) / 2); }
     .pz-stage { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
     .pz-b { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 1; cursor: pointer; outline: none; will-change: transform; }
-    .pz-b.hover, .pz-b.held, .pz-b:focus-visible { z-index: 5; }
-    .pz-b.held { cursor: grabbing; }
+    .pz-b.hover, .pz-b:focus-visible { z-index: 5; }
     .pz-float { position: absolute; left: 0; top: 0; }
-    .pz-b.on .pz-float { animation: pzBob var(--bob, 4s) ease-in-out var(--bob-at, 0s) infinite; }
-    @keyframes pzBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
     .pz-face {
       position: absolute; left: calc(var(--r) * -1); top: calc(var(--r) * -1); width: calc(var(--r) * 2); height: calc(var(--r) * 2);
       border-radius: 50%;
-      box-shadow: 0 0 0 3px rgba(255,255,255,.92), 0 10px 24px rgba(0,0,0,.34);
-      transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), filter .3s, box-shadow .2s;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.14), 0 6px 18px rgba(0,0,0,.28);
+      transition: transform .3s cubic-bezier(.25, 1.3, .5, 1), opacity .3s, box-shadow .2s;
     }
     .pz-face img, .pz-face > span {
       width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center;
-      font: 700 calc(var(--r) * .9)/1 var(--font-ui); color: #fff; -webkit-user-drag: none;
+      font: 600 calc(var(--r) * .72)/1 var(--font-ui); -webkit-user-drag: none;
     }
-    .pz-b.hover .pz-face { transform: scale(1.09); }
-    .pz-b.held .pz-face { transform: scale(1.14); box-shadow: 0 0 0 3px #fff, 0 18px 36px rgba(0,0,0,.4); }
-    .pz-b:focus-visible .pz-face { box-shadow: 0 0 0 3px rgba(255,255,255,.92), 0 0 0 6px rgba(var(--accent-rgb), .7); }
-    .pz-b.me .pz-face { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .95), 0 10px 24px rgba(0,0,0,.34); }
-    .pz-b.poke .pz-face { animation: pzPoke .45s cubic-bezier(.3, 1.6, .5, 1); }
-    @keyframes pzPoke { 0% { transform: scale(1.09); } 30% { transform: scale(.9, .94); } 100% { transform: scale(1.09); } }
+    /* A letter where there's no picture: their colour, quietly. */
+    .pz-face > span { background: color-mix(in srgb, var(--c) 30%, var(--bg)); color: color-mix(in srgb, var(--c) 75%, var(--text)); }
+    .pz-b.hover .pz-face { transform: scale(1.1); box-shadow: 0 0 0 2px rgba(255,255,255,.4), 0 10px 26px rgba(0,0,0,.34); }
+    .pz-b:focus-visible .pz-face { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .8); }
+    .pz-b.me .pz-face { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .9), 0 6px 18px rgba(0,0,0,.28); }
+    .pz-b.poke .pz-face { animation: pzPoke .3s ease; }
+    @keyframes pzPoke { 40% { transform: scale(.95); } }
     .pz-dot {
-      position: absolute; right: 2%; bottom: 2%; width: max(12px, calc(var(--r) * .3)); height: max(12px, calc(var(--r) * .3));
-      border-radius: 50%; border: 3px solid var(--bg); background: #3fd16b; display: none;
+      position: absolute; right: 3%; bottom: 3%; width: max(10px, calc(var(--r) * .26)); height: max(10px, calc(var(--r) * .26));
+      border-radius: 50%; border: 2.5px solid var(--bg); background: #3fd16b; display: none;
     }
     .pz-b.on .pz-dot { display: block; }
     .pz-b.away .pz-dot { display: block; background: #f4b33c; }
-    .pz-b.off .pz-face { filter: grayscale(.75) brightness(.78); box-shadow: 0 0 0 3px rgba(255,255,255,.4), 0 8px 18px rgba(0,0,0,.28); }
-    .pz-b.off.hover .pz-face { filter: none; }
+    /* Offline: smaller and dimmer, not grey. */
+    .pz-b.off .pz-face { transform: scale(.86); opacity: .62; }
+    .pz-b.off.hover .pz-face { transform: scale(1); opacity: 1; }
     .pz-name {
-      position: absolute; left: 0; top: calc(var(--r) + 9px); transform: translateX(-50%);
-      font: 600 var(--fs-13)/1.2 var(--font-ui); white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,.5);
+      position: absolute; left: 0; top: calc(var(--r) + 8px); transform: translateX(-50%);
+      max-width: calc(var(--k, 1) * 140px); overflow: hidden; text-overflow: ellipsis;
+      font: 500 var(--fs-12)/1.2 var(--font-ui); white-space: nowrap; color: var(--text-dim);
     }
-    .pz-b.off .pz-name { opacity: .6; }
+    .pz-b.on .pz-name, .pz-b.away .pz-name { color: var(--text); }
+    .pz-b.off .pz-name { color: var(--text-dimmer); }
     .pz-song {
-      position: absolute; left: 0; top: calc(var(--r) + 27px); transform: translateX(-50%);
-      max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      position: absolute; left: 0; top: calc(var(--r) + 25px); transform: translateX(-50%);
+      max-width: calc(var(--k, 1) * 140px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       font: 500 var(--fs-11)/1.2 var(--font-ui); color: var(--text-dim);
     }
     .pz-song i { margin-right: 4px; color: var(--accent); }
     .pz-note {
-      position: absolute; left: 0; bottom: calc(var(--r) + 14px); transform: translateX(-50%);
-      width: max-content; max-width: 190px; padding: 7px 12px; border-radius: 15px;
-      background: var(--pz-note); color: #232120; font: 600 12.5px/1.3 var(--font-ui); text-align: center;
-      box-shadow: 0 4px 14px rgba(0,0,0,.18);
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+      position: absolute; left: 0; bottom: calc(var(--r) + 11px); transform: translateX(-50%);
+      width: max-content; max-width: calc(var(--k, 1) * 136px); padding: 5px 10px; border-radius: 12px;
+      background: var(--pz-note); color: #232120; font: 500 11.5px/1.3 var(--font-ui); text-align: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,.16);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
       transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
     }
     /* Its tail (outside the clamp's overflow: a second, unclipped layer). */
     .pz-note::after { content: none; }
     .pz-float:has(.pz-note:not(.pz-note-add))::before {
-      content: ''; position: absolute; left: -6px; bottom: calc(var(--r) + 8px); width: 12px; height: 12px;
+      content: ''; position: absolute; left: -4px; bottom: calc(var(--r) + 7px); width: 8px; height: 8px;
       background: var(--pz-note); transform: rotate(45deg); border-radius: 2px;
     }
-    .pz-b.hover .pz-note { transform: translateX(-50%) translateY(-4px) scale(1.04); }
+    .pz-b.hover .pz-note { transform: translateX(-50%) translateY(-3px); }
     .pz-note-add { background: none; color: var(--text-dimmer); box-shadow: none; border: 1.5px dashed var(--glass-border-h); font-weight: 500; }
     .pz-b.me.hover .pz-note-add { color: var(--text); border-color: var(--text-dimmer); }
     html[data-fx="low"] .pz-float, html[data-fx="low"] .pz-face { animation: none !important; transition: none; }
@@ -10330,3 +10331,7 @@
     .hp-split > .hp-sec .hp-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
     .hp-split > .hp-sec .hp-log::-webkit-scrollbar { display: none; }
     .hp-split .hp-foot { grid-column: 2; grid-row: 3; margin: 0; padding: 10px 2px 12px; }
+    /* The title, and the day's word under it (js/18-home.js DAYS). */
+    .hp-title .hp-kao { font-family: var(--font-ui); font-size: .62em; white-space: nowrap; letter-spacing: 0; }
+    .hp-split .hp-title { font-size: clamp(34px, 3.4vw, 54px); }
+    .hp-day-msg { margin: 0 0 8px; font: 600 var(--fs-15)/1.3 var(--font-ui); color: var(--accent); }
