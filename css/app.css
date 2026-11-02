@@ -1885,7 +1885,7 @@
     .player-artist .player-album-sep { opacity: 0.5; margin: 0 0.4em; }
     .player-artist .player-album { color: var(--text-dimmer); }
 
-    .player-idle { font-size: 11px; color: var(--text-dimmer); letter-spacing: 0.12em; text-transform: uppercase; }
+    .player-idle { font: 500 13px/1.2 var(--font-ui); color: var(--text-dimmer); }
 
     .player-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
     .dock-extra { opacity: 0.5; font-size: 14px; }
@@ -2138,7 +2138,6 @@
        the base rules already tint via rgba(var(--accent-rgb),*), so the
        play button and control icons pick up the live album-art color in
        light mode exactly like they do in dark mode. */
-    [data-theme="light"] .player-dock .player-idle { color: var(--text-dimmer); }
     [data-theme="light"] .player-dock .player-title { color: var(--text); font-weight: 600; }
     /* Artist name/link is accent-driven in the base rule too (album color) —
        mixed with --text here so a pale extracted color stays readable on
@@ -5681,7 +5680,6 @@
       #playerDock .player-info .player-link { pointer-events: none; } /* the whole strip opens the full player */
       #playerDock .player-title { font-size: 14px; letter-spacing: 0; }
       #playerDock .player-artist { font-size: 12px; letter-spacing: 0; margin-top: 3px; }
-      #playerDock .player-idle { font: 500 13px/1.2 'JetBrains Mono', ui-monospace, monospace; text-transform: none; letter-spacing: 0; color: var(--text-dim); }
       #playerDock .player-controls { flex: none; margin-left: auto; gap: 0; }
       #playerDock #btnPrev, #playerDock .dock-extra, #playerDock .player-time-wrap,
       #playerDock #btnFS, #playerDock .player-vol { display: none !important; }
@@ -10168,8 +10166,9 @@
     #sideNav :is(.nav-sub .picker-tab > span, .nav-sub .music-new-playlist-btn > span, .music-playlist-row-name, #chatSide .chat-channel-name) {
       padding-block: 2px 7px; margin-block: -2px -7px;
     }
-    /* A page whose section is lit: its own row stays bright, not underlined (one mark in the sidebar). */
-    html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
+    /* A page whose section is lit: its own row stays bright, not underlined (one mark in the sidebar).
+       Not on Social's home: Chat's open conversation stays .active while you're elsewhere in Social. */
+    html.nav-tree body:not(.tab-social-active) #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
       text-decoration-color: transparent;
     }
     #sideNav :is(.tab-nav-btn, .nav-sub .picker-tab, .music-playlist-row, #chatSide .chat-conv):focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
