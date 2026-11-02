@@ -79,6 +79,9 @@
         : failed ? 'Couldn’t load the changelog just now.' : 'Loading…') + '</p>';
       return;
     }
+    // git wraps a message at ~72 columns; joined back up, it fills the
+    // column it's in. Blank lines and list items keep their breaks.
+    const unwrap = t => t.replace(/([^\n])\n(?!\n|\s*(?:[-*•]|\d+[.)])\s)(?=\S)/g, '$1 ');
     if (!commits.length) { el.innerHTML = '<p class="hp-note">Nothing yet.</p>'; return; }
     // Open by default (the explanations are the point); ones closed stay closed.
     const shut = new Set([...el.querySelectorAll('details:not([open])')].map(d => d.dataset.sha));
@@ -96,7 +99,7 @@
       const what = '<span class="hp-glyph"><i class="ti ' + glyph(c) + '"></i></span><span class="hp-what">' + esc(c.title) + '</span>';
       html += '<li>' + (c.body
         ? '<details data-sha="' + esc(c.sha) + '"' + (shut.has(c.sha) ? '' : ' open') + '><summary>' + what + meta + '</summary>' +
-          '<p class="hp-body">' + esc(c.body) + '</p></details>'
+          '<p class="hp-body">' + esc(unwrap(c.body)) + '</p></details>'
         : '<div class="hp-line">' + what + meta + '</div>') + '</li>';
     });
     el.innerHTML = html + '</ul>';

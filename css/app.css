@@ -10073,7 +10073,7 @@
        and only it scrolls (js/33-plaza.js fitPage() sets the height). */
     .hp.hp-split {
       max-width: none; margin: 0; padding: 18px 26px 0 22px; display: grid; animation: none;
-      grid-template-columns: minmax(0, 1fr) clamp(520px, 40vw, 820px); grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 34%, 620px); grid-template-rows: auto minmax(0, 1fr) auto;
       column-gap: 34px; box-sizing: border-box;
     }
     .hp-split .hp-head { grid-column: 1; grid-row: 1; margin: 6px 0 0; }
@@ -10082,6 +10082,14 @@
     .hp-split > .hp-sec .hp-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
     .hp-split > .hp-sec .hp-log::-webkit-scrollbar { display: none; }
     .hp-split .hp-foot { grid-column: 2; grid-row: 3; margin: 0; padding: 10px 2px 12px; }
+    /* A narrow column: the repo, commit and time go under the title. */
+    .hp-split > .hp-sec { container-type: inline-size; }
+    @container (max-width: 470px) {
+      .hp-commits summary, .hp-line { flex-wrap: wrap; row-gap: 2px; }
+      .hp-what { flex-basis: calc(100% - 70px); }
+      .hp-meta { order: 3; width: 100%; padding-left: 40px; }
+      .hp-body { margin-left: 52px; }
+    }
     /* The title, and the day's word under it (js/18-home.js DAYS). */
     /* klabnet's own type, not the serif (it looked awkward with the
        kaomoji, the owner). */

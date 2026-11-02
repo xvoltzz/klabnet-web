@@ -89,10 +89,15 @@
   // ── The stage ──
   // A wide window: the plaza fills the left, the changelog is a column on
   // the right and the only thing that scrolls (the owner's idea). Home is
-  // then exactly the window's height.
-  const wide = matchMedia('(min-width: 1100px) and (pointer: fine)');
+  // then exactly the window's height. The column takes about a third of
+  // the page (css .hp-split), the plaza the rest.
+  // Wide is the page's own width (the sidebar takes some of the window),
+  // enough for the changelog's column and a plaza beside it.
+  const wide = matchMedia('(pointer: fine)');
+  const SPLIT_AT = 900;
   function fitPage() {
-    const on = wide.matches && active;
+    const room = (page.parentElement?.clientWidth || page.clientWidth) / zf();
+    const on = wide.matches && active && room >= SPLIT_AT;
     page.classList.toggle('hp-split', on);
     if (!on) { page.style.removeProperty('height'); return; }
     const z = zf();
@@ -123,12 +128,12 @@
       host.style.height = H + 'px';
     }
     // Shrink the cells until there are a few more than people.
-    // Bigger while there's plenty of room (up to 1.35×), smaller until
+    // Bigger while there's plenty of room (up to 1.7×), smaller until
     // there are a few more cells than people, but never so small a note
     // runs into the name over it (0.85×). Still not enough room: the
     // plaza is taller than its space and scrolls (no bar).
     const fits = k => Math.floor(W / (CELL_W * k)) * Math.floor(H / (CELL_H * k * 0.9));
-    let k = 1.35;
+    let k = 1.7;
     while (k > 0.85 && fits(k) < n * 1.5) k -= 0.05;
     cell = { w: CELL_W * k, h: CELL_H * k * 0.9, k };
     if (fits(k) < n) {
