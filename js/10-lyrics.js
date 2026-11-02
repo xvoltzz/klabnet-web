@@ -222,33 +222,75 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     return lines.sort((a,b) => a.time - b.time);
   }
 
-  // ── Fetch from LRCLIB ────────────────────
-  // The lyrics, null if there are none, or { failed: true } when LRCLIB
-  // couldn't be reached (said so, and tried again next time, rather than
-  // "No lyrics found" sticking for that song). An exact match needs the
-  // album's name to agree, and a library's "(Deluxe Edition)" doesn't, so
-  // a miss falls back to a search by title and artist, nearest length first.
+  // ── Fetch ────────────────────────────────
+  // The lyrics, null if there are none, or { failed: true } when they
+  // couldn't be had just now (said so, and tried again next time, rather
+  // than "No lyrics found" sticking for that song). Asked in order:
+  //   1. Navidrome's own (lyrics in the file or beside it; OpenSubsonic's
+  //      getLyricsBySongId), as the phone apps do.
+  //   2. klabnet-api's /api/music-requests/lyrics: LRCLIB, asked once for
+  //      everyone and kept. LRCLIB rate-limits by IP and the whole house is
+  //      one, so browsers asking it themselves ran into 429s ("busted for
+  //      a brick", the owner).
+  //   3. LRCLIB itself, only from an API without that route.
+  const _lyricsSeen = new Map(); // song id -> answer, this session
+  async function fromNavidrome(song) {
+    if (!song.id || typeof subsonicParams !== 'function' || typeof ND_URL === 'undefined') return null;
+    try {
+      const r = await fetchTimeout(`${ND_URL}/rest/getLyricsBySongId?id=${encodeURIComponent(song.id)}&${subsonicParams()}`, {}, 5000);
+      if (!r.ok) return null;
+      const list = (await r.json())?.['subsonic-response']?.lyricsList?.structuredLyrics || [];
+      const pick = list.find(l => l.synced && l.line?.length) || list.find(l => l.line?.length);
+      if (!pick) return null;
+      if (pick.synced) {
+        const lrc = pick.line.map(l => {
+          const t = Math.max(0, (l.start || 0) + (pick.offset || 0)) / 1000;
+          return `[${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}]${l.value || ''}`;
+        }).join('\n');
+        return { syncedLyrics: lrc };
+      }
+      return { plainLyrics: pick.line.map(l => l.value || '').join('\n') };
+    } catch (e) { return null; }
+  }
+  async function fromLrclib(song) {
+    const params = new URLSearchParams({
+      track_name:  song.title  || '',
+      artist_name: song.artist || '',
+      album_name:  song.album  || '',
+    });
+    if (song.duration) params.set('duration', String(Math.round(song.duration)));
+    const res  = await fetchTimeout(`https://lrclib.net/api/get?${params}`, {}, 8000);
+    if (res.ok) return await res.json();
+    if (res.status !== 404) return { failed: true };
+    const q = new URLSearchParams({ track_name: song.title || '', artist_name: song.artist || '' });
+    const sr = await fetchTimeout(`https://lrclib.net/api/search?${q}`, {}, 8000);
+    if (!sr.ok) return { failed: true };
+    const hits = (await sr.json() || []).filter(h => h.syncedLyrics || h.plainLyrics);
+    if (!hits.length) return null;
+    const off = h => song.duration && h.duration ? Math.abs(h.duration - song.duration) : 0;
+    const near = hits.filter(h => off(h) <= 8);
+    near.sort((a, b) => (!!b.syncedLyrics - !!a.syncedLyrics) || off(a) - off(b));
+    return near[0] || null;
+  }
+  let _noApiLyrics = false;
   async function fetchLyrics(song) {
     if (!song) return null;
+    if (song.id && _lyricsSeen.has(song.id)) return _lyricsSeen.get(song.id);
     try {
-      const params = new URLSearchParams({
-        track_name:  song.title  || '',
-        artist_name: song.artist || '',
-        album_name:  song.album  || '',
-      });
-      if (song.duration) params.set('duration', String(Math.round(song.duration)));
-      const res  = await fetchTimeout(`https://lrclib.net/api/get?${params}`, {}, 8000);
-      if (res.ok) return await res.json();
-      if (res.status !== 404) return { failed: true };
-      const q = new URLSearchParams({ track_name: song.title || '', artist_name: song.artist || '' });
-      const sr = await fetchTimeout(`https://lrclib.net/api/search?${q}`, {}, 8000);
-      if (!sr.ok) return { failed: true };
-      const hits = (await sr.json() || []).filter(h => h.syncedLyrics || h.plainLyrics);
-      if (!hits.length) return null;
-      const off = h => song.duration && h.duration ? Math.abs(h.duration - song.duration) : 0;
-      const near = hits.filter(h => off(h) <= 8);
-      near.sort((a, b) => (!!b.syncedLyrics - !!a.syncedLyrics) || off(a) - off(b));
-      return near[0] || null;
+      let data = await fromNavidrome(song);
+      if (!data && !_noApiLyrics) {
+        const q = new URLSearchParams({ title: song.title || '', artist: song.artist || '', album: song.album || '' });
+        if (song.duration) q.set('duration', String(Math.round(song.duration)));
+        // Longer than LRCLIB's own: the API waits out its rate limit.
+        const r = await fetchTimeout('/api/music-requests/lyrics?' + q, {}, 20000);
+        if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) _noApiLyrics = true;
+        else if (!r.ok) return { failed: true };
+        else data = (await r.json()).lyrics || null;
+        if (!_noApiLyrics) { if (song.id) _lyricsSeen.set(song.id, data); return data; }
+      }
+      if (!data) data = await fromLrclib(song);
+      if (song.id && !data?.failed) _lyricsSeen.set(song.id, data);
+      return data;
     } catch(e) { return { failed: true }; }
   }
 

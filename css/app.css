@@ -10112,9 +10112,10 @@
     #feedList .feed-post-reaction-pill,
     #chatApp #chatTimeline .chat-msg-reaction-pill,
     .chat-msg-reaction-pill {
-      display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border-radius: 6px;
+      /* 30px with a 17px emoji (the owner, 2026-11-02: "a little larger"). */
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border-radius: 8px;
       border: 1px solid var(--glass-border); background: var(--glass-fill); box-shadow: none;
-      font: 500 13px/1 var(--font-ui); color: var(--text); cursor: pointer; transition: background-color .12s, border-color .12s;
+      font: 500 17px/1 var(--font-ui); color: var(--text); cursor: pointer; transition: background-color .12s, border-color .12s;
     }
     #feedList .feed-post-reaction-pill:hover,
     #chatApp #chatTimeline .chat-msg-reaction-pill:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
@@ -10122,7 +10123,7 @@
     #chatApp #chatTimeline .chat-msg-reaction-pill.mine {
       background: rgba(var(--accent-rgb), .14); border-color: rgba(var(--accent-rgb), .5); box-shadow: none;
     }
-    :is(.feed-post-reaction-count, .chat-msg-reaction-count) { font: 600 11.5px/1 var(--font-ui); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    :is(.feed-post-reaction-count, .chat-msg-reaction-count) { font: 600 12.5px/1 var(--font-ui); color: var(--text-dim); font-variant-numeric: tabular-nums; }
     .mine > :is(.feed-post-reaction-count, .chat-msg-reaction-count) { color: var(--text); }
 
     /* "More reactions" (klabReactMenu): the menu's emoji row on its own,
@@ -10363,7 +10364,7 @@
     /* Custom emoji in text and reactions: the height of the line, and
        big in a message that's nothing but emoji. */
     img.cemoji { width: 1.375em; height: 1.375em; object-fit: contain; vertical-align: -.33em; margin: 0 .05em; }
-    :is(.feed-post-reaction-pill, .chat-msg-reaction-pill) img.cemoji { width: 16px; height: 16px; vertical-align: middle; margin: 0; }
+    :is(.feed-post-reaction-pill, .chat-msg-reaction-pill) img.cemoji { width: 19px; height: 19px; vertical-align: middle; margin: 0; }
     .feed-floaty img.cemoji { width: 22px; height: 22px; }
     .chat-msg-text.emoji-only { font-size: 2.6em; line-height: 1.15; }
     .chat-msg-text.emoji-only img.cemoji { width: 48px; height: 48px; vertical-align: -10px; }
