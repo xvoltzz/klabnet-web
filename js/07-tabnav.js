@@ -668,12 +668,17 @@ window.klabSideNav = (function() {
   side.setAttribute('aria-label', 'Navigation');
   const foot = document.createElement('div');
   foot.className = 'side-nav-foot';
-  foot.innerHTML = '<button type="button" class="side-nav-item" id="sideNavFeedback" title="Report a bug or suggest an idea"><i class="ti ti-bug"></i><span>Bugs and ideas</span></button>' +
+  // "Get the app" for a computer's browser (not inside the app, not a phone):
+  // the /desktop/ page, which works out which download is yours.
+  const browserOnComputer = !window.klabnetDesktop && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+  foot.innerHTML = (browserOnComputer ? '<button type="button" class="side-nav-item" id="sideNavGetApp" title="klabnet for Windows, macOS and Linux"><i class="ti ti-download"></i><span>Get the app</span></button>' : '') +
+    '<button type="button" class="side-nav-item" id="sideNavFeedback" title="Report a bug or suggest an idea"><i class="ti ti-bug"></i><span>Bugs and ideas</span></button>' +
     '<button type="button" class="side-nav-item" id="sideNavSettings" title="Settings"><i class="ti ti-settings"></i><span>Settings</span></button>';
   side.appendChild(foot);
   document.body.appendChild(side);
   foot.querySelector('#sideNavSettings').addEventListener('click', () => { close(); document.getElementById('settingsBtn')?.click(); });
   foot.querySelector('#sideNavFeedback').addEventListener('click', () => { close(); window.openFeedbackModal?.(); });
+  foot.querySelector('#sideNavGetApp')?.addEventListener('click', () => { location.href = 'desktop/'; });
 
   const burger = document.createElement('button');
   burger.type = 'button';
