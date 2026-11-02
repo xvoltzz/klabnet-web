@@ -1030,9 +1030,10 @@ window.klabPane = (function() {
   const app = window.klabnetDesktop;
   const root = document.documentElement;
 
-  // A Windows browser gets "Get the Windows app" in the ☰ menu.
+  // A computer's browser gets "Get the desktop app" (the /desktop/ page)
+  // in the ☰ menu and Settings; phones and the apps themselves don't.
   const getApp = document.getElementById('getAppBtn');
-  if (getApp && !app && /Windows/i.test(navigator.userAgent)) getApp.hidden = false;
+  if (getApp && !app && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform))) getApp.hidden = false;
   if (!app) return;
 
   // 1.0.x can't update itself (and has none of the bridge below), but it
