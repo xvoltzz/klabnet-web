@@ -2035,7 +2035,7 @@ function feedbackModalHTML() {
     <textarea class="chat-modal-input" id="fbBody" rows="5" placeholder="What happened, and what did you expect instead? Steps to reproduce help a lot." maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
     <div class="dlg-actions"><button class="chat-connect-btn" id="fbSubmit">Send</button></div>
     <div class="chat-modal-error" id="fbError" hidden></div>
-    <div class="chat-modal-row-sub" style="margin-top:14px;">Already reported</div>
+    <div class="fb-reported">Already reported</div>
     <div class="chat-modal-list" id="fbList"><div class="picker-empty">Loading…</div></div>
   `;
 }
@@ -2068,7 +2068,7 @@ function openFeedbackModal() {
       listEl.innerHTML = issues.map(i =>
         '<a class="chat-modal-row fb-row" href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">' +
           '<span class="fb-state fb-state-' + (i.state === 'closed' ? 'closed' : 'open') + '">' +
-            (i.state === 'closed' ? 'done' : 'open') + '</span>' +
+            (i.state === 'closed' ? 'Done' : 'Open') + '</span>' +
           '<div class="chat-modal-row-info">' +
             '<div class="chat-modal-row-name">' + esc(i.title) + '</div>' +
             '<div class="chat-modal-row-sub">#' + i.number + (i.labels.length ? ' · ' + esc(i.labels.join(', ')) : '') + '</div>' +
@@ -3080,7 +3080,7 @@ async function openProfileView(username) {
   if (!username) return;
   const client = MatrixChat.client;
   const profile = _profiles.get(username) || {};
-  openChatModal(`// @${username}`, `
+  openChatModal('// profile', `
     <div class="profile-view-banner" id="profileViewBanner"></div>
     <div class="profile-view-avatar-row">
       <div class="profile-view-avatar" id="profileViewAvatar">${esc((username[0] || '?').toUpperCase())}</div>
@@ -3092,11 +3092,11 @@ async function openProfileView(username) {
     ${profile.bio ? `<div class="profile-view-bio">${esc(profile.bio)}</div>` : ''}
     ${username === window.KLAB_USER?.username
       // Your own (the sidebar's "you"): change it, rather than message yourself.
-      ? `<div style="display:flex;gap:8px;margin-top:14px;">
-          <button class="chat-connect-btn" id="profileViewEditBtn" style="flex:1;justify-content:center;"><i class="ti ti-pencil"></i> Edit profile</button>
-          <button class="chat-connect-btn" id="profileViewNoteBtn" style="flex:1;justify-content:center;"><i class="ti ti-message-circle"></i> Set a note</button>
+      ? `<div class="dlg-actions">
+          <button class="ap-btn-queue" id="profileViewNoteBtn"><i class="ti ti-message-circle"></i> Set a note</button>
+          <button class="chat-connect-btn" id="profileViewEditBtn"><i class="ti ti-pencil"></i> Edit profile</button>
         </div>`
-      : `<button class="chat-connect-btn" id="profileViewMessageBtn" style="margin-top:14px;width:100%;justify-content:center;"><i class="ti ti-message-2-plus"></i> Message</button>`}
+      : `<div class="dlg-actions"><button class="chat-connect-btn" id="profileViewMessageBtn"><i class="ti ti-message-2-plus"></i> Message</button></div>`}
   `);
   document.getElementById('profileViewMessageBtn')?.addEventListener('click', () => {
     closeChatModal();
