@@ -668,10 +668,12 @@ window.klabSideNav = (function() {
   side.setAttribute('aria-label', 'Navigation');
   const foot = document.createElement('div');
   foot.className = 'side-nav-foot';
-  foot.innerHTML = '<button type="button" class="side-nav-item" id="sideNavSettings" title="Settings"><i class="ti ti-settings"></i><span>Settings</span></button>';
+  foot.innerHTML = '<button type="button" class="side-nav-item" id="sideNavFeedback" title="Report a bug or suggest an idea"><i class="ti ti-bug"></i><span>Bugs and ideas</span></button>' +
+    '<button type="button" class="side-nav-item" id="sideNavSettings" title="Settings"><i class="ti ti-settings"></i><span>Settings</span></button>';
   side.appendChild(foot);
   document.body.appendChild(side);
   foot.querySelector('#sideNavSettings').addEventListener('click', () => { close(); document.getElementById('settingsBtn')?.click(); });
+  foot.querySelector('#sideNavFeedback').addEventListener('click', () => { close(); window.openFeedbackModal?.(); });
 
   const burger = document.createElement('button');
   burger.type = 'button';

@@ -2012,102 +2012,153 @@ function initChatImageSend() {
 // One shared backdrop+shell (see #chatModalBackdrop in the markup); each
 // action rebuilds #chatModalBody for itself rather than three separate
 // modal shells sitting mostly-duplicated in the DOM.
-// ── Bug reports / feature requests ─────────────────────
-// Files straight into Gitea via /api/feedback so nobody has to go find
-// git.klab.gg to say a button is broken. The server owns the Gitea token
-// and stamps the reporter's klabnet username onto the issue — the browser
-// never sees a credential. The existing-issues list below is the "vice
-// versa" half: it's the same tracker, so you can see your report land and
-// check something isn't already filed before writing it up.
+// ── Bugs and ideas ─────────────────────
+// Kept on klabnet-api (/api/feedback), not in an issue tracker: anyone can
+// post one and see everything posted (so the same thing isn't reported
+// twice); the owner reviews them and marks them done. Opened from the
+// sidebar's foot ("Bugs and ideas"), Settings and the phone's menu.
 const FEEDBACK_TITLE_MAX = 120;
 const FEEDBACK_BODY_MAX  = 4000;
 
 function feedbackModalHTML() {
   return `
-    <div class="chat-modal-row-sub" style="margin-bottom:10px;">
-      Goes straight to the issue tracker, tagged with your username.
-    </div>
-    <div class="fb-type" id="fbType">
+    <div class="fb-type" id="fbType" role="group" aria-label="Kind">
       <button type="button" class="fb-type-btn active" data-fb-type="bug"><i class="ti ti-bug"></i> Bug</button>
-      <button type="button" class="fb-type-btn" data-fb-type="feature"><i class="ti ti-bulb"></i> Idea</button>
+      <button type="button" class="fb-type-btn" data-fb-type="idea"><i class="ti ti-bulb"></i> Idea</button>
     </div>
     <input type="text" class="chat-modal-input" id="fbTitle" placeholder="Short summary" maxlength="${FEEDBACK_TITLE_MAX}" autocomplete="off" />
-    <textarea class="chat-modal-input" id="fbBody" rows="5" placeholder="What happened, and what did you expect instead? Steps to reproduce help a lot." maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
-    <div class="dlg-actions"><button class="chat-connect-btn" id="fbSubmit">Send</button></div>
+    <textarea class="chat-modal-input" id="fbBody" rows="4" placeholder="What happened, and what did you expect instead?" maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
     <div class="chat-modal-error" id="fbError" hidden></div>
-    <div class="fb-reported">Already reported</div>
+    <div class="dlg-actions"><button class="chat-connect-btn" id="fbSubmit">Post</button></div>
+    <div class="fb-reported">Posted</div>
     <div class="chat-modal-list" id="fbList"><div class="picker-empty">Loading…</div></div>
   `;
 }
 
 function openFeedbackModal() {
-  const fbGen = openChatModal('// report a bug or idea', feedbackModalHTML());
-
+  const fbGen = openChatModal('// bugs and ideas', feedbackModalHTML());
   const typeWrap = document.getElementById('fbType');
   const titleEl  = document.getElementById('fbTitle');
   const bodyEl   = document.getElementById('fbBody');
   const submitEl = document.getElementById('fbSubmit');
   const errEl    = document.getElementById('fbError');
   const listEl   = document.getElementById('fbList');
-  let kind = 'bug';
+  let kind = 'bug', items = [], admin = false;
+  const open = new Set(); // rows showing their details
 
   typeWrap.addEventListener('click', e => {
     const btn = e.target.closest('[data-fb-type]');
     if (!btn) return;
     kind = btn.dataset.fbType;
     typeWrap.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b === btn));
+    bodyEl.placeholder = kind === 'idea' ? 'What would you like, and what would it help with?' : 'What happened, and what did you expect instead?';
   });
 
-  async function loadIssues() {
+  const STATE = { open: 'Open', done: 'Done', wontfix: 'Won’t fix' };
+  const when = t => shortAgo(new Date(String(t).replace(' ', 'T') + 'Z').getTime());
+  function draw() {
+    if (!items.length) { listEl.innerHTML = '<div class="picker-empty">Nothing posted yet.</div>'; return; }
+    listEl.innerHTML = items.map(i => {
+      const shown = open.has(i.id);
+      return '<div class="fb-row' + (shown ? ' open' : '') + '" data-id="' + i.id + '">' +
+        '<button type="button" class="fb-row-head">' +
+          '<i class="ti ' + (i.kind === 'idea' ? 'ti-bulb' : 'ti-bug') + ' fb-kind" title="' + (i.kind === 'idea' ? 'Idea' : 'Bug') + '"></i>' +
+          '<span class="fb-row-text"><span class="fb-row-title">' + esc(i.title) + '</span>' +
+          '<span class="fb-row-sub">' + esc(i.username) + ' · ' + esc(when(i.created)) + '</span></span>' +
+          '<span class="fb-state fb-state-' + esc(i.state) + '">' + (STATE[i.state] || 'Open') + '</span>' +
+        '</button>' +
+        (shown ? '<div class="fb-row-more">' +
+          (i.body ? '<div class="fb-row-body">' + esc(i.body) + '</div>' : '') +
+          (i.reply ? '<div class="fb-row-reply"><i class="ti ti-message"></i>' + esc(i.reply) + '</div>' : '') +
+          ((admin || i.can_delete) ? '<div class="fb-row-acts">' +
+            (admin ? (i.state === 'open'
+              ? '<button type="button" class="ap-btn-queue" data-act="done">Mark done</button><button type="button" class="ap-btn-queue" data-act="wontfix">Won’t fix</button><button type="button" class="ap-btn-queue" data-act="reply">Reply</button>'
+              : '<button type="button" class="ap-btn-queue" data-act="open">Reopen</button><button type="button" class="ap-btn-queue" data-act="reply">Reply</button>') : '') +
+            (i.can_delete ? '<button type="button" class="ap-btn-queue fb-del" data-act="delete">Delete</button>' : '') +
+          '</div>' : '') +
+        '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  async function load() {
     try {
       const r = await fetchTimeout('/api/feedback', {}, 8000);
-      if (!r.ok) throw new Error('bad status');
-      const data = await r.json();
-      const issues = data.issues || [];
-      if (!issues.length) { listEl.innerHTML = '<div class="picker-empty">Nothing reported yet.</div>'; return; }
-      listEl.innerHTML = issues.map(i =>
-        '<a class="chat-modal-row fb-row" href="' + esc(i.url) + '" target="_blank" rel="noopener noreferrer">' +
-          '<span class="fb-state fb-state-' + (i.state === 'closed' ? 'closed' : 'open') + '">' +
-            (i.state === 'closed' ? 'Done' : 'Open') + '</span>' +
-          '<div class="chat-modal-row-info">' +
-            '<div class="chat-modal-row-name">' + esc(i.title) + '</div>' +
-            '<div class="chat-modal-row-sub">#' + i.number + (i.labels.length ? ' · ' + esc(i.labels.join(', ')) : '') + '</div>' +
-          '</div>' +
-        '</a>').join('');
+      const data = r.ok ? await r.json() : null;
+      if (!data || !Array.isArray(data.items)) throw new Error('bad');
+      items = data.items; admin = !!data.admin;
+      draw();
     } catch (e) {
-      listEl.innerHTML = '<div class="picker-empty">Couldn\'t load existing reports.</div>';
+      listEl.innerHTML = '<div class="picker-empty">Couldn’t load what’s been posted.</div>';
     }
   }
-  loadIssues();
+  async function change(id, method, body) {
+    const r = await fetchTimeout('/api/feedback/' + id, {
+      method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
+    }, 10000);
+    if (!r.ok) throw new Error('status ' + r.status);
+  }
+  listEl.addEventListener('click', async e => {
+    const row = e.target.closest('.fb-row');
+    if (!row) return;
+    const id = +row.dataset.id;
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) {
+      if (!e.target.closest('.fb-row-head')) return;
+      open.has(id) ? open.delete(id) : open.add(id);
+      draw();
+      return;
+    }
+    try {
+      if (act === 'delete') {
+        if (!(await showConfirmDialog('// delete', 'Delete this post?', 'Delete'))) { openFeedbackModal(); return; }
+        await change(id, 'DELETE');
+        openFeedbackModal();
+        return;
+      }
+      if (act === 'reply') {
+        const item = items.find(i => i.id === id);
+        const text = await showInputDialog('// reply', 'Shown under it to everyone.', 'Reply', item?.reply || '', { multiline: true, maxLength: FEEDBACK_BODY_MAX });
+        if (text !== null) await change(id, 'PATCH', { reply: text });
+        openFeedbackModal();
+        return;
+      }
+      await change(id, 'PATCH', { state: act });
+      await load();
+    } catch (err) {
+      showToast('Couldn’t change that. Try again in a moment.', 'ti-alert-triangle');
+    }
+  });
+  load();
 
   submitEl.addEventListener('click', async () => {
     const title = titleEl.value.trim();
     if (!title) { errEl.textContent = 'Give it a short summary first.'; errEl.hidden = false; titleEl.focus(); return; }
     errEl.hidden = true;
     submitEl.disabled = true;
-    submitEl.textContent = 'Sending…';
+    submitEl.textContent = 'Posting…';
     try {
       const r = await fetchTimeout('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: kind, title, body: bodyEl.value.trim(), page: location.hash || '#feed' }),
+        body: JSON.stringify({ type: kind, title, body: bodyEl.value.trim(), page: location.hash || '#home', version: typeof KLABNET_VERSION === 'string' ? KLABNET_VERSION : '' }),
       }, 12000);
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'failed');
-      closeChatModal(fbGen);
-      showToast(data.number ? `Filed as #${data.number} — thanks!` : 'Report sent — thanks!', 'ti-bug');
+      titleEl.value = ''; bodyEl.value = '';
+      if (data.item) { items = [data.item, ...items]; draw(); }
+      showToast(kind === 'idea' ? 'Idea posted. Thanks!' : 'Bug posted. Thanks!', kind === 'idea' ? 'ti-bulb' : 'ti-bug');
     } catch (e) {
-      errEl.textContent = e.message === 'issue tracker not configured'
-        ? "The issue tracker isn't hooked up yet — tell an admin."
-        : "Couldn't send that. Try again in a moment.";
+      errEl.textContent = 'Couldn’t post that. Try again in a moment.';
       errEl.hidden = false;
+    } finally {
       submitEl.disabled = false;
-      submitEl.textContent = 'Send';
+      submitEl.textContent = 'Post';
     }
   });
-
   titleEl.focus();
+  return fbGen;
 }
+window.openFeedbackModal = openFeedbackModal;
 
 // onDismiss: called when the modal closes any way other than the caller's
 // own buttons (X, Escape, the backdrop), so an awaited dialog always answers.

@@ -10546,10 +10546,31 @@
     }
     /* What's been reported: a label like any other, and rows split by hairlines. */
     .fb-reported { font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); margin: 22px 0 6px; }
-    #fbList .fb-row { background: none; border: 0; border-radius: 0; border-bottom: 1px solid var(--glass-border); padding: 9px 4px; margin: 0; }
+    /* Bugs and ideas: rows split by hairlines; a row opens to its details. */
+    #fbList { max-height: min(46vh, 420px); overflow-y: auto; }
+    #fbList .fb-row { border-bottom: 1px solid var(--glass-border); }
     #fbList .fb-row:last-child { border-bottom: 0; }
-    #fbList .fb-row:hover { background: var(--glass-fill); }
-    .fb-state { border-radius: 4px; font-size: var(--fs-10); letter-spacing: .04em; text-transform: none; }
+    .fb-row-head {
+      display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 4px; border: 0; background: none;
+      color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 6px;
+    }
+    .fb-row-head:hover { background: var(--glass-fill); }
+    .fb-kind { flex: none; font-size: 16px; color: var(--text-dimmer); }
+    .fb-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .fb-row-title { font: 500 var(--fs-13)/1.3 var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-row.open .fb-row-title { white-space: normal; }
+    .fb-row-sub { font-size: var(--fs-11); color: var(--text-dimmer); }
+    .fb-row-more { padding: 0 4px 12px 30px; display: flex; flex-direction: column; gap: 8px; }
+    .fb-row-body { font-size: var(--fs-13); line-height: 1.5; color: var(--text-dim); white-space: pre-wrap; word-break: break-word; user-select: text; }
+    .fb-row-reply { display: flex; gap: 6px; font-size: var(--fs-13); line-height: 1.5; color: var(--text); white-space: pre-wrap; }
+    .fb-row-reply i { flex: none; color: rgb(var(--accent-rgb)); margin-top: 3px; }
+    .fb-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .fb-row-acts .ap-btn-queue { height: 28px; padding: 0 10px; font-size: var(--fs-12); }
+    .fb-row-acts .fb-del { color: #ff6961; margin-left: auto; }
+    .fb-state { flex: none; padding: 2px 7px; border-radius: 4px; font: 600 var(--fs-10)/1.4 var(--font-ui); letter-spacing: .02em; text-transform: none; }
+    .fb-state-open { background: rgba(var(--accent-rgb), .14); color: var(--text-dim); }
+    .fb-state-done { background: rgba(74,222,128,0.14); color: var(--success-color); }
+    .fb-state-wontfix { background: var(--glass-fill-h); color: var(--text-dimmer); }
     /* The profile editor's field labels: the house label, not 9px. */
     .profile-modal-label { font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; color: var(--text-dimmer); margin-bottom: 6px; }
     .profile-modal-banner-overlay { border-radius: 6px; font-size: var(--fs-11); letter-spacing: 0; }
