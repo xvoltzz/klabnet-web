@@ -258,34 +258,40 @@ const SFX = (() => {
   // versions: half the first's brightness, at its level. pitch moves it
   // up or down (forward and back).
   function clack(vel, pitch) {
+    // Windows 7 Explorer's navigation click: no note at all, two tiny
+    // plastic ticks (the press, then the release ~22ms later and softer),
+    // each a few ms of noise ringing through a narrow band, plus a faint
+    // knock under the first for body. Dry and short (~45ms).
     pitch = pitch || 1;
     const c = getCtx();
-    const t = c.currentTime + 0.005, v = wob(vel, 0.08) * 1.55, p = wob(pitch, 0.03);
+    const t = c.currentTime + 0.005, v = wob(vel, 0.06) * 1.6, p = wob(pitch, 0.02);
     const out = c.createBiquadFilter();
-    out.type = 'lowpass'; out.frequency.value = 3400 * Math.min(1.2, pitch); out.Q.value = 0.4;
+    out.type = 'lowpass'; out.frequency.value = 6500; out.Q.value = 0.5;
     out.connect(dry);
-    const tone = (f0, f1, glide, peak, attack, decay) => {
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(f0 * p, t);
-      o.frequency.exponentialRampToValueAtTime(f1 * p, t + glide);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(peak * v, t + attack);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
-      o.connect(g); g.connect(out);
-      o.start(t); o.stop(t + decay + 0.02);
+    const tick = (at, freq, q, peak, len) => {
+      const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+      src.buffer = noiseBuf(c);
+      bp.type = 'bandpass'; bp.frequency.value = freq * p; bp.Q.value = q;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(peak * v, at + 0.0004);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(at, Math.random() * 0.8, len + 0.02);
     };
-    tone(1500, 900, 0.012, 0.54, 0.001, 0.03);    // the tok
-    tone(420, 300, 0.02, 0.25, 0.0015, 0.03);     // its body
-    // The tick: a few ms of noise.
-    const src = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain();
-    src.buffer = noiseBuf(c);
-    bp.type = 'bandpass'; bp.frequency.value = 3000 * p; bp.Q.value = 1.5;
-    ng.gain.setValueAtTime(0.0001, t);
-    ng.gain.linearRampToValueAtTime(1.2 * v, t + 0.0005);
-    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.005);
-    src.connect(bp); bp.connect(ng); ng.connect(out);
-    src.start(t, Math.random() * 0.8, 0.02);
+    tick(t, 2600, 6, 2.4, 0.012);           // the press: crisp
+    tick(t, 1250, 4, 1.0, 0.016);           // its plastic
+    tick(t + 0.022, 3100, 7, 1.1, 0.009);   // the release: smaller
+    tick(t + 0.022, 1500, 4, 0.45, 0.012);
+    // The knock: a quick low sine, barely there.
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(260 * p, t);
+    o.frequency.exponentialRampToValueAtTime(150 * p, t + 0.02);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.16 * v, t + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(t + 0.05);
   }
 
   const SOUNDS = {

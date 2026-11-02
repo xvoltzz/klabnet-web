@@ -10481,7 +10481,8 @@
       background: none !important; border-color: transparent !important; box-shadow: none !important;
     }
     html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-new-playlist-btn, .nav-sub .music-playlist-row, #chatSide .chat-conv):hover { color: var(--text); }
-    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-playlist-row, #chatSide .chat-conv):active { opacity: .7; }
+    /* No press animation here: a row doesn't sink, dim or slide. */
+    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-new-playlist-btn, .nav-sub .music-playlist-row, #chatSide .chat-conv):active { transform: none !important; opacity: 1; }
     #sideNav :is(.tab-nav-btn > span:not(#socialUnreadBadge), .side-nav-item > span, .nav-sub .picker-tab > span, .nav-sub .music-new-playlist-btn > span, .music-playlist-row-name, #chatSide .chat-channel-name) {
       text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
       text-decoration-color: transparent; transition: text-decoration-color .15s, color .15s;
