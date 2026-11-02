@@ -108,15 +108,9 @@
   .label { font: 600 10px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text-dimmer); }
   h1 { font: 700 40px/1.1 var(--font-ui); letter-spacing: -0.03em; margin: 0 0 10px; }
   h1 span { color: var(--text-dimmer); }
-  .lede { font-size: 16px; line-height: 1.55; color: var(--text-dim); margin: 0 0 24px; max-width: 60ch; }
   .get { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
   .get-meta { font-size: 12.5px; color: var(--text-dimmer); font-variant-numeric: tabular-nums; min-height: 19px; }
   .get-alt { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-  .note {
-    margin-top: 18px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--glass);
-    font-size: 12.5px; color: var(--text-dim); max-width: 400px;
-  }
-  .note b { color: var(--text); font-weight: 600; }
 
   /* ── The app, as it looks on each system (real screenshots, desktop/shots/) ── */
   .look { padding: 8px 0 32px; }
@@ -136,11 +130,9 @@
   .shot[data-os="linux"] { border-radius: 14px; }
   .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s ease; }
   .shot img.on { opacity: 1; }
-  .shot-cap { margin-top: 10px; font-size: 12.5px; color: var(--text-dimmer); }
 
   h2 { font: 700 22px/1.2 var(--font-ui); letter-spacing: -0.02em; margin: 0 0 6px; }
   .sec { padding: 32px 0; }
-  .sec-sub { color: var(--text-dim); margin: 0 0 18px; }
   .sec > h2:only-of-type + .dls, .sec > h2 + .dls { margin-top: 14px; }
 
   /* ── Downloads ── */
@@ -165,14 +157,8 @@
   .dl-file.first { background: var(--text); color: var(--bg); border-color: transparent; }
   .dl-file.first svg, .dl-file.first span { color: var(--bg); opacity: .7; }
   .dl-file[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-  .dl-how { margin: auto 0 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--text-dim); display: flex; flex-direction: column; gap: 6px; }
-  .dl-how li { position: relative; padding-left: 16px; }
-  .dl-how li::before { content: '›'; position: absolute; left: 2px; color: var(--text-dimmer); font-family: var(--font-mono); }
 
-  /* ── Install steps ── */
-  .dl-note { margin: auto 0 0; font-size: 12.5px; color: var(--text-dim); }
-  .dl-note a, .lnk { color: var(--text); text-decoration: underline; text-decoration-color: var(--line-h); text-underline-offset: 3px; }
-  .dl-note a:hover, .lnk:hover { text-decoration-color: currentColor; }
+  /* ── Installing ── */
   .cmd {
     display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 6px 6px 6px 12px; border-radius: 8px;
     border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 70%, transparent); min-width: 0;
@@ -184,27 +170,15 @@
   .cmd.small { margin: 8px 0 4px; }
   .cmd.small code { font-size: 12px; }
   .get-cmd { width: 100%; max-width: 470px; margin-top: 14px; }
-  .get-or { font-size: 12.5px; color: var(--text-dimmer); }
   #howSeg { margin-bottom: 18px; }
   .how { border: 1px solid var(--line); border-radius: 10px; background: var(--glass); padding: 24px; }
   .how[hidden] { display: none; }
-  .how-fast b, .steps b, .how-more b { display: block; font-weight: 600; font-size: 15px; }
-  .how-fast p, .steps p, .how-more p { margin: 4px 0 0; color: var(--text-dim); font-size: 13.5px; max-width: 70ch; }
-  .how-fast { padding-bottom: 20px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
-  .how-fast .cmd { max-width: 760px; }
-  .how-or { font: 600 10px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text-dimmer); margin-bottom: 14px; }
-  .steps { list-style: none; margin: 0; padding: 0; counter-reset: s; display: grid; gap: 18px; }
-  .steps li { counter-increment: s; position: relative; padding-left: 40px; }
-  .steps li::before {
-    content: counter(s); position: absolute; left: 0; top: -1px; width: 26px; height: 26px; border-radius: 8px;
-    display: grid; place-items: center; font: 600 12.5px var(--font-ui); border: 1px solid var(--line); background: var(--glass-h);
-  }
-  .steps .cmd { max-width: 640px; }
-  .steps.opts li { padding-left: 0; }
-  .steps.opts li::before { display: none; }
+  .how-more b { display: block; font-weight: 600; font-size: 15px; }
+  .how-more p { margin: 4px 0 0; color: var(--text-dim); font-size: 13.5px; max-width: 70ch; }
   .how-more .wide-cell { grid-column: 1 / -1; }
-  .steps q, .steps i { font-style: normal; color: var(--text); }
-  .how-more { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 24px; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .how-more i { font-style: normal; color: var(--text); }
+  .how-more p code { font: 600 12px var(--font-mono); color: var(--text); }
+  .how-more { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 24px; }
   .how-more .cmd { max-width: none; }
   .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 40px 0 48px; color: var(--text-dimmer); font-size: 12.5px; border-top: 1px solid var(--line); margin-top: 32px; }
   .foot a:hover { color: var(--text); }
@@ -257,17 +231,14 @@
 
   <section class="hero">
     <h1>klabnet for desktop</h1>
-    <p class="lede">klabnet in its own window, for Windows, macOS and Linux. It's the same klabnet as the site, and it keeps playing your music when you close the window.</p>
     <div class="get">
       <a class="btn primary big" id="getBtn" href="#downloads"><svg><use href="#i-dl"/></svg><span>Download</span></a>
       <div class="get-meta" id="getMeta"></div>
       <div class="get-alt" id="getAlt"></div>
       <div class="get-cmd" id="getCmd" hidden>
-        <div class="get-or">Or paste this in a terminal:</div>
         <div class="cmd"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div>
       </div>
     </div>
-    <div class="note" id="note" hidden></div>
   </section>
 
   <section class="look">
@@ -282,7 +253,6 @@
       <img data-os="mac" src="shots/mac.webp" alt="klabnet on macOS" width="1440" height="900" loading="lazy" />
       <img data-os="linux" src="shots/linux.webp" alt="klabnet on Linux" width="1440" height="900" loading="lazy" />
     </div>
-    <div class="shot-cap" id="shotCap"></div>
   </section>
 
   <section class="sec" id="downloads">
@@ -290,38 +260,33 @@
     <div class="dls">
       <div class="dl" data-os="win">
         <div class="dl-head"><svg><use href="#i-win"/></svg><b>Windows</b><span class="dl-you">Your computer</span></div>
-        <div class="dl-req" data-req>Windows 10 and 11, 64-bit</div>
+        <div class="dl-req" data-req>10/11, x64</div>
         <div class="dl-files">
           <a class="dl-file" data-file="klabnet-setup.exe" href="klabnet-setup.exe" download><svg><use href="#i-dl"/></svg><b>Installer</b><span>.exe</span></a>
         </div>
-        <p class="dl-note">Installs for you alone, no admin needed, and updates itself. <a href="#install" data-how="win">How to install</a></p>
       </div>
       <div class="dl" data-os="mac">
         <div class="dl-head"><svg><use href="#i-mac"/></svg><b>macOS</b><span class="dl-you">Your computer</span></div>
-        <div class="dl-req" data-req>Apple silicon and Intel</div>
+        <div class="dl-req" data-req>arm64, x64</div>
         <div class="dl-files">
           <a class="dl-file" data-file="klabnet.dmg" data-arch="arm" href="klabnet.dmg" download><svg><use href="#i-dl"/></svg><b>Apple silicon</b><span>.dmg</span></a>
           <a class="dl-file" data-file="klabnet-intel.dmg" data-arch="x86" href="klabnet-intel.dmg" download><svg><use href="#i-dl"/></svg><b>Intel</b><span>.dmg</span></a>
         </div>
-        <p class="dl-note">Or install it with one line in Terminal, no security prompt. <a href="#install" data-how="mac">How to install</a></p>
       </div>
       <div class="dl" data-os="linux">
         <div class="dl-head"><svg><use href="#i-linux"/></svg><b>Linux</b><span class="dl-you">Your computer</span></div>
-        <div class="dl-req" data-req>x86-64: Plasma, GNOME, Hyprland and the rest</div>
+        <div class="dl-req" data-req>x86_64</div>
         <div class="dl-files">
           <a class="dl-file" data-file="klabnet.AppImage" data-kind="appimage" href="klabnet.AppImage" download><svg><use href="#i-box"/></svg><b>AppImage</b><span>Any distro</span></a>
           <a class="dl-file" data-file="klabnet.deb" data-kind="deb" href="klabnet.deb" download><svg><use href="#i-box"/></svg><b>.deb</b><span>Debian, Ubuntu</span></a>
           <a class="dl-file" data-file="klabnet.rpm" data-kind="rpm" href="klabnet.rpm" download><svg><use href="#i-box"/></svg><b>.rpm</b><span>Fedora</span></a>
         </div>
-        <p class="dl-note">Or one line in a terminal picks the right one for your distro, Arch included. <a href="#install" data-how="linux">How to install</a></p>
       </div>
     </div>
   </section>
 
-
   <section class="sec" id="install">
     <h2>Installing</h2>
-    <p class="sec-sub">From download to signed in.</p>
     <div class="seg" id="howSeg" role="group" aria-label="Instructions for">
       <span class="seg-pill"></span>
       <button type="button" data-os="win"><svg><use href="#i-win"/></svg>Windows</button>
@@ -330,54 +295,32 @@
     </div>
 
     <div class="how" data-os="win">
-      <ol class="steps">
-        <li><b>Download the installer</b><p><a class="lnk" href="klabnet-setup.exe" download>klabnet-setup.exe</a>, for Windows 10 and 11 (64-bit).</p></li>
-        <li><b>Open it</b><p>If Windows says <q>Windows protected your PC</q>, press <i>More info</i>, then <i>Run anyway</i>. klabnet installs for you alone (no admin needed), opens, and stays in the Start menu.</p></li>
-        <li><b>Sign in</b><p>Press <i>Sign in with browser</i>. Your browser opens klab.gg's sign-in, with your passkeys and password manager, and klabnet carries on once you're in.</p></li>
-      </ol>
       <div class="how-more">
-        <div><b>Updates</b><p>By itself: it downloads the next version in the background and installs it when klabnet restarts.</p></div>
-        <div><b>Removing it</b><p>Settings → Apps → Installed apps → klabnet → Uninstall.</p></div>
+        <div><b>Install</b><p>Per-user, no admin. SmartScreen: <i>More info</i> → <i>Run anyway</i>.</p></div>
+        <div><b>Updates</b><p>Automatic, applied on restart.</p></div>
+        <div><b>Uninstall</b><p>Settings → Apps → Installed apps → klabnet.</p></div>
       </div>
     </div>
 
     <div class="how" data-os="mac" hidden>
-      <div class="how-fast">
-        <b>The quick way</b>
-        <p>Open Terminal and paste this. It installs the build for your Mac into Applications and opens it, with no security prompt.</p>
-        <div class="cmd"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div>
-      </div>
-      <div class="how-or">Or by hand</div>
-      <ol class="steps">
-        <li><b>Download the one for your Mac</b><p><a class="lnk" href="klabnet.dmg" download>Apple silicon</a> or <a class="lnk" href="klabnet-intel.dmg" download>Intel</a>. Not sure? Apple menu → About This Mac: <q>Chip Apple M…</q> is Apple silicon, <q>Processor … Intel</q> is Intel.</p></li>
-        <li><b>Drag klabnet into Applications</b><p>Open the .dmg and drag klabnet onto the Applications folder beside it.</p></li>
-        <li><b>Let it open the first time</b><p>klabnet isn't signed by Apple yet, so macOS stops it once. Open System Settings → Privacy &amp; Security, scroll down and press <i>Open Anyway</i> beside klabnet. (On macOS 14 and earlier: right-click klabnet in Applications and pick Open.)</p></li>
-        <li><b>Sign in</b><p>Press <i>Sign in with browser</i>, sign in to klab.gg there, and you're in.</p></li>
-      </ol>
       <div class="how-more">
-        <div><b>Updates</b><p>Not by itself yet. Run the line above again, or download it again here.</p></div>
-        <div class="wide-cell"><b>Removing it</b><p>Drag klabnet from Applications to the Bin, or:</p><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh -s -- --uninstall</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div class="wide-cell"><b>Install</b><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div><b>By hand</b><p>Unsigned: System Settings → Privacy &amp; Security → <i>Open Anyway</i> (≤14: right-click → Open).</p></div>
+        <div><b>Updates</b><p>Not automatic. Rerun the install line.</p></div>
+        <div class="wide-cell"><b>Uninstall</b><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh -s -- --uninstall</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
       </div>
     </div>
 
     <div class="how" data-os="linux" hidden>
-      <div class="how-fast">
-        <b>The quick way</b>
-        <p>Paste this in a terminal. It picks the right package for your distro (.deb on Debian and Ubuntu, .rpm on Fedora and openSUSE, a build on Arch, the AppImage anywhere else), asks for your password to install it, and puts klabnet in your apps.</p>
-        <div class="cmd"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div>
-      </div>
-      <div class="how-or">Or by hand, by distro</div>
-      <ol class="steps opts">
-        <li><b>Debian, Ubuntu, Mint, Pop!_OS</b><p>Download <a class="lnk" href="klabnet.deb" download>klabnet.deb</a>, then:</p><div class="cmd small"><code>sudo apt install ./klabnet.deb</code><button type="button" class="btn copy" data-copy>Copy</button></div></li>
-        <li><b>Fedora</b><p>Download <a class="lnk" href="klabnet.rpm" download>klabnet.rpm</a>, then:</p><div class="cmd small"><code>sudo dnf install ./klabnet.rpm</code><button type="button" class="btn copy" data-copy>Copy</button></div><p>openSUSE: <code>sudo zypper install --allow-unsigned-rpm ./klabnet.rpm</code></p></li>
-        <li><b>Arch, EndeavourOS, CachyOS, Manjaro</b><p>Built on Arch's own Electron, as a pacman package:</p><div class="cmd small"><code>git clone https://git.klab.gg/xvoltzz/klabnet-desktop && cd klabnet-desktop && ./install.sh</code><button type="button" class="btn copy" data-copy>Copy</button></div></li>
-        <li><b>Anything else: the AppImage</b><p>Download <a class="lnk" href="klabnet.AppImage" download>klabnet.AppImage</a>; it runs anywhere and updates itself.</p><div class="cmd small"><code>chmod +x klabnet.AppImage && ./klabnet.AppImage</code><button type="button" class="btn copy" data-copy>Copy</button></div><p>If it won't start, install FUSE 2 (<code>libfuse2</code>; <code>libfuse2t64</code> on Ubuntu 24.04).</p></li>
-      </ol>
       <div class="how-more">
-        <div><b>Signing in</b><p>Press <i>Sign in with browser</i>. Staying signed in needs a keyring (GNOME Keyring, KWallet or KeePassXC), which most desktops have.</p></div>
-        <div><b>The tray</b><p>On GNOME, the tray icon needs the AppIndicator extension. Plasma and Hyprland's bars have it already.</p></div>
-        <div><b>Updates</b><p>The AppImage updates itself. A package: run the quick line again, or install the new one the same way.</p></div>
-        <div class="wide-cell"><b>Removing it</b><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh -s -- --uninstall</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div class="wide-cell"><b>Install</b><p>.deb on apt, .rpm on dnf/zypper, built from source on Arch, AppImage otherwise. Force one with <code>-s -- --deb</code>, <code>--rpm</code>, <code>--arch</code> or <code>--appimage</code>.</p><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div class="wide-cell"><b>Debian, Ubuntu</b><div class="cmd small"><code>sudo apt install ./klabnet.deb</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div class="wide-cell"><b>Fedora</b><div class="cmd small"><code>sudo dnf install ./klabnet.rpm</code><button type="button" class="btn copy" data-copy>Copy</button></div><p>openSUSE: <code>sudo zypper install --allow-unsigned-rpm ./klabnet.rpm</code></p></div>
+        <div class="wide-cell"><b>Arch</b><div class="cmd small"><code>git clone https://git.klab.gg/xvoltzz/klabnet-desktop && cd klabnet-desktop && ./install.sh</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
+        <div class="wide-cell"><b>AppImage</b><div class="cmd small"><code>chmod +x klabnet.AppImage && ./klabnet.AppImage</code><button type="button" class="btn copy" data-copy>Copy</button></div><p>Needs FUSE 2 (<code>libfuse2</code>, <code>libfuse2t64</code> on Ubuntu 24.04). Updates itself.</p></div>
+        <div><b>Requires</b><p>A keyring (GNOME Keyring, KWallet, KeePassXC). Tray on GNOME: AppIndicator extension.</p></div>
+        <div><b>Updates</b><p>AppImage: automatic. Packages: rerun the install line.</p></div>
+        <div class="wide-cell"><b>Uninstall</b><div class="cmd small"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh -s -- --uninstall</code><button type="button" class="btn copy" data-copy>Copy</button></div></div>
       </div>
     </div>
   </section>
@@ -426,17 +369,11 @@
   }
 
   // ── The screenshot: one per system ──
-  var CAPS = {
-    win: 'Windows 11: the title bar is klabnet\'s header, with Mica or Acrylic behind it.',
-    mac: 'macOS: the traffic lights sit in the sidebar, like Finder.',
-    linux: 'Linux: one look on Plasma, GNOME and Hyprland, with klabnet\'s own window buttons.',
-  };
   function show(o) {
     [].forEach.call(document.querySelectorAll('#seg button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.os === o)); });
     pill();
     $('shot').dataset.os = o;
     [].forEach.call(document.querySelectorAll('#shot img'), function (im) { im.classList.toggle('on', im.dataset.os === o); });
-    $('shotCap').textContent = CAPS[o];
   }
   function pill() {
     [].forEach.call(document.querySelectorAll('.seg'), function (seg) {
@@ -499,7 +436,7 @@
     [].forEach.call(document.querySelectorAll('.dl'), function (d) { d.classList.toggle('mine', d.dataset.os === os); });
     alt.innerHTML = '';
     if (!mine) {
-      btn.querySelector('span').textContent = phone ? 'Pick your computer below' : 'See the downloads';
+      btn.querySelector('span').textContent = 'Downloads';
       btn.setAttribute('href', '#downloads'); btn.removeAttribute('download');
       meta.textContent = 'For Windows, macOS and Linux';
       return;
@@ -510,7 +447,7 @@
     if (f === null) {
       btn.setAttribute('aria-disabled', 'true');
       btn.querySelector('span').textContent = 'Coming soon for ' + NAMES[os];
-      meta.textContent = 'Not out yet. The other platforms are below.';
+      meta.textContent = 'Not out yet';
       return;
     }
     btn.removeAttribute('aria-disabled');
@@ -534,18 +471,11 @@
     });
   }
 
-  function note() {
-    var n = $('note'), app = window.klabnetDesktop;
-    if (app && app.version) { n.innerHTML = 'You\'re in <b>klabnet ' + String(app.version).replace(/[<&]/g, '') + '</b> right now.'; n.hidden = false; }
-    else if (phone) { n.innerHTML = 'This is the app for computers. On your phone, klabnet works right in the browser.'; n.hidden = false; }
-  }
-
   // ── Off we go ──
   show(os || 'win');
   how(os || 'win');
   // On a Mac or Linux, the one line goes right under the big button.
   if (os === 'mac' || os === 'linux') $('getCmd').hidden = false;
-  note();
   paint();
   var asks = ['klabnet-setup.exe', 'klabnet.dmg', 'klabnet-intel.dmg', 'klabnet.AppImage', 'klabnet.deb', 'klabnet.rpm'].map(head)
     .concat([feed('latest.yml', 'win'), feed('latest-mac.yml', 'mac'), feed('latest-linux.yml', 'linux')]);
