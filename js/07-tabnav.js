@@ -1075,9 +1075,8 @@ window.klabPane = (function() {
   navigator.windowControlsOverlay?.addEventListener?.('geometrychange', syncTitlebar);
   document.addEventListener('DOMContentLoaded', syncTitlebar);
 
-  // ── GNOME header bar: Adwaita's window buttons, drawn here ──
-  // Placed the way GNOME's button-layout setting says (the app reads it):
-  // stock GNOME is just close, on the right.
+  // ── Linux header bar: the window buttons, drawn here ──
+  // Placed the way the desktop's button layout says (the app reads it).
   const chrome = app.chrome();
   const wcApi = app.windowControls;
   if (chrome.headerbar && wcApi) {
@@ -1185,9 +1184,6 @@ window.klabPane = (function() {
       mat.innerHTML = '<button type="button" data-v="vibrancy">Vibrancy</button><button type="button" data-v="none">Solid</button>';
       text('appMaterialSub', 'Let the desktop show through the sidebar, like Finder');
     }
-    const frameRow = $('appFrameRow');
-    if (frameRow) frameRow.hidden = settings.platform !== 'linux' || kde;
-    document.querySelectorAll('#appFrame button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (settings.linuxFrame || 'auto'))));
     $('appTrayToggle')?.classList.toggle('on', !!settings.closeToTray);
     const row = $('appMaterialRow');
     if (row) row.hidden = !settings.canMaterial;
@@ -1232,16 +1228,6 @@ window.klabPane = (function() {
     if (settings?.platform === 'linux' && settings.shell !== 'kde' && b.getAttribute('aria-pressed') !== 'true') $('appMaterialSub').textContent = 'Restarting klabnet…';
     settings = await app.setSetting('material', b.dataset.v);
     render();
-  });
-
-  // Linux window style: changing it restarts the app (a window's frame is
-  // fixed when it's made).
-  $('appFrame')?.addEventListener('click', async e => {
-    const b = e.target.closest('button[data-v]');
-    if (!b || b.getAttribute('aria-pressed') === 'true') return;
-    SFX && SFX.play('click');
-    $('appFrameSub').textContent = 'Restarting klabnet…';
-    await app.setSetting('linuxFrame', b.dataset.v);
   });
 
   $('appUpdateBtn')?.addEventListener('click', async () => {
