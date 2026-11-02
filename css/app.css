@@ -10493,6 +10493,12 @@
     #sideNav :is(.tab-nav-btn.active > span:not(#socialUnreadBadge), .nav-sub .picker-tab.active > span, .music-playlist-row.active .music-playlist-row-name, #chatSide .chat-conv.active .chat-channel-name) {
       text-decoration-thickness: 2px; text-decoration-color: rgb(var(--accent-rgb));
     }
+    /* The sections' names clip (for the …) at a tight line height, which
+       cut the underline off: room under them, taken back by the margin
+       so nothing moves. */
+    #sideNav :is(.nav-sub .picker-tab > span, .nav-sub .music-new-playlist-btn > span, .music-playlist-row-name, #chatSide .chat-channel-name) {
+      padding-block: 2px 7px; margin-block: -2px -7px;
+    }
     /* A page whose section is lit: its own row stays bright, not underlined (one mark in the sidebar). */
     html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
       text-decoration-color: transparent;
