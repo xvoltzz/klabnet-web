@@ -1,87 +1,93 @@
 # klabnet
 
-The personal dashboard for the KLAB homelab — a single-page terminal-styled home screen serving as the front door to every self-hosted service, with an integrated music player, live presence, and admin-managed app tiles.
+The KLAB homelab's own app: music, chat, a feed, photos and a radio for a group of friends, as one site at [`user.klab.gg`](https://user.klab.gg) (staged at `staging.klab.gg`, both behind Authentik). The same site is the inside of [klabnet-desktop](https://git.klab.gg/xvoltzz/klabnet-desktop) (Windows, macOS, Linux) and the phone apps.
 
-Live at [`user.klab.gg`](https://user.klab.gg) · staged at `staging.klab.gg` — both gated behind Authentik.
+![Music](docs/shots/music.webp)
 
----
+## What's in it
 
-## What it does
+**Home.** Who's online and who isn't, what they're playing, and everyone's notes floating about. Beside it, the changelog: the newest commits to this repo and the API, with their whole messages.
 
-- **App launcher grid** — tiles linking out to every service in the homelab (Immich, Nextcloud, Jellyfin, qBittorrent, Proxmox, Gitea, etc.), hardcoded in `index.html`, with live status dots and drag-to-reorder edit mode for admins.
-- **Full music player** — talks directly to Navidrome over the Subsonic API: browse by album/artist/genre, search, queue, playlists, favorites, play history, synced lyrics, and a fullscreen "now playing" view with album-art-driven accent color extraction.
-- **Presence** — an always-visible "// users" panel showing who else is online and what they're listening to, polling every 8 seconds.
-- **Identity & preferences** — reads the logged-in user's identity and admin status from Authentik (via `X-Authentik-Username` / `X-Authentik-Groups` headers passed through Caddy), and persists per-user preferences server-side.
-- **Personality touches** — a terminal-style typing intro, Minecraft-style rotating MOTD splash text, light/dark themes, and Frutiger Aero–inspired UI sound effects.
+![Home](docs/shots/home.webp)
 
-## Stack
+**Music**, on [Navidrome](https://www.navidrome.org/) over the Subsonic API:
+- Cover Flow of new albums, and browsing with an A–Z rail, filters and a virtual list of the whole library.
+- Playlists with covers that other people can see, save and add to.
+- Synced lyrics and a full-screen player, with high-res art looked up from iTunes, Deezer and the Cover Art Archive (display only).
+- Requests, and an Activity page of who's listening to what.
+- **One player across devices**, like Spotify: one device plays and the rest are its remote. Play here moves the sound.
+- **Radio**, GTA-style: anyone uploads a station as one long mix, and everyone tuned in hears the same moment, synced to the API's clock. Tune it on an FM dial in the player.
 
-- Single static `index.html` — vanilla JS, no build step, no framework.
-- **Backend:** `klabnet-api` (FastAPI, separate service on `192.168.0.37:8765`) — handles `/api/me`, `/api/prefs`, `/api/presence`, etc.
-- **Auth:** Authentik, enforced at the Caddy layer via `forward_auth` — the page itself trusts the identity headers Caddy injects after a successful auth check.
-- **Music:** Navidrome (Subsonic API) at `music.klab.gg`.
-- **Games → Minecraft:** the klabcraft dashboard's viewer pages (`mc.klab.gg`), through Caddy's `/api/mc/` route to it. See CLAUDE.md.
-- **Serving:** Caddy, `file_server` off a plain directory — no server-side rendering.
+**Social** is Feed, Photos and Chat on one page.
+- **Feed**: posts with markdown, pictures, GIFs, a song (from a moment: "listen from 1:32", with the lyric), @mentions, replies and reactions.
+- **Photos**: a timeline with a filmstrip scrubber, EXIF, tags, a song per post and a slideshow.
+- **Chat** is [Matrix](https://matrix.org/) (Synapse): channels and DMs, reactions, listen-along, and muting a conversation (a push rule).
+- **Voice channels** on a self-hosted [LiveKit](https://livekit.io/): drop in like Discord, with push to talk.
+- Custom `:emoji:` and a picker next to its button. Star anything; five ⭐ turns it gold.
 
-## Repository layout
+**Profiles**: someone's banner, note, bio and what they're playing; their posts, photos and gold moments; and what they listen to.
+
+![Profile](docs/shots/profile.webp)
+
+**The recap** (the bell): replies, mentions, reactions and messages for you, and what's been posted, shared, featured or put on air since you last looked.
+
+![Recap](docs/shots/recap.webp)
+
+**Looks.** Dark, Light (a coloured frame round a white page), and Sky, where the window is the sky at the local time and the app is glass over it. Also OLED black and a Performance mode. In the desktop app it looks native on each system, with its own look on Linux.
+
+| Light | Sky (sunset) |
+|---|---|
+| ![Light](docs/shots/light.webp) | ![Sky](docs/shots/sky.webp) |
+
+It's made for a mouse and keyboard: `/` searches, Tab changes page, ←/→ and ↑/↓ walk the sidebar, `b` hides it, `?` lists the rest. The prompt in the title bar is a tiny shell (`cd`, `ls`, `help`). Phones get their own layout.
+
+## How it's built
+
+- **No build step.** `index.html` loads `css/app.css` and `js/NN-*.js` as classic deferred scripts that share globals, in order; later files wrap earlier functions. Vanilla JS, no framework.
+- **Versioned assets.** Every JS/CSS URL carries `?v=<KLABNET_VERSION>`, and a service worker serves them cache-first. Bump the version on every change (`./check-version.sh` checks it).
+- **Icons** are a subset of [Tabler](https://tabler.io/icons) built from what's used: `scripts/build-icons.py`.
+- **Backend:** [klabnet-api](https://git.klab.gg/xvoltzz/klabnet-api), FastAPI + SQLite. It handles prefs, presence, posts, photos, playlists, the play session, radio, voice tokens, emoji, the recap, feedback and the changelog.
+- **Auth:** Authentik `forward_auth` at Caddy. The site and API trust the identity headers Caddy adds.
+- **Serving:** Caddy `file_server` off a checkout. Caddy forwards only a fixed list of `/api` prefixes, so new routes ride existing ones.
+- `desktop/` is the download page for the desktop app (user.klab.gg/desktop/).
 
 ```
-index.html    — the entire application
-klab.png      — favicon / branding
+index.html         the page
+css/app.css        everything's styles, in dated blocks
+css/icons.css      the icon subset (generated)
+js/00-util.js …    the app, in load order
+js/vendor/         LiveKit's client and the emoji data, fetched when first needed
+sw.js              the service worker
+desktop/           the desktop app's download page
+docs/shots/        these screenshots
+CLAUDE.md          how each part works and why; read it before changing one
 ```
 
-## Deployment
+## Deploying
 
-This repo uses a **push-to-deploy** git workflow instead of manual file transfer. Three environments, three remotes:
+Push to deploy. Four remotes:
 
-| Remote    | Target                                      | Purpose                                  |
-|-----------|----------------------------------------------|-------------------------------------------|
-| `origin`  | Gitea (`git.klab.gg`)                        | Primary archive / source of truth         |
-| `github`  | GitHub                                       | Mirror / off-site backup                  |
-| `staging` | `/home/klab/staging-web` → `staging.klab.gg` | Pre-flight testing with real Authentik + API |
-| `prod`    | `/home/klab/web` → `user.klab.gg`            | Live site                                 |
+| Remote | Where | What for |
+|---|---|---|
+| `origin` | Gitea, `git.klab.gg` | source of truth |
+| `github` | GitHub | mirror |
+| `staging` | `/home/klab/staging-web` → `staging.klab.gg` | testing with the real Authentik and API |
+| `prod` | `/home/klab/web` → `user.klab.gg` | live |
 
-`staging` and `prod` are bare repos on `klab-wv-core` with a `post-receive` hook that checks the pushed commit directly into the live-served directory:
+`staging` and `prod` are bare repos on the web host. A `post-receive` hook checks the pushed commit out into the served directory:
 
 ```bash
 git --work-tree=/home/klab/web --git-dir=/home/klab/repos/klabnet-web.git checkout -f main
 ```
 
-Staging exists because opening the raw HTML locally breaks anything that depends on Authentik or the API — both require a real domain behind the real Caddy/Authentik chain. Staging is that chain, just pointed at a second directory and gated by its own Authentik provider.
-
-### Day-to-day workflow
-
 ```bash
-git add -A
-git commit -m "..."
-git push staging main    # test at staging.klab.gg
-git push prod main       # ship it
-git push origin main     # archive to Gitea
-git push github main     # mirror to GitHub
+git push staging main   # try it
+git push prod main      # ship it
+git push origin main && git push github main
 ```
 
-In VS Code, these are wired up as tasks (`.vscode/tasks.json`) since the Source Control UI doesn't reliably prompt for the SSH key passphrase on `staging`/`prod`:
+To roll back, `git revert <hash>` and push `prod`.
 
-- **Push All** — pushes to all four remotes (default build task, `Ctrl+Shift+B`)
-- **Deploy: Staging** / **Deploy: Prod** — single-target pushes
+## Running it locally
 
-Run via `Ctrl+Shift+P` → **Tasks: Run Task**.
-
-### Rollback
-
-```bash
-git revert <bad-commit-hash>
-git push prod main
-```
-
-Or, for an immediate fix directly on the server:
-
-```bash
-cd /home/klab/web
-git log --oneline
-git checkout <hash> -- .
-```
-
-## Local development
-
-There's no local dev server that fully replicates the site — the Authentik forward-auth and internal `/api/*` calls only work behind the real Caddy chain. Edit `index.html` directly and use `staging.klab.gg` as your test environment rather than a local preview.
+Everything real is behind Authentik, so local runs use a mock: a static server for this repo, klabnet-api behind a small wrapper that takes the user from a header in place of Authentik, and a fake Navidrome. The pages are driven and screenshotted in headless Chrome. See CLAUDE.md, "Testing without the real site".
