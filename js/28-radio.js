@@ -74,7 +74,12 @@
     if (!force && Date.now() - loadedAt < 15000 && stations.length) return stations;
     try {
       const r = await fetchTimeout(API, {}, 8000);
-      if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) { stations = []; loadedAt = 0; return null; }
+      // No radio on this API: no stations. Anything else that isn't an
+      // answer (a 502 while the API restarts) keeps the list it had: an
+      // emptied one put whoever was tuned in on full static until the
+      // Radio page's next tick.
+      if (r.status === 404 || r.status === 405) { stations = []; loadedAt = 0; return null; }
+      if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return null;
       const d = await r.json();
       stations = d.stations || [];
       loadedAt = Date.now();
@@ -85,6 +90,12 @@
   }
 
   // ── Tuning in ──
+  // The radio stops the music only where the radio is. On a remote (js/23-
+  // session.js) the music is another device's, maybe in another room, and
+  // pausing the stand-in would have paused it there.
+  function pauseMusicHere() {
+    if (!window.klabSession?.mirror && !playerState.audio.paused) playerState.audio.pause();
+  }
   const mainVolume = () => playerState.audio.muted ? 0 : Math.max(0, Math.min(1, playerState.volume ?? 0.8));
   function volume() {
     audio.volume = Math.max(0, Math.min(1, mainVolume() * level));
@@ -95,7 +106,9 @@
   // Music playing takes over from the radio. Not the made-up play events
   // of a remote (js/23-session.js fires them as another device's news
   // arrives): only music starting here.
-  playerState.audio.addEventListener('play', () => { if (power && !window.klabSession?.mirror && !playerState.audio.muted && playerState.audio.volume > 0) off(); });
+  // At any volume: a silent Play left both on, and turning it up then
+  // played the two together.
+  playerState.audio.addEventListener('play', () => { if (power && !window.klabSession?.mirror) off(); });
 
   // Where the station is, in the element's own timeline.
   const elPos = s => posOf(s) * stretch;
@@ -129,7 +142,7 @@
     if (tuned === id && !audio.paused) { volume(); paintNow(); return; }
     if (tuning === id) return;
     tuning = id;
-    if (!playerState.audio.paused) playerState.audio.pause();
+    pauseMusicHere();
     if (!opts.fromDial) staticBurst();
     // The list's clock does until the proper one's in; waiting for it here
     // would put play() too far from the tap for a phone to allow it.
@@ -597,7 +610,7 @@
   async function tuneTo(s) {
     if (!s) return;
     if (!dock.on()) await dock.set(true, true);
-    if (!power) { power = true; if (!playerState.audio.paused) playerState.audio.pause(); }
+    if (!power) { power = true; pauseMusicHere(); }
     if (dialShowing()) goTo(s.frequency);
     else tune(s.id);
   }
@@ -610,7 +623,7 @@
   }
   function powerOn() {
     power = true;
-    if (!playerState.audio.paused) playerState.audio.pause();
+    pauseMusicHere();
     needleAt(dialFreq, null, true);
   }
   function togglePower() {
@@ -947,10 +960,15 @@
       else if (act === 'manage') openManage();
     }
 
+    // An album, artist or playlist page open over it, or another tab:
+    // the page is still "showing" underneath, but it isn't what you're on.
+    // ← stepped the sidebar there and turned the radio on instead, and
+    // the chat went on being polled every 3s behind it.
+    const covered = () => document.body.classList.contains('ap-open') || !document.body.classList.contains('tab-music-active');
     // Keys while it's showing. Ahead of the player's own (←/→ and Space are
     // its previous, next and play).
     document.addEventListener('keydown', e => {
-      if (!showing || !el || e.metaKey || e.ctrlKey || e.altKey || typing() || !wheel.hidden) return;
+      if (!showing || !el || e.metaKey || e.ctrlKey || e.altKey || typing() || !wheel.hidden || covered()) return;
       if (document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open')) return;
       const k = e.key;
       if (k === 'ArrowLeft' || k === 'ArrowRight') {
@@ -977,7 +995,7 @@
       clearInterval(tick);
       ticks = 0;
       tick = setInterval(() => {
-        if (!showing || document.hidden) return;
+        if (!showing || document.hidden || covered()) return;
         if (pickerTab !== 'radio') { leave(); return; }
         if (!el || !pickerList.contains(el)) return;
         ticks++;
@@ -1056,7 +1074,13 @@
       // A hidden page isn't the dial going away (the screen's off, another tab).
       if (document.hidden) return;
       const vis = visible();
-      if (vis) { pane.dataset.key = ''; needleAt(dialFreq, dialV, true); }
+      // The needle only when the dial comes back into view. Every second
+      // it cleared the drop timer (a station lost to static never let go,
+      // its mix playing on at nothing), tuned in whatever a sweep was
+      // passing, and rebuilt the art. Otherwise just what's on, repainted
+      // only if it changed (the track is in paint()'s key).
+      if (vis && !wasVisible) needleAt(dialFreq, dialV, true);
+      else if (vis) { const s = nearest(dialFreq); paint(s, s ? strength(Math.abs(s.frequency - dialFreq)) : 0); }
       else if (wasVisible) dialGone();
       wasVisible = vis;
     }
@@ -1096,7 +1120,8 @@
     };
   })();
   // Music playing takes the dock back.
-  playerState.audio.addEventListener('play', () => { if (dock.on() && !playerState.audio.muted) dock.set(false, true); });
+  // Not a remote's made-up play events: the radio would play on with the dock flipped back.
+  playerState.audio.addEventListener('play', () => { if (dock.on() && !window.klabSession?.mirror && !playerState.audio.muted) dock.set(false, true); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { staticWanted = 0; setStatic(0); } else if (power && dialShowing()) needleAt(dialFreq, null, true); });
 
   // The old name the rest of this file uses for "the dials".

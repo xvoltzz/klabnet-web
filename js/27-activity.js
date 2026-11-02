@@ -99,6 +99,7 @@
     '</div>';
   }
 
+  let lastHTML = '';
   function render() {
     if (!showing) return;
     const list = pickerList;
@@ -113,7 +114,14 @@
     if (now.length) html += '<div class="picker-section-label">Listening now</div><div class="act-now-grid">' + now.map(nowCard).join('') + '</div>';
     if (counted.length) html += '<div class="picker-section-label">People</div><div class="act-people">' + counted.map(personCard).join('') + '</div>';
     if (!now.length && !counted.length) html += '<div class="picker-empty">Nothing played yet. Activity fills in as people listen.</div>';
-    list.innerHTML = html + '</div>';
+    html += '</div>';
+    // Every 10s the same page came back, and rebuilding it lost focus and
+    // hover and made the covers blink. step() moves the bars between.
+    // (Compared without the running times and bars, which always differ.)
+    const same = html.replace(/act-t-at">[^<]*|width:[\d.]+%/g, '');
+    if (same === lastHTML && list.querySelector('.act-page')) { step(); return; }
+    lastHTML = same;
+    list.innerHTML = html;
     document.getElementById('musicViewSub').textContent = now.length ? klabCount(now.filter(p => p.now.playing).length, 'person', 'people') + ' listening' : '';
   }
 
@@ -128,11 +136,16 @@
       const fill = card.querySelector('.act-fill'), at = card.querySelector('.act-t-at');
       if (fill) fill.style.width = Math.min(100, pos / p.now.duration * 100).toFixed(2) + '%';
       if (at) at.textContent = clock(pos);
-      // Past the end: the next song will be in the next poll; ask now.
-      if (pos >= p.now.duration && performance.now() - gotAt > 2000) load();
+      // Past the end: the next song will be in the next poll; ask now,
+      // once per song (a device that slept mid-song goes on saying it's
+      // playing, and this asked every two seconds), and not again while
+      // the API is failing.
+      const ask = p.username + '|' + p.now.songId + '|' + p.now.position;
+      if (pos >= p.now.duration && performance.now() - gotAt > 2000 && !askedEnd.has(ask) && !failed) { askedEnd.add(ask); load(); }
     });
   }
 
+  const askedEnd = new Set();
   let loading = null;
   function load() {
     if (loading) return loading;

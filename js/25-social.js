@@ -302,31 +302,59 @@
       const c = p.song?.coverArt;
       return c && typeof ND_URL !== 'undefined' ? ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(c) + '&size=' + klabArtSize(300) + '&' + subsonicParams() : null;
     }
+    // One card per post, kept while it's the same: every avatar or picture
+    // that arrived used to rebuild all fifty and put the wall back to its
+    // first rows, so the page shrank under you and lost your place.
+    const built = new Map(); // post id -> { key, el }
     let lastKey = '';
+    function cardHTML(p) {
+      const reacts = Object.values(p.reactions || {}).reduce((n, r) => n + (r.count || 0), 0);
+      const text = plain(p.text) || (p.image_mxc ? 'Posted a picture' : p.song ? 'Shared ' + (p.song.title || 'a song') : '');
+      // A few words on their own read big, as in the Feed.
+      const short = !pic(p) && text.length <= 80;
+      return '<div class="soc-post' + (short ? ' short' : '') + '" role="link" tabindex="0" data-post="' + p.id + '">' +
+        '<div class="soc-post-who">' + avatar(p.username) +
+          '<span class="soc-post-name" style="color:' + (typeof profileColor === 'function' ? profileColor(p.username) : 'inherit') + '">' + esc(p.username) + '</span>' +
+          '<span class="soc-post-when" data-t="' + apiTime(p.created) + '">' + klabRelativeTime(apiTime(p.created)) + '</span></div>' +
+        '<div class="soc-post-text">' + esc(text) + '</div>' +
+        (pic(p) ? '<div class="soc-post-pic"><img src="' + esc(pic(p)) + '" alt="" loading="lazy" /></div>' : '') +
+        '<div class="soc-post-meta">' +
+          (p.reply_count ? '<span><i class="ti ti-message-circle"></i>' + p.reply_count + '</span>' : '') +
+          (reacts ? '<span><i class="ti ti-mood-smile"></i>' + reacts + '</span>' : '') + '</div>' +
+      '</div>';
+    }
     function render(list) {
       if (!list) return;
       if (!roomy.matches) list = list.slice(0, 12);
-      const key = list.map(p => p.id + ':' + (p.reply_count || 0) + ':' + !!window.klabResolveUserAvatar?.(p.username) + ':' + (pic(p) || '')).join('|');
+      const keyOf = p => p.id + ':' + p.text + ':' + (p.reply_count || 0) + ':' + JSON.stringify(p.reactions || {}) + ':' + !!window.klabResolveUserAvatar?.(p.username) + ':' + (pic(p) || '');
+      const keys = list.map(keyOf);
+      const key = keys.join('|');
       if (key === lastKey) { refreshTimes(); return; }
       lastKey = key;
-      row.innerHTML = list.length ? list.map(p => {
-        const reacts = Object.values(p.reactions || {}).reduce((n, r) => n + (r.count || 0), 0);
-        const text = plain(p.text) || (p.image_mxc ? 'Posted a picture' : p.song ? 'Shared ' + (p.song.title || 'a song') : '');
-        // A few words on their own read big, as in the Feed.
-        const short = !pic(p) && text.length <= 80;
-        return '<div class="soc-post' + (short ? ' short' : '') + '" role="link" tabindex="0" data-post="' + p.id + '">' +
-          '<div class="soc-post-who">' + avatar(p.username) +
-            '<span class="soc-post-name" style="color:' + (typeof profileColor === 'function' ? profileColor(p.username) : 'inherit') + '">' + esc(p.username) + '</span>' +
-            '<span class="soc-post-when" data-t="' + apiTime(p.created) + '">' + klabRelativeTime(apiTime(p.created)) + '</span></div>' +
-          '<div class="soc-post-text">' + esc(text) + '</div>' +
-          (pic(p) ? '<div class="soc-post-pic"><img src="' + esc(pic(p)) + '" alt="" loading="lazy" /></div>' : '') +
-          '<div class="soc-post-meta">' +
-            (p.reply_count ? '<span><i class="ti ti-message-circle"></i>' + p.reply_count + '</span>' : '') +
-            (reacts ? '<span><i class="ti ti-mood-smile"></i>' + reacts + '</span>' : '') + '</div>' +
-        '</div>';
-      }).join('') : '<div class="soc-home-empty">No posts yet.</div>';
-      cards = [...row.children];
-      shown = 0;
+      if (!list.length) {
+        built.clear();
+        row.innerHTML = '<div class="soc-home-empty">No posts yet.</div>';
+        cards = []; shown = 0; wall.textContent = '';
+        return;
+      }
+      const tmp = document.createElement('div');
+      const seen = new Set();
+      cards = list.map((p, i) => {
+        seen.add(p.id);
+        let b = built.get(p.id);
+        if (!b || b.key !== keys[i]) {
+          tmp.innerHTML = cardHTML(p);
+          const el = tmp.firstElementChild;
+          b?.el.replaceWith(el); // in place, wherever the wall has it
+          built.set(p.id, b = { key: keys[i], el });
+        }
+        return b.el;
+      });
+      for (const [id, b] of built) if (!seen.has(id)) { b.el.remove(); built.delete(id); }
+      row.querySelector('.soc-home-empty')?.remove();
+      // In the flick row (phones) the order is the list's; on the wall,
+      // place() deals them into columns again, as many as were showing.
+      if (!roomy.matches) cards.forEach(c => row.appendChild(c));
       settleUntil = performance.now() + 1500;
       fit();
       edges();
@@ -349,6 +377,45 @@
     if (active) posts.render(window.klabFeedPosts?.(posts.max) || list);
   };
 
+  // Unread messages, first thing on Social's home: the conversations
+  // with something new, each one a press away. Before this, Social's
+  // badge was the only sign, and nothing on the page said where to go.
+  const unread = (() => {
+    const head = label('Unread messages');
+    const el = document.createElement('div');
+    el.className = 'soc-unread';
+    el.setAttribute('role', 'list');
+    head.hidden = el.hidden = true;
+    el.addEventListener('click', e => {
+      const row = e.target.closest('[data-room]');
+      if (!row) return;
+      SFX?.play('nav');
+      openChatRoom(row.dataset.room);
+    });
+    let lastKey = '';
+    function render() {
+      const list = (window.klabChatUnread?.() || []).slice(0, 6);
+      const key = list.map(c => c.roomId + ':' + c.ts + ':' + c.text).join('|');
+      if (key === lastKey) { el.querySelectorAll('[data-t]').forEach(t => { t.textContent = klabRelativeTime(+t.dataset.t); }); return; }
+      lastKey = key;
+      head.hidden = el.hidden = !list.length;
+      el.innerHTML = list.map(c => {
+        const face = c.isDm && window.klabResolveUserAvatar?.(c.user);
+        const color = c.isDm && typeof profileColor === 'function' ? profileColor(c.user || c.name) : '';
+        const lead = c.isDm
+          ? '<span class="soc-unread-face" style="--c:' + color + '">' + (face ? '<img src="' + esc(face) + '" alt="" />' : esc((c.user || c.name || '?')[0].toUpperCase())) + '</span>'
+          : '<span class="soc-unread-face hash">#</span>';
+        return '<button type="button" class="soc-unread-row" role="listitem" data-room="' + esc(c.roomId) + '" data-silent>' + lead +
+          '<span class="soc-unread-tx"><span class="soc-unread-top"><span class="soc-unread-name"' + (color ? ' style="color:' + color + '"' : '') + '>' + esc(c.isDm ? (c.user || c.name) : c.name) + '</span>' +
+          (c.ts ? '<span class="soc-unread-when" data-t="' + c.ts + '">' + klabRelativeTime(c.ts) + '</span>' : '') + '</span>' +
+          '<span class="soc-unread-last">' + esc(c.text) + '</span></span></button>';
+      }).join('');
+    }
+    return { head, el, render };
+  })();
+  window.klabChatUnreadChanged = () => { if (active) unread.render(); };
+
+  body.append(unread.head, unread.el);
   if (photos) body.append(label('New photos'), photos.el, photos.empty);
   body.append(label('Latest posts'), posts.el);
 
@@ -359,6 +426,7 @@
   let timer = 0;
   function refresh() {
     if (!active || document.hidden) return;
+    unread.render();
     photos?.load();
     posts.load();
     paintSub();

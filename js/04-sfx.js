@@ -65,8 +65,13 @@ const SFX = (() => {
       verb.connect(conv); conv.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
+    // Asleep between sounds: a running context (its compressor and reverb)
+    // kept the audio thread awake all session, sound or not.
+    clearTimeout(sleepT);
+    sleepT = setTimeout(() => { if (ctx.state === 'running') ctx.suspend().catch(() => {}); }, 5000);
     return ctx;
   }
+  let sleepT = 0;
 
   // Browsers only start audio inside a user gesture.
   let _unlocked = false;

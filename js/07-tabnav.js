@@ -33,6 +33,17 @@ document.querySelectorAll('#settingsBackdrop button.s-toggle').forEach(button =>
 // frame of not-yet-updated content is never visible.
 function afterSwitchPaints(fn) { requestAnimationFrame(() => setTimeout(fn, 0)); }
 
+// Games is behind Settings → Experimental features, off by default. Its
+// button starts hidden in the markup, so isTabEnabled() and every Tab,
+// number key, hash and `cd` already leave it out until it's on.
+function syncGamesEnabled() {
+  const on = !!_settings.games;
+  const btn = document.querySelector('.tab-nav-btn[data-tab-target="games"]');
+  if (btn) btn.hidden = !on;
+  const t = document.getElementById('gamesToggle');
+  if (t) { t.classList.toggle('on', on); t.setAttribute('aria-checked', String(on)); }
+  if (!on && document.body.classList.contains('tab-games-active')) setActiveTab('home');
+}
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${topTab(key)}"]`);
   return !!btn && !btn.hidden;
@@ -85,6 +96,8 @@ function setActiveTab(key) {
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
   if (key === 'feed' && typeof window.klabFeedShown === 'function') afterSwitchPaints(window.klabFeedShown);
+  // Voice's channels show on Chat: who's in them, fresh, not up to 30s old.
+  if (key === 'chat' && enteringChat) afterSwitchPaints(() => window.klabVoice?.refresh());
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
   if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
   // Games opens its connection to the server while it's up (js/29-games-mc.js).
@@ -174,6 +187,7 @@ function initTabs() {
     if (document.querySelector(`.tab-panel[data-tab-panel="${CSS.escape(key)}"]`)?.classList.contains('active')) return;
     setActiveTab(key);
   });
+  syncGamesEnabled();
   setActiveTab(location.hash.slice(1) || 'home');
 }
 // initTabs() runs from js/09-music-extras.js: if anything before it threw
@@ -203,6 +217,7 @@ function openSettings() {
   syncAwayRow();
   syncLowFxRow();
   syncOledRow();
+  syncGamesEnabled();
   syncGlassRow();
   syncThemeRow();
   window.syncAppSettings?.(); // inside klabnet for Windows only
@@ -317,6 +332,14 @@ document.getElementById('oledToggle')?.addEventListener('click', e => {
   document.documentElement.classList.toggle('oled', _settings.oled);
   if (_settings.oled && currentTheme !== 'dark') applyTheme('dark');
   syncOledRow();
+}, true);
+
+document.getElementById('gamesToggle')?.addEventListener('click', e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  _settings.games = !_settings.games;
+  saveSettings();
+  syncGamesEnabled();
 }, true);
 
 // Window glass: html.glass-aero (applied at load by the <head> script).
@@ -646,7 +669,7 @@ trapFocusWithin(
   }, { passive: true });
   document.addEventListener('keydown', e => {
     // Not while typing: a "2" in a message isn't a tab shortcut.
-    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.composedPath()[0]?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
     if (e.key === 'Tab' || /^[1-9]$/.test(e.key)) open();
   }, true);
   nav.addEventListener('focusin', open);
@@ -766,11 +789,18 @@ window.klabSideNav = (function() {
   });
   // An opened-over-the-page sidebar closes once you've picked something,
   // clicked elsewhere, or pressed Escape.
-  nav.addEventListener('click', e => { if (e.target.closest('.tab-nav-btn')) close(); });
+  // A section, playlist or conversation counts too (they're rows inside
+  // #tabNav): picking one left the sidebar over the page.
+  nav.addEventListener('click', e => { if (e.target.closest('.tab-nav-btn, .nav-sub :is(.picker-tab, .chat-conv, .music-playlist-row)')) close(); });
   document.addEventListener('pointerdown', e => {
     if (root.classList.contains('nav-flyout') && !side.contains(e.target) && !burger.contains(e.target)) close();
   }, true);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  // Escape that a dialog or menu already used isn't for the sidebar; Tab
+  // and the number keys change page, which the sidebar was for.
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !e.defaultPrevented) close();
+    else if (/^[1-9]$|^Tab$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.composedPath()[0]?.closest?.('input, textarea, select, [contenteditable]')) close();
+  });
 
   // The sidebar opening or folding: its width animates (the CSS), and the
   // page beside it takes its new place at once, then slides there from
@@ -842,7 +872,9 @@ window.klabSideNav = (function() {
   side.addEventListener('pointerleave', e => {
     if (!peeking || side.contains(e.relatedTarget) || edge === e.relatedTarget) return;
     clearTimeout(peekT);
-    peekT = setTimeout(() => { if (peeking && !side.matches(':hover') && !side.contains(document.activeElement)) close(); }, 320);
+    // Kept only while you're typing in it (its search box); a row you
+    // clicked keeps focus and held it open until a click elsewhere.
+    peekT = setTimeout(() => { if (peeking && !side.matches(':hover') && !side.querySelector('input:focus')) close(); }, 320);
   });
 
   // ── Dragging its edge ──
@@ -938,7 +970,7 @@ window.klabPane = (function() {
       if (!hidden(t)) return;
       const row = e.target.closest('.picker-tab, .chat-conv, .music-playlist-row, .games-server');
       if (!row || row.title) return;
-      const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, .games-server-name, span:not(.soc-dot):not(:empty)');
+      const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, .games-server-name, span:not(.soc-dot):not(.soc-count):not(:empty)');
       if (name) row.title = name.textContent.trim();
     });
     // Folded, the search is its icon. Its box is still there, unseen, so
@@ -1433,7 +1465,7 @@ async function offerAppUpdate(current) {
     if (!root.classList.contains('nav-icons')) return;
     const row = e.target.closest('.nav-sub :is(.picker-tab, .chat-conv, .music-playlist-row, .music-new-playlist-btn)');
     if (!row || row.title) return;
-    const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, span:not(.soc-dot):not(:empty)');
+    const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, span:not(.soc-dot):not(.soc-count):not(:empty)');
     row.title = (name || row).textContent.trim();
   });
   place();

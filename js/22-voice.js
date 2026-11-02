@@ -94,7 +94,7 @@
   function schedule() {
     clearTimeout(pollTimer);
     if (document.hidden) return; // nobody's looking; visibilitychange asks again
-    pollTimer = setTimeout(refresh, !info.enabled ? 120000 : panelOpen() ? 4000 : 12000);
+    pollTimer = setTimeout(refresh, !info.enabled ? 120000 : panelOpen() ? 4000 : room ? 12000 : 30000);
   }
   const refreshSoon = () => { clearTimeout(pollTimer); pollTimer = setTimeout(refresh, 600); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
@@ -123,7 +123,9 @@
 
   // ── Drawing ──
   // Polled faster while you can see it.
-  const panelOpen = () => !group.hidden && document.body.classList.contains('tab-social-group');
+  // Actually on screen: the channels show on Chat only now, and Social's
+  // other pages polled every 4s for a list nobody could see.
+  const panelOpen = () => !group.hidden && !!group.offsetParent;
 
   function memberHTML(m) {
     const u = m.username;
@@ -233,7 +235,11 @@
   // goes wrong afterwards (a mute that fails, a slow connection) can leave
   // it open; a change that fails is tried again.
   let micChain = Promise.resolve(), micRetries = 0;
-  const rawMic = () => micPub()?.track?.mediaStreamTrack || null;
+  // The track while it's being published: LiveKit has no publication for
+  // it until the round trip's done, and a mute (or a push-to-talk key let
+  // go) in that moment found nothing to cut and left it live.
+  let pendingMic = null;
+  const rawMic = () => micPub()?.track?.mediaStreamTrack || pendingMic?.mediaStreamTrack || null;
   async function syncMic() {
     const pub = micPub();
     if (!pub) return;
@@ -255,20 +261,27 @@
     const r = room;
     if (!r || micPub()) return;
     try {
-      const track = await LK.createLocalAudioTrack(captureOpts());
+      const track = pendingMic = await LK.createLocalAudioTrack(captureOpts());
       if (room !== r) { track.stop(); return; }
       // Published already muted when it should be (push to talk, or you
       // muted before joining), so not even a syllable goes out first.
       if (!wantLive()) await track.mute();
       await r.localParticipant.publishTrack(track, { source: LK.Track.Source.Microphone });
+      // Left while it was publishing: let go of the microphone itself.
+      if (room !== r) { track.stop(); return; }
       micProblem = '';
+      // Whatever was pressed meanwhile, now that there's a publication to apply it to.
+      applyMic();
     } catch (e) {
+      // The microphone was opened but never went out: close it again.
+      pendingMic?.stop();
       if (room !== r) return;
       micProblem = /NotFound|Overconstrained|DevicesNotFound/i.test(e?.name || '') ? 'missing' : 'blocked';
       showToast(micProblem === 'missing'
         ? 'No microphone found. You can still listen'
         : 'Your microphone is blocked. You can still listen; allow it for klabnet to talk', 'ti-microphone-off', 6000);
     }
+    finally { pendingMic = null; }
     pushAttrs();
     render();
   }
@@ -500,7 +513,7 @@
   // ── Keys ──
   // Ctrl+Shift+M mutes and Ctrl+Shift+D deafens (Cmd on a Mac), anywhere
   // on the page, while you're in a channel.
-  const typing = e => e.target.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+  const typing = e => e.composedPath()[0]?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
   window.addEventListener('keydown', e => {
     if (!room || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
     if (e.code !== 'KeyM' && e.code !== 'KeyD') return;

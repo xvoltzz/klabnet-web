@@ -536,6 +536,18 @@ const klabMenu = (() => {
   return Object.assign(open, { close });
 })();
 
+// More reactions than a toolbar has room for: Feed's and Chat's "add
+// reaction" open this, the right-click menu's own row of emoji, under the
+// button that asked.
+const KLAB_REACTS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '🎉', '💀', '👀', '🙏', '💯', '🫡'];
+function klabReactMenu(anchor, onPick) {
+  const r = anchor.getBoundingClientRect();
+  klabMenu({
+    target: anchor, clientX: r.left, clientY: r.bottom + 4, shiftKey: false,
+    defaultPrevented: false, preventDefault() {},
+  }, [{ reacts: KLAB_REACTS, action: onPick }]);
+}
+
 async function klabCopy(text, what) {
   try {
     await navigator.clipboard.writeText(String(text));

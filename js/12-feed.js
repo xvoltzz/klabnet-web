@@ -68,8 +68,8 @@
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
+  const _repliesAt          = new Map(); // postId -> when its replies were last fetched
   const _repliesStale       = new Set(); // postIds whose cached replies are out of date; still shown until the refetch lands
-  const _openReactionPickers = new Set(); // postIds with the quick-reaction row open
   const _openReplyBoxes = new Set();      // postIds whose reply box was opened with the Reply button
   const _expandedPosts = new Set();       // long posts someone hit "Show more" on
   // Half-typed replies, so rebuilding a post (a new reaction, a poll)
@@ -493,7 +493,6 @@
         esc(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
       '</button>'
     ).join('');
-    const quickPickerOpen = _openReactionPickers.has(post.id);
     const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
     const songArt = post.song && post.song.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(post.song.coverArt)}&size=300&${subsonicParams()}` : '';
     const kind = post.song ? ' is-song' : post.image_mxc ? ' is-photo' : (isShout(post.text) && !ytId ? ' is-shout' : '');
@@ -505,7 +504,16 @@
         '<div class="feed-post-head">' +
           '<span class="feed-post-name" data-username="' + esc(post.username) + '">' + esc(post.username) + '</span>' +
           '<span class="feed-post-time" data-created="' + esc(post.created) + '">' + fmtFeedTime(post.created) + '</span>' +
-          (canDelete ? '<button type="button" class="feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
+        '</div>' +
+        // Its actions, over its top right while you point at it, as on a
+        // chat message (Slack's way): the quick reactions, reply, delete.
+        // They used to sit under every post all the time, with the quick
+        // reactions spilling out of a button in a row of bare emoji.
+        '<div class="feed-post-actions">' +
+          FEED_QUICK_REACTIONS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + e + '</button>').join('') +
+          '<button type="button" class="feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions"><i class="ti ti-mood-plus"></i></button>' +
+          '<button type="button" class="feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
+          (canDelete ? '<button type="button" class="feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         (post.text ? postTextHTML(post, me) : '') +
         imageHTML +
@@ -514,11 +522,7 @@
         '<div class="feed-post-footer">' +
           starHTML +
           pillsHTML +
-          '<button type="button" class="feed-post-add-reaction" data-post-id="' + post.id + '" title="Add reaction"><i class="ti ti-mood-plus"></i></button>' +
-          '<button type="button" class="feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-message-circle"></i>' + (post.reply_count ? '<span>' + post.reply_count + '</span>' : '') + '</button>' +
-          '<span class="feed-post-quick-reactions' + (quickPickerOpen ? ' open' : '') + '" data-post-id="' + post.id + '">' +
-            FEED_QUICK_REACTIONS.map(e => '<button type="button" data-post-id="' + post.id + '" data-emoji="' + e + '">' + e + '</button>').join('') +
-          '</span>' +
+          (post.reply_count ? '<button type="button" class="feed-post-reply-open feed-post-reply-count" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-message-circle"></i><span>' + klabCount(post.reply_count, 'reply', 'replies') + '</span></button>' : '') +
         '</div>' +
         feedRepliesSectionHTML(post) +
       '</div>' +
@@ -548,7 +552,7 @@
           ':' + profileColor(p.username) +
           ':' + (_feedAvatarCache.get(p.username) || '') +
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
-          ':' + (_openReactionPickers.has(p.id) ? '1' : '0') + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
+          ':' + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-') +
@@ -647,6 +651,15 @@
   const _visIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting && e.target.isConnected) {
       _onScreen.add(e.target);
+      // Replies to an older post (past the newest page the poll asks for)
+      // were never asked about again: someone's reply to a two-day-old
+      // post didn't show until a reload. Coming on screen a while after
+      // they were last fetched, they're asked for afresh.
+      const id = +e.target.dataset.postId, at = _repliesAt.get(id);
+      if (at && performance.now() - at > 90e3 && !_repliesPending.has(id)) {
+        const post = _feedPosts.find(p => p.id === id);
+        if (post) { _repliesStale.add(id); ensureFeedRepliesResolved(post); }
+      }
       const art = e.target.querySelector(':scope > .feed-post-backart:not(.soft)');
       if (art) window.klabSoften?.(art);
     }
@@ -655,14 +668,17 @@
 
   // A YouTube player is a whole page of its own (tens of MB each), and a
   // long scroll back kept every one it passed. Three screens away it's
-  // unloaded, and loaded again on the way back.
+  // unloaded, and loaded again on the way back. Its root is Feed's own
+  // panel, which is what scrolls now: against the window, the panel's clip
+  // cut the 300% margin off and a video unloaded (sound and all) the
+  // moment it scrolled a little out of sight.
   const _embedIO = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
     const f = e.target;
     if (e.isIntersecting) { if (f.dataset.src) { f.src = f.dataset.src; delete f.dataset.src; } }
     // Not when Feed itself is hidden (no box at all): a video playing on
     // goes on playing while you're on another tab.
     else if (e.boundingClientRect.width && !f.dataset.src && f.getAttribute('src') !== 'about:blank') { f.dataset.src = f.src; f.src = 'about:blank'; }
-  }), { rootMargin: '300% 0px' }) : null;
+  }), { root: document.querySelector('.tab-panel[data-tab-panel="feed"]'), rootMargin: '300% 0px' }) : null;
 
   // The page used to take on the post in the middle of the screen (its
   // photo, its song's cover, its author's colour). Gone (2026-10-24): the
@@ -1104,7 +1120,7 @@
         // Also drop the trimmed posts' cached replies — otherwise
         // _repliesCache keeps growing by post id forever even though
         // _feedPosts itself is now capped.
-        _feedPosts.slice(FEED_MAX_LOADED).forEach(p => { _repliesCache.delete(p.id); _repliesPending.delete(p.id); _repliesStale.delete(p.id); _replyDrafts.delete(p.id); });
+        _feedPosts.slice(FEED_MAX_LOADED).forEach(p => { _repliesCache.delete(p.id); _repliesAt.delete(p.id); _repliesPending.delete(p.id); _repliesStale.delete(p.id); _replyDrafts.delete(p.id); });
         _feedPosts.length = FEED_MAX_LOADED;
         // The trim just cut the page that was loaded, so another press
         // would fetch the same page and cut it again, forever. The cap is
@@ -1457,19 +1473,27 @@
   async function fetchFeedReplies(postId) {
     let ok = false, refetch = false;
     const startedAt = performance.now();
+    // A deadline that covers the body too (fetchTimeout's stops at the
+    // headers): a reply list that stalled halfway kept this post in
+    // _repliesPending for good, and its replies never updated again
+    // until a reload ("feed replies are broken until refresh").
+    const ctrl = new AbortController();
+    const deadline = setTimeout(() => ctrl.abort(), 15000);
     try {
-      const r = await fetchTimeout(`/api/posts/${postId}/replies`, {}, 8000);
+      const r = await fetchTimeout(`/api/posts/${postId}/replies`, { signal: ctrl.signal }, 8000);
       if (!r.ok) return;
       const data = await r.json();
       // You replied while this was on its way: it may not have yours in
       // it, and putting it in the cache made your reply vanish. Ask again.
       if ((_localEditAt.get(postId) || 0) > startedAt) { ok = refetch = true; return; }
       _repliesCache.set(postId, data.replies || []);
+      _repliesAt.set(postId, performance.now());
       _repliesStale.delete(postId);
       ok = true;
       scheduleFeedRender();
     } catch (e) {
     } finally {
+      clearTimeout(deadline);
       _repliesPending.delete(postId);
       if (refetch) { _repliesPending.add(postId); fetchFeedReplies(postId); }
       // Only a rebuild of the post asks again, and nothing rebuilds it if
@@ -1599,17 +1623,16 @@
       box?.querySelector('.feed-post-reply-input')?.focus();
       return;
     }
+    // More reactions: the same row as the right-click menu, under the button.
     const addReact = e.target.closest('.feed-post-add-reaction');
     if (addReact) {
       const postId = Number(addReact.dataset.postId);
-      _openReactionPickers.has(postId) ? _openReactionPickers.delete(postId) : _openReactionPickers.add(postId);
-      renderFeed();
+      klabReactMenu(addReact, emoji => { floatEmoji(addReact, emoji); toggleFeedReaction(postId, emoji); });
       return;
     }
-    const quickEmoji = e.target.closest('.feed-post-quick-reactions button');
+    const quickEmoji = e.target.closest('.feed-post-actions [data-emoji]');
     if (quickEmoji) {
       const postId = Number(quickEmoji.dataset.postId);
-      _openReactionPickers.delete(postId);
       floatEmoji(quickEmoji, quickEmoji.dataset.emoji);
       toggleFeedReaction(postId, quickEmoji.dataset.emoji);
       return;

@@ -399,7 +399,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   let awaitingGTimer = null;
 
   function isEditableTarget() {
-    const el = document.activeElement;
+    let el = document.activeElement;
+    // Inside a shadow root (Games draws in one), the document only sees
+    // its host: "nope" in Games' player search skipped a song.
+    while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
     if (!el) return false;
     return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
   }
@@ -583,7 +586,10 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         if (e.defaultPrevented || e.altKey || e.shiftKey || !arrowsFree()) break;
         if (document.body.classList.contains('tab-photos-active')) break;
         const dir = e.key === 'ArrowRight' ? 1 : -1;
-        const row = [...document.querySelectorAll('html.nav-tree #sideNav .nav-sub.open .picker-tab')];
+        // Only rows you can see and that are a section: "Connect chat" is a
+        // .picker-tab too (→ on Chat re-ran the connect, or opened sign-in).
+        const row = [...document.querySelectorAll('html.nav-tree #sideNav .nav-sub.open .picker-tab')]
+          .filter(b => b.offsetParent && b.matches('[data-tab], [data-soc], [data-mc]'));
         if (!row.length) break;
         e.preventDefault();
         const at = row.findIndex(b => b.classList.contains('active'));

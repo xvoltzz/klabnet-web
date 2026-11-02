@@ -492,12 +492,14 @@ window.klabBrowse = (function() {
     function swell(clientY) {
       if (reduced()) return;
       const r = track.getBoundingClientRect();
-      for (const k of rows) {
-        const kr = k.getBoundingClientRect();
-        const d = (kr.top + kr.height / 2 - clientY) / (r.height / rows.length);
-        const s = Math.exp(-(d * d) / 3.2);
-        k.style.setProperty('--swell', s.toFixed(3));
-      }
+      // Every letter measured first, then every one written: measuring
+      // each after writing the last forced a style and layout pass per
+      // letter, 28 of them a mouse move.
+      const mids = rows.map(k => { const kr = k.getBoundingClientRect(); return kr.top + kr.height / 2; });
+      rows.forEach((k, i) => {
+        const d = (mids[i] - clientY) / (r.height / rows.length);
+        k.style.setProperty('--swell', Math.exp(-(d * d) / 3.2).toFixed(3));
+      });
     }
     function unswell() { for (const k of rows) k.style.removeProperty('--swell'); }
 

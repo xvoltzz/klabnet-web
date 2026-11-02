@@ -17,7 +17,10 @@
   if (!prompt || !textEl || !cursor) return;
   const root = document.documentElement;
 
-  const PAGES = ['social', 'feed', 'chat', 'photos', 'music', 'games'];
+  const ALL_PAGES = ['social', 'feed', 'chat', 'photos', 'music', 'games'];
+  // Only the ones that are on (Games is experimental, off by default).
+  let PAGES = ALL_PAGES;
+  const pages = () => (PAGES = ALL_PAGES.filter(p => typeof isTabEnabled !== 'function' || isTabEnabled(p)));
   const slug = s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   // Music's sections: name -> its sidebar row.
   function musicDirs() {
@@ -40,6 +43,7 @@
     if (a.startsWith('~/') || a.startsWith('/')) a = a.replace(/^~?\//, '');
     const parts = a.split('/').filter(Boolean);
     const dirs = musicDirs();
+    pages();
     if (parts.length === 1) {
       if (PAGES.includes(parts[0])) return { page: parts[0] };
       // A Music section from inside Music.
@@ -53,10 +57,11 @@
   // Everything you could cd to, for suggestions and ls.
   function allDirs() {
     const m = [...musicDirs().keys()];
+    pages();
     return ['~', ...PAGES, ...m.map(d => 'music/' + d), ...(page() === 'music' ? m : [])];
   }
   function children(of) {
-    if (of === 'home' || of === '~') return PAGES;
+    if (of === 'home' || of === '~') return pages();
     if (of === 'music') return [...musicDirs().keys()];
     return [];
   }
@@ -84,7 +89,7 @@
     if (!v.includes(' ')) {
       const cmd = ['cd ', 'ls', 'pwd', 'help', 'exit', 'clear'].find(c => c.startsWith(v) && c !== v);
       if (cmd) return cmd.slice(v.length);
-      const dir = PAGES.find(d => d.startsWith(v) && d !== v);
+      const dir = pages().find(d => d.startsWith(v) && d !== v);
       if (dir) return dir.slice(v.length);
     }
     return '';
@@ -103,6 +108,8 @@
     if (input) { input.focus(); return; }
     say('');
     // Whatever cd animation was running lands now.
+    // (Its timer stopped too, or the rest of it typed over the open prompt.)
+    if (typeof _retypeTimer !== 'undefined') clearTimeout(_retypeTimer);
     window.retypePrompt && (textEl.textContent = klabPromptFor(page()));
     input = document.createElement('input');
     input.className = 'term-input';

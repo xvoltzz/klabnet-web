@@ -6297,7 +6297,10 @@
       }
       .side-nav-grip:hover::after, html.nav-resizing .side-nav-grip::after { opacity: 1; }
       html.nav-resizing, html.nav-resizing * { cursor: col-resize !important; -webkit-user-select: none !important; user-select: none !important; }
-      html.nav-resizing :is(.side-nav, .side-nav-grip, body, .player-dock, body::before) { transition: none !important; }
+      html.nav-resizing :is(.side-nav, .side-nav-grip, body, .player-dock) { transition: none !important; }
+      /* Apart: a pseudo-element inside :is() is dropped, and the page's
+         sheet (body::before) and its corner trailed the edge being dragged. */
+      html.nav-resizing body::before, html.nav-resizing::after { transition: none !important; }
       html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
       :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
@@ -8611,10 +8614,12 @@
     :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: none; }
     :is(#socShell, #sideNav) .chat-lbl { padding: 16px 12px 6px; }
     :is(#socShell, #sideNav) .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
-    body:not(.chat-on) :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: block; }
+    body:not(.chat-on) #socShell .chat-side > .music-sidebar-label { display: block; }
     :is(#socShell, #sideNav) .soc-chat-connect { width: 100%; margin-bottom: 10px; }
     body.chat-on :is(#socShell, #sideNav) .soc-chat-connect { display: none; }
-    body:not(.chat-on) #socShell :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
+    /* Not signed in: no empty Channels and Messages headings, just the
+       way in. (Only #socShell had this, and the sidebar tree showed them.) */
+    body:not(.chat-on) :is(#socShell, #sideNav) :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
     body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
@@ -8921,6 +8926,8 @@
     .side-me-av img,
     .soc-post-av,
     .soc-post-av img,
+    .soc-unread-face,
+    .soc-unread-face img,
     .vc-av,
     .vc-av img,
     .rd-av { border-radius: var(--av-radius) !important; }
@@ -8994,7 +9001,9 @@
        focus. The animations that loop for as long as something lasts
        pause until it's back. */
     html.win-idle :is(.eq-ico b, .chat-head-eq i, .mh-eq i),
-    html.win-idle .presence-card-online::after { animation-play-state: paused !important; }
+    html.win-idle .presence-card-online::after,
+    html.win-idle :is(.pz-float, .pz-face, .pz-eq i, .ph-eq b, .feed-rec-disc),
+    html.win-idle .pz-face::before, html.win-idle .pz-face::after { animation-play-state: paused !important; }
 
 
     /* ══ The player bar, more solid (the owner's call, 2026-10-24) ══
@@ -10504,3 +10513,145 @@
       text-decoration-color: transparent;
     }
     #sideNav :is(.tab-nav-btn, .nav-sub .picker-tab, .music-playlist-row, #chatSide .chat-conv):focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
+
+    /* ── UNREAD, WHERE IT IS (2026-11-02) ──
+       Social's badge said something was new but nothing inside Social said
+       where. The count is on Chat's row too (#socChatCount, js/08-chat.js
+       updateSocialUnreadBadge), the same red pill; while Social's sections
+       are unfolded under it in the sidebar, Social's own badge steps aside
+       so there's one count, on the row you press. */
+    .soc-count {
+      flex: none; margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+      background: #ff453a; color: #fff; font: 700 10px/18px var(--font-ui); letter-spacing: 0; text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .soc-count[hidden] { display: none !important; }
+    html #sideNav .nav-sub .picker-tab > .soc-count, #socShell .picker-tab > .soc-count {
+      flex: none !important; width: auto; margin: 0 0 0 auto; padding: 0 5px; color: #fff; font: 700 10px/18px var(--font-ui);
+      text-decoration: none !important; overflow: visible;
+    }
+    /* The Mac's sidebar counts are plain grey numbers, as in Mail. */
+    html.klabnet-app[data-platform="darwin"] #sideNav .nav-sub .picker-tab > .soc-count {
+      background: none; color: var(--text-dim); font: 400 13px/18px var(--mac-font); min-width: 0; padding: 0;
+    }
+    .soc-home-body > [hidden] { display: none !important; }
+    html.nav-tree body.tab-social-group #sideNav #socialUnreadBadge { display: none !important; }
+    /* Sidebar hidden: ☰ carries a dot, or the count was nowhere on screen. */
+    #navBurger { position: relative; }
+    html.chat-unread[data-nav="menu"]:not(.nav-flyout) #navBurger::after {
+      content: ''; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+      background: #ff453a; box-shadow: 0 0 0 2px var(--bg);
+    }
+    .tab-nav-btn[hidden] { display: none !important; }
+    /* Social's home: unread messages first. Rows like a mail list, not
+       cards: no box, a hairline under each, the red dot of an unread one. */
+    .soc-unread { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); column-gap: 24px; margin-bottom: 18px; }
+    .soc-unread[hidden] { display: none; }
+    .soc-unread-row {
+      display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 6px 10px 18px; position: relative;
+      border: 0; border-bottom: 1px solid var(--glass-border); border-radius: 0; background: none; color: var(--text);
+      text-align: left; cursor: pointer; font: inherit; transition: background-color .15s;
+    }
+    .soc-unread-row::before {
+      content: ''; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #ff453a;
+    }
+    .soc-unread-row:hover { background: var(--glass-fill); }
+    .soc-unread-row:focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
+    .soc-unread-face {
+      width: 32px; height: 32px; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, transparent); color: var(--c, var(--text-dim)); font: 700 13px var(--font-ui);
+    }
+    .soc-unread-face.hash { background: var(--glass-fill-h); color: var(--text-dim); font-size: 15px; }
+    .soc-unread-face img { width: 100%; height: 100%; object-fit: cover; }
+    .soc-unread-tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .soc-unread-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .soc-unread-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .soc-unread-when { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); }
+    .soc-unread-last { font-size: var(--fs-13); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ══ FEED, FOR A DESK (2026-11-02) ══
+       The owner: the Feed felt "designed for an iPad". It reads like a
+       desktop app now: body text at reading size (a one-liner a little
+       bigger, not a headline), tighter rows, and what you can do to a post
+       in a toolbar over its corner while you point at it (Chat's way),
+       not a row of icons under every post. The footer only holds what's
+       there: reactions and the reply count. Still no hover wash (owner). */
+    #feedList .feed-post { position: relative; padding: 12px 10px 10px; gap: 12px; }
+    #feedList .feed-post-avatar { width: 32px; height: 32px; font-size: 13px; }
+    #feedList .feed-post-text { margin-top: 2px; font-size: var(--fs-14); line-height: 1.5; }
+    #feedList .feed-post.is-shout .feed-post-text { font-size: 17px; font-weight: 600; letter-spacing: -0.005em; line-height: 1.35; margin: 2px 0 0; }
+    #feedList .feed-post-footer { margin: 6px 0 0; gap: 4px; flex-wrap: wrap; align-items: center; }
+    #feedList .feed-post-footer:not(:has(.feed-post-reaction-pill, .feed-post-reply-count, .feed-post-star)),
+    html.no-stars #feedList .feed-post-footer:not(:has(.feed-post-reaction-pill, .feed-post-reply-count)) { display: none; }
+    #feedList .feed-post-reply-count {
+      display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; margin-left: 2px; border: 0; border-radius: 6px;
+      background: none; color: var(--text-dim); font: 500 var(--fs-12) var(--font-ui); cursor: pointer;
+    }
+    #feedList .feed-post-reply-count i { font-size: 14px; }
+    #feedList .feed-post-reply-count:hover { background: var(--glass-fill-h); color: var(--text); }
+
+    /* The toolbar: over the post's top right, while you point at it or a
+       key's inside it. Solid, not blurred (one shows at a time, but the
+       Feed scrolls under it). */
+    #feedList .feed-post-actions {
+      position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 1px; padding: 2px;
+      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.28);
+      opacity: 0; pointer-events: none; transition: opacity .12s ease;
+    }
+    #feedList .feed-post:hover > .feed-post-body > .feed-post-actions,
+    #feedList .feed-post-actions:focus-within { opacity: 1; pointer-events: auto; }
+    #feedList .feed-post-act {
+      width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none;
+      color: var(--text-dim); font-size: 15px; line-height: 1; cursor: pointer; transition: background-color .12s, color .12s;
+    }
+    #feedList .feed-post-act i { font-size: 16px; }
+    #feedList .feed-post-act:hover { background: var(--glass-fill-h); color: var(--text); }
+    #feedList .feed-post-act.feed-post-delete:hover { color: var(--danger-color); }
+    /* Phones can't point: the toolbar stays, just its buttons (no emoji). */
+    @media (max-width: 760px) and (pointer: coarse) {
+      #feedList .feed-post-actions { opacity: 1; pointer-events: auto; background: none; border-color: transparent; box-shadow: none; top: 4px; right: 0; }
+      #feedList .feed-post-act[data-emoji] { display: none; }
+    }
+    /* A reply's trash, only on the reply you're pointing at. */
+    #feedList .feed-post-reply-delete { opacity: 0; transition: opacity .12s ease; }
+    #feedList .feed-post-reply:hover .feed-post-reply-delete, #feedList .feed-post-reply-delete:focus-visible { opacity: 1; }
+    @media (hover: none) { #feedList .feed-post-reply-delete { opacity: .6; } }
+
+    /* ══ REACTIONS, ONE LOOK ══
+       Feed's were round blobs, Chat's flat tabs, each with its own "mine".
+       Now both: a small square-cornered chip, the emoji and its count; yours
+       in the accent. */
+    #feedList .feed-post-reaction-pill,
+    #chatApp #chatTimeline .chat-msg-reaction-pill,
+    .chat-msg-reaction-pill {
+      display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border-radius: 6px;
+      border: 1px solid var(--glass-border); background: var(--glass-fill); box-shadow: none;
+      font: 500 13px/1 var(--font-ui); color: var(--text); cursor: pointer; transition: background-color .12s, border-color .12s;
+    }
+    #feedList .feed-post-reaction-pill:hover,
+    #chatApp #chatTimeline .chat-msg-reaction-pill:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
+    #feedList .feed-post-reaction-pill.mine,
+    #chatApp #chatTimeline .chat-msg-reaction-pill.mine {
+      background: rgba(var(--accent-rgb), .14); border-color: rgba(var(--accent-rgb), .5); box-shadow: none;
+    }
+    :is(.feed-post-reaction-count, .chat-msg-reaction-count) { font: 600 11.5px/1 var(--font-ui); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .mine > :is(.feed-post-reaction-count, .chat-msg-reaction-count) { color: var(--text); }
+
+    /* "More reactions" (klabReactMenu): the menu's emoji row on its own,
+       as a tidy grid rather than one long strip. */
+    .klab-menu .ctx-reacts:only-child { display: grid; grid-template-columns: repeat(6, 34px); gap: 2px; padding: 2px; }
+    .klab-menu .ctx-reacts:only-child button { min-width: 0; padding: 7px 0; }
+
+    /* ══ GIF PICKER, TIDIED ══
+       A desktop popover: wider with three columns, square-ish corners,
+       names on hover. The GIF buttons draw the same icon-sized glyph. */
+    .gif-picker { border-radius: 10px; }
+    .gif-top { margin: 8px 8px 6px; }
+    .gif-search, .gif-add-toggle { height: 32px; border-radius: 6px; }
+    .gif-add-toggle { width: 32px; }
+    .gif-grid { padding: 0 8px 8px; gap: 0 4px; }
+    .gif-col { gap: 4px; }
+    .gif-item { border-radius: 4px; background: var(--glass-fill); }
+    .gif-item:hover img { transform: none; }
+    .gif-item:hover { outline: 2px solid rgba(var(--accent-rgb), .8); outline-offset: -2px; }
+    .gif-glyph { height: 15px; padding: 0 3px; border-width: 1.5px; border-radius: 3px; font-size: 8px; }

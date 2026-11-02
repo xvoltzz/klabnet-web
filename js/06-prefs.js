@@ -61,10 +61,16 @@ async function checkSession() {
     // its sign-in page, and following that ended in a CORS failure that
     // looked just like a bad connection, so the tab never noticed. A
     // reload goes through the sign-in (or quietly renews the session).
-    const res = await fetchTimeout('/api/me', { redirect: 'manual' }, 8000);
-    if (res.type === 'opaqueredirect' || res.status === 401 || res.status === 403) { location.reload(); return; }
-    if (!res.ok) return; // transient failure — don't punish a bad connection
-    const data = await res.json();
+    // One deadline for the answer and its body: a body that stalled left
+    // the check busy for good, and a lapsed session was never noticed.
+    const ctrl = new AbortController(), deadline = setTimeout(() => ctrl.abort(), 15000);
+    let res, data;
+    try {
+      res = await fetchTimeout('/api/me', { redirect: 'manual', signal: ctrl.signal }, 8000);
+      if (res.type === 'opaqueredirect' || res.status === 401 || res.status === 403) { location.reload(); return; }
+      if (!res.ok) return; // transient failure — don't punish a bad connection
+      data = await res.json();
+    } finally { clearTimeout(deadline); }
     // Started while /api/me was unreachable: this is who we are, not a
     // different person. Picked up in place (a reload would stop the music).
     if (window.KLAB_USER?.username === 'anonymous' && data.username && data.username !== 'anonymous') {

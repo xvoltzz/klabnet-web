@@ -100,7 +100,10 @@
   // one was out makes it stale: it would put back what was just changed.
   let latestSeq = 0;
   async function fetchLatest() {
-    if (document.hidden) return;
+    // Never the first load, though: the desktop app builds its window
+    // hidden, and Photos then sat empty until the 45s poll (Feed had the
+    // same bug, js/12-feed.js fetchFeedPage).
+    if (document.hidden && loadedOnce) return;
     lastFetch = Date.now();
     const asked = order, g = gen, seq = ++latestSeq, startedAt = performance.now();
     try {
@@ -155,8 +158,12 @@
     if (loadingOlder || !hasOlder || !cursor) return;
     loadingOlder = true;
     const g = gen;
+    // A deadline over the body too: a page that stalled halfway held
+    // loadingOlder for good, and no older photos ever loaded again.
+    const ctrl = new AbortController();
+    const deadline = setTimeout(() => ctrl.abort(), 20000);
     try {
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(cursor.sort_at)}&before_id=${cursor.id}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(cursor.sort_at)}&before_id=${cursor.id}`, { signal: ctrl.signal }, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       if (g !== gen) return;
@@ -172,7 +179,7 @@
         applyPosts(next, { keepSelection: true });
       }
     } catch (e) { /* the next scrub to the left edge retries */ }
-    finally { if (g === gen) loadingOlder = false; }
+    finally { clearTimeout(deadline); if (g === gen) loadingOlder = false; }
   }
 
   // Swap in a new post list. The strip only rebuilds when the set of
@@ -1189,7 +1196,12 @@
     pausedByPhotos = false;
     if (clipPostId !== null) { clipSuppressed = clipPostId; stopClip(); }
   });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stopClip(); else scheduleClip(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { stopClip(); return; }
+    scheduleClip();
+    // Back after a while away: catch up now rather than at the next poll.
+    if (isActive() && Date.now() - lastFetch > 10000) fetchLatest();
+  });
 
   // Photo info (the rails: who, caption, camera, song, reactions) can be
   // hidden for just the pictures. Remembered per device.

@@ -112,7 +112,7 @@ window.klabGifPicker = (function() {
     const z = typeof zoomFactor === 'function' ? zoomFactor() : 1;
     const r = anchorEl.getBoundingClientRect();
     const vw = window.innerWidth / z, vh = window.innerHeight / z;
-    const w = Math.min(360, vw - 24), h = Math.min(460, vh - 24);
+    const w = Math.min(440, vw - 24), h = Math.min(480, vh - 24);
     panel.style.width = w + 'px';
     panel.style.height = h + 'px';
     const ar = { left: r.left / z, right: r.right / z, top: r.top / z, bottom: r.bottom / z };
@@ -147,10 +147,12 @@ window.klabGifPicker = (function() {
   async function load(reset) {
     if (reset) {
       next = 0; loading = false;
-      // Two real columns, filled shortest-first: CSS columns in a box of
-      // fixed height overflow sideways, which hid everything past the fold.
-      grid.innerHTML = '<div class="gif-col"></div><div class="gif-col"></div>';
-      colH = [0, 0];
+      // Real columns, filled shortest-first: CSS columns in a box of fixed
+      // height overflow sideways, which hid everything past the fold. Three
+      // in the desktop's wider picker, two where it's narrow.
+      const n = panel.offsetWidth >= 400 ? 3 : 2;
+      grid.innerHTML = '<div class="gif-col"></div>'.repeat(n);
+      colH = new Array(n).fill(0);
       grid.scrollTop = 0;
     }
     if (loading || next === null) return;
@@ -165,7 +167,7 @@ window.klabGifPicker = (function() {
       if (my !== reqId) return;
       const cols = grid.querySelectorAll('.gif-col');
       (data.items || []).forEach(g => {
-        const i = colH[0] <= colH[1] ? 0 : 1;
+        const i = colH.indexOf(Math.min(...colH));
         cols[i].appendChild(tile(g));
         colH[i] += (g.h || 1) / (g.w || 1) + 0.04;   // + the gap, in widths
       });

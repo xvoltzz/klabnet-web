@@ -445,13 +445,20 @@
   // Only a real person's name turns into a mention (coloured, and offered
   // by the @ suggestions in js/20-mentions.js); any other @word stays
   // text. Everyone the API has seen, plus whoever's online.
-  let _people = new Set(), _peopleKey = '';
+  // Keyed on the names themselves, not on how many are online: the online
+  // count changes whenever someone logs on or off, and each change redrew
+  // every feed post with an @ in it (restarting its videos and GIFs) though
+  // nobody new could be mentioned.
+  let _people = new Set(), _peopleKey = '', _peopleFrom = [null, null];
   function people() {
-    const key = (_serverRoster ? _serverRoster.length : 0) + ':' + (window.KLAB_ONLINE_USERNAMES ? window.KLAB_ONLINE_USERNAMES.size : 0);
-    if (key !== _peopleKey) {
-      _peopleKey = key;
-      _people = new Set([...(_serverRoster || []).map(p => p.username), ...(window.KLAB_ONLINE_USERNAMES || [])]
-        .filter(u => u && u !== 'anonymous').map(u => u.toLowerCase()));
+    // Rebuilt only when the roster or the online set is a new object.
+    if (_peopleFrom[0] === _serverRoster && _peopleFrom[1] === window.KLAB_ONLINE_USERNAMES) return _people;
+    _peopleFrom = [_serverRoster, window.KLAB_ONLINE_USERNAMES];
+    const set = new Set([...(_serverRoster || []).map(p => p.username), ...(window.KLAB_ONLINE_USERNAMES || [])]
+      .filter(u => u && u !== 'anonymous').map(u => u.toLowerCase()));
+    if (set.size !== _people.size || [...set].some(u => !_people.has(u))) {
+      _people = set;
+      _peopleKey = [...set].sort().join(',');
     }
     return _people;
   }

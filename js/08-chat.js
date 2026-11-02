@@ -658,6 +658,7 @@ function dmOtherUsername(room) {
   return other ? other.userId.replace(/^@/, '').split(':')[0] : null;
 }
 
+let _chatPickSeq = 0; // rows clicked, so a slow invite join knows if you've moved on
 function buildChannelItem(room, icon) {
   // createRoom({invite:[...]}) only invites — the recipient hasn't actually
   // joined yet, and sending a message would fail if we treated this like
@@ -694,7 +695,11 @@ function buildChannelItem(room, icon) {
     (isDm ? '<button class="chat-channel-close" title="Close conversation"><i class="ti ti-x"></i></button>' : '');
   item.addEventListener('click', async () => {
     if (invited) {
+      // Joining can be slow (another server): if you've picked something
+      // else meanwhile, the join finishing doesn't pull you back here.
+      const was = _chatActiveRoomId, seq = ++_chatPickSeq;
       try { await MatrixChat.client.joinRoom(room.roomId); } catch (e) { showToast(`Couldn't join: ${e.message || 'error'}`, 'ti-door-off'); return; }
+      if (seq !== _chatPickSeq || _chatActiveRoomId !== was) { renderChannelList(); return; }
     } else if (room.roomId === _chatActiveRoomId) {
       // Already the active room, so there's nothing to re-render — but on
       // mobile this row is still the only way into that conversation.
@@ -1268,7 +1273,13 @@ function renderTimeline() {
   const live = room.getLiveTimeline().getEvents(), lastLive = live[live.length - 1];
   const quick = room.roomId + '|' + live.length + '|' + (live[0]?.getId() || '') + '|' + (lastLive?.getId() || '') + '|' +
     (lastLive?.status || '') + '|' + _chatEchoSeq + '|' + isDmRoom + '|' + new Date().toDateString();
-  if (!roomChanged && _lastTimelineRenderKey !== null && quick === _lastTimelineQuick) return;
+  if (!roomChanged && _lastTimelineRenderKey !== null && quick === _lastTimelineQuick) {
+    // Nothing new to draw, but the room on screen may have been marked
+    // unread meanwhile (the server's stale count on reconnecting): it's
+    // in front of you, so it's read.
+    if (_chatUnreadRooms.has(room.roomId) && chatRoomOnScreen()) readActiveChatRoom(room);
+    return;
+  }
   _lastTimelineQuick = quick;
 
   const events = room.getLiveTimeline().getEvents().filter(ev => {
@@ -1445,6 +1456,7 @@ function renderTimeline() {
       actions.innerHTML = QUICK_REACTIONS.map(e =>
         `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}">${e}</button>`
       ).join('') + `<button type="button" class="chat-msg-action-btn chat-msg-star-btn${starredByMe ? ' on' : ''}" data-action="react" data-emoji="${KLAB_STAR}" title="${starredByMe ? 'Unstar' : 'Star'}"><i class="ti ${starredByMe ? 'ti-star-filled' : 'ti-star'}"></i></button>` +
+        `<button type="button" class="chat-msg-action-btn" data-action="more" title="More reactions"><i class="ti ti-mood-plus"></i></button>` +
         `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
       row.appendChild(actions);
     }
@@ -3136,7 +3148,18 @@ function refreshUnreadDmUsers() {
 
 function updateSocialUnreadBadge() {
   const badge = document.getElementById('socialUnreadBadge');
-  if (badge) badge.textContent = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size})` : '';
+  if (badge) badge.textContent = _chatUnreadRooms.size ? (_chatUnreadRooms.size > 99 ? '99+' : String(_chatUnreadRooms.size)) : '';
+  // The same count on Chat's own row: Social's badge said there was
+  // something new but nothing in Social said where (the owner: it "doesn't
+  // prompt the user to view their messages"). Inside Social the count sits
+  // on Chat's row and Social's own steps aside (css "UNREAD, WHERE IT IS").
+  const chatCount = document.getElementById('socChatCount');
+  if (chatCount) {
+    chatCount.textContent = _chatUnreadRooms.size > 99 ? '99+' : String(_chatUnreadRooms.size);
+    chatCount.hidden = !_chatUnreadRooms.size;
+  }
+  document.documentElement.classList.toggle('chat-unread', _chatUnreadRooms.size > 0);
+  window.klabChatUnreadChanged?.();
   // gitea#3: "visual blip to the browser tab" for an unread message —
   // a title prefix works everywhere (pinned tabs, alt-tab switchers)
   // unlike a favicon overlay, which a lot of browsers just clip/hide.
@@ -3144,6 +3167,26 @@ function updateSocialUnreadBadge() {
   updateChannelUnreadDots();
   refreshUnreadDmUsers();
 }
+// The unread conversations, newest first, for Social's home.
+window.klabChatUnread = function() {
+  const client = MatrixChat.client;
+  if (!client) return [];
+  const dmIds = getDmRoomIds();
+  const out = [];
+  for (const roomId of _chatUnreadRooms) {
+    const room = client.getRoom(roomId);
+    if (!room) continue;
+    const isDm = dmIds.has(roomId);
+    const last = roomLastMessage(room);
+    out.push({
+      roomId, isDm, name: room.name || 'Unnamed room',
+      user: isDm ? dmOtherUsername(room) : null,
+      text: roomPreview(room, last, isDm),
+      ts: last ? last.getTs() : 0,
+    });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+};
 // Unread state didn't survive a reload: DMs that arrived while klabnet was
 // closed showed nothing. The server keeps a count per room; start from it.
 function seedUnreadFromServer() {
@@ -3171,6 +3214,8 @@ function seedUnreadFromServer() {
 function chatPaneShowing() {
   if (document.hidden) return false;
   if (!document.querySelector('.tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) return false;
+  // The full player over it: not read, and no "Seen" for the sender.
+  if (document.getElementById('fsPlayer')?.classList.contains('open')) return false;
   return !(document.body.classList.contains('chat-rooms-view') && matchMedia(KLAB_PHONE_MQ).matches);
 }
 function chatRoomOnScreen() { return chatPaneShowing() && document.hasFocus(); }
@@ -3221,6 +3266,9 @@ function readActiveChatRoom(room, events) {
 // Catch up the moment it is in front of someone.
 function maybeReadActiveChatRoom() { if (MatrixChat.client && _chatActiveRoomId && chatRoomOnScreen()) readActiveChatRoom(); }
 window.addEventListener('focus', maybeReadActiveChatRoom);
+// Closing the full player shows the conversation again: read it then.
+const _chatCloseFS = closeFS;
+closeFS = function() { _chatCloseFS.apply(this, arguments); maybeReadActiveChatRoom(); };
 document.addEventListener('visibilitychange', maybeReadActiveChatRoom);
 
 function markRoomRead(roomId) {
@@ -3556,6 +3604,10 @@ function showChatApp() {
         if (last && room.hasUserReadEvent?.(MatrixChat.client.getUserId(), last.getId())) { markRoomRead(room.roomId); updateChannelUnreadDots(); }
       }
       if (room.roomId !== _chatActiveRoomId) return;
+      // Not on screen: the next render redraws "Seen" anyway. Busy rooms
+      // send a receipt per message per reader, and each one here walked
+      // the timeline and forced a layout for a page nobody was looking at.
+      if (!chatPaneShowing()) { _lastTimelineRenderKey = null; return; }
       const events = room.getLiveTimeline().getEvents().filter(ev =>
         ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace');
       // updateSeenLine() inserts/replaces a real, height-bearing element
@@ -3602,6 +3654,12 @@ function showChatApp() {
       const reactBtn = e.target.closest('.chat-msg-action-btn[data-action="react"]');
       if (reactBtn) {
         toggleReaction(reactBtn.closest('.chat-msg')?.dataset.eventId, reactBtn.dataset.emoji);
+        return;
+      }
+      const moreBtn = e.target.closest('.chat-msg-action-btn[data-action="more"]');
+      if (moreBtn) {
+        const id = moreBtn.closest('.chat-msg')?.dataset.eventId;
+        klabReactMenu(moreBtn, emoji => toggleReaction(id, emoji));
         return;
       }
       const replyBtn = e.target.closest('.chat-msg-action-btn[data-action="reply"]');
