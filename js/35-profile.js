@@ -150,7 +150,7 @@
         ${s.coverArt ? `<img src="${esc(cover(s.coverArt, 100))}" alt="" loading="lazy">` : '<span class="pf-song-ph"><i class="ti ti-music"></i></span>'}
         <span class="pf-song-tx"><b>${esc(s.title || 'Unknown')}</b><span>${esc(s.artist || '')}</span>${s.lyric ? `<i>${esc(s.lyric)}</i>` : ''}</span>
         ${s.start > 0 ? `<span class="song-at"><i class="ti ti-clock"></i>${formatTime(s.start)}</span>` : ''}<i class="ti ti-player-play pf-song-play"></i></button>` : '';
-    const reacts = Object.entries(p.reactions || {}).map(([k, v]) => `<span class="pf-react${v.mine ? ' mine' : ''}">${(window.klabEmojiKey || esc)(k)} ${v.count}</span>`).join('');
+    const reacts = Object.entries(p.reactions || {}).map(([k, v]) => `<span class="pf-react${v.mine ? ' mine' : ''}">${klabReactHTML(k)} ${v.count}</span>`).join('');
     const meta = [ago(p.created), p.reply_count ? klabCount(p.reply_count, 'reply', 'replies') : '', gold && p.kind === 'photo' ? 'Photo' : ''].filter(Boolean).join(' · ');
     return `<article class="pf-post${gold ? ' gold' : ''}">
       ${text ? `<div class="pf-post-text md">${text}</div>` : ''}

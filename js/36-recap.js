@@ -94,7 +94,7 @@
       let html = '', sub = '';
       if (i.kind === 'reply') { html = who(i.who[0]) + ' replied to your post'; sub = esc(i.text); }
       else if (i.kind === 'mention') { html = who(i.who[0]) + ' mentioned you' + (i.reply ? ' in a reply' : ''); sub = esc(i.text); }
-      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(e => window.klabEmojiKey ? window.klabEmojiKey(e) : esc(e)).join(''); sub = i.photo ? 'to your photos' : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
+      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
       else continue;
       out.push({ at, html: row({ act: i.kind === 'tag' || i.photo ? 'photos' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
@@ -123,7 +123,7 @@
     const since = data ? Math.min(seen, now() - DAY) : 0;
     panel.querySelector('.rc-since').textContent = since ? 'Since ' + (now() - since < DAY + 60 ? 'yesterday' : ago(since) + ' ago') : '';
     body.innerHTML =
-      '<div class="picker-section-label rc-label">For you</div>' + (mine || '<p class="rc-empty">Nothing for you. All caught up.</p>') +
+      '<div class="picker-section-label rc-label">For you</div>' + (mine || '<p class="rc-empty">Nothing</p>') +
       (around ? '<div class="picker-section-label rc-label">Around klabnet</div>' + around : '');
   }
   function go(act, d) {

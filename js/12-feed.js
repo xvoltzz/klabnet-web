@@ -487,7 +487,7 @@
       '<i class="ti ' + (star.mine ? 'ti-star-filled' : 'ti-star') + '"></i>' + (star.count ? '<span>' + star.count + '</span>' : '') + '</button>';
     const pillsHTML = Object.entries(reactions).filter(([emoji]) => !KLAB_STARS || emoji !== KLAB_STAR).map(([emoji, entry]) =>
       '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + esc(emoji) + '">' +
-        (window.klabEmojiKey || esc)(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
+        klabReactHTML(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
       '</button>'
     ).join('');
     const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
@@ -507,7 +507,7 @@
         // They used to sit under every post all the time, with the quick
         // reactions spilling out of a button in a row of bare emoji.
         '<div class="feed-post-actions">' +
-          KLAB_QUICK_REACTS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + e + '</button>').join('') +
+          KLAB_QUICK_REACTS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + klabReactHTML(e) + '</button>').join('') +
           '<button type="button" class="feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions"><i class="ti ti-mood-plus"></i></button>' +
           '<button type="button" class="feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
           (canDelete ? '<button type="button" class="feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
@@ -1561,7 +1561,7 @@
     for (let k = 0; k < 3; k++) {
       const f = document.createElement('span');
       f.className = 'feed-floaty';
-      f.innerHTML = (window.klabEmojiKey || esc)(emoji);
+      f.innerHTML = klabReactHTML(emoji);
       f.style.left = (r.left / z + 6 + k * 9) + 'px';
       f.style.top = (r.top / z - 4) + 'px';
       f.style.setProperty('--r', ((k - 1) * 16) + 'deg');

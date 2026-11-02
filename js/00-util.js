@@ -474,7 +474,7 @@ const klabMenu = (() => {
         const row = document.createElement('div');
         row.className = 'ctx-reacts';
         it.reacts.forEach(emoji => {
-          const b = Object.assign(document.createElement('button'), { type: 'button', textContent: emoji, tabIndex: -1 });
+          const b = Object.assign(document.createElement('button'), { type: 'button', innerHTML: klabReactHTML(emoji), tabIndex: -1, title: emoji });
           b.addEventListener('click', () => run(it.action, emoji));
           row.appendChild(b);
         });
@@ -527,6 +527,29 @@ const klabMenu = (() => {
 const KLAB_REACTS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '🎉', '💀', '👀', '🙏', '💯', '🫡'];
 // The four on a message's or a post's hover toolbar (Chat and Feed).
 const KLAB_QUICK_REACTS = ['👍', '❤️', '😂', '🔥'];
+// Faces read as text faces wherever a reaction is shown (owner, 2026-11-02:
+// "laughing turns to XD"). Only how it's drawn: the reaction itself stays
+// the emoji, so Matrix's other clients and old posts mean the same thing.
+// Things that aren't faces (🔥, 👍, 💀…) stay emoji.
+const KLAB_TEXTMOJI = {
+  '😂': 'XD', '🤣': 'XDD', '😆': 'xD', '😀': ':D', '😃': ':D', '😁': '=D', '😄': '^_^',
+  '🙂': ':)', '😊': '^^', '😉': ';)', '😅': "^^'", '🥲': ":')", '😇': 'O:)', '😈': '>:)',
+  '😛': ':P', '😜': ';P', '😝': 'xP', '😋': ':9', '😘': ':*', '😍': '♥_♥', '😎': 'B)',
+  '😮': ':O', '😯': ':o', '😲': 'O_O', '😳': 'O.O', '😱': 'D:', '😦': 'D:', '😧': 'D:', '😩': 'D:', '😫': 'D:',
+  '😢': ":'(", '😭': 'T_T', '🙁': ':(', '☹': ':(', '😞': ':(', '😔': ':(', '😕': ':/', '🫤': ':/',
+  '😐': ':|', '😑': '-_-', '😒': '¬_¬', '🙄': '¬_¬', '😏': '¬‿¬', '🤨': 'o_O',
+  '😠': '>:(', '😡': '>:(', '😖': '>_<', '😣': '>_<', '😬': ':S', '😵': 'x_x', '😴': '-_-zz',
+  '🤐': ':X', '🥺': '(._.)', '🫡': 'o7', '🤷': '¯\\_(ツ)_/¯', '❤': '<3',
+};
+function klabTextmoji(key) {
+  return KLAB_TEXTMOJI[String(key || '').replace(/[\uFE0F\u{1F3FB}-\u{1F3FF}\u200D\u2640\u2642]/gu, '')];
+}
+// A reaction's key as markup: a text face, a custom :emoji:, or the emoji.
+function klabReactHTML(key) {
+  const t = klabTextmoji(key);
+  if (t) return '<span class="tmoji">' + esc(t) + '</span>';
+  return (window.klabEmojiKey || esc)(key);
+}
 function klabReactMenu(anchor, onPick) {
   // The emoji picker (js/34-emoji.js), with klab's own emoji in it.
   if (window.klabEmojiPicker) return window.klabEmojiPicker(anchor, onPick);

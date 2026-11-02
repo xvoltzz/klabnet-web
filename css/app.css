@@ -10707,3 +10707,14 @@
       html.web-bar[data-theme="light"]:not([data-nav="menu"])::after { background: var(--lt-frame) fixed !important; }
       html.web-bar.sky:not([data-nav="menu"])::after { background: linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 55%, var(--sky-3) 100%) fixed !important; }
     }
+
+/* ═══ TEXT FACES (2026-11-02) ═══
+   A face reaction drawn as its text face (klabReactHTML in js/00-util.js):
+   😂 is XD. Sized against the emoji it stands beside. */
+.tmoji {
+  display: inline-block; font-family: var(--font-ui); font-size: 13px !important; font-weight: 700;
+  font-style: normal; line-height: 1; letter-spacing: 0.01em; white-space: nowrap; color: var(--text);
+  vertical-align: 0.06em;
+}
+.feed-floaty .tmoji { font-size: 18px !important; }
+.ctx-reacts button .tmoji, .feed-post-act .tmoji, .chat-msg-action-btn .tmoji { font-size: 12px !important; }

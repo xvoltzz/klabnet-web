@@ -1419,7 +1419,7 @@ function renderTimeline() {
       actions.className = 'chat-msg-actions';
       const starredByMe = !!reactions.get(ev.getId())?.get(KLAB_STAR)?.mine;
       actions.innerHTML = KLAB_QUICK_REACTS.map(e =>
-        `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}">${e}</button>`
+        `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}" title="${e}">${klabReactHTML(e)}</button>`
       ).join('') + `<button type="button" class="chat-msg-action-btn chat-msg-star-btn${starredByMe ? ' on' : ''}" data-action="react" data-emoji="${KLAB_STAR}" title="${starredByMe ? 'Unstar' : 'Star'}"><i class="ti ${starredByMe ? 'ti-star-filled' : 'ti-star'}"></i></button>` +
         `<button type="button" class="chat-msg-action-btn" data-action="more" title="More reactions"><i class="ti ti-mood-plus"></i></button>` +
         `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
@@ -1597,7 +1597,7 @@ function paintRowReactions(row, ev, reactions) {
     pill.dataset.targetId = ev.getId();
     pill.dataset.emoji = emoji;
     // The key is whatever a remote client sent; it's text, never markup.
-    pill.innerHTML = `${KLAB_STARS && emoji === KLAB_STAR ? '★' : (window.klabEmojiKey || esc)(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+    pill.innerHTML = `${KLAB_STARS && emoji === KLAB_STAR ? '★' : klabReactHTML(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
     pills.appendChild(pill);
   });
   body.appendChild(pills);
