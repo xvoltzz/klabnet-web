@@ -201,14 +201,79 @@ try { currentTheme = localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) {} /
 
 function applyTheme(t) {
   currentTheme = t;
-  document.documentElement.setAttribute('data-theme', t);
-  document.getElementById('themeIcon').className = t === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+  const sky = t === 'sky';
+  document.documentElement.classList.toggle('sky', sky);
+  if (sky) paintSky(); else { klabSky.clear(); document.documentElement.setAttribute('data-theme', t); }
+  document.getElementById('themeIcon').className = document.documentElement.dataset.theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
   try { localStorage.setItem(THEME_KEY, t); } catch (e) {} // storage blocked: same as the read above
   applyCustomBg(); // re-check the OTHER theme's stored color now that data-theme changed
 }
 
+// ── Sky: the time of day ──
+// The theme that follows the clock (the owner, 2026-11-02: the site long
+// ago changed its colours with the time of day, "which was SWEET"). The
+// window is a sky, a three-stop gradient blended between the moments
+// below by the local time, minute by minute; the frame is clear glass
+// over it and the page a sheet. Dark or light ink is picked from how
+// bright the sky is, so a sunset doesn't get light text on orange.
+// Hours are local, as a fraction (6.5 is half past six).
+const SKY = [
+  [0,    ['#070b1d', '#141537', '#241a3b']], // night
+  [4.5,  ['#10153a', '#2c2456', '#58365f']], // before dawn
+  [6,    ['#5d7fc4', '#d99bb0', '#ffbb8a']], // dawn
+  [7.5,  ['#8ab9ec', '#d6e3f2', '#ffe2c2']], // sunrise
+  [10,   ['#77b6f0', '#bfe0fa', '#f1f8ff']], // morning
+  [13,   ['#5aa8ee', '#a9d6f8', '#e6f4ff']], // noon
+  [16,   ['#78ade4', '#c7dcef', '#fbe6c6']], // afternoon
+  [18,   ['#e4a86d', '#ef8f78', '#b2638f']], // golden hour
+  [19.25,['#3c3471', '#b4567a', '#ef935c']], // sunset
+  [20.5, ['#151d4a', '#3d2a66', '#7a4071']], // dusk
+  [22,   ['#0b1129', '#191941', '#2e1d45']], // night
+  [24,   ['#070b1d', '#141537', '#241a3b']],
+];
+const klabSky = (() => {
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  const lum = c => { const l = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+  function at(d = new Date()) {
+    const h = d.getHours() + d.getMinutes() / 60;
+    let i = 0;
+    while (i < SKY.length - 2 && SKY[i + 1][0] <= h) i++;
+    const [h0, a] = SKY[i], [h1, b] = SKY[i + 1];
+    // Eased, so a moment holds a while and then moves on.
+    let k = (h - h0) / (h1 - h0);
+    k = k * k * (3 - 2 * k);
+    return a.map((c, j) => mix(rgb(c), rgb(b[j]), k));
+  }
+  const PROPS = ['--sky-1', '--sky-2', '--sky-3', '--bg'];
+  return {
+    at,
+    paint() {
+      const stops = at(), root = document.documentElement;
+      const bright = (lum(stops[0]) + 2 * lum(stops[1]) + lum(stops[2])) / 4;
+      const mode = bright > 0.32 ? 'light' : 'dark';
+      if (root.dataset.theme !== mode) root.setAttribute('data-theme', mode);
+      stops.forEach((c, i) => root.style.setProperty('--sky-' + (i + 1), hex(c)));
+      // Things drawn "on the background" (rings, letter tiles) take the sky's middle.
+      root.style.setProperty('--bg', hex(mix(stops[1], mode === 'dark' ? [0, 0, 0] : [255, 255, 255], mode === 'dark' ? 0.72 : 0.78)));
+      return mode;
+    },
+    clear() { PROPS.forEach(p => document.documentElement.style.removeProperty(p)); },
+  };
+})();
+let _skyTimer = 0;
+function paintSky() {
+  const was = document.documentElement.dataset.theme;
+  const mode = klabSky.paint();
+  if (mode !== was) { const ic = document.getElementById('themeIcon'); if (ic) ic.className = mode === 'dark' ? 'ti ti-sun' : 'ti ti-moon'; }
+  clearInterval(_skyTimer);
+  _skyTimer = setInterval(() => { if (currentTheme === 'sky') klabSky.paint(); else clearInterval(_skyTimer); }, 60e3);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && currentTheme === 'sky') klabSky.paint(); });
+
 applyTheme(currentTheme);
-document.getElementById('themeToggle').addEventListener('click', () => { applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); SFX.play('click'); });
+document.getElementById('themeToggle').addEventListener('click', () => { applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); SFX.play('click'); });
 
 // ══════════════════════════════════════════
 //  CUSTOM BACKGROUND COLOR — curated palette per theme, not a full color
@@ -269,6 +334,8 @@ function setCustomBg(theme, hex) {
   scheduleSave && scheduleSave(); // sync to /api/prefs alongside the other appearance prefs
 }
 function applyCustomBg() {
+  // Sky sets --bg from the sky itself.
+  if (currentTheme === 'sky') { klabSky.paint(); return; }
   const hex = getCustomBg(currentTheme);
   if (hex) document.documentElement.style.setProperty('--bg', hex);
   else document.documentElement.style.removeProperty('--bg'); // falls back to the theme's own default
@@ -324,8 +391,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 
   function isEditableTarget() {
     let el = document.activeElement;
-    // Inside a shadow root (Games draws in one), the document only sees
-    // its host: "nope" in Games' player search skipped a song.
+    // Inside a shadow root, the document only sees its host.
     while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
     if (!el) return false;
     return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
@@ -503,8 +569,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         break;
       }
       case 'w': case 's': if (stepSubTab(e.key === 's' ? 1 : -1)) e.preventDefault(); break;
-      // ←/→: along the page's sections in the sidebar (Music's, Social's,
-      // Games'), stopping at the ends. Pages change only with Tab.
+      // ←/→: along the page's sections in the sidebar (Music's, Social's),
+      // stopping at the ends. Pages change only with Tab.
       // Photos keeps its own ←/→ (photo to photo).
       case 'ArrowLeft': case 'ArrowRight': {
         if (e.defaultPrevented || e.altKey || e.shiftKey || !arrowsFree()) break;

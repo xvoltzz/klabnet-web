@@ -4,16 +4,13 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos', 'games'];
+const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos'];
 // Social is one page with a sidebar, like Music, holding its own home, Feed,
 // Chat and Photos. Each of those is still a tab of its own here (its own
 // panel, hash, body class and Back entry), so everything that sends you to
 // one keeps working; the app's nav has one Social button for the four, and
-// it lands on whichever you were on last.
+// it lands on Social's home.
 const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social', photos: 'social' };
-const SOCIAL_LAST_KEY = 'klabnet_social_last';
-let _socialLast = 'social';
-try { if (TAB_GROUP[localStorage.getItem(SOCIAL_LAST_KEY)]) _socialLast = localStorage.getItem(SOCIAL_LAST_KEY); } catch (e) {}
 // The pages the app's nav (and Tab, and 1–3) go between.
 const topTab = key => TAB_GROUP[key] || key;
 
@@ -33,17 +30,8 @@ document.querySelectorAll('#settingsBackdrop button.s-toggle').forEach(button =>
 // frame of not-yet-updated content is never visible.
 function afterSwitchPaints(fn) { requestAnimationFrame(() => setTimeout(fn, 0)); }
 
-// Games is behind Settings → Experimental features, off by default. Its
-// button starts hidden in the markup, so isTabEnabled() and every Tab,
-// number key, hash and `cd` already leave it out until it's on.
-function syncGamesEnabled() {
-  const on = !!_settings.games;
-  const btn = document.querySelector('.tab-nav-btn[data-tab-target="games"]');
-  if (btn) btn.hidden = !on;
-  const t = document.getElementById('gamesToggle');
-  if (t) { t.classList.toggle('on', on); t.setAttribute('aria-checked', String(on)); }
-  if (!on && document.body.classList.contains('tab-games-active')) setActiveTab('home');
-}
+// A page whose nav button is hidden is off: Tab, the number keys, hashes
+// and `cd` all leave it out.
 function isTabEnabled(key) {
   const btn = document.querySelector(`.tab-nav-btn[data-tab-target="${topTab(key)}"]`);
   return !!btn && !btn.hidden;
@@ -61,10 +49,6 @@ function setActiveTab(key) {
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
   if (leaving && leaving !== key) _tabScroll[leaving] = PANEL_SCROLLS.has(leaving) ? tabPanel(leaving).scrollTop : window.scrollY;
-  if (TAB_GROUP[key] && key !== _socialLast) {
-    _socialLast = key;
-    try { localStorage.setItem(SOCIAL_LAST_KEY, key); } catch (e) {}
-  }
   // Captured before the tab-panel/body-class toggles below — used further
   // down to detect "just arrived on Chat" vs. "already there".
   const enteringChat = key === 'chat' && !document.body.classList.contains('tab-chat-active');
@@ -84,7 +68,6 @@ function setActiveTab(key) {
   document.body.classList.toggle('tab-photos-active', key === 'photos');
   document.body.classList.toggle('tab-home-active', key === 'home');
   document.body.classList.toggle('tab-feed-active', key === 'feed');
-  document.body.classList.toggle('tab-games-active', key === 'games');
   // Before the paint, so it never shows at the wrong spot first. Something
   // that jumps to a particular post (klabFeedFocus) scrolls after this.
   if (leaving !== key) {
@@ -100,8 +83,6 @@ function setActiveTab(key) {
   if (key === 'chat' && enteringChat) afterSwitchPaints(() => window.klabVoice?.refresh());
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
   if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
-  // Games opens its connection to the server while it's up (js/29-games-mc.js).
-  if (typeof window.klabGamesTabChanged === 'function') { const on = key === 'games'; afterSwitchPaints(() => window.klabGamesTabChanged(on)); }
   // The header prompt cds into this page ("cd feed", then klabnet/feed>;
   // see retypePrompt()), so the page needn't spend a row on its own title
   // (the owner: use the top bar, save space).
@@ -169,12 +150,9 @@ function initTabs() {
   document.querySelectorAll('.tab-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.tabTarget;
-      // Social: back to where you were in it; pressed again while there,
-      // to its home, the way a second press of a tab goes to its top.
-      if (key === 'social') {
-        const on = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
-        setActiveTab(TAB_GROUP[on] ? 'social' : _socialLast);
-      } else setActiveTab(key);
+      // A page's row always goes to its front page (the owner, 2026-11-02),
+      // not back to where you were in it.
+      setActiveTab(key);
     });
   });
   // On each row, not delegated: in a wide window they live in the main sidebar.
@@ -187,7 +165,6 @@ function initTabs() {
     if (document.querySelector(`.tab-panel[data-tab-panel="${CSS.escape(key)}"]`)?.classList.contains('active')) return;
     setActiveTab(key);
   });
-  syncGamesEnabled();
   setActiveTab(location.hash.slice(1) || 'home');
 }
 // initTabs() runs from js/09-music-extras.js: if anything before it threw
@@ -217,7 +194,6 @@ function openSettings() {
   syncAwayRow();
   syncLowFxRow();
   syncOledRow();
-  syncGamesEnabled();
   syncGifsRow();
   syncGlassRow();
   syncThemeRow();
@@ -349,13 +325,6 @@ document.getElementById('gifsToggle')?.addEventListener('click', e => {
   saveSettings();
   if (!_settings.gifs) window.klabGifPicker?.close();
   syncGifsRow();
-}, true);
-document.getElementById('gamesToggle')?.addEventListener('click', e => {
-  e.stopImmediatePropagation();
-  SFX && SFX.play('click');
-  _settings.games = !_settings.games;
-  saveSettings();
-  syncGamesEnabled();
 }, true);
 
 // Window glass: html.glass-aero (applied at load by the <head> script).
@@ -672,7 +641,7 @@ window.klabSideNav = (function() {
   // the /desktop/ page, which works out which download is yours.
   const browserOnComputer = !window.klabnetDesktop && !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
   foot.innerHTML = (browserOnComputer ? '<button type="button" class="side-nav-item" id="sideNavGetApp" title="klabnet for Windows, macOS and Linux"><i class="ti ti-download"></i><span>Get the app</span></button>' : '') +
-    '<button type="button" class="side-nav-item" id="sideNavFeedback" title="Report a bug or suggest an idea"><i class="ti ti-bug"></i><span>Bugs and ideas</span></button>' +
+    '<button type="button" class="side-nav-item" id="sideNavFeedback" title="Report a bug or suggest an idea"><i class="ti ti-message-dots"></i><span>Feedback</span></button>' +
     '<button type="button" class="side-nav-item" id="sideNavSettings" title="Settings"><i class="ti ti-settings"></i><span>Settings</span></button>';
   side.appendChild(foot);
   document.body.appendChild(side);
@@ -800,11 +769,16 @@ window.klabSideNav = (function() {
     place();
   }
 
-  // The bar gets a backing once the page scrolls under it (the app does
-  // the same for its title bar).
-  window.addEventListener('scroll', () => {
-    if (root.classList.contains('web-bar')) root.classList.toggle('app-scrolled', window.scrollY > 2);
-  }, { passive: true });
+  // The bar gets a backing once the page scrolls under it, only while the
+  // sidebar is hidden (the owner: with it open, the bar and the sidebar are
+  // one frame and stay so). The app's title bar does the same.
+  const scrolled = () => {
+    if (!root.classList.contains('web-bar') && !root.classList.contains('app-titlebar')) return;
+    const on = window.scrollY > 2 && root.dataset.nav !== 'side';
+    if (root.classList.contains('app-scrolled') !== on) root.classList.toggle('app-scrolled', on);
+  };
+  window.addEventListener('scroll', scrolled, { passive: true });
+  new MutationObserver(scrolled).observe(root, { attributes: true, attributeFilter: ['data-nav'] });
 
   desk.addEventListener('change', () => { close(); place(); });
   roomy.addEventListener('change', () => { close(); apply(want, false); });
@@ -893,7 +867,7 @@ window.klabSideNav = (function() {
 
 // ══════════════════════════════════════════
 //  HIDING A PAGE'S SIDEBAR
-//  Music, Social and Games each have a sidebar of their own beside the
+//  Music and Social each have a sidebar of their own beside the
 //  page. A button at the sidebar's foot (and "b") folds it down to its
 //  icons, like the main sidebar's rail, with the button in the same place,
 //  and opens it again, so a small window can be all music, or all
@@ -912,7 +886,6 @@ window.klabPane = (function() {
   const PANES = {
     music:  { el: 'musicSidebar', search: '.picker-search', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-music-active' },
     social: { el: 'socSidebar',   search: '.soc-search',    mq: matchMedia(KLAB_DESK_MQ), on: 'tab-social-group' },
-    games:  { el: 'gamesSidebar', mq: matchMedia(KLAB_DESK_MQ), on: 'tab-games-active' },
   };
   // (With everything in the main sidebar, no page has one of its own.)
   const page = () => Object.keys(PANES).find(t => document.body.classList.contains(PANES[t].on) && PANES[t].mq.matches
@@ -929,9 +902,9 @@ window.klabPane = (function() {
     // as the pointer arrives, since chat's rows are rebuilt all the time.
     side.addEventListener('pointerover', e => {
       if (!hidden(t)) return;
-      const row = e.target.closest('.picker-tab, .chat-conv, .music-playlist-row, .games-server');
+      const row = e.target.closest('.picker-tab, .chat-conv, .music-playlist-row');
       if (!row || row.title) return;
-      const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, .games-server-name, span:not(.soc-dot):not(.soc-count):not(:empty)');
+      const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, span:not(.soc-dot):not(.soc-count):not(:empty)');
       if (name) row.title = name.textContent.trim();
     });
     // Folded, the search is its icon. Its box is still there, unseen, so
@@ -1124,11 +1097,8 @@ window.klabPane = (function() {
     wcApi.state().then(st => setMax(st?.maximized)).catch(() => {});
   }
 
-  // Scrolled down, the title bar gets a solid backing so the page doesn't
-  // show through under it; at the top it's one surface with the page.
-  const onScroll = () => root.classList.toggle('app-scrolled', window.scrollY > 2);
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+  // Scrolled down with the sidebar hidden, the title bar gets a backing
+  // (the sidebar's scroll handler, above, does it for the app too).
 
   // ── Settings → App ──
   const section = document.getElementById('appSettings');
@@ -1293,7 +1263,7 @@ async function offerAppUpdate(current) {
 //  kind of thing has one home, the same on every page:
 //    · Where you can go is the sidebar. The page you're on unfolds its
 //      sections under its own row (Social: Home, Feed, Photos, Chat;
-//      Music: Home… Requests and your playlists; Games: Minecraft), the
+//      Music: Home… Requests and your playlists), the
 //      way Finder's and Music's sidebars do. Only one row in the whole
 //      sidebar is highlighted: the section you're on.
 //    · Where you are is the prompt in the title bar (klabnet/feed>).
@@ -1317,7 +1287,6 @@ async function offerAppUpdate(current) {
   const PAGES = [
     { tab: 'social', pages: ['social', 'feed', 'chat', 'photos'], parts: ['socNav', 'phSidebar', 'phNow', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
     { tab: 'music', pages: ['music'], parts: [document.querySelector('#musicSidebar .music-nav')], search: document.querySelector('#musicSidebar .picker-search') },
-    { tab: 'games', pages: ['games'], parts: [document.querySelector('#gamesSidebar .games-group')] },
   ];
   PAGES.forEach(p => {
     p.parts = p.parts.filter(Boolean);
@@ -1380,14 +1349,17 @@ async function offerAppUpdate(current) {
     if (shape !== was) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     was = shape;
   }
-  // The page's own row, clicked while you're on that page: its front.
+  // A page's own row goes to its front page, from anywhere (the owner:
+  // "always take me back to the home page of that tab"): Music's Home,
+  // with any album or playlist page closed.
   PAGES.forEach(p => {
     const btn = tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`);
     const front = p.in.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]') || p.parts[0]?.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]');
     if (!btn || !front) return;
-    btn.addEventListener('click', () => {
-      if (root.classList.contains('nav-tree') && p.sub.classList.contains('open') && btn.classList.contains('active') && !front.classList.contains('active')) front.click();
-    }, true);
+    btn.addEventListener('click', () => setTimeout(() => {
+      if (p.tab === 'music' && document.getElementById('apPanel')?.classList.contains('open')) window.closeApPanel?.();
+      if (!front.classList.contains('active')) front.click();
+    }));
   });
   window.klabHeaderSearch = place;
   window.klabOpenHeaderFind = () => {
@@ -1408,4 +1380,22 @@ async function offerAppUpdate(current) {
     place();
   }).observe(root, { attributes: true, attributeFilter: ['class'] });
   place();
+})();
+
+// The title bar's right-hand tray with nothing showing in it (every page
+// but the Feed, on a computer, once the theme and the menu went to
+// Settings) drew as an empty, squished button on the Mac. Marked empty, it
+// draws nothing; its buttons coming and going (the Feed's @, voice's mic)
+// are watched.
+(function () {
+  const tray = document.querySelector('.header .header-right');
+  if (!tray) return;
+  const sync = () => {
+    const empty = ![...tray.children].some(c => c.offsetWidth > 0 && getComputedStyle(c).visibility !== 'hidden');
+    if (tray.classList.contains('is-empty') !== empty) tray.classList.toggle('is-empty', empty);
+  };
+  new MutationObserver(() => requestAnimationFrame(sync)).observe(tray, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+  new MutationObserver(() => requestAnimationFrame(sync)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', sync);
+  sync();
 })();

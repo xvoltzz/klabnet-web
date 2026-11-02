@@ -575,6 +575,24 @@ function klabCleanSong(s) {
   for (const k of ['title', 'artist', 'album']) if (out[k] != null) out[k] = String(out[k]).slice(0, 300);
   return out;
 }
+// A song from a point in it (a shared moment: "from 1:32"). The seek waits
+// for the new file's length; on a remote it's sent once the active device
+// has had a moment to load it.
+function klabPlayFrom(song, at) {
+  const started = playSong(song);
+  if (!(at > 0)) return started;
+  const a = playerState.audio;
+  const go = () => { if (playerState.currentSong?.id === song.id) try { a.currentTime = at; } catch (e) {} };
+  if (window.klabSession?.mirror) setTimeout(go, 1500);
+  else a.addEventListener('loadedmetadata', go, { once: true });
+  return started;
+}
+// Where the playing song is, worth sharing as a moment: not the first or
+// last few seconds (that's just the song).
+function klabMomentNow() {
+  const a = playerState.audio, t = a.currentTime || 0, d = a.duration || 0;
+  return t >= 5 && (!d || t < d - 5) ? Math.round(t * 10) / 10 : 0;
+}
 // A message from the API ("too large") as a sentence ("Too large").
 function klabCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 // "1 track", "12 tracks".

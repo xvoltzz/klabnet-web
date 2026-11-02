@@ -256,7 +256,7 @@ function shareCurrentSongToFeed() {
   // fail to init (missing #feedList markup, see its own early return).
   window.klabShareSongToFeed?.({
     songId: song.id, title: song.title, artist: song.artist, album: song.album,
-    coverArt: song.coverArt, lyric,
+    coverArt: song.coverArt, lyric, start: klabMomentNow() || undefined,
   });
   SFX.play('click');
 }

@@ -208,6 +208,8 @@ const MatrixChat = (function () {
     // timeline involved at all, so nothing here ever shows up as a chat
     // message or notification.
     client.on('toDeviceEvent', event => emit('toDevice', event));
+    // Push rules (muted conversations) changed, here or on another device.
+    client.on('accountData', event => { if (event.getType() === 'm.push_rules') emit('pushRules'); });
     // gitea#3: 20 felt thin ("does only like 20 messages"). This is just
     // the first page though — scrolling to the top of a room's timeline
     // pages in more/older history via scrollback(), see maybeLoadOlderMessages().
@@ -633,7 +635,8 @@ function buildChannelItem(room, icon) {
   const hasUnread = _chatUnreadRooms.has(room.roomId);
   const item = document.createElement('div');
   item.dataset.roomId = room.roomId; // updateChannelUnreadDots() targets rows by this instead of a full re-render
-  item.className = 'chat-channel-item chat-conv' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '');
+  const muted = _chatMuted.has(room.roomId);
+  item.className = 'chat-channel-item chat-conv' + (room.roomId === _chatActiveRoomId ? ' active' : '') + (hasUnread ? ' has-unread' : '') + (muted ? ' muted' : '');
   const other = isDm && !invited ? dmOtherUsername(room) : null;
   item.dataset.search = ((room.name || '') + ' ' + (other || '')).toLowerCase();
   let lead;
@@ -646,6 +649,7 @@ function buildChannelItem(room, icon) {
   item.innerHTML = lead +
     `<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name"${isDm && other ? ` style="color:${profileColor(other)}"` : ''}>${esc(room.name || 'Unnamed room')}</span>` +
       (hasUnread ? '<span class="chat-channel-unread-dot" title="Unread messages"></span>' : '') +
+      (muted ? '<i class="ti ti-bell-off chat-conv-muted" title="Muted"></i>' : '') +
       `<span class="chat-conv-when">${last ? shortAgo(last.getTs()) : ''}</span></span>` +
       `<span class="chat-conv-last">${invited ? 'Invited you' : esc(roomPreview(room, last, isDm))}</span></span>` +
     (isDm ? '<button class="chat-channel-close" title="Close conversation"><i class="ti ti-x"></i></button>' : '');
@@ -760,7 +764,7 @@ function renderChannelList() {
   const rowKey = r => {
     const who = dmIds.has(r.roomId) ? dmOtherUsername(r) : null;
     const online = who && window.KLAB_ONLINE_USERNAMES?.has(who) ? (window.KLAB_AWAY?.has(who) ? '2' : '1') : '0';
-    const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
+    const unread = (_chatUnreadRooms.has(r.roomId) ? '1' : '0') + (_chatMuted.has(r.roomId) ? 'm' : '');
     const last = roomLastMessage(r);
     const face = who && window.klabResolveUserAvatar?.(who) ? 'a' : '';
     return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}:${last ? last.getId() + (last.isRedacted?.() ? 'r' : '') + (last.replacingEvent?.()?.getId?.() || '') : ''}${face}:${last ? shortAgo(last.getTs()) : ''}:${r.roomId === _chatActiveRoomId ? 'A' : ''}`;
@@ -1011,6 +1015,8 @@ function chatConvMenu(e) {
         if (MatrixChat.client === client) _lastSentReadEventId.set(room.roomId, last.getId());
       }).catch(() => {});
     } },
+    { label: chatRoomMuted(room.roomId) ? 'Unmute' : 'Mute', icon: chatRoomMuted(room.roomId) ? 'ti-bell' : 'ti-bell-off', hidden: invited,
+      action: () => setChatRoomMuted(room.roomId, !chatRoomMuted(room.roomId)) },
     '-',
     { label: 'View profile', icon: 'ti-user-circle', hidden: !other, action: () => openProfileView(other) },
     { label: 'Copy name', icon: 'ti-copy', hidden: isDm, action: () => klabCopy('#' + (room.name || ''), 'Channel name') },
@@ -1472,8 +1478,14 @@ function renderTimeline() {
       card.type = 'button';
       card.className = 'chat-msg-song';
       card.dataset.song = encodeURIComponent(JSON.stringify({ id: song.id, title: song.title, artist: song.artist, album: song.album, coverArt: song.coverArt }));
+      // A moment of it, from another klabnet: where, and its lyric line.
+      const at = +song.at > 0 && +song.at < 7200 ? +song.at : 0;
+      if (at) { card.dataset.at = at; card.title = 'Play from ' + formatTime(at); }
       card.innerHTML = (song.coverArt ? `<span class="chat-msg-song-art" style="background-image:url(&quot;${esc(coverUrl(song.coverArt, 100))}&quot;)"></span>` : '<span class="chat-msg-song-art"><i class="ti ti-music"></i></span>') +
-        `<span class="chat-msg-song-tx"><b>${esc(song.title || 'Unknown')}</b><span>${esc(song.artist || '')}</span></span><span class="chat-msg-song-play"><i class="ti ti-player-play"></i></span>`;
+        `<span class="chat-msg-song-tx"><b>${esc(song.title || 'Unknown')}</b><span>${esc(song.artist || '')}</span>` +
+        (typeof song.lyric === 'string' && song.lyric ? `<i class="chat-msg-song-lyric">${esc(song.lyric.slice(0, 300))}</i>` : '') + '</span>' +
+        (at ? `<span class="song-at"><i class="ti ti-clock"></i>${formatTime(at)}</span>` : '') +
+        '<span class="chat-msg-song-play"><i class="ti ti-player-play"></i></span>';
       body.appendChild(card);
     } else if (!ev.isRedacted() && content.msgtype === 'm.image' && content.url) {
       const animated = content.info?.mimetype === 'image/gif' && !(+content.info?.size > CHAT_GIF_FULL_MAX);
@@ -1946,11 +1958,11 @@ function initChatImageSend() {
 // One shared backdrop+shell (see #chatModalBackdrop in the markup); each
 // action rebuilds #chatModalBody for itself rather than three separate
 // modal shells sitting mostly-duplicated in the DOM.
-// ── Bugs and ideas ─────────────────────
+// ── Feedback (bugs and ideas) ──────────
 // Kept on klabnet-api (/api/feedback), not in an issue tracker: anyone can
 // post one and see everything posted (so the same thing isn't reported
 // twice); the owner reviews them and marks them done. Opened from the
-// sidebar's foot ("Bugs and ideas"), Settings and the phone's menu.
+// sidebar's foot ("Feedback"), Settings and the phone's menu.
 const FEEDBACK_TITLE_MAX = 120;
 const FEEDBACK_BODY_MAX  = 4000;
 
@@ -1970,7 +1982,7 @@ function feedbackModalHTML() {
 }
 
 function openFeedbackModal() {
-  const fbGen = openChatModal('// bugs and ideas', feedbackModalHTML());
+  const fbGen = openChatModal('// feedback', feedbackModalHTML());
   const typeWrap = document.getElementById('fbType');
   const titleEl  = document.getElementById('fbTitle');
   const bodyEl   = document.getElementById('fbBody');
@@ -3123,6 +3135,56 @@ let _chatSyncSettled = false;
 // it's the selected room). Cleared the same way — renderTimeline() marks
 // the active room read whenever it's actually being shown.
 const _chatUnreadRooms = new Set();
+
+// ── Muted conversations ──
+// Muting is the server's push rule for the room (an override rule named
+// after the room, matching its id, that doesn't notify; what Element does),
+// so it follows you to every device and app. A muted room still gets its
+// unread dot, dimmed, but adds nothing to the counts, the tab title or
+// the ☰ dot, and makes no toast or sound.
+const _chatMuted = new Set();
+function readChatMutes() {
+  const rules = MatrixChat.client?.pushRules?.global;
+  const next = new Set();
+  for (const r of [...(rules?.override || []), ...(rules?.room || [])]) {
+    if (r.enabled === false || !r.rule_id?.startsWith('!')) continue;
+    const acts = r.actions || [];
+    if (!acts.some(a => a === 'notify' || a?.set_tweak)) next.add(r.rule_id);
+  }
+  const same = next.size === _chatMuted.size && [...next].every(id => _chatMuted.has(id));
+  if (same) return false;
+  _chatMuted.clear();
+  next.forEach(id => _chatMuted.add(id));
+  return true;
+}
+const chatRoomMuted = roomId => _chatMuted.has(roomId);
+async function setChatRoomMuted(roomId, mute) {
+  const client = MatrixChat.client;
+  if (!client) return;
+  // At once here; the server's rules arrive back over sync.
+  if (mute) _chatMuted.add(roomId); else _chatMuted.delete(roomId);
+  updateSocialUnreadBadge();
+  scheduleChatRender();
+  try {
+    if (mute) {
+      await client.addPushRule('global', 'override', roomId, {
+        actions: [], conditions: [{ kind: 'event_match', key: 'room_id', pattern: roomId }],
+      });
+    } else {
+      // Muted elsewhere it can be a room rule too.
+      for (const kind of ['override', 'room']) {
+        if (client.pushRules?.global?.[kind]?.some(r => r.rule_id === roomId)) await client.deletePushRule('global', kind, roomId);
+      }
+    }
+  } catch (e) {
+    if (mute) _chatMuted.delete(roomId); else _chatMuted.add(roomId);
+    updateSocialUnreadBadge();
+    scheduleChatRender();
+    showToast(`Couldn't ${mute ? 'mute' : 'unmute'} it: ${e.message || 'error'}`, 'ti-bell');
+  }
+}
+// The unread rooms that count: not muted.
+const loudUnread = () => [..._chatUnreadRooms].filter(id => !_chatMuted.has(id));
 // Base document.title, captured once before anything ever prefixes an
 // unread count onto it — reused below rather than hardcoding the string
 // a second time, so a future title change here doesn't need editing twice.
@@ -3164,7 +3226,7 @@ function refreshUnreadDmUsers() {
   const client = MatrixChat.client;
   if (client) {
     const dmIds = getDmRoomIds();
-    for (const roomId of _chatUnreadRooms) {
+    for (const roomId of loudUnread()) {
       if (!dmIds.has(roomId)) continue;
       const room = client.getRoom(roomId);
       const who = room && dmOtherUsername(room);
@@ -3176,23 +3238,24 @@ function refreshUnreadDmUsers() {
 }
 
 function updateSocialUnreadBadge() {
+  const n = loudUnread().length;
   const badge = document.getElementById('socialUnreadBadge');
-  if (badge) badge.textContent = _chatUnreadRooms.size ? (_chatUnreadRooms.size > 99 ? '99+' : String(_chatUnreadRooms.size)) : '';
+  if (badge) badge.textContent = n ? (n > 99 ? '99+' : String(n)) : '';
   // The same count on Chat's own row: Social's badge said there was
   // something new but nothing in Social said where (the owner: it "doesn't
   // prompt the user to view their messages"). Inside Social the count sits
   // on Chat's row and Social's own steps aside (css "UNREAD, WHERE IT IS").
   const chatCount = document.getElementById('socChatCount');
   if (chatCount) {
-    chatCount.textContent = _chatUnreadRooms.size > 99 ? '99+' : String(_chatUnreadRooms.size);
-    chatCount.hidden = !_chatUnreadRooms.size;
+    chatCount.textContent = n > 99 ? '99+' : String(n);
+    chatCount.hidden = !n;
   }
-  document.documentElement.classList.toggle('chat-unread', _chatUnreadRooms.size > 0);
+  document.documentElement.classList.toggle('chat-unread', n > 0);
   window.klabChatUnreadChanged?.();
   // gitea#3: "visual blip to the browser tab" for an unread message —
   // a title prefix works everywhere (pinned tabs, alt-tab switchers)
   // unlike a favicon overlay, which a lot of browsers just clip/hide.
-  document.title = _chatUnreadRooms.size ? `(${_chatUnreadRooms.size}) ${_baseTitle}` : _baseTitle;
+  document.title = n ? `(${n}) ${_baseTitle}` : _baseTitle;
   updateChannelUnreadDots();
   refreshUnreadDmUsers();
 }
@@ -3202,7 +3265,7 @@ window.klabChatUnread = function() {
   if (!client) return [];
   const dmIds = getDmRoomIds();
   const out = [];
-  for (const roomId of _chatUnreadRooms) {
+  for (const roomId of loudUnread()) {
     const room = client.getRoom(roomId);
     if (!room) continue;
     const isDm = dmIds.has(roomId);
@@ -3356,6 +3419,7 @@ function notifyNewMessage(event, room) {
   }
   _chatUnreadRooms.add(room.roomId);
   updateSocialUnreadBadge();
+  if (_chatMuted.has(room.roomId)) return; // muted: unread, quietly
   // A room just joined hands over its recent history as if it were live:
   // unread, yes, but not a toast and a sound for each old message.
   if (Date.now() - event.getTs() > 5 * 60000) return;
@@ -3578,6 +3642,7 @@ function showChatApp() {
         // first got picked. Now that they're all here, land in the most
         // recent conversation, unless you've already chosen one.
         if (!_chatRoomChosen) _chatActiveRoomId = null;
+        readChatMutes();
         seedUnreadFromServer();
         ensureJoinedToKlabnet();
       }
@@ -3585,6 +3650,7 @@ function showChatApp() {
       scheduleChatRender();
     });
     MatrixChat.on('echo', () => { _chatEchoSeq++; scheduleChatRender(); });
+    MatrixChat.on('pushRules', () => { if (readChatMutes()) { updateSocialUnreadBadge(); scheduleChatRender(); } });
     // The server stopped accepting our chat session (signed out elsewhere,
     // revoked): back to the Connect screen instead of a dead chat.
     MatrixChat.on('loggedOut', () => {
@@ -3855,10 +3921,14 @@ async function shareNowPlaying() {
   const s = playerState.currentSong, client = MatrixChat.client, roomId = _chatActiveRoomId;
   if (!s || !client || !roomId) return;
   const song = { id: s.id, title: s.title || '', artist: s.artist || '', album: s.album || '', coverArt: s.coverArt || '' };
+  // The moment: where it's at, and the lyric on screen.
+  const at = klabMomentNow(), lyric = at ? window._klabLyrics?.getActiveLine?.() : null;
+  if (at) song.at = at;
+  if (lyric) song.lyric = String(lyric).slice(0, 300);
   const replyTo = _replyingToEventId;
   clearReply();
   try {
-    await client.sendMessage(roomId, { msgtype: 'm.text', body: `🎵 ${song.title}${song.artist ? ' — ' + song.artist : ''}`, 'klab.song': song,
+    await client.sendMessage(roomId, { msgtype: 'm.text', body: `🎵 ${song.title}${song.artist ? ' — ' + song.artist : ''}${at ? ' (from ' + formatTime(at) + ')' : ''}`, 'klab.song': song,
       ...(replyTo ? { 'm.relates_to': { 'm.in_reply_to': { event_id: replyTo } } } : {}) });
     SFX && SFX.play('star');
   } catch (e) {
@@ -3890,5 +3960,5 @@ document.getElementById('chatTimeline')?.addEventListener('click', e => {
   }
   if (e.target.closest('[data-share-np]')) { shareNowPlaying(); return; }
   const card = e.target.closest('.chat-msg-song');
-  if (card) { try { const s = klabCleanSong(JSON.parse(decodeURIComponent(card.dataset.song))); if (s) playSong(s); } catch (err) {} }
+  if (card) { try { const s = klabCleanSong(JSON.parse(decodeURIComponent(card.dataset.song))); if (s) klabPlayFrom(s, +card.dataset.at || 0); } catch (err) {} }
 });

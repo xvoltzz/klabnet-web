@@ -63,7 +63,7 @@
   // minute. Until one works, it tries again sooner: 2s, 4s, 8s, 16s.
   let _feedRetryMs = 0, _feedRetryTimer = null;
   let _pendingFile   = null;
-  let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric } — see setPendingSong()/window.klabShareSongToFeed
+  let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric, start } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
   const _repliesPending     = new Set(); // postIds with a replies fetch already in flight
@@ -451,9 +451,11 @@
       // only handles &"<>, not '), same reason renderSongItem's own
       // data-add-pl attribute uses it for the same kind of JSON payload.
       const playPayload = encodeURIComponent(JSON.stringify({ id: s.songId, title: s.title, artist: s.artist, album: s.album, coverArt: s.coverArt }));
+      // A moment of it (a start time): the card says where, and plays from there.
+      const at = s.start > 0 ? s.start : 0;
       // A record in its sleeve: the vinyl slides out and spins while this
       // song is the one playing (see syncFeedRecords).
-      songHTML = '<div class="feed-post-song" data-play-song="' + playPayload + '">' +
+      songHTML = '<div class="feed-post-song" data-play-song="' + playPayload + '"' + (at ? ' data-at="' + at + '"' : '') + '>' +
         '<span class="feed-rec"><span class="feed-rec-disc"' + (artUrl ? ' style="--art:url(&quot;' + esc(artUrl) + '&quot;)"' : '') + '></span>' +
         (artUrl
           ? '<img class="feed-post-song-art" src="' + esc(artUrl) + '" alt="" loading="lazy" onerror="klabArtFallback(this,\'feed-post-song-art-ph\',\'ti-music\')" />'
@@ -463,7 +465,8 @@
           '<div class="feed-post-song-artist">' + esc(s.artist || '') + (s.album ? ' · ' + esc(s.album) : '') + '</div>' +
           (s.lyric ? '<div class="feed-post-song-lyric">' + esc(s.lyric) + '</div>' : '') +
         '</div>' +
-        '<button type="button" class="feed-post-song-play" title="Play"><i class="ti ti-player-play"></i></button>' +
+        (at ? '<span class="song-at" title="Plays from ' + formatTime(at) + '"><i class="ti ti-clock"></i>' + formatTime(at) + '</span>' : '') +
+        '<button type="button" class="feed-post-song-play" title="' + (at ? 'Play from ' + formatTime(at) : 'Play') + '"><i class="ti ti-player-play"></i></button>' +
       '</div>';
     }
     // Only the first YouTube link in a post gets a player — a post with a
@@ -1198,6 +1201,13 @@
       : '';
     songTitleEl.textContent = song.title || 'Unknown';
     songArtistEl.textContent = song.artist || '';
+    // Shared from a point in it: from there, or press to share it whole.
+    const at = document.getElementById('feedComposerSongAt');
+    at.hidden = !(song.start > 0);
+    if (song.start > 0) {
+      at.innerHTML = '<i class="ti ti-clock"></i>From ' + formatTime(song.start) + '<i class="ti ti-x"></i>';
+      at.title = 'Share it from the start instead';
+    }
     if (song.lyric) {
       songLyricEl.textContent = `"${song.lyric}"`;
       songLyricEl.hidden = false;
@@ -1208,6 +1218,11 @@
     songPreviewEl.hidden = false;
   }
   songRemoveEl.addEventListener('click', () => setPendingSong(null));
+  document.getElementById('feedComposerSongAt')?.addEventListener('click', () => {
+    if (!_pendingSong) return;
+    const { start, ...whole } = _pendingSong;
+    setPendingSong(whole);
+  });
   // Entry point for the player dock / fullscreen player's "share to feed"
   // buttons — they already call setActiveTab('feed') themselves before
   // this, so focusing the composer here lands the user ready to type a
@@ -1633,7 +1648,7 @@
     if (songCard) {
       try {
         const song = klabCleanSong(JSON.parse(decodeURIComponent(songCard.dataset.playSong)));
-        if (song && typeof playSong === 'function') playSong(song);
+        if (song && typeof playSong === 'function') klabPlayFrom(song, +songCard.dataset.at || 0);
       } catch (e) {}
       return;
     }
