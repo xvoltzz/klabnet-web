@@ -3439,7 +3439,7 @@ function setChatBackdrop(img, tint) {
   if (!layers || key === _chatBdKey) return;
   _chatBdKey = key;
   _chatBdI ^= 1;
-  layers[_chatBdI].style.backgroundImage = img ? `url("${img}")` : (tint ? `radial-gradient(circle at 55% 40%, ${tint}, transparent 62%)` : 'none');
+  layers[_chatBdI].style.backgroundImage = img ? `url("${img}")` : (tint ? `radial-gradient(ellipse 70% 60% at 50% 0%, color-mix(in srgb, ${tint} 55%, transparent), transparent 75%)` : 'none');
   window.klabSoften?.(layers[_chatBdI]);
   layers[_chatBdI].classList.add('on');
   layers[_chatBdI ^ 1].classList.remove('on');

@@ -10522,3 +10522,12 @@
       box-shadow: 0 0 0 1.5px var(--side-bg, var(--bg)), 0 0 0 3px rgb(var(--accent-rgb));
     }
     #sideNav #chatSide .chat-conv:has(.chat-conv-face).active .chat-conv-last { color: var(--text-dim); }
+    /* Chat's colour (the person's, or their song's cover) is a glow behind
+       the conversation's head that's gone before the messages start: the
+       owner liked it but it got in the way of reading. */
+    .chat-backdrop .hm-bd-layer {
+      -webkit-mask-image: linear-gradient(to bottom, #000 0, rgba(0,0,0,.5) 14%, transparent 42%);
+      mask-image: linear-gradient(to bottom, #000 0, rgba(0,0,0,.5) 14%, transparent 42%);
+    }
+    .chat-backdrop .hm-bd-layer.on { opacity: .45 !important; }
+    [data-theme="light"] .chat-backdrop .hm-bd-layer.on { opacity: .6 !important; }
