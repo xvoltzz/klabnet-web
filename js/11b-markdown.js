@@ -151,6 +151,7 @@
       frag.append(text.slice(last));
       n.replaceWith(frag);
     }
+    window.klabEmojify?.(root);
     root.querySelectorAll('blockquote').forEach(bq => {
       const p = bq.firstElementChild;
       const m = p && p.tagName === 'P' && /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i.exec(p.textContent);

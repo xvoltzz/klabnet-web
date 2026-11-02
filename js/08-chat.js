@@ -1550,6 +1550,7 @@ function renderTimeline() {
       } else {
         text.className = 'chat-msg-text';
         text.innerHTML = linkifyHTML(content.body || '');
+        window.klabEmojify?.(text);
         if (ev.replacingEvent && ev.replacingEvent()) {
           const edited = document.createElement('span');
           edited.className = 'chat-msg-edited';
@@ -1629,7 +1630,7 @@ function paintRowReactions(row, ev, reactions) {
     pill.dataset.targetId = ev.getId();
     pill.dataset.emoji = emoji;
     // The key is whatever a remote client sent; it's text, never markup.
-    pill.innerHTML = `${KLAB_STARS && emoji === KLAB_STAR ? '★' : esc(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
+    pill.innerHTML = `${KLAB_STARS && emoji === KLAB_STAR ? '★' : (window.klabEmojiKey || esc)(emoji)} <span class="chat-msg-reaction-count">${entry.senders.size}</span>`;
     pills.appendChild(pill);
   });
   body.appendChild(pills);
@@ -1793,41 +1794,20 @@ function fillChatHistory(room) {
   requestAnimationFrame(() => maybeLoadOlderMessages());
 }
 
-// gitea#3 emoji request, scoped down to plain Unicode (no custom-emoji
-// upload — that needs real storage/moderation and isn't a v1 fit). A
-// curated common-emoji grid, not a full picker library.
-const CHAT_EMOJIS = [
-  '😀','😃','😄','😁','😆','😂','🤣','😅','😊','🙂','😉','😍','🥰','😘','😗','😎',
-  '🤩','🤔','🤨','😐','😏','🙄','😬','😴','🤤','😪','😢','😭','😤','😠','😡','🤬',
-  '😱','😨','😰','🥵','🥶','🤯','🥳','🤠','🤡','🤗','🫡','🫠','🤫','🤐','🥱','😷',
-  '👍','👎','👏','🙏','🙌','💪','🤝','🫶','👀','👋','🤙','✌️','🤞','👌','🖕','👊',
-  '🔥','✨','🎉','🎊','💯','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💀','☠️',
-  '👻','🤖','🎃','⭐','🌟','💫','⚡','🌈','☕','🍕','🍔','🍺','🎵','🎮','🏆','💎',
-];
 const QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
+// The composer's emoji button opens the emoji picker (js/34-emoji.js).
 function initChatEmojiPicker() {
-  const btn    = document.getElementById('chatEmojiBtn');
-  const picker = document.getElementById('chatEmojiPicker');
-  const input  = document.getElementById('chatComposerInput');
-  if (!btn || !picker || !input || picker._bound) return;
-  picker._bound = true;
-  picker.innerHTML = CHAT_EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
-  picker.addEventListener('click', e => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    // Where the cursor is (over any selection), not always at the end. A
-    // field keeps its selection while the picker has the focus.
-    input.setRangeText(b.textContent, input.selectionStart, input.selectionEnd, 'end');
-    input.focus();
-    notifyTyping();
-    autoGrowChatComposer(); // setting .value directly doesn't fire 'input'
-  });
+  const btn   = document.getElementById('chatEmojiBtn');
+  const input = document.getElementById('chatComposerInput');
+  if (!btn || !input || btn._bound) return;
+  btn._bound = true;
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    picker.hidden = !picker.hidden;
-  });
-  document.addEventListener('click', e => {
-    if (!picker.hidden && !picker.contains(e.target) && e.target !== btn) picker.hidden = true;
+    window.klabEmojiPicker?.(btn, text => {
+      window.klabEmojiInsert(input, text);
+      notifyTyping();
+      autoGrowChatComposer();
+    });
   });
 }
 

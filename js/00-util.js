@@ -522,10 +522,12 @@ const klabMenu = (() => {
 })();
 
 // More reactions than a toolbar has room for: Feed's and Chat's "add
-// reaction" open this, the right-click menu's own row of emoji, under the
-// button that asked.
+// reaction" open the emoji picker (js/34-emoji.js); the right-click
+// menu's own row of emoji stands in until that's loaded.
 const KLAB_REACTS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '🎉', '💀', '👀', '🙏', '💯', '🫡'];
 function klabReactMenu(anchor, onPick) {
+  // The emoji picker (js/34-emoji.js), with klab's own emoji in it.
+  if (window.klabEmojiPicker) return window.klabEmojiPicker(anchor, onPick);
   const r = anchor.getBoundingClientRect();
   klabMenu({
     target: anchor, clientX: r.left, clientY: r.bottom + 4, shiftKey: false,

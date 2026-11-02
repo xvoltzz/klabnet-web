@@ -485,7 +485,7 @@
       '<i class="ti ' + (star.mine ? 'ti-star-filled' : 'ti-star') + '"></i>' + (star.count ? '<span>' + star.count + '</span>' : '') + '</button>';
     const pillsHTML = Object.entries(reactions).filter(([emoji]) => !KLAB_STARS || emoji !== KLAB_STAR).map(([emoji, entry]) =>
       '<button type="button" class="feed-post-reaction-pill' + (entry.mine ? ' mine' : '') + '" data-post-id="' + post.id + '" data-emoji="' + esc(emoji) + '">' +
-        esc(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
+        (window.klabEmojiKey || esc)(emoji) + ' <span class="feed-post-reaction-count">' + entry.count + '</span>' +
       '</button>'
     ).join('');
     const imgUrl = post.image_mxc ? _feedImageCache.get(post.image_mxc) : null;
@@ -1547,7 +1547,7 @@
     for (let k = 0; k < 3; k++) {
       const f = document.createElement('span');
       f.className = 'feed-floaty';
-      f.textContent = emoji;
+      f.innerHTML = (window.klabEmojiKey || esc)(emoji);
       f.style.left = (r.left / z + 6 + k * 9) + 'px';
       f.style.top = (r.top / z - 4) + 'px';
       f.style.setProperty('--r', ((k - 1) * 16) + 'deg');

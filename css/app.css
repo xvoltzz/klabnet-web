@@ -966,7 +966,7 @@
        regardless of specificity) — this element showed, empty, on every
        feed visit until this was added. Same fix already applied to every
        other hidden-but-styled element in this file (.chat-image-preview-
-       wrap[hidden], .chat-emoji-picker[hidden], etc.) */
+       wrap[hidden], etc.) */
     .feed-composer-song-preview[hidden] { display: none; }
     .feed-composer-song-art { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--tile-bg-h); }
     .feed-composer-song-info { flex: 1; min-width: 0; }
@@ -1357,7 +1357,7 @@
     .chat-msg { position: relative; }
     /* var(--tile-bg) alone is ~5.5% opaque in dark mode — the message text
        underneath showed straight through this floating toolbar. Same
-       glass-fill + blur treatment as .chat-emoji-picker below, which
+       glass-fill + blur treatment the old emoji picker had, which
        already reads as solid despite being just as translucent a token. */
     .chat-msg-actions {
       position: absolute; top: -6px; right: 8px; display: none; gap: 2px;
@@ -1467,23 +1467,6 @@
        channel-toolbar icons .chat-icon-btn is also shared with. */
     .chat-icon-btn.chat-emoji-btn { flex-shrink: 0; font-size: 24px; padding: 4px 3px; }
     .chat-icon-btn.chat-image-btn { flex-shrink: 0; font-size: 20px; padding: 4px 3px; }
-    /* gitea#3 emoji request — plain Unicode emoji only, no custom-emoji
-       upload/storage (that's a real backend feature, not a v1 fit). */
-    .chat-emoji-picker {
-      position: absolute; bottom: 100%; left: 1.2rem; margin-bottom: 6px;
-      background: var(--glass-fill); backdrop-filter: blur(20px);
-      border: 1px solid var(--tile-border); border-radius: 10px;
-      padding: 6px; box-shadow: 0 8px 24px var(--shadow-20);
-      display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
-      width: 264px; max-height: 220px; overflow-y: auto;
-    }
-    .chat-emoji-picker[hidden] { display: none; }
-    .chat-emoji-picker button {
-      background: none; border: none; cursor: pointer; font-size: 19px;
-      line-height: 1; padding: 5px; border-radius: 6px;
-      transition: background 0.15s;
-    }
-    .chat-emoji-picker button:hover { background: var(--glass-fill-h); }
     .chat-msg-image { max-width: 280px; max-height: 320px; border-radius: 8px; margin-top: 4px; display: block; cursor: zoom-in; }
 
     /* ── Offline roster ──
@@ -3673,7 +3656,7 @@
        dock is the only one that's persistently on screen; the other six
        are open for a few seconds at a time. */
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-emoji-picker, .chat-msg-actions {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-msg-actions {
         background:
           linear-gradient(180deg,
             rgba(255,255,255,0.07) 0%,
@@ -3696,7 +3679,7 @@
       }
     }
     @media (prefers-reduced-transparency: reduce) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-emoji-picker, .chat-msg-actions {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-msg-actions {
         background: var(--modal-bg);
         -webkit-backdrop-filter: none; backdrop-filter: none;
       }
@@ -10438,3 +10421,124 @@
     /* The profile editor's field labels: the house label, not 9px. */
     .profile-modal-label { font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; color: var(--text-dimmer); margin-bottom: 6px; }
     .profile-modal-banner-overlay { border-radius: 6px; font-size: var(--fs-11); letter-spacing: 0; }
+
+    /* ══ EMOJI PICKER (js/34-emoji.js) ══
+       Discord's layout in the house look: search on top, the sections down
+       a rail, the grid with its section names stuck to the top, the one
+       under the pointer named at the foot. A menu's surface (--modal-bg). */
+    .emo-picker {
+      position: fixed; z-index: 1000; width: 384px; height: 448px; display: none; flex-direction: column;
+      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 10px;
+      box-shadow: 0 12px 40px var(--shadow-40); overflow: hidden;
+      opacity: 0; transform: scale(.97); transition: opacity .12s, transform .14s var(--m-ease);
+    }
+    .emo-picker.open { display: flex; opacity: 1; transform: none; }
+    @starting-style { .emo-picker.open { opacity: 0; transform: scale(.97); } }
+    .emo-top { display: flex; gap: 6px; padding: 10px 10px 8px; border-bottom: 1px solid var(--glass-border); }
+    .emo-search {
+      flex: 1; display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px; border-radius: 6px;
+      background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text-dimmer); cursor: text;
+    }
+    .emo-search:focus-within { border-color: var(--glass-border-h); }
+    .emo-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: 400 var(--fs-13) var(--font-ui); }
+    .emo-add {
+      width: 32px; height: 32px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;
+      background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text-dim); font-size: 17px; cursor: pointer;
+    }
+    .emo-add:hover { color: var(--text); border-color: var(--glass-border-h); background: var(--glass-fill-h); }
+    .emo-body { flex: 1; min-height: 0; display: flex; }
+    .emo-rail {
+      flex: none; width: 42px; padding: 6px 0; display: flex; flex-direction: column; align-items: center; gap: 1px;
+      border-right: 1px solid var(--glass-border); overflow-y: auto; scrollbar-width: none;
+    }
+    .emo-rail[hidden] { display: none; }
+    .emo-rail button {
+      width: 30px; height: 28px; flex: none; border-radius: 6px; border: 0; background: none; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; color: var(--text-dimmer); font-size: 16px;
+    }
+    .emo-mark { font-size: 16px; line-height: 1; filter: grayscale(1); opacity: .55; transition: filter .12s, opacity .12s; }
+    .emo-rail button:hover { background: var(--glass-fill); color: var(--text); }
+    .emo-rail button:is(:hover, .on) .emo-mark { filter: none; opacity: 1; }
+    .emo-rail button.on { color: var(--text); background: var(--glass-fill-h); }
+    .emo-scroll { flex: 1; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 0 6px 8px; position: relative; }
+    .emo-scroll::-webkit-scrollbar, .emo-rail::-webkit-scrollbar { display: none; }
+    .emo-sec h4 {
+      position: sticky; top: 0; z-index: 1; margin: 0; padding: 10px 4px 6px; display: flex; gap: 6px; align-items: baseline;
+      background: var(--modal-bg); font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer);
+    }
+    .emo-count { letter-spacing: 0; font-weight: 500; }
+    .emo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); }
+    .emo-sec:not([data-sec="recent"], [data-sec="klab"], [data-sec="found"]) { content-visibility: auto; contain-intrinsic-size: auto 600px; }
+    .emo-cell {
+      height: 36px; border: 0; border-radius: 6px; background: none; cursor: pointer; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 23px; line-height: 1;
+      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--font-ui);
+    }
+    .emo-cell.sel { background: var(--glass-fill-h); }
+    .emo-cell img { width: 26px; height: 26px; object-fit: contain; }
+    .emo-none { margin: 40px 16px; text-align: center; font-size: var(--fs-13); color: var(--text-dimmer); }
+    .emo-none.emo-left { margin: 2px 4px 6px; text-align: left; }
+    .emo-empty-add {
+      display: flex; align-items: center; gap: 8px; width: 100%; margin: 2px 0 4px; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px dashed var(--glass-border-h); background: none; color: var(--text-dim); font: 500 var(--fs-13) var(--font-ui);
+    }
+    .emo-empty-add i { font-size: 17px; }
+    .emo-empty-add:hover { color: var(--text); border-color: var(--text-dimmer); }
+    .emo-foot {
+      flex: none; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+      border-top: 1px solid var(--glass-border); background: var(--glass-fill);
+    }
+    .emo-big { width: 28px; flex: none; font-size: 26px; line-height: 1; text-align: center; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--font-ui); }
+    .emo-big img { width: 28px; height: 28px; object-fit: contain; display: block; }
+    .emo-what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .emo-what b { font: 600 var(--fs-13)/1.2 var(--font-ui); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .emo-what b:empty { display: none; }
+    .emo-what small { font-size: var(--fs-11); color: var(--text-dimmer); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .emo-del {
+      flex: none; width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--glass-border); background: none;
+      color: var(--text-dim); cursor: pointer; font-size: 16px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .emo-del:hover { color: var(--danger-color, #f87171); border-color: currentColor; }
+    .emo-del[hidden] { display: none; }
+    html[data-fx="low"] .emo-picker { transition: none; }
+
+    /* Adding one (a house dialog). */
+    .emo-form { display: flex; gap: 16px; align-items: flex-start; }
+    .emo-drop {
+      width: 96px; height: 96px; flex: none; border-radius: 10px; border: 1px dashed var(--glass-border-h); background: var(--glass-fill);
+      color: var(--text-dim); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      font: 500 var(--fs-11)/1.25 var(--font-ui); text-align: center; padding: 8px;
+    }
+    .emo-drop i { font-size: 20px; }
+    .emo-drop:hover { color: var(--text); border-color: var(--text-dimmer); }
+    .emo-drop.has { border-style: solid; }
+    .emo-drop.has :is(i, span) { display: none; }
+    .emo-drop img { width: 64px; height: 64px; object-fit: contain; }
+    .emo-form-side { flex: 1; min-width: 0; }
+    .emo-label { display: block; margin-bottom: 6px; font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
+    .emo-name { display: flex; align-items: center; gap: 4px; color: var(--text-dimmer); font-weight: 600; }
+    .emo-name input { flex: 1; min-width: 0; margin: 0; }
+    .emo-hint { margin: 8px 0 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-dimmer); }
+    .emo-err { margin: 12px 0 0; font-size: var(--fs-13); color: var(--danger-color, #f87171); }
+    .emo-err[hidden] { display: none; }
+
+    /* Custom emoji in text and reactions: the height of the line, and
+       big in a message that's nothing but emoji. */
+    img.cemoji { width: 1.375em; height: 1.375em; object-fit: contain; vertical-align: -.33em; margin: 0 .05em; }
+    :is(.feed-post-reaction-pill, .chat-msg-reaction-pill) img.cemoji { width: 16px; height: 16px; vertical-align: middle; margin: 0; }
+    .feed-floaty img.cemoji { width: 22px; height: 22px; }
+    .chat-msg-text.emoji-only { font-size: 2.6em; line-height: 1.15; }
+    .chat-msg-text.emoji-only img.cemoji { width: 48px; height: 48px; vertical-align: -10px; }
+
+    /* :name as you type: what matches, over the field. */
+    .emo-suggest {
+      position: fixed; z-index: 1000; padding: 4px; border-radius: 8px; background: var(--modal-bg);
+      border: 1px solid var(--glass-border-h); box-shadow: 0 8px 32px var(--shadow-40); box-sizing: border-box;
+    }
+    .emo-suggest[hidden] { display: none; }
+    .emo-suggest-h { padding: 6px 8px 4px; font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
+    .emo-suggest-h b { color: var(--text-dim); letter-spacing: 0; text-transform: none; font-weight: 600; }
+    .emo-suggest-row { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 6px; cursor: pointer; font: 500 var(--fs-13) var(--font-ui); color: var(--text-dim); }
+    .emo-suggest-row.sel { background: var(--glass-fill-h); color: var(--text); }
+    .emo-suggest-e { width: 22px; text-align: center; font-size: 19px; line-height: 1; }
+    .emo-suggest-e img { width: 22px; height: 22px; object-fit: contain; display: block; }
