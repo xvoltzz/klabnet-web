@@ -8524,7 +8524,6 @@
     .soc-home-body > .picker-section-label:first-child, .hp-sec > .picker-section-label { padding-top: 0; margin-top: 0; }
     /* Music's sections are 6px apart besides; here the labels carry it. */
     .soc-home-body > .picker-section-label:not(:first-child) { margin-top: calc(0.5rem + 6px); }
-    .soc-home-body > .mh-flow { margin-top: 0; }
     /* Photos: each at its own shape (js sets the width), corners a touch
        rounder, the blurred backdrop a little stronger. */    /* Latest posts: cards in a row you can flick along, like Music's. */
     .soc-post {
