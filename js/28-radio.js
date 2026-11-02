@@ -461,7 +461,7 @@
     const id = s ? s.id : 'new';
     return '<form class="radio-form" data-id="' + esc(id) + '">' +
       '<div class="radio-form-row"><label>Name<input name="name" maxlength="60" required value="' + esc(s?.name || '') + '" placeholder="Non Stop Pop" /></label>' +
-        '<label class="radio-color">Colour<input name="color" type="color" value="' + esc(s?.color || '#d94f70') + '" /></label></div>' +
+        '<label class="radio-color">Color<input name="color" type="color" value="' + esc(s?.color || '#d94f70') + '" /></label></div>' +
       '<div class="radio-form-row radio-form-row-2"><label>Frequency <span class="radio-form-note">87.5–108 FM</span><input name="frequency" type="number" inputmode="decimal" min="87.5" max="108" step="0.1" required value="' + (s ? s.frequency.toFixed(1) : freeFrequency().toFixed(1)) + '" /></label>' +
         '<label>By <span class="radio-form-note">if it’s someone else’s; their username lets them edit it</span><input name="author" maxlength="60" list="radioPeople" value="' + esc(s && s.author !== s.owner ? s.author : '') + '" placeholder="' + esc(s?.owner || window.KLAB_USER?.username || '') + '" /></label></div>' +
       '<label>About it<input name="description" maxlength="300" value="' + esc(s?.description || '') + '" placeholder="What it plays" /></label>' +
@@ -788,7 +788,7 @@
             '<div class="rd-col rd-chat">' +
               '<div class="picker-section-label rd-label">Chat<span class="rd-chat-where"></span></div>' +
               '<div class="rd-chat-box"><div class="rd-chat-log" aria-live="polite"></div>' +
-              '<form class="rd-chat-form" autocomplete="off"><input class="rd-chat-input" maxlength="500" enterkeyhint="send" />' +
+              '<form class="rd-chat-form" autocomplete="off"><input class="rd-chat-input" maxlength="500" enterkeyhint="send" placeholder="Pick a station" />' +
                 '<button type="submit" class="rd-chat-send" title="Send" aria-label="Send"><i class="ti ti-send-2"></i></button></form></div>' +
             '</div>' +
           '</div>' +
@@ -869,7 +869,7 @@
       col.dataset.key = key;
       col.innerHTML = '<div class="picker-section-label rd-label">Tuned in' + (who.length ? '<span class="rd-count">' + who.length + '</span>' : '') + '</div>' +
         (who.length ? '<div class="rd-who">' + who.map(u => '<span class="rd-who-one">' + avatar(u) + '<span style="color:' + colorOf(u) + '">' + esc(u) + (u === me() ? ' <i>(you)</i>' : '') + '</span></span>').join('') + '</div>'
-          : '<div class="rd-quiet">Nobody right now. ' + (onAir(d) ? '' : 'Be the first.') + '</div>') +
+          : '<div class="rd-quiet">Nobody right now.</div>') +
         '<div class="picker-section-label rd-label">About</div><div class="rd-quiet">' + esc(d.description || 'Just listen.') + '</div>' +
         '<div class="rd-loop"><span>' + fmtLen(d.duration) + ' loop</span><span>' + d.frequency.toFixed(1) + ' FM</span><span>by ' + esc(d.author || d.owner) + '</span></div>';
     }

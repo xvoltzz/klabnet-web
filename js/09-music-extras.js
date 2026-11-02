@@ -669,7 +669,7 @@ function renderMusicRequestsList() {
   clearTimeout(_reqAvatarTimer);
   updateRequestsBadge();
   if (pickerTab !== 'requests') return;
-  const newBtnHTML = `<button class="music-new-playlist-btn" id="musicNewRequestBtn" type="button" style="margin-bottom:10px;"><i class="ti ti-plus"></i> New request</button>`;
+  const newBtnHTML = `<div class="mr-actions"><button class="ap-btn-queue" id="musicNewRequestBtn" type="button"><i class="ti ti-plus"></i> New request</button></div>`;
   let anyUnresolvedAvatar = false;
   const rowsHTML = _musicRequests.map(req => {
     const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(req.username) : null;

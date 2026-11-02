@@ -781,7 +781,7 @@
 
     if (!posts.length) {
       listEl.querySelectorAll(':scope > .feed-post').forEach(dropPostEl);
-      listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet — be the first!') + '</div>';
+      listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet.') + '</div>';
     } else {
       // Typing in a reply box must survive a re-render happening around it
       // (a 30s poll, someone else's reaction, an avatar resolving). The
@@ -1291,7 +1291,7 @@
     }
     errEl.hidden = true;
     postBtnEl.disabled = true;
-    postBtnEl.innerHTML = '<i class="ti ti-loader-2 loading-spinner"></i>';
+    postBtnEl.innerHTML = '<i class="ti ti-loader loading-spinner"></i>';
     try {
       let image_mxc = '';
       if (_pendingFile) {

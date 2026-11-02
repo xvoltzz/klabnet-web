@@ -10658,3 +10658,55 @@
     /* GIFs are experimental, off by default (Settings → Experimental
        features, html.gifs-on): their buttons go; sent GIFs still show. */
     html:not(.gifs-on) :is(#feedGifBtn, #chatGifBtn, .feed-post-reply-gif) { display: none !important; }
+
+    /* ── ONE LOOK (2026-11-02): the newer pages onto the house recipes ──
+       Two kinds of button (above), boxy 6–10px corners, Music's labels,
+       one empty-state line. Radio, Activity, Social home and the sidebar
+       tree had grown looks of their own. */
+    /* Radio's controls: rounded squares, not the only circles on Music. */
+    .rd-btn { border-radius: var(--radius-md); }
+    .rd-power { border-radius: 10px; }
+    /* Its form's buttons: Save is primary, the others secondary, Delete the danger one. */
+    .radio-form-actions button {
+      height: var(--control-h); padding: 0 16px; border-radius: var(--radius-md);
+      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
+    }
+    .radio-form-actions button:hover:not(:disabled) { border-color: var(--glass-border-h); }
+    .radio-save { background: var(--text) !important; color: var(--bg) !important; border-color: transparent !important; }
+    .radio-save:hover:not(:disabled) { opacity: .9; }
+    .radio-del { background: rgba(255,69,58,0.14) !important; color: #ff6961 !important; border-color: rgba(255,69,58,0.35) !important; }
+    [data-theme="light"] .radio-del { color: #d70015 !important; }
+    /* Small secondary buttons: Play along, Your stations, Manage. */
+    .act-along, .rd-pill, .radio-manage-btn {
+      height: 30px; padding: 0 12px; border-radius: var(--radius-md); font: 600 var(--fs-12)/1 var(--font-ui);
+    }
+    .act-along, .rd-pill { background: var(--glass-fill-h); border-color: var(--glass-border); }
+    .act-along:hover, .rd-pill:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
+    .rd-chat-send { width: auto; aspect-ratio: 1; }
+    /* Panels are 10px. */
+    .act-now, .act-person, .radio-item, .soc-collage, .radio-hub-art { border-radius: 10px; }
+    /* Labels: Music's (10px, semibold, tracked caps, dim) everywhere. */
+    #settingsBackdrop .settings-section-label { font-size: var(--fs-10); letter-spacing: .16em; }
+    #sideNav .nav-sub .music-sidebar-label,
+    #sideNav .nav-sub :is(.chat-lbl, .soc-label-row),
+    #sideNav .nav-sub #phSidebar .ph-side-label { font-size: var(--fs-10); letter-spacing: .14em; }
+    /* Counts in the sidebar are plain dim numbers (unread stays red). */
+    .soc-label-count { padding: 0; background: none; color: var(--text-dimmer); font-weight: 500; border-radius: 0; }
+    /* Empty and loading lines: Music's, everywhere. */
+    .feed-empty { font-size: var(--fs-13); letter-spacing: 0; }
+    .rd-quiet { color: var(--text-dimmer); }
+    /* Under a section label, the empty line sits with it, not in the middle of the page. */
+    .picker-section-label + .picker-empty, .rd-col .picker-empty { text-align: left; padding: 6px 4px 18px; }
+    /* Inputs: a hairline that brightens on focus, no accent glow. */
+    .chat-modal-search:focus-within, #musicShell .picker-search:focus-within, .chat-search:focus-within {
+      border-color: var(--glass-border-h); box-shadow: none;
+    }
+    .rd-chat-input:focus { border-color: var(--glass-border-h); }
+    /* Dialog buttons: at the right, their own width, as in a desktop dialog. */
+    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .dlg-actions > button { margin-top: 0; }
+    /* Requests' button, over its list. */
+    .mr-actions { display: flex; margin: 0 0 12px; }
+    #musicShell .mr-actions .ap-btn-queue { height: var(--control-h); padding: 0 14px; }
+    /* The Spin knob reads as a word, not a shout. */
+    .mh-wheel-spin { letter-spacing: 0; text-indent: 0; font-weight: 700; }

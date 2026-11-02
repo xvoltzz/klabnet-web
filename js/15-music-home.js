@@ -716,7 +716,7 @@
       '<div class="mh-wheel-stage">' +
         '<canvas class="mh-wheel-canvas" role="img"></canvas>' +
         '<div class="mh-wheel-pointer" aria-hidden="true"></div>' +
-        '<button type="button" class="mh-wheel-spin">SPIN</button>' +
+        '<button type="button" class="mh-wheel-spin">Spin</button>' +
       '</div>' +
       '<div class="mh-wheel-result" aria-live="polite">' +
         '<div class="k">Spin the wheel</div>' +

@@ -1062,7 +1062,7 @@ function chatConvMenu(e) {
     '-',
     { label: 'Close conversation', icon: 'ti-x', warn: true, hidden: !isDm, action: () => row.querySelector('.chat-channel-close')?.click() },
     { label: 'Leave channel', icon: 'ti-door-exit', warn: true, hidden: isDm || invited || isHome, action: async () => {
-      if (!(await showConfirmDialog('// leave channel', 'Leave ' + (room.name || 'this channel') + '? You can join again from Browse.', 'Leave'))) return;
+      if (!(await showConfirmDialog('// leave channel', 'Leave ' + (room.name || 'this channel') + '? You can join again from Browse.', 'Leave', { danger: false }))) return;
       try {
         await MatrixChat.client.leave(room.roomId);
         if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
@@ -2033,7 +2033,7 @@ function feedbackModalHTML() {
     </div>
     <input type="text" class="chat-modal-input" id="fbTitle" placeholder="Short summary" maxlength="${FEEDBACK_TITLE_MAX}" autocomplete="off" />
     <textarea class="chat-modal-input" id="fbBody" rows="5" placeholder="What happened, and what did you expect instead? Steps to reproduce help a lot." maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
-    <button class="chat-connect-btn" id="fbSubmit" style="margin-top:10px;width:100%;justify-content:center;">Send</button>
+    <div class="dlg-actions"><button class="chat-connect-btn" id="fbSubmit">Send</button></div>
     <div class="chat-modal-error" id="fbError" hidden></div>
     <div class="chat-modal-row-sub" style="margin-top:14px;">Already reported</div>
     <div class="chat-modal-list" id="fbList"><div class="picker-empty">Loading…</div></div>
@@ -2188,9 +2188,9 @@ function showInputDialog(title, message, placeholder, defaultValue, opts = {}) {
     openChatModal(title, `
       <div class="chat-modal-row-sub" style="margin-bottom:8px;">${esc(message || '')}</div>
       ${fieldHTML}
-      <div style="display:flex;gap:8px;margin-top:14px;">
-        <button class="ap-btn-queue" id="inputDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
-        <button class="chat-connect-btn" id="inputDialogOk" style="flex:1;justify-content:center;margin-top:0;">OK</button>
+      <div class="dlg-actions">
+        <button class="ap-btn-queue" id="inputDialogCancel">Cancel</button>
+        <button class="chat-connect-btn" id="inputDialogOk">OK</button>
       </div>
     `, () => resolve(null));
     const field = document.getElementById('inputDialogField');
@@ -2206,13 +2206,14 @@ function showInputDialog(title, message, placeholder, defaultValue, opts = {}) {
     });
   });
 }
-function showConfirmDialog(title, message, confirmLabel) {
+// Red only for what can't be taken back; { danger: false } for the rest.
+function showConfirmDialog(title, message, confirmLabel, { danger = true } = {}) {
   return new Promise(resolve => {
     openChatModal(title, `
       <div class="chat-modal-row-sub" style="margin-bottom:14px;">${esc(message || '')}</div>
-      <div style="display:flex;gap:8px;">
-        <button class="ap-btn-queue" id="confirmDialogCancel" style="flex:1;justify-content:center;">Cancel</button>
-        <button class="chat-connect-btn is-danger" id="confirmDialogOk" style="flex:1;justify-content:center;margin-top:0;">${esc(confirmLabel || 'Confirm')}</button>
+      <div class="dlg-actions">
+        <button class="ap-btn-queue" id="confirmDialogCancel">Cancel</button>
+        <button class="chat-connect-btn${danger ? ' is-danger' : ''}" id="confirmDialogOk">${esc(confirmLabel || 'Confirm')}</button>
       </div>
     `, () => resolve(false));
     const cleanup = result => { resolve(result); closeChatModal(); };
