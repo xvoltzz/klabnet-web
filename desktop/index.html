@@ -74,22 +74,14 @@
   button, a { cursor: pointer; }
   code { font: 500 0.92em var(--font-mono); user-select: text; -webkit-user-select: text; }
 
-  /* The bloom behind everything: the colour of the cover in the window. */
-  .bloom {
-    position: fixed; inset: -20vmax -20vmax auto auto; width: 90vmax; height: 90vmax; pointer-events: none; z-index: 0;
-    background: radial-gradient(closest-side, rgba(var(--cover, var(--accent)), 0.16), transparent 70%);
-    transition: background 1.2s ease;
-  }
-  [data-theme="light"] .bloom { opacity: .7; }
-
   .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 28px; }
 
   /* ── Top ── */
   .top { display: flex; align-items: center; gap: 10px; height: 64px; }
   .top img { width: 26px; height: 26px; border-radius: 6px; }
   /* The mark is white; klabnet inverts it on the light theme. */
-  [data-theme="dark"] :is(.top img, .w-logo) { mix-blend-mode: screen; }
-  [data-theme="light"] :is(.top img, .w-logo) { mix-blend-mode: multiply; filter: invert(1); }
+  [data-theme="dark"] .top img { mix-blend-mode: screen; }
+  [data-theme="light"] .top img { mix-blend-mode: multiply; filter: invert(1); }
   .prompt { font: 700 15px var(--font-mono); letter-spacing: .01em; }
   .prompt b { color: rgb(var(--accent)); font-weight: 700; }
   .prompt i { display: inline-block; width: 8px; height: 15px; margin-left: 2px; vertical-align: -2px; background: currentColor; animation: blink 1.1s steps(1) infinite; }
@@ -106,17 +98,17 @@
   .btn:active { transform: scale(.98); }
   .btn svg { width: 15px; height: 15px; flex: none; }
   .btn.primary { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 600; }
-  .btn.primary:hover { background: var(--text); box-shadow: 0 0 0 4px var(--text-faint), 0 8px 40px rgba(var(--accent), .25); }
+  .btn.primary:hover { background: var(--text); opacity: .9; }
   .btn.big { height: 46px; padding: 0 22px; border-radius: 10px; font-size: 15px; }
   .btn.big svg { width: 18px; height: 18px; }
   .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
   /* ── Hero ── */
-  .hero { display: grid; grid-template-columns: minmax(0, 470px) minmax(0, 1fr); gap: 56px; align-items: center; padding: 56px 0 72px; }
+  .hero { padding: 48px 0 28px; }
   .label { font: 600 10px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text-dimmer); }
-  h1 { font: 700 52px/1.04 var(--font-ui); letter-spacing: -0.035em; margin: 12px 0 16px; }
+  h1 { font: 700 40px/1.1 var(--font-ui); letter-spacing: -0.03em; margin: 0 0 10px; }
   h1 span { color: var(--text-dimmer); }
-  .lede { font-size: 17px; line-height: 1.55; color: var(--text-dim); margin: 0 0 30px; max-width: 34ch; }
+  .lede { font-size: 16px; line-height: 1.55; color: var(--text-dim); margin: 0 0 24px; max-width: 60ch; }
   .get { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
   .get-meta { font-size: 12.5px; color: var(--text-dimmer); font-variant-numeric: tabular-nums; min-height: 19px; }
   .get-alt { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -126,10 +118,10 @@
   }
   .note b { color: var(--text); font-weight: 600; }
 
-  /* ── The window ── */
-  .stage { position: relative; }
+  /* ── The app, as it looks on each system (real screenshots, desktop/shots/) ── */
+  .look { padding: 8px 0 32px; }
   .seg {
-    display: inline-flex; position: relative; padding: 3px; gap: 2px; border-radius: 9px; margin: 0 0 16px;
+    display: inline-flex; position: relative; padding: 3px; gap: 2px; border-radius: 9px; margin: 0 0 14px;
     border: 1px solid var(--line); background: var(--glass);
   }
   .seg button {
@@ -138,131 +130,23 @@
   }
   .seg button svg { width: 13px; height: 13px; }
   .seg button[aria-pressed="true"] { color: var(--text); }
-  .seg-pill { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 6px; background: var(--glass-h); box-shadow: inset 0 0 0 1px var(--line); transition: transform .35s var(--ease), width .35s var(--ease); }
+  .seg-pill { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 6px; background: var(--glass-h); box-shadow: inset 0 0 0 1px var(--line); transition: transform .3s var(--ease), width .3s var(--ease); }
+  .shot { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 60px -24px var(--shadow); aspect-ratio: 1440 / 900; background: #000; }
+  .shot[data-os="mac"] { border-radius: 12px; }
+  .shot[data-os="linux"] { border-radius: 14px; }
+  .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s ease; }
+  .shot img.on { opacity: 1; }
+  .shot-cap { margin-top: 10px; font-size: 12.5px; color: var(--text-dimmer); }
 
-  .win {
-    --r: 10px;
-    position: relative; aspect-ratio: 16 / 10.4; border-radius: var(--r); overflow: hidden;
-    background: var(--win-bg); border: 1px solid var(--line);
-    box-shadow: 0 40px 100px -20px var(--shadow), 0 0 0 1px rgba(0,0,0,.25);
-    display: grid; grid-template-rows: 38px 1fr; font-size: 11px;
-    transition: border-radius .4s var(--ease);
-    transform: perspective(1800px) rotateY(-7deg) rotateX(2deg); transform-origin: 0 50%;
-  }
-  .win[data-os="mac"] { --r: 12px; }
-  .win[data-os="linux"] { --r: 14px; }
-  .win::after { /* a lit edge on top */
-    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.09);
-  }
-
-  .w-bar { display: flex; align-items: center; gap: 8px; padding: 0 0 0 12px; position: relative; z-index: 2; }
-  .w-logo { width: 16px; height: 16px; border-radius: 4px; }
-  .w-prompt { font: 700 11px var(--font-mono); color: var(--text-dim); }
-  .w-prompt b { color: rgb(var(--cover, var(--accent))); transition: color 1.2s; }
-  .w-search { margin: 0 auto; width: 34%; height: 22px; border-radius: 6px; border: 1px solid var(--line); background: var(--glass); display: flex; align-items: center; padding: 0 8px; color: var(--text-dimmer); font-size: 10px; gap: 6px; }
-  .w-search svg { width: 10px; height: 10px; }
-  .w-ctl { display: flex; align-self: stretch; }
-  .w-lights { display: none; gap: 7px; margin-right: 4px; }
-  .w-lights i { width: 11px; height: 11px; border-radius: 50%; }
-  .w-lights i:nth-child(1) { background: #ff5f57; } .w-lights i:nth-child(2) { background: #febc2e; } .w-lights i:nth-child(3) { background: #28c840; }
-  .w-btn { width: 44px; display: grid; place-items: center; color: var(--text-dim); }
-  .w-btn svg { width: 10px; height: 10px; }
-  .w-round { display: none; gap: 7px; padding-right: 12px; align-items: center; }
-  .w-round i { width: 17px; height: 17px; border-radius: 50%; background: var(--glass-h); display: grid; place-items: center; color: var(--text-dim); }
-  .w-round svg { width: 9px; height: 9px; }
-  /* macOS: traffic lights first; Linux: klabnet's round buttons. */
-  .win[data-os="mac"] .w-lights { display: flex; }
-  .win[data-os="mac"] .w-ctl { display: none; }
-  .win[data-os="linux"] .w-ctl { display: none; }
-  .win[data-os="linux"] .w-round { display: flex; }
-
-  .w-body { display: grid; grid-template-columns: 26% 1fr; min-height: 0; }
-  .w-side { padding: 6px 8px; display: flex; flex-direction: column; gap: 1px; background: var(--win-side); min-height: 0; overflow: hidden; }
-  .w-side > * { flex: none; }
-  .w-row { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 8px; border-radius: 6px; color: var(--text-dim); white-space: nowrap; overflow: hidden; }
-  .w-row svg { width: 12px; height: 12px; flex: none; opacity: .8; }
-  .w-row.sub { padding-left: 28px; height: 21px; font-size: 10.5px; }
-  .w-row.on { color: var(--text); }
-  .w-row.on span { box-shadow: 0 1px 0 rgb(var(--cover, var(--accent))); }
-  .win[data-os="win"] .w-row.on { background: var(--glass-h); }
-  .win[data-os="win"] .w-row.on span { box-shadow: none; }
-  .win[data-os="win"] .w-row.on::before { content: ''; width: 3px; height: 12px; border-radius: 2px; margin: 0 2px 0 -6px; background: rgb(var(--cover, var(--accent))); }
-  .win[data-os="linux"] .w-row.on { background: rgba(var(--cover, var(--accent)), .9); color: #111; }
-  .win[data-os="linux"] .w-row.on span { box-shadow: none; }
-  .w-lab { font: 600 8px var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--text-dimmer); padding: 9px 8px 3px 28px; }
-  .w-foot { margin-top: auto; display: flex; align-items: center; gap: 7px; padding: 6px 8px; color: var(--text-dim); }
-  .w-av { width: 16px; height: 16px; border-radius: 5px; background: rgb(var(--cover, var(--accent))); transition: background 1.2s; }
-
-  .w-page { position: relative; padding: 12px 16px 0; overflow: hidden; }
-  .win:not([data-os="mac"]) .w-page { background: linear-gradient(var(--win-bg), var(--win-bg)); border-top-left-radius: 8px; }
-  .w-title { display: flex; align-items: baseline; gap: 6px; font: 700 18px var(--font-ui); letter-spacing: -0.02em; margin-bottom: 10px; }
-  .w-title small { font: 500 11px var(--font-ui); color: var(--text-dimmer); letter-spacing: 0; }
-  .w-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
-  .w-al { min-width: 0; }
-  .w-cv { aspect-ratio: 1; border-radius: 6px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); position: relative; overflow: hidden; transition: transform .25s var(--ease); }
-  .w-cv::after { content: ''; position: absolute; inset: 0; background: var(--p); }
-  .w-al.lit .w-cv { box-shadow: 0 0 0 2px rgb(var(--cover, var(--accent))), 0 8px 24px rgba(var(--cover, var(--accent)), .35); }
-  .w-al b { display: block; font-weight: 600; font-size: 10px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .w-al span { display: block; font-size: 9.5px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .w-dock {
-    position: absolute; left: 14px; right: 14px; bottom: 12px; height: 46px; border-radius: 10px;
-    display: flex; align-items: center; gap: 10px; padding: 0 10px;
-    background: color-mix(in srgb, var(--win-bg) 82%, transparent); border: 1px solid var(--line);
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 10px 30px -10px var(--shadow);
-  }
-  .w-dock .w-cv { width: 30px; flex: none; border-radius: 5px; }
-  .w-now { min-width: 0; width: 26%; }
-  .w-now b { display: block; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .w-now span { display: block; font-size: 9.5px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .w-play { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-  .w-keys { display: flex; align-items: center; gap: 12px; color: var(--text-dim); }
-  .w-keys svg { width: 11px; height: 11px; }
-  .w-keys .pp { width: 22px; height: 22px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; }
-  .w-keys .pp svg { width: 9px; height: 9px; }
-  .w-bar2 { width: 70%; height: 3px; border-radius: 3px; background: var(--text-faint); overflow: hidden; }
-  .w-bar2 i { display: block; height: 100%; width: var(--pos, 30%); background: var(--text); border-radius: inherit; transition: width 1s linear; }
-  .w-vol { width: 14%; display: flex; justify-content: flex-end; color: var(--text-dimmer); }
-  .w-vol svg { width: 12px; height: 12px; }
-
-  /* Each look's own material, just a hint. */
-  .win[data-os="win"] { background: color-mix(in srgb, var(--win-bg) 88%, rgb(var(--cover, var(--accent)))); }
-  .win[data-os="mac"] .w-side { background: color-mix(in srgb, var(--win-side) 60%, rgba(var(--cover, var(--accent)), .06)); padding-top: 2px; }
-  .win[data-os="mac"] .w-bar { padding-left: 14px; }
-  .win[data-os="mac"] .w-page { background: var(--win-bg); }
-  .win[data-os="linux"] .w-page { border-top-left-radius: 10px; }
-
-  /* The OS-shaped extras hanging off the window: the tray, the Dock, MPRIS. */
-  .os-tag {
-    position: absolute; right: -22px; bottom: -26px; z-index: 3; display: flex; align-items: center; gap: 10px;
-    padding: 8px 12px 8px 8px; border-radius: 10px; border: 1px solid var(--line);
-    background: color-mix(in srgb, var(--win-bg) 88%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 20px 50px -12px var(--shadow); font-size: 11.5px; transition: opacity .3s, transform .4s var(--ease);
-  }
-  .os-tag .w-cv { width: 34px; border-radius: 6px; flex: none; }
-  .os-tag b { display: block; font-weight: 600; }
-  .os-tag span { color: var(--text-dimmer); }
-  .os-tag .k { display: flex; gap: 8px; margin-left: 6px; color: var(--text-dim); }
-  .os-tag .k svg { width: 12px; height: 12px; }
-  .stage.swap .os-tag { opacity: 0; transform: translateY(6px); }
-
-  /* ── Features ── */
-  h2 { font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.025em; margin: 0 0 6px; }
-  .sec { padding: 40px 0; }
-  .sec-sub { color: var(--text-dim); margin: 0 0 24px; }
-  .feats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .feat { padding: 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--glass); }
-  .feat svg { width: 20px; height: 20px; color: rgb(var(--accent)); margin-bottom: 12px; }
-  .feat b { display: block; font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-  .feat p { margin: 0; color: var(--text-dim); font-size: 13.5px; }
-  .feat .on { display: inline-block; margin-top: 10px; font-size: 11.5px; color: var(--text-dimmer); }
+  h2 { font: 700 22px/1.2 var(--font-ui); letter-spacing: -0.02em; margin: 0 0 6px; }
+  .sec { padding: 32px 0; }
+  .sec-sub { color: var(--text-dim); margin: 0 0 18px; }
+  .sec > h2:only-of-type + .dls, .sec > h2 + .dls { margin-top: 14px; }
 
   /* ── Downloads ── */
   .dls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .dl { position: relative; display: flex; flex-direction: column; padding: 20px; border-radius: 10px; border: 1px solid var(--line); background: var(--glass); transition: border-color .3s, box-shadow .3s; }
-  .dl.mine { border-color: rgba(var(--accent), .55); box-shadow: 0 0 0 1px rgba(var(--accent), .25), 0 20px 60px -30px rgba(var(--accent), .6); }
+  .dl.mine { border-color: rgba(var(--accent), .55); }
   .dl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
   .dl-head svg { width: 22px; height: 22px; }
   .dl-head b { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
@@ -326,34 +210,16 @@
   .foot a:hover { color: var(--text); }
   .foot .sp { flex: 1; }
 
-  /* Things arriving: the window rises, the rest follows. */
-  @media (prefers-reduced-motion: no-preference) {
-    .rise { animation: rise .8s var(--ease) both; animation-delay: calc(var(--d, 0) * 80ms); }
-    .win { animation: winrise 1.1s var(--ease) both .15s; }
-  }
-  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
-  @keyframes winrise { from { opacity: 0; transform: perspective(1800px) rotateY(-16deg) rotateX(6deg) translateY(30px); } }
-  @media (prefers-reduced-motion: reduce) { .prompt i { animation: none; } }
-
-  @media (max-width: 980px) {
-    .hero { grid-template-columns: minmax(0, 1fr); gap: 40px; padding-top: 32px; }
-    .win { transform: none; }
-    .os-tag { right: 10px; bottom: -22px; }
-    .feats, .dls { grid-template-columns: minmax(0, 1fr); }
-  }
-  @media (min-width: 640px) and (max-width: 980px) { .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (prefers-reduced-motion: reduce) { .prompt i { animation: none; } .shot img { transition: none; } }
+  @media (max-width: 980px) { .dls { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 560px) {
     .wrap { padding: 0 16px; }
-    h1 { font-size: 40px; }
-    .win { font-size: 9px; }
-    .w-grid { grid-template-columns: repeat(4, 1fr); } .w-al:nth-child(n+5) { display: none; }
-    .w-search, .os-tag, .wide { display: none; }
-    .w-row { height: 18px; } .w-row.sub { height: 16px; } .w-lab { padding-top: 5px; }
+    h1 { font-size: 32px; }
+    .wide { display: none; }
   }
 </style>
 </head>
 <body>
-<div class="bloom"></div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -383,98 +249,44 @@
 </svg>
 
 <div class="wrap">
-  <header class="top rise">
+  <header class="top">
     <img src="../klab.png" alt="" />
     <span class="prompt">klabnet/<b>desktop</b>&gt;<i></i></span>
-    <a class="btn back" href="../">Open klabnet<span class="wide"> in the browser</span></a>
+    <a class="btn back" href="../"><span>Open klabnet<span class="wide"> in the browser</span></span></a>
   </header>
 
   <section class="hero">
-    <div>
-      <div class="label rise" style="--d:1">Desktop app</div>
-      <h1 class="rise" style="--d:2">klabnet,<br /><span>in its own window.</span></h1>
-      <p class="lede rise" style="--d:3">Chat, the feed, photos and your music, as a real app on your computer. Close the window and the music keeps playing.</p>
-      <div class="get rise" style="--d:4">
-        <a class="btn primary big" id="getBtn" href="#downloads"><svg><use href="#i-dl"/></svg><span>Download</span></a>
-        <div class="get-meta" id="getMeta"></div>
-        <div class="get-alt" id="getAlt"></div>
-        <div class="get-cmd" id="getCmd" hidden>
-          <div class="get-or">Or paste this in a terminal:</div>
-          <div class="cmd"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div>
-        </div>
+    <h1>klabnet for desktop</h1>
+    <p class="lede">klabnet in its own window, for Windows, macOS and Linux. It's the same klabnet as the site, and it keeps playing your music when you close the window.</p>
+    <div class="get">
+      <a class="btn primary big" id="getBtn" href="#downloads"><svg><use href="#i-dl"/></svg><span>Download</span></a>
+      <div class="get-meta" id="getMeta"></div>
+      <div class="get-alt" id="getAlt"></div>
+      <div class="get-cmd" id="getCmd" hidden>
+        <div class="get-or">Or paste this in a terminal:</div>
+        <div class="cmd"><code>curl -fsSL https://git.klab.gg/xvoltzz/klabnet-desktop/raw/branch/main/get.sh | sh</code><button type="button" class="btn copy" data-copy>Copy</button></div>
       </div>
-      <div class="note rise" id="note" style="--d:5" hidden></div>
     </div>
-
-    <div class="stage" id="stage">
-      <div class="seg rise" id="seg" role="group" aria-label="Show the app on" style="--d:3">
-        <span class="seg-pill" id="segPill"></span>
-        <button type="button" data-os="win"><svg><use href="#i-win"/></svg>Windows</button>
-        <button type="button" data-os="mac"><svg><use href="#i-mac"/></svg>macOS</button>
-        <button type="button" data-os="linux"><svg><use href="#i-linux"/></svg>Linux</button>
-      </div>
-      <div class="win" id="win" data-os="win" aria-hidden="true">
-        <div class="w-bar">
-          <span class="w-lights"><i></i><i></i><i></i></span>
-          <img class="w-logo" src="../klab.png" alt="" />
-          <span class="w-prompt">klabnet/<b>music</b>&gt;</span>
-          <span class="w-search"><svg><use href="#i-search"/></svg>Search music</span>
-          <span class="w-ctl"><span class="w-btn"><svg><use href="#i-min"/></svg></span><span class="w-btn"><svg><use href="#i-max"/></svg></span><span class="w-btn"><svg><use href="#i-x"/></svg></span></span>
-          <span class="w-round"><i><svg><use href="#i-min"/></svg></i><i><svg><use href="#i-max"/></svg></i><i><svg><use href="#i-x"/></svg></i></span>
-        </div>
-        <div class="w-body">
-          <div class="w-side">
-            <div class="w-row"><svg><use href="#i-home"/></svg><span>Home</span></div>
-            <div class="w-row"><svg><use href="#i-users"/></svg><span>Social</span></div>
-            <div class="w-row"><svg><use href="#i-music"/></svg><span>Music</span></div>
-            <div class="w-row sub"><span>Radio</span></div>
-            <div class="w-row sub"><span>Activity</span></div>
-            <div class="w-lab">Library</div>
-            <div class="w-row sub on"><span>Albums</span></div>
-            <div class="w-row sub"><span>Artists</span></div>
-            <div class="w-row sub"><span>Songs</span></div>
-            <div class="w-lab">Playlists</div>
-            <div class="w-row sub"><span>late drive</span></div>
-            <div class="w-row sub"><span>sunday</span></div>
-            <div class="w-foot"><span class="w-av"></span><span>you</span></div>
-          </div>
-          <div class="w-page">
-            <div class="w-title">Albums <small>412</small></div>
-            <div class="w-grid" id="grid"></div>
-            <div class="w-dock">
-              <span class="w-cv" id="dockCv"></span>
-              <span class="w-now"><b id="dockT"></b><span id="dockA"></span></span>
-              <span class="w-play">
-                <span class="w-keys"><svg><use href="#i-prev"/></svg><span class="pp"><svg><use href="#i-pause"/></svg></span><svg><use href="#i-next"/></svg></span>
-                <span class="w-bar2"><i id="dockPos"></i></span>
-              </span>
-              <span class="w-vol"><svg><use href="#i-vol"/></svg></span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="os-tag" id="osTag"></div>
-    </div>
+    <div class="note" id="note" hidden></div>
   </section>
 
-  <section class="sec">
-    <div class="label">Why the app</div>
-    <h2>It's klabnet, but it lives on your computer.</h2>
-    <p class="sec-sub">The same klabnet as the browser, kept up to date by the site itself, in a window that belongs on your desktop.</p>
-    <div class="feats">
-      <div class="feat"><svg><use href="#i-window"/></svg><b>Looks at home</b><p>Windows 11's title bar and Acrylic, a Mac's traffic lights and vibrancy, and one clean look on every Linux desktop.</p></div>
-      <div class="feat"><svg><use href="#i-moon"/></svg><b>Music keeps playing</b><p>Closing the window keeps klabnet in the tray or the Dock, with play, pause and skip right there.</p></div>
-      <div class="feat"><svg><use href="#i-keys"/></svg><b>Your media keys work</b><p>Play, pause and skip from the keyboard, and from the system's own media controls.</p></div>
-      <div class="feat"><svg><use href="#i-bell"/></svg><b>Unread on the taskbar</b><p>A dot on the icon when someone messages you, and notifications from the system.</p></div>
-      <div class="feat"><svg><use href="#i-refresh"/></svg><b>Updates itself</b><p>It downloads the next version in the background and installs it when klabnet restarts.</p><span class="on">Windows and the AppImage</span></div>
-      <div class="feat"><svg><use href="#i-key"/></svg><b>Sign in with your browser</b><p>Nothing to type into the app: your passkeys and password manager work as they always do.</p></div>
+  <section class="look">
+    <div class="seg" id="seg" role="group" aria-label="Show the app on">
+      <span class="seg-pill"></span>
+      <button type="button" data-os="win"><svg><use href="#i-win"/></svg>Windows</button>
+      <button type="button" data-os="mac"><svg><use href="#i-mac"/></svg>macOS</button>
+      <button type="button" data-os="linux"><svg><use href="#i-linux"/></svg>Linux</button>
     </div>
+    <div class="shot" id="shot" data-os="win">
+      <img data-os="win" src="shots/windows.webp" alt="klabnet on Windows" width="1440" height="900" />
+      <img data-os="mac" src="shots/mac.webp" alt="klabnet on macOS" width="1440" height="900" loading="lazy" />
+      <img data-os="linux" src="shots/linux.webp" alt="klabnet on Linux" width="1440" height="900" loading="lazy" />
+    </div>
+    <div class="shot-cap" id="shotCap"></div>
   </section>
 
   <section class="sec" id="downloads">
-    <div class="label">Downloads</div>
-    <h2>Every platform.</h2>
-    <p class="sec-sub">Pick yours. Already got it? It keeps itself up to date.</p>
+    <h2>Downloads</h2>
     <div class="dls">
       <div class="dl" data-os="win">
         <div class="dl-head"><svg><use href="#i-win"/></svg><b>Windows</b><span class="dl-you">Your computer</span></div>
@@ -508,9 +320,8 @@
 
 
   <section class="sec" id="install">
-    <div class="label">Installing</div>
-    <h2>Step by step.</h2>
-    <p class="sec-sub">Everything from download to signed in, for each system.</p>
+    <h2>Installing</h2>
+    <p class="sec-sub">From download to signed in.</p>
     <div class="seg" id="howSeg" role="group" aria-label="Instructions for">
       <span class="seg-pill"></span>
       <button type="button" data-os="win"><svg><use href="#i-win"/></svg>Windows</button>
@@ -583,7 +394,6 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var NAMES = { win: 'Windows', mac: 'macOS', linux: 'Linux' };
-  var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ── What's this computer? ──
   var ua = navigator.userAgent, uad = navigator.userAgentData;
@@ -615,72 +425,18 @@
     }).catch(function () {});
   }
 
-  // ── The window: one per look ──
-  var ALBUMS = [
-    { t: 'Afterglow', a: 'Lumen Fields', c: '232,170,96', g: 'linear-gradient(135deg,#f3b46b,#a4432f 70%,#3b1720)' },
-    { t: 'Night Bus', a: 'Coast Radio', c: '120,150,255', g: 'linear-gradient(160deg,#1d2b64,#5b6cff 55%,#f8cdda)' },
-    { t: 'Paper Moons', a: 'Juniper', c: '120,200,170', g: 'radial-gradient(circle at 30% 30%,#d8f3dc,#52b788 45%,#1b4332)' },
-    { t: 'Static Bloom', a: 'Hollow Pines', c: '230,110,150', g: 'linear-gradient(45deg,#2b1055,#d53a9d 60%,#ffd6e0)' },
-    { t: 'Low Tide', a: 'Mara Vale', c: '90,190,220', g: 'linear-gradient(180deg,#a8edea,#2b7a99 60%,#0b2533)' },
-    { t: 'Gold Hour', a: 'Sundae', c: '240,200,90', g: 'radial-gradient(circle at 70% 20%,#fff1a8,#f2a541 50%,#6b2d0e)' },
-    { t: 'Concrete', a: 'Field Notes', c: '190,190,190', g: 'linear-gradient(120deg,#e0e0e0,#7a7a7a 50%,#222)' },
-    { t: 'Fern', a: 'Ivy Rooms', c: '150,210,110', g: 'linear-gradient(200deg,#c6f28b,#4f8a2b 60%,#16260d)' },
-    { t: 'Saltwater', a: 'Coast Radio', c: '100,160,240', g: 'radial-gradient(circle at 50% 120%,#7ec8ff,#2654b3 55%,#0a1433)' },
-    { t: 'Ember', a: 'Lumen Fields', c: '240,120,80', g: 'linear-gradient(150deg,#ffb88c,#de6262 55%,#3a0d0d)' },
-  ];
-  var PATTERN = ['none', 'radial-gradient(circle at 75% 25%, rgba(255,255,255,.35), transparent 30%)', 'linear-gradient(transparent 60%, rgba(0,0,0,.35))', 'repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px)'];
-  var grid = $('grid');
-  ALBUMS.forEach(function (al, i) {
-    var el = document.createElement('div');
-    el.className = 'w-al';
-    el.innerHTML = '<div class="w-cv" style="--c:' + al.g + ';--p:' + PATTERN[i % 4] + '"></div><b></b><span></span>';
-    el.querySelector('b').textContent = al.t;
-    el.querySelector('span').textContent = al.a;
-    grid.appendChild(el);
-  });
-
-  var playing = 0, pos = 30;
-  function play(i) {
-    playing = i;
-    var al = ALBUMS[i];
-    [].forEach.call(grid.children, function (el, k) { el.classList.toggle('lit', k === i); });
-    $('dockCv').style.background = al.g;
-    $('dockT').textContent = al.t;
-    $('dockA').textContent = al.a;
-    document.documentElement.style.setProperty('--cover', al.c);
-    pos = 4;
-    paintTag();
-  }
-  // The song moves along, and every so often the next album comes on, so
-  // the window looks used. Only while the page is showing.
-  if (!still) setInterval(function () {
-    if (document.hidden) return;
-    pos += 3;
-    if (pos > 96) play((playing + 3) % ALBUMS.length);
-    $('dockPos').style.setProperty('--pos', pos + '%');
-  }, 1000);
-
-  // What each system adds around the window.
-  var TAGS = {
-    win: { b: 'In the tray', s: 'Close the window, keep the music' },
-    mac: { b: 'In the Dock', s: 'Play and skip from its menu' },
-    linux: { b: 'Media controls', s: 'MPRIS, on any desktop' },
+  // ── The screenshot: one per system ──
+  var CAPS = {
+    win: 'Windows 11: the title bar is klabnet\'s header, with Mica or Acrylic behind it.',
+    mac: 'macOS: the traffic lights sit in the sidebar, like Finder.',
+    linux: 'Linux: one look on Plasma, GNOME and Hyprland, with klabnet\'s own window buttons.',
   };
-  function paintTag() {
-    var tag = TAGS[$('win').dataset.os], al = ALBUMS[playing];
-    $('osTag').innerHTML = '<span class="w-cv"></span><span><b></b><span></span></span><span class="k"><svg><use href="#i-prev"/></svg><svg><use href="#i-pause"/></svg><svg><use href="#i-next"/></svg></span>';
-    $('osTag').querySelector('.w-cv').style.background = al.g;
-    $('osTag').querySelector('b').textContent = tag.b;
-    $('osTag').querySelector('span > span').textContent = tag.s;
-  }
-
   function show(o) {
     [].forEach.call(document.querySelectorAll('#seg button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.os === o)); });
     pill();
-    var stage = $('stage');
-    stage.classList.add('swap');
-    $('win').dataset.os = o;
-    setTimeout(function () { paintTag(); stage.classList.remove('swap'); }, still ? 0 : 220);
+    $('shot').dataset.os = o;
+    [].forEach.call(document.querySelectorAll('#shot img'), function (im) { im.classList.toggle('on', im.dataset.os === o); });
+    $('shotCap').textContent = CAPS[o];
   }
   function pill() {
     [].forEach.call(document.querySelectorAll('.seg'), function (seg) {
@@ -782,7 +538,6 @@
     var n = $('note'), app = window.klabnetDesktop;
     if (app && app.version) { n.innerHTML = 'You\'re in <b>klabnet ' + String(app.version).replace(/[<&]/g, '') + '</b> right now.'; n.hidden = false; }
     else if (phone) { n.innerHTML = 'This is the app for computers. On your phone, klabnet works right in the browser.'; n.hidden = false; }
-    else if (os === 'mac') { n.innerHTML = '<b>First time:</b> klabnet isn\'t signed by Apple yet, so right-click it in Applications and pick Open.'; n.hidden = false; }
   }
 
   // ── Off we go ──
@@ -790,7 +545,6 @@
   how(os || 'win');
   // On a Mac or Linux, the one line goes right under the big button.
   if (os === 'mac' || os === 'linux') $('getCmd').hidden = false;
-  play(0);
   note();
   paint();
   var asks = ['klabnet-setup.exe', 'klabnet.dmg', 'klabnet-intel.dmg', 'klabnet.AppImage', 'klabnet.deb', 'klabnet.rpm'].map(head)
