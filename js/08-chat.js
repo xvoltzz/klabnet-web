@@ -778,7 +778,9 @@ function renderChannelList() {
   });
   // Newest activity first, like any messaging app: a conversation that
   // just got a message moves to the top of its section.
-  const byRecent = (a, b) => roomLastTs(b) - roomLastTs(a) || (a.name || '').localeCompare(b.name || '');
+  // (Each room's newest message found once, not again for every comparison.)
+  const lastTs = new Map(allRooms.map(r => [r.roomId, roomLastTs(r)]));
+  const byRecent = (a, b) => lastTs.get(b.roomId) - lastTs.get(a.roomId) || (a.name || '').localeCompare(b.name || '');
   const dmRooms      = allRooms.filter(r => dmIds.has(r.roomId)).sort(byRecent);
   const channelRooms = allRooms.filter(r => !dmIds.has(r.roomId)).sort(byRecent);
   const rooms = [...channelRooms, ...dmRooms];
@@ -800,10 +802,11 @@ function renderChannelList() {
   }
 
   const rowKey = r => {
-    const online = dmIds.has(r.roomId) && window.KLAB_ONLINE_USERNAMES?.has(dmOtherUsername(r)) ? (window.KLAB_AWAY?.has(dmOtherUsername(r)) ? '2' : '1') : '0';
+    const who = dmIds.has(r.roomId) ? dmOtherUsername(r) : null;
+    const online = who && window.KLAB_ONLINE_USERNAMES?.has(who) ? (window.KLAB_AWAY?.has(who) ? '2' : '1') : '0';
     const unread = _chatUnreadRooms.has(r.roomId) ? '1' : '0';
     const last = roomLastMessage(r);
-    const face = dmIds.has(r.roomId) && window.klabResolveUserAvatar?.(dmOtherUsername(r)) ? 'a' : '';
+    const face = who && window.klabResolveUserAvatar?.(who) ? 'a' : '';
     return `${r.roomId}:${r.name || ''}:${r.getMyMembership?.() || ''}:${online}:${unread}:${last ? last.getId() + (last.isRedacted?.() ? 'r' : '') + (last.replacingEvent?.()?.getId?.() || '') : ''}${face}:${last ? shortAgo(last.getTs()) : ''}:${r.roomId === _chatActiveRoomId ? 'A' : ''}`;
   };
   const keys = new Map(rooms.map(r => [r.roomId, rowKey(r)]));
@@ -1282,13 +1285,14 @@ function renderTimeline() {
   }
   _lastTimelineQuick = quick;
 
-  const events = room.getLiveTimeline().getEvents().filter(ev => {
+  const allEvents = room.getLiveTimeline().getEvents().filter(ev => {
     if (ev.getType() !== 'm.room.message') return false;
     // An edit shows up as its own timeline entry, but the SDK already
     // folds it into the original event's content — rendering it again
     // here would show a second, redundant bubble with no body.
     return ev.getRelation()?.rel_type !== 'm.replace';
   });
+  const events = chatWindow(room, allEvents, roomChanged, el);
 
   const reactions = computeReactions(room);
 
@@ -1703,12 +1707,48 @@ function updateSeenLine(room, events) {
 // burst of scroll events). room.oldState.paginationToken === null is the
 // SDK's own signal that there's no more history to page in.
 const _paginatingRooms = new Set();
+// Only the newest messages are drawn. The SDK keeps every message it has
+// loaded, and the desktop app stays open for days: a busy channel grew to
+// thousands of rows, each new message doing work over all of them.
+// Scrolling to the top draws the next older ones already loaded (then
+// asks the server); back at the bottom with a long tail drawn, it trims
+// to the newest again. Kept as the first event drawn, not a count, so a
+// new message appends rather than shifting the window (a full rebuild).
+const CHAT_WINDOW = 200;
+const _chatFromId = new Map(); // roomId -> id of the first message drawn
+function chatWindow(room, all, roomChanged, el) {
+  if (roomChanged) _chatFromId.delete(room.roomId);
+  let from = 0;
+  const anchor = _chatFromId.get(room.roomId);
+  if (anchor) from = Math.max(0, all.findIndex(e => e.getId() === anchor));
+  if ((!anchor || from === 0 && all[0]?.getId() !== anchor) && all.length > CHAT_WINDOW) from = all.length - CHAT_WINDOW;
+  const pinned = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  if (pinned && all.length - from > CHAT_WINDOW * 2) from = all.length - CHAT_WINDOW;
+  // Kept even with everything drawn: without it a room passing 200 shifted
+  // its window by one with every new message.
+  if (all.length) _chatFromId.set(room.roomId, all[from].getId()); else _chatFromId.delete(room.roomId);
+  return from ? all.slice(from) : all;
+}
+// Older messages already loaded but not drawn: draw the next lot.
+function showOlderLoaded(room) {
+  const anchor = _chatFromId.get(room.roomId);
+  if (!anchor) return false;
+  const all = room.getLiveTimeline().getEvents().filter(ev => ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace');
+  const at = all.findIndex(e => e.getId() === anchor);
+  if (at <= 0) return false;
+  _chatFromId.set(room.roomId, all[Math.max(0, at - 100)].getId());
+  _lastTimelineRenderKey = null;
+  renderTimeline();
+  return true;
+}
+
 async function maybeLoadOlderMessages(round) {
   round = typeof round === 'number' ? round : 0; // also a scroll listener: its argument is the event
   const el = document.getElementById('chatTimeline');
   const room = _chatActiveRoomId && MatrixChat.client?.getRoom(_chatActiveRoomId);
   if (!el || !room || el.scrollTop > 60) return;
   if (_paginatingRooms.has(room.roomId)) return;
+  if (showOlderLoaded(room)) return;
   if (room.oldState.paginationToken === null) return;
   _paginatingRooms.add(room.roomId);
   const prevHeight = el.scrollHeight;
@@ -1717,6 +1757,9 @@ async function maybeLoadOlderMessages(round) {
     await MatrixChat.client.scrollback(room, 30);
     loaded = true;
     if (_chatActiveRoomId !== room.roomId) return;
+    // What just came from the server is drawn too: from the first message now.
+    const first = room.getLiveTimeline().getEvents().find(ev => ev.getType() === 'm.room.message' && ev.getRelation()?.rel_type !== 'm.replace');
+    if (first) _chatFromId.set(room.roomId, first.getId());
     _lastTimelineRenderKey = null; // backfill doesn't fire the live timeline emit
     // renderTimeline() keeps the same messages on screen itself (scrolled
     // up, it restores oldScrollTop + the added height). Adding that height
@@ -3522,7 +3565,17 @@ function showChatApp() {
   // — only bind listeners once or they'd stack and fire N times each.
   if (!_chatBound) {
     _chatBound = true;
+    let lastSync = '', lastRooms = '';
     MatrixChat.on('sync', state => {
+      // Every long poll that comes back says SYNCING again, events or not;
+      // what they brought re-renders through their own events. Only a
+      // change of state needs anything here (it rebuilt the whole list).
+      // (Invites still get looked at each time: new ones arrive this way.)
+      // A new room or invite comes with no timeline event: that redraws.
+      const rooms = MatrixChat.client?.getRooms() || [];
+      const roomsKey = rooms.length + ':' + rooms.reduce((n, r) => n + (r.getMyMembership?.() === 'invite' ? 1 : 0), 0);
+      if (state === lastSync && state === 'SYNCING' && roomsKey === lastRooms) { acceptDmInvites(); return; }
+      lastSync = state; lastRooms = roomsKey;
       const live = state === 'PREPARED' || state === 'SYNCING';
       dot.classList.toggle('live', live);
       text.textContent = live ? 'Connected' : ({ RECONNECTING: 'Reconnecting…', CATCHUP: 'Catching up…', ERROR: 'Can’t reach chat. Retrying…', STOPPED: 'Disconnected' }[state] || 'Connecting…');

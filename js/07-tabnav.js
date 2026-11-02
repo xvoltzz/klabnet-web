@@ -218,6 +218,7 @@ function openSettings() {
   syncLowFxRow();
   syncOledRow();
   syncGamesEnabled();
+  syncGifsRow();
   syncGlassRow();
   syncThemeRow();
   window.syncAppSettings?.(); // inside klabnet for Windows only
@@ -334,6 +335,21 @@ document.getElementById('oledToggle')?.addEventListener('click', e => {
   syncOledRow();
 }, true);
 
+// GIFs: the buttons only (html.gifs-on, applied at load by the <head>
+// script); GIFs already in posts and messages show either way.
+function syncGifsRow() {
+  const on = !!_settings.gifs, t = document.getElementById('gifsToggle');
+  document.documentElement.classList.toggle('gifs-on', on);
+  if (t) { t.classList.toggle('on', on); t.setAttribute('aria-checked', String(on)); }
+}
+document.getElementById('gifsToggle')?.addEventListener('click', e => {
+  e.stopImmediatePropagation();
+  SFX && SFX.play('click');
+  _settings.gifs = !_settings.gifs;
+  saveSettings();
+  if (!_settings.gifs) window.klabGifPicker?.close();
+  syncGifsRow();
+}, true);
 document.getElementById('gamesToggle')?.addEventListener('click', e => {
   e.stopImmediatePropagation();
   SFX && SFX.play('click');
@@ -1428,9 +1444,13 @@ async function offerAppUpdate(current) {
     root.classList.remove('nav-icons'); // (no icons-only sidebar any more)
     // (The CSS that hides what's left of the page sidebars keys on this.)
     root.classList.toggle('hdr-pagenav-on', tree);
-    // The sliding highlights measure again where their rows are now.
-    if (tree !== was || key) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-    was = tree;
+    // The sliding highlights measure again where their rows are now: only
+    // when something moved (another page's rows unfolded, the search box
+    // came or went), not on every step between one page's sections, which
+    // woke every resize listener in the app per press.
+    const shape = tree + '|' + (cur ? cur.pages[0] : '') + '|' + (find.firstElementChild?.className || '');
+    if (shape !== was) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    was = shape;
   }
   // The page's own row, clicked while you're on that page: its front.
   PAGES.forEach(p => {

@@ -46,13 +46,27 @@ self.addEventListener('message', event => {
 });
 
 const checked = new Set();
+// A copy still found right two minutes or more after it was cached is past any
+// deploy's window, and is marked so: the worker stops and starts all day,
+// and every start checked every file again (forty requests) otherwise.
+const SETTLED_MS = 2 * 60 * 1000;
+function stamped(body, from, extra) {
+  const headers = new Headers(from.headers);
+  for (const k in extra) headers.set(k, extra[k]);
+  return new Response(body, { status: from.status, statusText: from.statusText, headers });
+}
 async function recheck(cache, request, hit, clientId) {
   try {
     const res = await fetch(request, { cache: 'no-cache' });
     if (!res.ok || res.type !== 'basic') return;
     const [was, now] = await Promise.all([hit.text(), res.clone().text()]);
-    if (was === now) return;
-    await cache.put(request, res);
+    if (was === now) {
+      const at = +hit.headers.get('x-klab-at') || 0;
+      if (!at) await cache.put(request, stamped(now, hit, { 'x-klab-at': String(Date.now()) }));
+      else if (Date.now() - at > SETTLED_MS) await cache.put(request, stamped(now, hit, { 'x-klab-ok': '1' }));
+      return;
+    }
+    await cache.put(request, stamped(await res.blob(), res, { 'x-klab-at': String(Date.now()) }));
     const client = clientId && await self.clients.get(clientId);
     client?.postMessage({ klabAssetStale: new URL(request.url).searchParams.get('v') });
   } catch (e) {}
@@ -89,13 +103,13 @@ self.addEventListener('fetch', event => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(event.request);
       if (hit) {
-        if (!checked.has(url.href)) { checked.add(url.href); event.waitUntil(recheck(cache, event.request, hit.clone(), event.clientId)); }
+        if (!checked.has(url.href) && !hit.headers.get('x-klab-ok')) { checked.add(url.href); event.waitUntil(recheck(cache, event.request, hit.clone(), event.clientId)); }
         return hit;
       }
       const res = await fetch(event.request);
       if (res && res.ok && res.type === 'basic') {
         event.waitUntil((async () => {
-          await cache.put(event.request, res.clone());
+          await cache.put(event.request, stamped(await res.clone().blob(), res, { 'x-klab-at': String(Date.now()) }));
           for (const req of await cache.keys()) {
             const u = new URL(req.url);
             if (u.pathname === url.pathname && u.searchParams.get('v') !== url.searchParams.get('v')) await cache.delete(req);

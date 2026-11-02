@@ -10655,3 +10655,6 @@
     .gif-item:hover img { transform: none; }
     .gif-item:hover { outline: 2px solid rgba(var(--accent-rgb), .8); outline-offset: -2px; }
     .gif-glyph { height: 15px; padding: 0 3px; border-width: 1.5px; border-radius: 3px; font-size: 8px; }
+    /* GIFs are experimental, off by default (Settings → Experimental
+       features, html.gifs-on): their buttons go; sent GIFs still show. */
+    html:not(.gifs-on) :is(#feedGifBtn, #chatGifBtn, .feed-post-reply-gif) { display: none !important; }

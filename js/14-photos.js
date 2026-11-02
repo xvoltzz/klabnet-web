@@ -290,7 +290,12 @@
   function layoutStrip() {
     readThumbSize();
     const t = thumbPx;
-    strip.textContent = '';
+    // Thumbnails are kept by photo and only moved: the slideshow loads the
+    // whole library a page at a time, and building every <img> again per
+    // page was the strip's cost growing with each page.
+    const had = new Map();
+    for (const el of thumbEls) had.set(el._id, el);
+    strip.querySelectorAll('.ph-month').forEach(l => l.remove());
     thumbEls = [];
     centers = [];
     let x = 0, month = '';
@@ -306,19 +311,25 @@
         lab.style.left = x + 'px';
         strip.appendChild(lab);
       }
-      const d = document.createElement('div');
+      let d = had.get(it.ph.id);
+      if (d) had.delete(it.ph.id);
+      else {
+        d = document.createElement('div');
+        d._id = it.ph.id;
+        const img = document.createElement('img');
+        img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.draggable = false;
+        img.onload = () => img.classList.add('loaded');
+        img.src = fileUrl(it.ph.id, 'thumb');
+        d.appendChild(img);
+        strip.appendChild(d);
+      }
       d.className = 'ph-thumb' + (it.k === 0 && i > 0 ? ' newpost' : '');
       d.style.left = x + 'px';
-      const img = document.createElement('img');
-      img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.draggable = false;
-      img.onload = () => img.classList.add('loaded');
-      img.src = fileUrl(it.ph.id, 'thumb');
-      d.appendChild(img);
-      strip.appendChild(d);
       thumbEls.push(d);
       centers.push(x + t / 2);
       x += t;
     });
+    for (const el of had.values()) el.remove();
     strip.style.width = x + 'px';
   }
   // --ph-thumb is smaller on a phone-width window, and the strip was laid

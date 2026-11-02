@@ -505,7 +505,7 @@ function sampleImageColor(imgUrl) {
         hero.className = 'ap-hero';
         hero.innerHTML = `
           ${heroUrl
-            ? `<img class="ap-hero-img" src="${esc(heroUrl)}" data-view-full="${esc(heroUrl)}" alt="${esc(artistName || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
+            ? `<img class="ap-hero-img" src="${esc(heroUrl.replace('&size=800&', '&size=600&'))}" data-view-full="${esc(heroUrl)}" alt="${esc(artistName || '')}" onerror="klabArtFallback(this,'ap-hero-img-ph','ti-user-circle')" />`
             : `<div class="ap-hero-img-ph"><i class="ti ti-user-circle"></i></div>`}
           <div class="ap-hero-meta">
             <span class="ap-hero-kicker">Artist</span>
