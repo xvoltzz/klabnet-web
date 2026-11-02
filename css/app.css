@@ -10469,3 +10469,31 @@
     }
     html[data-fx="low"] .pz-float { animation: none; }
     @media (prefers-reduced-motion: reduce) { .pz-float { animation: none; } }
+
+    /* ══ THE MAIN SIDEBAR: UNDERLINES, NOT BOXES (2026-11-01) ══
+       The owner: a touch more desktop. No box behind a row, on hover or
+       for the one you're on: hover brightens the name with a faint
+       underline, and where you are is the name underlined in the accent.
+       Every platform's pill goes too. Photos' toggle buttons keep theirs. */
+    html #sideNav .motion-pill { display: none !important; }
+    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-new-playlist-btn, .nav-sub .music-playlist-row, #chatSide .chat-conv),
+    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-new-playlist-btn, .nav-sub .music-playlist-row, #chatSide .chat-conv):is(:hover, :active, .active) {
+      background: none !important; border-color: transparent !important; box-shadow: none !important;
+    }
+    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-new-playlist-btn, .nav-sub .music-playlist-row, #chatSide .chat-conv):hover { color: var(--text); }
+    html #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger, .nav-sub .picker-tab, .nav-sub .music-playlist-row, #chatSide .chat-conv):active { opacity: .7; }
+    #sideNav :is(.tab-nav-btn > span:not(#socialUnreadBadge), .side-nav-item > span, .nav-sub .picker-tab > span, .nav-sub .music-new-playlist-btn > span, .music-playlist-row-name, #chatSide .chat-channel-name) {
+      text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+      text-decoration-color: transparent; transition: text-decoration-color .15s, color .15s;
+    }
+    #sideNav :is(.tab-nav-btn:hover > span:not(#socialUnreadBadge), .side-nav-item:hover > span, .nav-sub .picker-tab:hover > span, .nav-sub .music-new-playlist-btn:hover > span, .music-playlist-row:hover .music-playlist-row-name, #chatSide .chat-conv:hover .chat-channel-name) {
+      text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    }
+    #sideNav :is(.tab-nav-btn.active > span:not(#socialUnreadBadge), .nav-sub .picker-tab.active > span, .music-playlist-row.active .music-playlist-row-name, #chatSide .chat-conv.active .chat-channel-name) {
+      text-decoration-thickness: 2px; text-decoration-color: rgb(var(--accent-rgb));
+    }
+    /* A page whose section is lit: its own row stays bright, not underlined (one mark in the sidebar). */
+    html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
+      text-decoration-color: transparent;
+    }
+    #sideNav :is(.tab-nav-btn, .nav-sub .picker-tab, .music-playlist-row, #chatSide .chat-conv):focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
