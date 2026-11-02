@@ -333,7 +333,7 @@
       lastKey = key;
       if (!list.length) {
         built.clear();
-        row.innerHTML = '<div class="soc-home-empty">No posts yet.</div>';
+        row.innerHTML = '<div class="soc-home-empty">No posts yet</div>';
         cards = []; shown = 0; wall.textContent = '';
         return;
       }

@@ -86,9 +86,7 @@ window.klabGifPicker = (function() {
       if (del) {
         e.stopPropagation();
         const b = del.closest('.gif-item');
-        const ok = typeof showConfirmDialog === 'function'
-          ? await showConfirmDialog('Remove this GIF?', 'It leaves the stash. Anywhere it was already posted keeps it.', 'Remove')
-          : confirm('Remove this GIF from the stash?');
+        const ok = await showConfirmDialog('Remove this GIF?', 'It leaves the stash. Anywhere it was already posted keeps it.', 'Remove');
         if (!ok) return;
         const res = await fetch('/api/gifs/' + encodeURIComponent(b.dataset.id), { method: 'DELETE' }).catch(() => null);
         if (res?.ok) b.remove();

@@ -227,11 +227,11 @@ const BG_KEY_LIGHT = 'klabnet_bg_light';
 // staying dark / light enough for the text on top to read comfortably.
 const BG_PALETTE_DARK = [
   { hex: '', label: 'Default (true black)' },
-  { hex: '#16161a', label: 'OLED Charcoal' },
+  { hex: '#16161a', label: 'OLED charcoal' },
   { hex: '#161c2a', label: 'Slate' },
   { hex: '#26180f', label: 'Espresso' },
   { hex: '#0b1433', label: 'Midnight' },
-  { hex: '#1f1033', label: 'Deep Purple' },
+  { hex: '#1f1033', label: 'Deep purple' },
   { hex: '#0c2517', label: 'Forest' },
   { hex: '#2e0d19', label: 'Wine' },
   { hex: '#05232e', label: 'Ocean' },
@@ -239,10 +239,10 @@ const BG_PALETTE_DARK = [
 ];
 const BG_PALETTE_LIGHT = [
   { hex: '', label: 'Default (warm white)' },
-  { hex: '#ffffff', label: 'Pure White' },
-  { hex: '#dedcd6', label: 'Soft Gray' },
+  { hex: '#ffffff', label: 'Pure white' },
+  { hex: '#dedcd6', label: 'Soft gray' },
   { hex: '#fbe9c6', label: 'Cream' },
-  { hex: '#d6e5f8', label: 'Pale Sky' },
+  { hex: '#d6e5f8', label: 'Pale sky' },
   { hex: '#f7d6d8', label: 'Blush' },
   { hex: '#d3f0dd', label: 'Mint' },
   { hex: '#e3d8f8', label: 'Lavender' },

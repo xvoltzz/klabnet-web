@@ -740,7 +740,7 @@
 
     if (!posts.length) {
       listEl.querySelectorAll(':scope > .feed-post').forEach(dropPostEl);
-      listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet.' : 'No posts yet.') + '</div>';
+      listEl.innerHTML = '<div class="feed-empty">' + (_mentionsOnly ? 'No mentions yet' : 'No posts yet') + '</div>';
     } else {
       // Typing in a reply box must survive a re-render happening around it
       // (a 30s poll, someone else's reaction, an avatar resolving). The
@@ -1028,7 +1028,7 @@
       // feed on screen (same pattern presence's own poll failure uses),
       // rather than yanking already-read content out from under someone.
       if (!_feedLoadedOk) {
-        listEl.innerHTML = '<div class="feed-empty">Couldn\'t load the feed.<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
+        listEl.innerHTML = '<div class="feed-empty">Couldn’t load the feed<button type="button" id="feedRetryBtn" class="feed-load-more">Retry</button></div>';
         // Shows it's trying again; otherwise a retry that failed redrew the
         // identical error and looked like the button did nothing.
         document.getElementById('feedRetryBtn')?.addEventListener('click', () => {

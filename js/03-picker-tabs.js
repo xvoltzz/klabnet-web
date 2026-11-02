@@ -321,10 +321,10 @@ function renderQueueList() {
   if (!queue.length) { pickerList.innerHTML = '<div class="picker-empty">The queue is empty. Add albums or songs</div>'; return; }
   pickerList.innerHTML = '';
   const clearRow = document.createElement('div');
-  clearRow.style.cssText = 'display:flex;justify-content:flex-end;padding:0 2px 6px;';
+  clearRow.className = 'mr-actions'; // a page's own action sits under its title, like Requests'
   const clearBtn = document.createElement('button');
   clearBtn.type = 'button';
-  clearBtn.className = 'app-btn'; // a secondary button like any other (it was a tiny red all-caps pill)
+  clearBtn.className = 'ap-btn-queue'; // a secondary button like any other (it was a tiny red all-caps pill)
   clearBtn.innerHTML = '<i class="ti ti-trash"></i> Clear queue';
   clearBtn.addEventListener('click', () => { queue = []; updateQueueBadge(); renderQueueList(); SFX.play('click'); });
   clearRow.appendChild(clearBtn);

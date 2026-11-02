@@ -718,9 +718,9 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
           <button type="button" class="s-toggle" id="plEditCollab" role="switch" aria-label="Let others add songs"></button>
         </div>` : ''}
         <div class="chat-modal-error" id="plEditError" hidden></div>
-        <div style="display:flex;gap:8px;margin-top:14px;">
-          <button class="ap-btn-queue" id="plEditCancel" style="flex:1;justify-content:center;">Cancel</button>
-          <button class="chat-connect-btn" id="plEditSave" style="flex:1;justify-content:center;margin-top:0;">${pl ? 'Save' : 'Create'}</button>
+        <div class="dlg-actions">
+          <button class="ap-btn-queue" id="plEditCancel">Cancel</button>
+          <button class="chat-connect-btn" id="plEditSave">${pl ? 'Save' : 'Create'}</button>
         </div>
       </div>`, () => finish(null));
 

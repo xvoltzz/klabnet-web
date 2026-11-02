@@ -2057,7 +2057,7 @@ function openFeedbackModal() {
   const STATE = { open: 'Open', done: 'Done', wontfix: 'Won’t fix' };
   const when = t => shortAgo(new Date(String(t).replace(' ', 'T') + 'Z').getTime());
   function draw() {
-    if (!items.length) { listEl.innerHTML = '<div class="picker-empty">Nothing posted yet.</div>'; return; }
+    if (!items.length) { listEl.innerHTML = '<div class="picker-empty">Nothing posted yet</div>'; return; }
     listEl.innerHTML = items.map(i => {
       const shown = open.has(i.id);
       return '<div class="fb-row' + (shown ? ' open' : '') + '" data-id="' + i.id + '">' +
@@ -2088,7 +2088,7 @@ function openFeedbackModal() {
       items = data.items; admin = !!data.admin;
       draw();
     } catch (e) {
-      listEl.innerHTML = '<div class="picker-empty">Couldn’t load what’s been posted.</div>';
+      listEl.innerHTML = '<div class="picker-empty">Couldn’t load what’s been posted</div>';
     }
   }
   async function change(id, method, body) {
@@ -2282,7 +2282,7 @@ function showChoiceDialog(title, items, emptyMessage) {
     openChatModal(title, `<div class="chat-modal-list" id="choiceDialogList"></div>`, () => resolve(null));
     const listEl = document.getElementById('choiceDialogList');
     if (!items.length) {
-      listEl.innerHTML = `<div class="picker-empty">${esc(emptyMessage || 'nothing to choose from')}</div>`;
+      listEl.innerHTML = `<div class="picker-empty">${esc(emptyMessage || 'Nothing to choose from')}</div>`;
     }
     items.forEach((item, i) => {
       const row = document.createElement('div');
@@ -2397,7 +2397,7 @@ function openCreateModal() {
   openChatModal('// create channel', `
     <input type="text" class="chat-modal-input" id="chatCreateName" placeholder="Channel name" autocomplete="off" />
     <input type="text" class="chat-modal-input" id="chatCreateTopic" placeholder="Topic (optional)" autocomplete="off" style="margin-top:8px;" />
-    <button class="chat-connect-btn" id="chatCreateSubmit" style="margin-top:12px;width:100%;justify-content:center;">Create</button>
+    <div class="dlg-actions"><button class="chat-connect-btn" id="chatCreateSubmit">Create</button></div>
     <div class="chat-modal-error" id="chatCreateError" hidden></div>
   `);
   const nameEl  = document.getElementById('chatCreateName');
@@ -2551,12 +2551,12 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
       backdrop.className = 'img-crop-backdrop open';
       backdrop.innerHTML = `
         <div class="img-crop-dialog">
-          <div class="img-crop-title">Crop image</div>
+          <div class="img-crop-title">${shape === 'circle' ? 'Crop your picture' : shape === 'square' ? 'Crop the cover' : 'Crop your banner'}</div>
           <div class="img-crop-stage ${shape === 'circle' ? 'is-circle' : shape === 'square' ? 'is-square' : 'is-rect'}">
             <img class="img-crop-img" src="${objectUrl}" alt="" draggable="false" />
           </div>
           <input type="range" class="img-crop-zoom" min="0" max="100" value="0" />
-          <div class="img-crop-actions">
+          <div class="img-crop-actions dlg-actions">
             <button type="button" class="ap-btn-queue" id="imgCropCancel">Cancel</button>
             <button type="button" class="chat-connect-btn" id="imgCropUse">Use photo</button>
           </div>
@@ -2964,7 +2964,7 @@ async function openProfileModal() {
       <div class="profile-modal-color-swatch auto" data-color="" title="Auto"></div>
       ${CHAT_NAME_COLORS.map(c => `<div class="profile-modal-color-swatch" data-color="${c}" style="background:${c}" title="${c}"></div>`).join('')}
     </div>
-    <button class="chat-connect-btn" id="profileSaveBtn" style="margin-top:12px;width:100%;justify-content:center;">Save</button>
+    <div class="dlg-actions"><button class="chat-connect-btn" id="profileSaveBtn">Save</button></div>
     <div class="chat-modal-error" id="profileError" hidden></div>
   `);
 

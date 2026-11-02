@@ -484,7 +484,7 @@
   async function openManage(openId) {
     manage.classList.add('open');
     SFX && SFX.play('open');
-    mBody.innerHTML = '<p class="radio-note">Loading…</p>';
+    mBody.innerHTML = '<div class="picker-empty">Loading…</div>';
     await load(true);
     paintManage(openId);
   }
@@ -545,7 +545,7 @@
     const del = e.target.closest('.radio-del');
     if (!del) return;
     const id = del.closest('.radio-form').dataset.id, s = byId(id);
-    if (!s || !confirm('Delete “' + s.name + '”? Its mix goes too.')) return;
+    if (!s || !await showConfirmDialog('Delete “' + s.name + '”?', 'Its mix goes too.', 'Delete')) return;
     try {
       await send('DELETE', API + '/' + encodeURIComponent(id));
       if (tuned === id) off();
