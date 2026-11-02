@@ -525,6 +525,8 @@ const klabMenu = (() => {
 // reaction" open the emoji picker (js/34-emoji.js); the right-click
 // menu's own row of emoji stands in until that's loaded.
 const KLAB_REACTS = ['👍', '❤️', '😂', '🔥', '😮', '😢', '🎉', '💀', '👀', '🙏', '💯', '🫡'];
+// The four on a message's or a post's hover toolbar (Chat and Feed).
+const KLAB_QUICK_REACTS = ['👍', '❤️', '😂', '🔥'];
 function klabReactMenu(anchor, onPick) {
   // The emoji picker (js/34-emoji.js), with klab's own emoji in it.
   if (window.klabEmojiPicker) return window.klabEmojiPicker(anchor, onPick);

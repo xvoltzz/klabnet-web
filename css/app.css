@@ -5155,20 +5155,8 @@
     .chat-search input { flex: 1; min-width: 0; border: none; background: none; outline: none; color: var(--text); font: 400 14px var(--font-ui); }
     .chat-search input::placeholder { color: var(--text-dimmer); }
     .chat-side-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 8px; }
-    .chat-side-scroll.searching > .chat-lbl:first-child, .chat-side-scroll.searching > #presenceList { display: none; }
+    .chat-side-scroll.searching > #presenceList { display: none; }
     .chat-lbl.search-empty { display: none; }
-    /* Messages: all of them (the owner, once Chat's sidebar had the room:
-       no more folding to the latest three). */
-    .chat-more {
-      display: flex; align-items: center; gap: 12px; width: 100%; height: 34px; padding: 0 12px; box-sizing: border-box;
-      border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer;
-      font: 500 var(--fs-13) var(--font-ui); color: var(--text-dimmer); text-align: left;
-      transition: background-color .15s, color .15s;
-    }
-    .chat-more:hover { background: var(--glass-fill); color: var(--text-dim); }
-    .chat-more i { font-size: 16px; width: 20px; text-align: center; transition: transform var(--m-med, .2s) ease; }
-    .chat-more[aria-expanded="true"] i { transform: rotate(180deg); }
-    .chat-more[hidden], .chat-side-scroll.searching .chat-more { display: none; }
     .chat-lbl { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); padding: 16px 10px 5px; }
     .chat-lbl[hidden] { display: none; }
     .chat-lbl-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
@@ -6109,9 +6097,9 @@
 
       /* The page moves over in one step while the sidebar animates: easing
          its padding re-flowed every grid on the page, frame after frame. */
-      html:not([data-nav="top"]) body { padding-left: var(--nav-w); }
+      html[data-nav] body { padding-left: var(--nav-w); }
       /* Before the script has moved them, the header's tabs would flash. */
-      html:not([data-nav="top"]) .header .tab-nav { visibility: hidden; }
+      html[data-nav] .header .tab-nav { visibility: hidden; }
       /* Settings lives at the foot of the sidebar, like a desktop app's. */
       html.nav-side-on #settingsBtn { display: none; }
       html.nav-side-on .nav-burger { display: grid; place-items: center; }
@@ -6124,12 +6112,12 @@
       }
 
       /* The floating player centres on the page, not the window. */
-      html:not([data-nav="top"]) .player-dock {
+      html[data-nav] .player-dock {
         left: calc(50% + var(--nav-w) / 2);
         width: min(calc(var(--content-w) + 200px), calc(100vw - var(--nav-w) - 3rem));
       }
 
-      html:not([data-nav="top"]) .side-nav {
+      html[data-nav] .side-nav {
         display: flex; flex-direction: column; gap: 2px;
         position: fixed; z-index: 57; left: 0; top: var(--nav-top, 0px); bottom: var(--nav-bottom, 0px);
         width: var(--nav-w); box-sizing: border-box; padding: 6px 6px 8px;
@@ -6181,7 +6169,7 @@
 
       /* klabnet's own look (browsers, Hyprland and the like): a glass pane,
          the accent highlight sliding between rows. */
-      html:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html[data-nav]:not(.nav-flyout) .side-nav {
         background:
           linear-gradient(90deg, rgba(255,255,255,0.025), rgba(255,255,255,0)),
           color-mix(in srgb, var(--bg) 55%, transparent);
@@ -6203,10 +6191,10 @@
        top-left corner. Rows are 36px Segoe UI, a quiet fill marks the
        selected one and an accent pill slides beside it. */
     @media (min-width: 761px), (pointer: fine) {
-      html.klabnet-app[data-platform="win32"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-platform="win32"][data-nav]:not(.nav-flyout) .side-nav {
         background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 4px 4px 6px;
       }
-      html.klabnet-app[data-platform="win32"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav { background: color-mix(in srgb, var(--bg) 70%, #202020); }
+      html.klabnet-app[data-platform="win32"]:not(.app-material)[data-nav]:not(.nav-flyout) .side-nav { background: color-mix(in srgb, var(--bg) 70%, #202020); }
       html.klabnet-app[data-platform="win32"].nav-side-on body::before {
         content: ''; position: fixed; z-index: 1; pointer-events: none;
         left: var(--nav-w); top: var(--nav-top, 0px); right: 0; bottom: var(--nav-bottom, 0px);
@@ -6252,7 +6240,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      html:not([data-nav="top"]) body, .side-nav, .side-nav *, html.klabnet-app[data-platform="win32"].nav-side-on body::before { transition: none !important; }
+      html[data-nav] body, .side-nav, .side-nav *, html.klabnet-app[data-platform="win32"].nav-side-on body::before { transition: none !important; }
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -6466,7 +6454,7 @@
     html.app-titlebar .app-update-banner { top: calc(var(--tb-h, 48px) + 8px); }
 
     /* Windows sidebar without the window material, light theme. */
-    html.klabnet-app[data-platform="win32"][data-theme="light"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav {
+    html.klabnet-app[data-platform="win32"][data-theme="light"]:not(.app-material)[data-nav]:not(.nav-flyout) .side-nav {
       background: color-mix(in srgb, var(--bg) 94%, #000);
     }
 
@@ -7316,7 +7304,7 @@
         clip-path: polygon(0 0, 100% 0, 100% 100%, var(--nav-w) 100%, var(--nav-w) var(--mac-cut), 0 var(--mac-cut));
         transition: clip-path .28s var(--m-ease);
       }
-      html.klabnet-app[data-platform="darwin"].nav-side-on:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-platform="darwin"].nav-side-on[data-nav]:not(.nav-flyout) .side-nav {
         box-shadow: 1px 0 0 var(--mac-line);
         transition: width .28s var(--m-ease), top .28s var(--m-ease), padding-top .28s var(--m-ease), bottom .3s ease;
       }
@@ -7324,11 +7312,11 @@
 
     @media (min-width: 761px), (pointer: fine) {
       /* ── The sidebar: a source list ── */
-      html.klabnet-app[data-platform="darwin"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-platform="darwin"][data-nav]:not(.nav-flyout) .side-nav {
         background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
         padding: 4px 10px 10px;
       }
-      html.klabnet-app[data-platform="darwin"]:not(.app-material):not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-platform="darwin"]:not(.app-material)[data-nav]:not(.nav-flyout) .side-nav {
         background: color-mix(in srgb, var(--bg) 88%, #808080 12%); box-shadow: 1px 0 0 var(--mac-line);
       }
       html.klabnet-app[data-platform="darwin"] #sideNav #tabNav.tab-nav, html.klabnet-app[data-platform="darwin"] .side-nav-foot { gap: 1px; }
@@ -7707,7 +7695,7 @@
       border-top-left-radius: var(--radius-lg);
       transition: left .28s var(--m-ease), top .28s var(--m-ease), border-radius .28s var(--m-ease);
     }
-    html.klabnet-app[data-desktop="linux"]:is([data-nav="top"], [data-nav="menu"]) body::before { left: 0; border-left-width: 0; border-top-left-radius: 0; }
+    html.klabnet-app[data-desktop="linux"][data-nav="menu"] body::before { left: 0; border-left-width: 0; border-top-left-radius: 0; }
     @media (min-width: 1100px) {
       /* Beside the full sidebar too, the page's sheet starts under the
          title bar, as beside the rail: the bar is one surface across the
@@ -7795,7 +7783,7 @@
       /* ── The sidebar: the window's own glass ──
          The whole height of the window, the title bar's left end over its
          top. Rows are klabnet's; the selection is the accent, filled. */
-      html.klabnet-app[data-desktop="linux"]:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.klabnet-app[data-desktop="linux"][data-nav]:not(.nav-flyout) .side-nav {
         background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
         padding: 6px 8px 10px;
       }
@@ -7848,7 +7836,7 @@
       html.web-bar[data-theme="light"] { --web-chrome: color-mix(in srgb, var(--bg) 80%, transparent); --web-sheet: rgba(255,255,255,0.45); --web-line: rgba(0,0,0,0.08); }
       html.web-bar .header,
       html.web-bar:not(.app-material).app-scrolled .header,
-      html.web-bar:not([data-nav="top"]):not(.nav-flyout) .side-nav {
+      html.web-bar[data-nav]:not(.nav-flyout) .side-nav {
         background: var(--web-chrome);
         -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
         box-shadow: none;
@@ -8012,7 +8000,7 @@
       html.klabnet-app[data-platform="darwin"]:not(.app-material).nav-side-on:not([data-nav="menu"]) body::before { background: var(--bg); }
       /* The sheet's edge is the divider now; a straight line of the
          sidebar's own would run through the curve. */
-      html.klabnet-app[data-platform="darwin"].nav-side-on:not([data-nav="top"]):not(.nav-flyout) .side-nav { box-shadow: none !important; }
+      html.klabnet-app[data-platform="darwin"].nav-side-on[data-nav]:not(.nav-flyout) .side-nav { box-shadow: none !important; }
       html.app-titlebar[data-platform="darwin"][data-nav="side"]:not(.nav-flyout) .header::before { box-shadow: none; }
     }
 
@@ -8273,7 +8261,6 @@
     :is(#socShell, #sideNav) .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
     :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: none; }
     :is(#socShell, #sideNav) .chat-lbl { padding: 16px 12px 6px; }
-    :is(#socShell, #sideNav) .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
     body:not(.chat-on) #socShell .chat-side > .music-sidebar-label { display: block; }
     :is(#socShell, #sideNav) .soc-chat-connect { width: 100%; margin-bottom: 10px; }
     body.chat-on :is(#socShell, #sideNav) .soc-chat-connect { display: none; }
@@ -8705,7 +8692,6 @@
        line up. */
     #socShell .soc-side-scroll { gap: 12px; }
     :is(#socShell, #sideNav) .chat-lbl { padding: 10px 12px 4px; }
-    :is(#socShell, #sideNav) .chat-side-scroll > .chat-lbl:first-child { padding-top: 0; }
     #socShell .music-sidebar-label { padding-bottom: 4px; }
 
     /* Channels and conversations: 32px rows. */
@@ -8728,8 +8714,6 @@
     :is(#socShell, #sideNav) #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
     :is(#socShell, #sideNav) #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
     :is(#socShell, #sideNav) #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
-    :is(#socShell, #sideNav) #chatSide .chat-more { height: 28px; padding: 0 10px; gap: 8px; }
-    :is(#socShell, #sideNav) #chatSide .chat-more i { width: 20px; }
 
     /* Voice: rows like the others. */
     #socVoice .vc-row { height: 32px; padding: 0 10px; gap: 8px; border-radius: 8px; font-size: var(--fs-13); }
@@ -9588,7 +9572,7 @@
       html.pane-off-games #gamesShell #gamesSidebar { width: 48px; }
       html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(48px + 32px); }
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar, html.pane-off-games #gamesSidebar)
-        :is(#phSidebar, #socVoice, #chatDmMore, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
+        :is(#phSidebar, #socVoice, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
       /* The search, folded: its icon. The box stays in the page, unseen,
          so focusing it works; then it pops out over the page, wider than
          the rail, from where the icon was. */
@@ -9883,7 +9867,6 @@
       #sideNav .nav-sub :is(.chat-lbl, .soc-label-row) {
         padding: 12px 4px 5px 10px; margin: 0; font: 600 10.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-dimmer);
       }
-      #sideNav .nav-sub .chat-side-scroll > .chat-lbl:first-child { padding-top: 8px; }
       #sideNav .nav-sub #chatSide .chat-conv { padding-left: 9px; }
       #sideNav .nav-sub #chatSide .chat-conv-face { width: 20px; height: 20px; margin: 0; }
       #sideNav .nav-sub #chatSide .chat-conv-lead { width: 18px; }

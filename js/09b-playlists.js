@@ -987,8 +987,6 @@ loadPickerTab = async function(tab) {
   // The outermost wrapper, so every layer sees the same tab: mapped only in
   // 03, a linked Cover Flow got Home without its title or layout.
   if (tab === 'coverflow') tab = 'random';
-  // Songs' infinite scroll held its detached sentinel and pages until you came back.
-  if (tab !== 'songs' && _songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
   if (tab === 'playlists') {
     hideSortBtn();
     _pickerLoadToken++; clearTimeout(pickerDebounce); // see the songs/genres wrapper

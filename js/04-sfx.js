@@ -374,7 +374,12 @@ const SFX = (() => {
   document.addEventListener('click', e => {
     const el = e.target.closest?.(PRESSABLE);
     if (!el || el.closest('[data-silent]') || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
-    const at = performance.now();
+    // From when the press happened, not now: the element's own handlers
+    // have already run (and played their sound) by the time this one does,
+    // so "now" made every sound of their own look older than the press,
+    // and only the 70ms gate kept it quiet. A press that repaints the whole
+    // page (the theme button) outlasted that, and clicked twice.
+    const now = performance.now(), at = e.timeStamp > 0 && e.timeStamp <= now ? e.timeStamp : now;
     setTimeout(() => { if (_anyAt < at) playGated(el.matches(BACKS) ? 'nav_back' : 'click'); }, 0);
   });
 
@@ -382,12 +387,6 @@ const SFX = (() => {
 })();
 
 // Wire SFX to UI elements
-// Header buttons
-['themeToggle'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('click', () => SFX.play('click'));
-});
-
 // Picker open/close
 const _origOpenPicker = openPicker;
 openPicker = function() { SFX.play('picker'); _origOpenPicker(); };

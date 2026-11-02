@@ -514,7 +514,6 @@ const _origLoadPickerTabNew = loadPickerTab;
 // the filters, every sort and the A–Z rail (js/26-browse.js) work on all of
 // it at once. Rows are still drawn a hundred at a time as you scroll.
 const _SONGS_PER_PAGE = 1000;
-let _songsObserver = null; // gone; the playlists wrapper still clears it
 let _songsCache = null, _songsAt = 0;
 
 async function _fetchSongsPage(offset) {

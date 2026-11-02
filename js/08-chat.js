@@ -569,50 +569,6 @@ function roomPreview(room, ev, isDm) {
   return who + body;
 }
 
-// Messages used to show only the latest three, with this row for the rest.
-// It shows them all now; the row stays hidden.
-const DM_SHOWN = Infinity;
-function syncDmMore() {
-  const list = document.getElementById('chatDmList'), btn = document.getElementById('chatDmMore');
-  if (!list || !btn) return;
-  const more = list.querySelectorAll(':scope > .chat-conv').length - DM_SHOWN;
-  const open = list.classList.contains('open');
-  btn.hidden = more <= 0;
-  btn.setAttribute('aria-expanded', String(open));
-  btn.querySelector('span').textContent = open ? 'Show less' : `Show ${more} more`;
-}
-// Opening grows the list to its new height while the others fade in;
-// folding fades them out as it shrinks, then hides them.
-let _dmAnim = null;
-document.getElementById('chatDmMore')?.addEventListener('click', () => {
-  const list = document.getElementById('chatDmList');
-  if (!list) return;
-  _dmAnim?.finish(); // a fold still running ends first, so this reads where it landed
-  const opening = !list.classList.contains('open');
-  const from = list.offsetHeight;
-  list.classList.toggle('open', true);
-  const full = list.offsetHeight;
-  list.classList.remove('open');
-  const folded = list.offsetHeight;
-  list.classList.toggle('open', opening);
-  syncDmMore();
-  if (!(window.klabMotionOk?.() ?? true) || full === folded) return;
-  // The ones that come and go: past the first three, not the open one.
-  const extra = [...list.querySelectorAll(':scope > .chat-conv')].slice(DM_SHOWN).filter(c => !c.classList.contains('active'));
-  const ease = 'cubic-bezier(.2,.8,.2,1)', ms = 260;
-  if (!opening) list.classList.add('open'); // keep them while they leave
-  list.style.overflow = 'hidden';
-  const grow = list.animate({ height: [from + 'px', (opening ? full : folded) + 'px'] }, { duration: ms, easing: ease });
-  extra.forEach((c, i) => c.animate(
-    opening ? { opacity: [0, 1], transform: ['translateY(-4px)', 'none'] } : { opacity: [1, 0] },
-    { duration: opening ? ms : ms * .6, delay: opening ? Math.min(i, 6) * 18 : 0, easing: ease, fill: 'backwards' }));
-  _dmAnim = grow;
-  grow.onfinish = grow.oncancel = () => {
-    if (_dmAnim === grow) _dmAnim = null;
-    list.style.overflow = '';
-    if (!opening) list.classList.remove('open');
-  };
-});
 
 // Sidebar search: filters conversations, and finds anyone on the site to
 // message (the people you haven't talked to yet aren't listed otherwise).
@@ -836,7 +792,6 @@ function renderChannelList() {
       sync(dmList, dmRooms, 'ti-user');
       const lbl = document.getElementById('chatDmLbl');
       if (lbl) lbl.hidden = !dmRooms.length;
-      syncDmMore();
     }
     applyChatSearch();
   }
@@ -1018,7 +973,7 @@ function chatMessageMenu(e) {
   const inDmWithThem = getDmRoomIds().has(room.roomId);
   klabMenu(e, [
     { header: ev.sender?.name || user },
-    { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...QUICK_REACTIONS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
+    { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...KLAB_QUICK_REACTS, '😮', '😢'], hidden: !alive, action: emoji => toggleReaction(id, emoji) },
     { label: 'Reply', icon: 'ti-arrow-back-up', hidden: !alive, action: () => startReply(id) },
     { label: 'Edit', icon: 'ti-pencil', hidden: !(mine && isText), action: () => editChatMessage(id) },
     { label: 'Copy text', icon: 'ti-copy', hidden: !isText, action: () => klabCopy(content.body, 'Message') },
@@ -1457,7 +1412,7 @@ function renderTimeline() {
       const actions = document.createElement('div');
       actions.className = 'chat-msg-actions';
       const starredByMe = !!reactions.get(ev.getId())?.get(KLAB_STAR)?.mine;
-      actions.innerHTML = QUICK_REACTIONS.map(e =>
+      actions.innerHTML = KLAB_QUICK_REACTS.map(e =>
         `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}">${e}</button>`
       ).join('') + `<button type="button" class="chat-msg-action-btn chat-msg-star-btn${starredByMe ? ' on' : ''}" data-action="react" data-emoji="${KLAB_STAR}" title="${starredByMe ? 'Unstar' : 'Star'}"><i class="ti ${starredByMe ? 'ti-star-filled' : 'ti-star'}"></i></button>` +
         `<button type="button" class="chat-msg-action-btn" data-action="more" title="More reactions"><i class="ti ti-mood-plus"></i></button>` +
@@ -1794,7 +1749,6 @@ function fillChatHistory(room) {
   requestAnimationFrame(() => maybeLoadOlderMessages());
 }
 
-const QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
 // The composer's emoji button opens the emoji picker (js/34-emoji.js).
 function initChatEmojiPicker() {
   const btn   = document.getElementById('chatEmojiBtn');

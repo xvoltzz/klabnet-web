@@ -36,7 +36,6 @@
   // posts that changed, so a long scrollback is cheap to keep.
   const FEED_MAX_LOADED = 1500;
   const MENTIONS_SEEN_KEY = 'klabnet_feed_mentions_seen_v1'; // { username: highest post id already seen mentioning them }
-  const FEED_QUICK_REACTIONS = ['👍','❤️','😂','🔥'];
   const FEED_MAX_CHARS = 10000; // matches FEED_POST_MAX_CHARS in klabnet-api; replies stay short
   const DRAFT_KEY = 'klabnet_feed_draft_v1';
 
@@ -505,7 +504,7 @@
         // They used to sit under every post all the time, with the quick
         // reactions spilling out of a button in a row of bare emoji.
         '<div class="feed-post-actions">' +
-          FEED_QUICK_REACTIONS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + e + '</button>').join('') +
+          KLAB_QUICK_REACTS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + e + '</button>').join('') +
           '<button type="button" class="feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions"><i class="ti ti-mood-plus"></i></button>' +
           '<button type="button" class="feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
           (canDelete ? '<button type="button" class="feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
@@ -1692,7 +1691,7 @@
     const mine = post.username === me;
     klabMenu(e, [
       { header: post.username },
-      { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...FEED_QUICK_REACTIONS, '😮', '😢'], action: emoji => {
+      { reacts: [...(KLAB_STARS ? [KLAB_STAR] : []), ...KLAB_QUICK_REACTS, '😮', '😢'], action: emoji => {
         const btn = postEl.querySelector('.feed-post-add-reaction');
         if (btn) floatEmoji(btn, emoji);
         toggleFeedReaction(post.id, emoji);

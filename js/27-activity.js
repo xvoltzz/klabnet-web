@@ -206,7 +206,6 @@
     if (tab !== 'activity') { stop(); return _prevLoadPickerTab(tab); }
     // What the layers underneath do on the way to any view they don't own.
     window.klabBrowse?.leave();
-    if (typeof _songsObserver !== 'undefined' && _songsObserver) { _songsObserver.disconnect(); _songsObserver = null; }
     hideSortBtn();
     _pickerLoadToken++; clearTimeout(pickerDebounce);
     pickerTab = tab;
