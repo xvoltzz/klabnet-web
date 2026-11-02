@@ -181,9 +181,15 @@ function sampleImageColor(imgUrl) {
   // playSong, the dock's, the full player's): one sample per cover, not a
   // download, a colour tween and a flash for each.
   const coverKey = src => (/getCoverArt/.test(src) && (/[?&]id=([^&]+)/.exec(src) || [])[1]) || src;
+  // Always the same 64px copy of a cover: which size got here first (64
+  // from playSong, the dock's 300 after a reload or on a remote, the full
+  // player's 1200) decided the colour, so one song came out a different
+  // colour in the app than in the browser (the owner).
+  const at64 = src => /getCoverArt/.test(src) ? src.replace(/([?&])size=\d+/, '$1size=64') + (/[?&]size=/.test(src) ? '' : '&size=64') : src;
   function sample(src) {
     if (!src || coverKey(src) === _last) return;
     _last = coverKey(src);
+    src = at64(src);
     const mySampleToken = ++_sampleToken;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -247,7 +253,11 @@ function sampleImageColor(imgUrl) {
       document.documentElement.style.removeProperty('--cover');
       _last = ''; // cleared so resume re-triggers extraction
     } else {
-      // Resumed — _last was cleared on pause so sample() will re-run
+      // Resumed — _last was cleared on pause so sample() will re-run.
+      // The song's own cover, not whatever the dock shows (that can be the
+      // high-res artwork, a different picture to sample).
+      const art = playerState.currentSong?.coverArt;
+      if (art) { sample(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(art)}&size=64&${subsonicParams()}`); return; }
       const img = document.querySelector('#playerArtWrap img')
                || document.querySelector('#fsArt img')
                || document.querySelector('.player-art');
