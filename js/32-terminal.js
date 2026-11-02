@@ -2,7 +2,7 @@
 //  THE PROMPT, FOR REAL (an easter egg)
 //  Click "klabnet>" in the title bar, or press d, and the prompt takes
 //  typing: `cd music`, `cd music/albums`, `cd ..`, `cd ~`, `ls`, `pwd`,
-//  `help`, `exit`. A bare page name works too. Like fish, it suggests the
+//  `help`, `exit`, `sharks` (js/37-ocean.js). A bare page name works too. Like fish, it suggests the
 //  rest of what you're typing in grey (from what you've run before, then
 //  from the directories there are); Tab or → takes it. ↑/↓ go through what
 //  you've run. Enter runs it, Escape or clicking away leaves.
@@ -87,7 +87,7 @@
       return hit ? hit.slice(m[2].length) : '';
     }
     if (!v.includes(' ')) {
-      const cmd = ['cd ', 'ls', 'pwd', 'help', 'exit', 'clear'].find(c => c.startsWith(v) && c !== v);
+      const cmd = ['cd ', 'ls', 'pwd', 'help', 'exit', 'clear', 'sharks'].find(c => c.startsWith(v) && c !== v);
       if (cmd) return cmd.slice(v.length);
       const dir = pages().find(d => d.startsWith(v) && d !== v);
       if (dir) return dir.slice(v.length);
@@ -196,7 +196,8 @@
         return;
       }
       case 'pwd': say(pathOf(cwd())); return;
-      case 'help': case '?': say('cd <page>  ls  pwd  exit   (try: cd music/albums)'); return;
+      case 'help': case '?': say('cd <page>  ls  pwd  sharks  exit   (try: cd music/albums)'); return;
+      case 'sharks': case 'ocean': case 'aquarium': say(''); window.klabOcean?.open(); return;
       case 'exit': case 'clear': case 'q': say(''); return;
       case 'sudo': say('nice try'); return;
       default: {

@@ -268,3 +268,7 @@ The owner wanted "a quick little klabnet recap": things posted or shared, and so
 - **The title bar's backing on scroll** only shows with the sidebar hidden (owner): `app-scrolled` is set by one handler in js/07-tabnav.js for the browser and the apps.
 - **Mac title bar**: with the full sidebar, klabnet's name sits right after the sidebar button (`.header-left` margin), not out at the page's edge.
 - **Photos** has no box round the photo and filmstrip any more (owner).
+
+## Text faces, the ocean (2026-11-02)
+- **Face reactions are drawn as text faces** (owner: "laughing turns to XD"): `KLAB_TEXTMOJI` and `klabReactHTML(key)` in js/00-util.js, used by every place a reaction shows (pills, hover toolbars, the right-click row, floating emoji, profiles, the recap). Display only: reactions are stored as the emoji, so old ones show the new way and other Matrix clients are unaffected. Not faces (🔥 👍 💀) stay emoji. A new place that shows a reaction uses `klabReactHTML`. Message text and the picker still show emoji.
+- **`sharks`** (or `ocean`) at the prompt: a full-window ASCII ocean (js/37-ocean.js) from [ascii-sharks](https://github.com/stackedlol/ascii-sharks) (MIT), ported to a classic script at js/vendor/ascii-sharks.js (types stripped, modules joined, `window.KlabOcean`), fetched on first use; its `?v=` is the library's version. Pauses with `win-idle`/hidden, still in Performance mode and reduced motion. Esc closes.
