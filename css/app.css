@@ -296,17 +296,6 @@
     }
 
 
-    /* Overlay surfaces only — count them: the dock, the two menus, a
-       toast, a modal, the emoji picker, the message-action bar. Never
-       more than two or three on screen at once. */
-    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    }
-    /* Both of these mean "the viewer has asked for less of this" — the
-       blur is the costly, motion-sickness-adjacent part, so drop it and
-       fall back to the opaque panel. The specular edges stay; they're
-       static and cost nothing. */
-    @media (prefers-reduced-transparency: reduce) {
-    }
 
     /* Shared content-width scale — drives both .dash and the player dock so
        they widen together (and stay correct under the `zoom` tiers above;
@@ -665,54 +654,6 @@
       line-height: 1;
     }
 
-    /* Minecraft-style MOTD splash — a silly rotated tag hanging off the
-       wordmark's top-right corner, like the title-screen splash text.
-       The refresh button lives in the header's icon row (not glued to this
-       tag) since its text length varies and the tag is tilted/pulsing —
-       anything docked right next to it ends up overlapped sooner or later. */
-    .motd {
-      position: absolute;
-      top: -0.85rem; left: 100%;
-      margin-left: 0.4rem;
-      font-family: var(--font-ui);
-      font-weight: 700;
-      font-style: italic;
-      font-size: 0.62rem;
-      white-space: nowrap;
-      color: #ffff55;
-      text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
-      /* --motd-tilt: fitMotdText() tilts a long splash less, so it stays in the window. */
-      transform: rotate(var(--motd-tilt, -14deg));
-      transform-origin: left bottom;
-      animation: motdPulse 1.6s ease-in-out infinite;
-      pointer-events: none;
-      user-select: none;
-    }
-    [data-theme="light"] .motd { color: #b8860b; text-shadow: 1px 1px 0 rgba(255,255,255,0.4); }
-    @keyframes motdPulse {
-      0%, 100% { transform: rotate(var(--motd-tilt, -14deg)) scale(1); }
-      50%      { transform: rotate(var(--motd-tilt, -14deg)) scale(1.12); }
-    }
-    /* Manual/auto reroll — the tag does a full silly cartwheel, text swapped
-       at the midpoint (when it's edge-on and near-invisible) so the change
-       reads as the flip itself, not a pop. */
-    .motd.rerolling { animation: motdReroll 0.6s cubic-bezier(.36,1.6,.64,1) both; }
-    @keyframes motdReroll {
-      0%   { transform: rotate(var(--motd-tilt, -14deg)) scale(1) rotateY(0deg); }
-      45%  { transform: rotate(var(--motd-tilt, -14deg)) scale(1.3) rotateY(180deg); }
-      55%  { transform: rotate(var(--motd-tilt, -14deg)) scale(1.3) rotateY(180deg); }
-      100% { transform: rotate(var(--motd-tilt, -14deg)) scale(1) rotateY(360deg); }
-    }
-    #motdRefresh.spinning i { animation: motdRefreshSpin 0.6s cubic-bezier(.36,1.6,.64,1) both; }
-    @keyframes motdRefreshSpin {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .motd { animation: none; }
-      .motd.rerolling, #motdRefresh.spinning i { animation: none; }
-    }
-
     .prompt-prefix {
       font-family: var(--font-ui);
       font-size: 0.7rem;
@@ -746,7 +687,6 @@
     /* The MOTD, an easter egg: typed after the prompt when klabnet's mark
        or prompt is pressed (motdEgg in js/01-shell.js). The old splash
        under the prompt is gone. */
-    .motd { display: none !important; }
     .motd-egg-btn { cursor: pointer; -webkit-app-region: no-drag; }
     .prompt-motd {
       display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
@@ -1168,12 +1108,6 @@
       font-size: 14px; transition: background 0.15s, color 0.15s;
     }
     .feed-post-add-reaction:hover { background: var(--glass-fill-h); color: var(--text-dim); }
-    .feed-post-quick-reactions { display: none; gap: 2px; }
-    .feed-post-quick-reactions.open { display: flex; }
-    .feed-post-quick-reactions button {
-      background: none; border: none; cursor: pointer; font-size: 19px; padding: 3px 5px; border-radius: 6px;
-    }
-    .feed-post-quick-reactions button:hover { background: var(--glass-fill-h); }
 
     /* The reply composer itself always stays reachable, but the divider +
        spacing that makes this read as its own "section" only earns its
@@ -3538,10 +3472,6 @@
       .prompt-text { font-size: 1.05rem; letter-spacing: 0.02em; }
       .prompt-cursor { height: 0.95rem; }
       .header-meta { display: none; }
-      /* Absolutely positioned at left:100% off the wordmark, which at this
-         width lands it directly on top of the header's icon row. It's a
-         splash-text gag; there's nowhere for it to go on a phone. */
-      .motd { display: none; }
       .hdr-btn { width: 34px; height: 34px; }
       .sec { margin-bottom: 1.75rem; }
       .tab-nav { margin-bottom: 1rem; gap: 4px; }
@@ -3655,7 +3585,6 @@
 
       /* Feed */
       .feed-post-embed { max-width: 100%; }
-      .feed-post-quick-reactions { flex-wrap: wrap; }
     }
 
     /* ── Narrow phones ── */
@@ -5439,17 +5368,13 @@
 
     /* ══ FEED, alive: the page takes on the post you're reading, posts are
        shaped by what they are, and days are chapters. ══ */
-    .feed-backdrop { opacity: 0 !important; }
     /* A post jumped to (from Social's home, a mention) lights up once. */
     #feedList .feed-post.feed-post-flash { animation: feedFlash 2.2s var(--m-ease); }
     @keyframes feedFlash { 12% { border-color: rgba(var(--accent-rgb),.7); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.18), 0 0 30px rgba(var(--accent-rgb),.2); } }
-    body.tab-feed-active .feed-backdrop { opacity: 1 !important; visibility: visible; transition-delay: 0s; }
-    body:not(.tab-feed-active) .feed-backdrop { visibility: hidden; }
     /* no backdrop-filter here: what's behind is already a blurred backdrop,
        and a live blur per post is real GPU work on every scrolled frame */
     #feedList .feed-post { position: relative; overflow: hidden; isolation: isolate; background: rgba(10,10,11,.58); backdrop-filter: none; -webkit-backdrop-filter: none; }
     [data-theme="light"] #feedList .feed-post { background: rgba(255,255,253,.7); }
-    #feedList .feed-post.in-focus { border-color: var(--glass-border-h); }
     #feedList .feed-post > :not(.feed-post-backart) { position: relative; z-index: 1; }
 
     /* posts ease in as you reach them */
@@ -5590,7 +5515,7 @@
       backdrop-filter: none !important;
     }
     html[data-fx="low"] :is(
-      .boot-glow, .boot-logo, .motd,
+      .boot-glow, .boot-logo,
       #socialUnreadBadge:not(:empty),
       .ph-song.playing .ph-eq b, .chat-head-eq i, .mh-flow.is-playing .mh-eq i,
       body.is-playing .eq-ico b, body.radio-on .eq-ico b,
@@ -5853,13 +5778,10 @@
     html[data-fx="low"] .header-right { background: var(--modal-bg) !important; }
     html[data-fx="low"] #tabNav .motion-pill { background: color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%) !important; }
 
-    /* ══ Desktop tab bar: icons only, and it tucks away ══
-       No labels (each tab keeps its name as a tooltip), which makes the
-       bar small enough to sit centred in the header's top row at every
-       desktop width. After a few seconds without the mouse near it or the
-       Tab key, it collapses to just the current tab, icon and name
-       (body.nav-mini, js/07-tabnav.js); bringing the mouse close, Tab, or
-       1-9 opens it. */
+    /* ══ Desktop tab bar ══
+       The tabs live in the sidebar on a desktop (07-tabnav.js moves
+       #tabNav there); these are its icon-only defaults, which the
+       sidebar's own rules build on. */
     @media (min-width: 761px), (pointer: fine) {
       .header { grid-template-columns: 1fr auto 1fr; grid-template-rows: auto; row-gap: 0; }
       .header-left  { grid-column: 1; grid-row: 1; }
@@ -5880,24 +5802,8 @@
         min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px;
         background: #ff453a; color: #fff; font: 700 9.5px/16px var(--font-ui); letter-spacing: 0; text-align: center;
         animation: none;
-      }
-
-      body.nav-mini .tab-nav { gap: 0; }
-      body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) {
-        max-width: 0; opacity: 0; pointer-events: none; border-width: 0;
-      }
-      /* The sliding highlight can't follow a button that's moving mid-
-         collapse, so the active button carries its own until it opens. */
-      body.nav-mini .tab-nav .motion-pill { opacity: 0 !important; }
-      body.nav-mini .tab-nav .tab-nav-btn.active {
-        background: rgba(var(--accent-rgb),0.16); border-color: rgba(var(--accent-rgb),0.4); color: var(--text);
-      }
-      /* Collapsed to one icon, that one says where you are. */
-      body.nav-mini .header .tab-nav .tab-nav-btn.active { width: auto; max-width: 200px; padding: 0 0.9rem; gap: 0.5rem; }
-      body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) {
-        display: inline; animation: fadeInSoft .3s ease .12s both;
-      }
-    }
+      }      /* The sliding highlight can't follow a button that's moving mid-
+         collapse, so the active button carries its own until it opens. */      /* Collapsed to one icon, that one says where you are. */    }
 
     /* ══════════════════════════════════════════
        KLABNET FOR WINDOWS (klabnet-desktop)
@@ -5945,8 +5851,7 @@
     :is(html.app-titlebar, html.web-bar) .logo { width: 24px; height: 24px; }
     :is(html.app-titlebar, html.web-bar) .header-text { gap: 0; }
     :is(html.app-titlebar, html.web-bar) .prompt-prefix,
-    :is(html.app-titlebar, html.web-bar) .header-meta,
-    :is(html.app-titlebar, html.web-bar) .motd { display: none; }
+    :is(html.app-titlebar, html.web-bar) .header-meta { display: none; }
     :is(html.app-titlebar, html.web-bar) .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
     :is(html.app-titlebar, html.web-bar) .prompt-cursor { height: 0.9rem; }
 
@@ -6057,22 +5962,11 @@
       }
       html.app-titlebar[data-platform="win32"] #socialUnreadBadge:not(:empty) { top: 1px; right: 2px; }
 
-      /* Collapsed (idle): just the current tab, with its bar. */
-      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; max-width: 0; }
-      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active {
-        background: transparent; border-color: transparent; padding: 0 12px; gap: 8px;
-      }
-      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active::after {
-        content: ''; position: absolute; left: 50%; bottom: 1px; width: 16px; height: 3px; margin-left: -8px;
-        border-radius: 2px; background: var(--win-accent, rgb(var(--accent-rgb)));
-      }
-    }
+      /* Collapsed (idle): just the current tab, with its bar. */    }
     /* Not enough room for names beside everything else: icons, as before. */
     @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn { padding: 0 11px; }
-      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
-      html.app-titlebar[data-platform="win32"] body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
-    }
+      html.app-titlebar[data-platform="win32"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }    }
 
     /* klabnet's own buttons, flat like the window buttons beside them. */
     html.app-titlebar[data-platform="win32"] .header-right {
@@ -6144,15 +6038,10 @@
       html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; animation: none; }
       html.app-headerbar .header .tab-nav .tab-nav-btn i { font-size: 16px; filter: none; }
       html.app-headerbar .header .tab-nav .tab-nav-btn:hover { background: var(--adw-hover); }
-      html.app-headerbar .header .tab-nav .tab-nav-btn.active { background: var(--adw-checked); border-color: transparent; }
-      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) { padding: 0; }
-      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 12px; gap: 8px; background: var(--adw-checked); }
-    }
+      html.app-headerbar .header .tab-nav .tab-nav-btn.active { background: var(--adw-checked); border-color: transparent; }    }
     @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
       html.app-headerbar .header .tab-nav .tab-nav-btn { padding: 0 11px; }
-      html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
-      html.app-headerbar body.nav-mini .header .tab-nav .tab-nav-btn.active span:not(#socialUnreadBadge) { display: inline; }
-    }
+      html.app-headerbar .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }    }
 
     /* ── KDE Plasma: Breeze tool buttons ──
        The desktop draws the window frame; inside, the tabs and header
@@ -6190,12 +6079,7 @@
         background: color-mix(in srgb, var(--de-accent, #3daee9) 24%, transparent);
       }
       /* Spelled out: the Breeze rule above ties with the generic collapse
-         rule and, coming later, would keep the hidden tabs' width. */
-      html.klabnet-app[data-desktop="kde"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) {
-        max-width: 0; opacity: 0; pointer-events: none; padding: 0; border-width: 0;
-      }
-      html.klabnet-app[data-desktop="kde"] body.nav-mini .header .tab-nav .tab-nav-btn.active { padding: 0 10px; gap: 6px; }
-    }
+         rule and, coming later, would keep the hidden tabs' width. */    }
 
     /* ══ Use the space ══
        Wide windows were framed in dead space: 3.5rem of side padding on
@@ -6279,7 +6163,6 @@
        the page moves over by its width. Phones keep the bottom dock. */
     .side-nav { display: none; }
     .nav-burger { display: none; }
-    @media (max-width: 760px) and (pointer: coarse) { #navStyleRow { display: none; } }
 
     @media (min-width: 761px), (pointer: fine) {
       html[data-nav="side"] { --nav-w: var(--nav-side-w, 232px); }
@@ -6301,7 +6184,6 @@
       /* Apart: a pseudo-element inside :is() is dropped, and the page's
          sheet (body::before) and its corner trailed the edge being dragged. */
       html.nav-resizing body::before, html.nav-resizing::after { transition: none !important; }
-      html[data-nav="rail"] { --nav-w: 56px; }
       html[data-nav="menu"] { --nav-w: 0px; }
       :is(html.app-titlebar, html.web-bar) { --nav-top: var(--tb-h, 48px); }
 
@@ -6368,19 +6250,13 @@
       #sideNav .nav-burger { margin-bottom: 6px; }
       .side-nav-foot { margin-top: auto; padding-top: 6px; display: flex; flex-direction: column; gap: 2px; }
 
-      /* Icons only: the names fade, the icons stay put. */
-      html[data-nav="rail"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge),
       html[data-nav="side"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 1; }
-      html[data-nav="rail"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 0; }
 
-      /* Unread: a count at the row's end, or a dot on the icon. */
+      /* Unread: a count at the row's end. */
       #sideNav #socialUnreadBadge:not(:empty) {
         position: static; margin-left: auto; margin-right: 10px;
         min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
         background: #ff453a; color: #fff; font: 700 10px/18px var(--font-ui); letter-spacing: 0; text-align: center; animation: none;
-      }
-      html[data-nav="rail"]:not(.nav-flyout) #sideNav #socialUnreadBadge:not(:empty) {
-        position: absolute; left: 26px; top: 5px; margin: 0; min-width: 16px; height: 16px; font-size: 9px; line-height: 16px; padding: 0 4px;
       }
 
       /* klabnet's own look (browsers, Hyprland and the like): a glass pane,
@@ -6399,24 +6275,7 @@
       /* Performance mode's solid highlight, in each desktop's own shade. */
       html[data-fx="low"] #sideNav #tabNav .motion-pill { background: var(--sb-sel, color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%)) !important; }
     }
-    /* Narrow window: icons, with the whole sidebar a ☰ away. */
-    @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
-      html[data-nav="side"] { --nav-w: 56px; }
-      html[data-nav="side"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) span:not(#socialUnreadBadge) { opacity: 0; }
-      html[data-nav="side"]:not(.nav-flyout) #sideNav #socialUnreadBadge:not(:empty) {
-        position: absolute; left: 26px; top: 5px; margin: 0; min-width: 16px; height: 16px; font-size: 9px; line-height: 16px; padding: 0 4px;
-      }
-    }
 
-    /* ── A page's own sidebar, hidden ──
-       The header's button or "b" (window.klabPane, js/07-tabnav.js) puts
-       html.pane-off-music / -chat / -photos on, and the page takes the
-       room. Not on phones: there the same pieces are strips and screens. */
-    @media (min-width: 761px), (pointer: fine) {
-      html.pane-off-chat #chatApp #chatSide,
-      html.pane-off-photos #phShell #phSidebar { display: none; }
-      html.pane-off-chat #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    }
 
     /* ── Windows: a WinUI NavigationView ──
        The pane sits on the window's Mica/Acrylic, and the page is a layer
@@ -6863,22 +6722,7 @@
 
     /* The scrollbar, the way iTunes drew it: a dark inset track and a
        glossy pill. As wide as the part of the list in view; drag it to fly
-       through, click the track to glide there. */
-    .mh-flow-scroll {
-      position: absolute; left: 50%; bottom: 20px; z-index: 150; transform: translateX(-50%);
-      width: min(56%, 760px); height: 15px; border-radius: 8px; cursor: pointer;
-      background: linear-gradient(#070708, #19191b);
-      box-shadow: inset 0 1px 3px rgba(0,0,0,.85), inset 0 0 0 1px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.07);
-    }
-    .mh-flow-scroll[hidden] { display: none; }
-    .mh-flow-thumb {
-      position: absolute; top: 1px; left: 0; height: 13px; border-radius: 7px; cursor: grab; will-change: transform;
-      background: linear-gradient(#6a6a70, #3d3d42 50%, #2c2c30 51%, #38383d);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.6);
-    }
-    .mh-flow-thumb:hover { background: linear-gradient(#7a7a80, #48484d 50%, #34343a 51%, #424248); }
-    .mh-flow-scroll.dragging .mh-flow-thumb { cursor: grabbing; background: linear-gradient(#85858c, #505056 50%, #3a3a40 51%, #47474d); }
-    /* Room for it under the caption. */
+       through, click the track to glide there. */    /* Room for it under the caption. */
 
     /* ══════════════════════════════════════════════════════════════════
        FULL PLAYER, in Music's language
@@ -7613,9 +7457,7 @@
       }
       html.klabnet-app[data-platform="darwin"] #sideNav .tab-nav-btn.active i { color: var(--text); }
       html.klabnet-app[data-platform="darwin"] #sideNav .tab-nav-btn.active { font-weight: 600; }
-      /* The rail: a 20px icon centred in its 36px tile (the label is only faded out, so it still takes room). */
-      html.klabnet-app[data-platform="darwin"][data-nav="rail"]:not(.nav-flyout) #sideNav :is(.tab-nav-btn, .side-nav-item) { padding-left: 8px; }
-      html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: transparent; color: var(--text); }
+      /* The rail: a 20px icon centred in its 36px tile (the label is only faded out, so it still takes room). */      html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):hover { background: transparent; color: var(--text); }
       html.klabnet-app[data-platform="darwin"] #sideNav :is(.tab-nav-btn, .side-nav-item, .nav-burger):active { background: var(--mac-hover); }
       html.klabnet-app[data-platform="darwin"] #sideNav .motion-pill-tabs {
         background: var(--mac-sel); border: 0; box-shadow: none; border-radius: 8px;
@@ -7709,19 +7551,9 @@
       html.app-titlebar[data-platform="darwin"][data-theme="light"] .header .tab-nav .motion-pill-tabs { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 0 0 .5px rgba(0,0,0,0.06); }
     }
     /* A segmented control shows every segment: no collapsing when idle. */
-    @media (min-width: 761px), (pointer: fine) {
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .tab-nav-btn:not(.active) {
-        max-width: 200px; opacity: 1; pointer-events: auto; padding: 0 12px;
-      }
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .tab-nav-btn.active { background: transparent; border-color: transparent; padding: 0 12px; }
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .motion-pill { opacity: 1 !important; }
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: inline; }
-    }
+    @media (min-width: 761px), (pointer: fine) {    }
     @media ((min-width: 761px) or (pointer: fine)) and (max-width: 1099px) {
-      html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn { padding: 0 10px; }
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .tab-nav-btn:is(.active, :not(.active)) { padding: 0 10px; }
-      html.app-titlebar[data-platform="darwin"] body.nav-mini .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
-      html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
+      html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn { padding: 0 10px; }      html.app-titlebar[data-platform="darwin"] .header .tab-nav .tab-nav-btn span:not(#socialUnreadBadge) { display: none; }
     }
 
     /* ── Menus: Mac menus ── */
@@ -7773,9 +7605,7 @@
     }
     .ap-loading, .ap-error, .lyrics-status { font-size: var(--fs-13); }
     .img-crop-title { font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text); }
-    @media (min-width: 761px), (pointer: fine) {
-      body.nav-mini .header .tab-nav .tab-nav-btn.active { text-transform: none; letter-spacing: 0; font: 500 var(--fs-13)/1 var(--font-ui); }
-    }
+    @media (min-width: 761px), (pointer: fine) {    }
     /* Touch screens: the DM close button shows (it was invisible but still
        tappable), and the row's text leaves it room. */
     @media (hover: none) {
@@ -7815,7 +7645,7 @@
     html.klabnet-app:not(.app-titlebar) .header-left { gap: 0.6rem; align-self: center; }
     html.klabnet-app:not(.app-titlebar) .logo { width: 24px; height: 24px; }
     html.klabnet-app:not(.app-titlebar) .header-text { gap: 0; }
-    html.klabnet-app:not(.app-titlebar) :is(.prompt-prefix, .header-meta, .motd) { display: none; }
+    html.klabnet-app:not(.app-titlebar) :is(.prompt-prefix, .header-meta) { display: none; }
     html.klabnet-app:not(.app-titlebar) .prompt-text { font-size: 0.95rem; letter-spacing: 0.02em; }
     html.klabnet-app:not(.app-titlebar) .prompt-cursor { height: 0.9rem; }
 
@@ -8066,9 +7896,7 @@
       left: var(--nav-w, 0px); top: 0; right: 0; bottom: 0;
       background: var(--lx-bar); box-shadow: 0 1px 0 var(--lx-line);
       opacity: 0; transition: opacity .2s ease, left .28s var(--m-ease);
-    }
-    html.app-titlebar[data-desktop="linux"][data-nav="top"] .header::before { left: 0; }
-    /* Where the sidebar starts under the title bar (the icon rail, or a
+    }    /* Where the sidebar starts under the title bar (the icon rail, or a
        window under 1100px), the backing is the whole bar: starting at the
        sidebar's edge it cut through klabnet's logo, square, over the
        page's rounded corner. The page's column, rounded, starts under it,
@@ -8241,10 +8069,7 @@
       .side-me-sub {
         font: 500 11px/1.15 var(--font-ui); color: var(--text-dimmer);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      html[data-nav="rail"]:not(.nav-flyout) .side-me { padding: 0 0 0 5px; }
-      html[data-nav="rail"]:not(.nav-flyout) .side-me-text { opacity: 0; }
-      /* The apps: you at the foot too, as one of their own sidebar's rows
+      }      /* The apps: you at the foot too, as one of their own sidebar's rows
          (its corners, hover and type), the picture centred under the icons. */
       html.klabnet-app .side-nav-foot { border-top: 0; }
       html.klabnet-app .side-me { border: 0; }
@@ -8259,9 +8084,7 @@
       html.klabnet-app[data-platform="darwin"] .side-me:hover { background: transparent; }
       html.klabnet-app[data-platform="darwin"] .side-me:active { background: var(--mac-hover); }
       html.klabnet-app[data-platform="darwin"] :is(.side-me-name, .side-me-sub) { font-family: var(--mac-font); letter-spacing: 0; }
-      html.klabnet-app[data-platform="darwin"] .side-me-sub { font-weight: 400; }
-      html.klabnet-app[data-platform="darwin"][data-nav="rail"]:not(.nav-flyout) .side-me { padding-left: 4px; }
-      html.klabnet-app[data-desktop="linux"] .side-me { padding: 0 5px; border-radius: var(--radius-md); }
+      html.klabnet-app[data-platform="darwin"] .side-me-sub { font-weight: 400; }      html.klabnet-app[data-desktop="linux"] .side-me { padding: 0 5px; border-radius: var(--radius-md); }
       html.klabnet-app[data-desktop="linux"] .side-me:hover { background: var(--lx-hover); }
       html.klabnet-app[data-desktop="linux"] .side-me:active { background: var(--lx-press); }
       html.klabnet-app[data-desktop="gnome"] .side-me { border-radius: 6px; }
@@ -8376,7 +8199,7 @@
         clip-path: inset(calc(var(--tb-h) + 1px) 0 0 calc(var(--nav-w, 0px) + 1px) round calc(var(--radius-lg) - 1px) 0 0 0);
         transition: opacity .5s ease, visibility 0s .5s, clip-path .28s var(--m-ease);
       }
-      html.web-bar :is(body.tab-chat-active .chat-backdrop, body.tab-feed-active .feed-backdrop) { transition: opacity .5s ease, visibility 0s 0s, clip-path .28s var(--m-ease); }
+      html.web-bar body.tab-chat-active .chat-backdrop { transition: opacity .5s ease, visibility 0s 0s, clip-path .28s var(--m-ease); }
       html.web-bar[data-nav="menu"] .hm-backdrop { clip-path: inset(var(--tb-h) 0 0 0); }
     }
 
@@ -8703,13 +8526,7 @@
     .soc-home-body > .picker-section-label:not(:first-child) { margin-top: calc(0.5rem + 6px); }
     .soc-home-body > .mh-flow { margin-top: 0; }
     /* Photos: each at its own shape (js sets the width), corners a touch
-       rounder, the blurred backdrop a little stronger. */
-    .mh-flow-photos .mh-cover img { object-fit: cover; border-radius: 6px; background: var(--glass-fill); }
-    .mh-flow-photos .mh-cover::after, .mh-flow-photos .mh-cover .mh-refl { border-radius: 6px; }
-    .mh-flow-photos .mh-flow-stage { perspective: calc(var(--mh-size, 230px) * 6); }
-    .mh-flow-photos .mh-flow-bg.on { opacity: .5; }
-    .soc-flow .mh-flow-caption .k { display: none; }
-    /* Latest posts: cards in a row you can flick along, like Music's. */
+       rounder, the blurred backdrop a little stronger. */    /* Latest posts: cards in a row you can flick along, like Music's. */
     .soc-post {
       flex: none; width: 260px; min-height: 132px; display: flex; flex-direction: column; gap: 8px;
       padding: 12px 14px; border-radius: 10px; cursor: pointer; scroll-snap-align: start;
@@ -8979,14 +8796,7 @@
       border-left: 2px solid var(--glass-border-h); animation: fadeUp .25s var(--m-ease) both;
     }
     /* Links out to the rest of klab.gg: the same rows, opening elsewhere. */
-    .hp-sec + .hp-sec { margin-top: 28px; }
-    .hp-links { margin: 0; list-style: none; }
-    a.hp-line { text-decoration: none; transition: background-color .15s; }
-    a.hp-line:hover { background: var(--glass-fill-h); }
-    a.hp-line:hover .hp-glyph { color: var(--text); border-color: var(--glass-border-h); }
-    .hp-links .hp-line::after { content: none; }
-    .hp-links .hp-meta i { font-size: 13px; }
-    .hp-foot { margin-top: 28px; text-align: center; font: 400 var(--fs-12)/1.5 var(--font-ui); color: var(--text-dimmer); }
+    .hp-sec + .hp-sec { margin-top: 28px; }    .hp-foot { margin-top: 28px; text-align: center; font: 400 var(--fs-12)/1.5 var(--font-ui); color: var(--text-dimmer); }
     .hp-foot a { color: var(--text-dim); }
     .hp-foot a:hover { color: var(--text); }
     @media (max-width: 760px) and (pointer: coarse) {
@@ -9123,9 +8933,7 @@
        behind the page, blurred cover behind a song, or tint in a short
        post's corner; and posts are simply there, not faded in as you reach
        them (that fade, over those blurred layers, is what the Linux app
-       sometimes never drew). */
-    body.tab-feed-active .feed-backdrop { display: none !important; }
-    #feedList .feed-post,
+       sometimes never drew). */    #feedList .feed-post,
     #feedList .feed-post:not(.seen),
     #feedList .feed-post.seen {
       opacity: 1; transform: none; isolation: auto;
@@ -9134,13 +8942,12 @@
     /* No card: posts sit on the page, a hairline between them, a faint
        wash under the one you're pointing at. */
     #feedList .feed-post,
-    [data-theme="light"] #feedList .feed-post,
-    #feedList .feed-post.in-focus {
+    [data-theme="light"] #feedList .feed-post {
       gap: 12px; padding: 16px 10px 12px; border-radius: 0;
       background: none; border: none; border-bottom: 1px solid var(--glass-border); box-shadow: none;
     }
     /* No highlight on hover (the owner: it "looks weird"; a post isn't a button). */
-    #feedList .feed-post:hover, #feedList .feed-post.in-focus:hover { background: none; border-color: var(--glass-border); }
+    #feedList .feed-post:hover { background: none; border-color: var(--glass-border); }
     #feedList .feed-day + .feed-post { border-top: none; }
     #feedList .feed-post-backart, #feedList .feed-post.is-shout::before { display: none; }
     #feedList .feed-post-avatar { width: 34px; height: 34px; font-size: 14px; }
@@ -9451,13 +9258,13 @@
     .act-now .act-state { margin-left: auto; }
     .act-live { color: rgb(var(--accent-rgb)); }
     .act-dot { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--accent-rgb)); }
-    .act-song, .act-last, .act-link {
+    .act-song, .act-last {
       appearance: none; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0;
     }
     .act-song { display: flex; flex-direction: column; gap: 2px; }
     .act-title { font: 600 15px/1.3 var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .act-artist { font-size: var(--fs-13); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .act-song:hover .act-title, .act-last:hover .act-title, .act-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .act-song:hover .act-title, .act-last:hover .act-title { text-decoration: underline; text-underline-offset: 3px; }
     .act-prog { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
     .act-bar { height: 4px; border-radius: 2px; background: var(--glass-fill-h); overflow: hidden; }
     .act-fill { display: block; height: 100%; border-radius: 2px; background: rgb(var(--accent-rgb)); transition: width 1s linear; }
@@ -9546,10 +9353,7 @@
       border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; font: 500 var(--fs-12) var(--font-ui);
     }
     .radio-manage-btn:hover { background: rgba(255,255,255,.12); }
-    @media (hover: none) { .radio-hint { display: none; } }
-
-    .radio-live { display: inline-flex; align-items: center; gap: 5px; font: 700 10px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); flex: none; }
-    .dock-radio.on { color: rgb(var(--accent-rgb)); }
+    @media (hover: none) { .radio-hint { display: none; } }    .dock-radio.on { color: rgb(var(--accent-rgb)); }
 
     .radio-manage-body { display: flex; flex-direction: column; gap: 10px; max-height: min(70vh, 720px); overflow-y: auto; padding: 2px; }
     .radio-note { margin: 0 2px 4px; font-size: var(--fs-13); color: var(--text-dim); line-height: 1.5; }
@@ -10710,3 +10514,11 @@
     #musicShell .mr-actions .ap-btn-queue { height: var(--control-h); padding: 0 14px; }
     /* The Spin knob reads as a word, not a shout. */
     .mh-wheel-spin { letter-spacing: 0; text-indent: 0; font-weight: 700; }
+    /* A conversation with a person: the open one is marked on their face,
+       not by underlining a name already in their colour beside its
+       preview (the owner: awkward in the private chats only). */
+    #sideNav #chatSide .chat-conv:has(.chat-conv-face).active .chat-channel-name { text-decoration-color: transparent; }
+    #sideNav #chatSide .chat-conv:has(.chat-conv-face).active .chat-conv-face {
+      box-shadow: 0 0 0 1.5px var(--side-bg, var(--bg)), 0 0 0 3px rgb(var(--accent-rgb));
+    }
+    #sideNav #chatSide .chat-conv:has(.chat-conv-face).active .chat-conv-last { color: var(--text-dim); }

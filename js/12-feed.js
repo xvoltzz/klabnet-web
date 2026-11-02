@@ -274,7 +274,6 @@
   const _feedAvatarCache   = new Map(); // username -> blob URL or null
   const _feedAvatarPending = new Set();
   const _feedImageCache    = new Map(); // mxc:// -> blob URL or null
-  const _feedImageAskedAt = new Map(); // mxc -> when Home last asked (see capFeedImageCache)
   const _feedImagePending  = new Set();
   // A lookup that failed (as opposed to "has no avatar") is cached as null
   // too, but only for a while: a blip in Matrix shouldn't leave a blank
@@ -294,10 +293,6 @@
   function capFeedImageCache() {
     if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) return;
     const live = new Set(_feedPosts.map(p => p.image_mxc).filter(Boolean));
-    // Home shows images of its own posts, which needn't be loaded here:
-    // anything it asked for in the last few minutes is still on screen.
-    const recent = Date.now() - 10 * 60 * 1000;
-    for (const [mxc, t] of _feedImageAskedAt) { if (t > recent) live.add(mxc); else _feedImageAskedAt.delete(mxc); }
     for (const [mxc, url] of _feedImageCache) {
       if (_feedImageCache.size <= FEED_IMAGE_CACHE_MAX) break;
       if (live.has(mxc)) continue;
@@ -680,42 +675,6 @@
     else if (e.boundingClientRect.width && !f.dataset.src && f.getAttribute('src') !== 'about:blank') { f.dataset.src = f.src; f.src = 'about:blank'; }
   }), { root: document.querySelector('.tab-panel[data-tab-panel="feed"]'), rootMargin: '300% 0px' }) : null;
 
-  // The page used to take on the post in the middle of the screen (its
-  // photo, its song's cover, its author's colour). Gone (2026-10-24): the
-  // owner didn't want it, and those full-window blurred layers were the
-  // likeliest reason the Linux app sometimes drew none of Feed's posts.
-  const _fbLayers = null;
-  let _fbI = 0, _fbKey = '', _fbQueued = false;
-  function focusFeedBackdrop() {
-    _fbQueued = false;
-    if (!_fbLayers || !document.body.classList.contains('tab-feed-active')) return;
-    const mid = window.innerHeight * 0.45;
-    let best = null, bd = Infinity;
-    (_visIO ? _onScreen : listEl.querySelectorAll(':scope > .feed-post')).forEach(el => {
-      if (!el.isConnected) return;
-      const r = el.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > window.innerHeight) return;
-      const d = Math.abs((r.top + r.bottom) / 2 - mid);
-      if (d < bd) { bd = d; best = el; }
-    });
-    if (!best) return;
-    if (best.classList.contains('in-focus') && _fbKey) return;
-    listEl.querySelectorAll(':scope > .feed-post.in-focus').forEach(el => el !== best && el.classList.remove('in-focus'));
-    best.classList.add('in-focus');
-    const img = best.dataset.amb || '';
-    const tint = img ? '' : getComputedStyle(best).getPropertyValue('--name-color').trim();
-    const key = img || tint;
-    if (!key || key === _fbKey) return;
-    _fbKey = key; _fbI ^= 1;
-    _fbLayers[_fbI].style.backgroundImage = img ? 'url("' + img + '")' : 'radial-gradient(circle at 50% 40%, ' + tint + ', transparent 62%)';
-    window.klabSoften?.(_fbLayers[_fbI]);
-    _fbLayers[_fbI].classList.add('on');
-    _fbLayers[_fbI ^ 1].classList.remove('on');
-  }
-  const queueFeedBackdrop = () => { if (!_fbQueued) { _fbQueued = true; requestAnimationFrame(focusFeedBackdrop); } };
-  // Caught on the way down: Feed scrolls inside Social's page, not the window.
-  document.addEventListener('scroll', queueFeedBackdrop, { passive: true, capture: true });
-
   // A shared song that's the one playing right now shows its record out and spinning.
   function syncFeedRecords() {
     const id = playerState.currentSong?.id, on = !!playerState.playing;
@@ -865,7 +824,6 @@
     _lastFeedRenderKey = deferred ? null : key;
     unfoldShortPosts();
     syncFeedRecords();
-    queueFeedBackdrop();
     loadMoreEl.hidden = !_feedHasMore || _mentionsOnly;
     if (mentionsBtnEl) mentionsBtnEl.classList.toggle('is-active', _mentionsOnly);
     updateMentionsDot();
@@ -948,13 +906,6 @@
       el.scrollIntoView({ block: 'center', behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
       el.classList.remove('feed-post-flash'); void el.offsetWidth; el.classList.add('feed-post-flash');
     });
-  };
-  // Same idea for a post's attached image (Home shows them).
-  window.klabResolveFeedImage = function(mxc) {
-    if (!mxc) return null;
-    _feedImageAskedAt.set(mxc, Date.now());
-    ensureFeedImage(mxc);
-    return _feedImageCache.get(mxc) || null;
   };
 
   function fetchFeed() {

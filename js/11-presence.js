@@ -252,7 +252,6 @@
     const [icon, label] = info;
     return '<i class="ti ' + icon + ' presence-plat" title="' + esc(label) + '" aria-label="' + esc(label) + '"></i>';
   }
-  window.klabPlatformIcon = platformIcon;
   window.klabPlatformIconClass = code => platformInfo(code)?.[0] || null;
 
   // ── Away ──

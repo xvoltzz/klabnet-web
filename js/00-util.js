@@ -128,21 +128,6 @@ function trapFocusWithin(container, isOpenFn) {
   });
 }
 
-// Keeps a mxc/username -> blob-URL Map from growing for the life of the
-// tab — a busy chat/feed session can show hundreds of distinct images
-// over many hours, and every one was permanently pinning a blob URL (and
-// its decoded bitmap) in memory with nothing ever evicted. FIFO eviction
-// (Maps preserve insertion order) rather than true LRU — good enough for
-// "don't leak forever" without tracking access times on every read.
-function capBlobCache(cache, maxSize) {
-  while (cache.size > maxSize) {
-    const oldestKey = cache.keys().next().value;
-    const oldestUrl = cache.get(oldestKey);
-    if (oldestUrl) URL.revokeObjectURL(oldestUrl);
-    cache.delete(oldestKey);
-  }
-}
-
 // Swaps a failed cover-art <img> for its placeholder div. Every call site
 // used to inline onerror="this.outerHTML='<div class=\'foo\'>...'" — inside
 // a template literal, \' just collapses to a literal ', so the onerror

@@ -160,46 +160,7 @@ const MOTD_PHRASES = [
   "If I was in jail I'd hope I get some birthday dick",
   "Facks if I'm in jail on my birthday I'd want to get raped"
 ];
-const motdEl = document.getElementById('motd');
-const motdRefreshBtn = document.getElementById('motdRefresh');
 let _motdCurrent = null;
-
-// Minecraft shrinks long splash text to keep it inside a fixed box; we do
-// the same by measuring the rendered width and scaling the font down until
-// it fits, instead of letting long quotes run off the edge of the screen.
-//
-// It's tilted up from its left end, so a long one also climbs: at the full
-// 14 degrees anything over about 30 characters ran off the top of the
-// window. A long splash tilts less (down to 6 degrees) and only then shrinks.
-const MOTD_TILT = 14, MOTD_MIN_TILT = 6, MOTD_PULSE = 1.12;
-function fitMotdText(text) {
-  if (!motdEl) return;
-  const baseRem = 0.62;
-  motdEl.style.fontSize = baseRem + 'rem';
-  motdEl.style.removeProperty('--motd-tilt');
-  motdEl.textContent = text;
-  const parent = motdEl.offsetParent;
-  if (!parent) return; // not shown (the app, a phone): nothing to fit
-  let maxWidth = Math.min(window.innerWidth * 0.5, 460);
-  const width = motdEl.scrollWidth, height = motdEl.offsetHeight;
-  // How far its far end may rise: from its bottom-left corner (which the
-  // tilt turns about) to just under the top of the window, at the pulse's
-  // biggest. Layout px throughout: offsetTop isn't scaled by the page zoom.
-  let originY = motdEl.offsetTop + height;
-  for (let el = parent; el; el = el.offsetParent) originY += el.offsetTop;
-  const room = (originY - window.scrollY - 6) / MOTD_PULSE - height;
-  const rad = d => d * Math.PI / 180;
-  let tilt = MOTD_TILT;
-  if (width * Math.sin(rad(tilt)) > room) {
-    tilt = Math.max(MOTD_MIN_TILT, Math.asin(Math.max(0, Math.min(1, room / width))) * 180 / Math.PI);
-    maxWidth = Math.min(maxWidth, Math.max(60, room / Math.sin(rad(tilt))));
-    motdEl.style.setProperty('--motd-tilt', (-tilt).toFixed(1) + 'deg');
-  }
-  if (width > maxWidth) {
-    const scale = Math.max(maxWidth / width, 0.32);
-    motdEl.style.fontSize = (baseRem * scale) + 'rem';
-  }
-}
 
 function pickMotd() {
   if (MOTD_PHRASES.length < 2) return MOTD_PHRASES[0];
@@ -207,43 +168,6 @@ function pickMotd() {
   do { next = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)]; }
   while (next === _motdCurrent);
   return next;
-}
-
-function rerollMotd(auto) {
-  if (!motdEl) return;
-  _motdCurrent = pickMotd();
-  if (!auto) SFX && SFX.play('star');
-
-  // No flip where there's no animation to end it (reduced motion,
-  // performance mode, or the splash isn't shown at all: the app, a phone).
-  // The listener below then never fired, and one more was left behind on
-  // every reroll.
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reducedMotion || motdEl.offsetParent === null || window.KLAB_FX?.on()) {
-    fitMotdText(_motdCurrent);
-    return;
-  }
-  // Swap the text at the flip's midpoint, when it's edge-on and invisible.
-  motdEl.classList.remove('rerolling');
-  void motdEl.offsetWidth; // restart the animation even if it's mid-flight
-  setTimeout(() => { fitMotdText(_motdCurrent); }, 300);
-  motdEl.classList.add('rerolling');
-  motdEl.addEventListener('animationend', () => motdEl.classList.remove('rerolling'), { once: true });
-  if (!auto && motdRefreshBtn) {
-    motdRefreshBtn.classList.remove('spinning');
-    void motdRefreshBtn.offsetWidth;
-    motdRefreshBtn.classList.add('spinning');
-    motdRefreshBtn.addEventListener('animationend', () => motdRefreshBtn.classList.remove('spinning'), { once: true });
-  }
-}
-
-if (motdEl) {
-  _motdCurrent = MOTD_PHRASES[Math.floor(Math.random() * MOTD_PHRASES.length)];
-  fitMotdText(_motdCurrent);
-}
-
-if (motdRefreshBtn) {
-  motdRefreshBtn.addEventListener('click', () => rerollMotd(false));
 }
 
 // The easter egg: a new one each press, typed, held for a read (longer

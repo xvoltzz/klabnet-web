@@ -453,7 +453,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
 });
 
 // Header overflow ("more") menu — toggled by its own button, closed by an
-// outside click, Escape, or clicking any item inside it (motdRefresh/
+// outside click, Escape, or clicking any item inside it (
 // keyHintsBtn/feedbackBtn/repoBtn/accountBtn keep their own separately-
 // wired click handlers elsewhere in the script; this only owns opening/
 // closing the menu chrome around them).
@@ -643,57 +643,6 @@ trapFocusWithin(
   window.addEventListener('resize', sizeDock);
 })();
 
-// Desktop: the tab bar in the header opens when the page loads, then after
-// a few seconds without the mouse near it (or the Tab key) it shrinks to
-// just the current tab's icon (CSS: body.nav-mini). Moving the mouse close
-// to it, Tab, 1-9 or keyboard focus on it opens it again. Mouse movement
-// elsewhere on the page doesn't count: it's about the bar being unused,
-// not the page.
-(function() {
-  const desk = matchMedia(KLAB_DESK_MQ);
-  const nav = document.getElementById('tabNav');
-  if (!nav) return;
-  const IDLE_MS = 4000;
-  let timer = 0, lastCheck = 0;
-  function arm() {
-    clearTimeout(timer);
-    if (!desk.matches || window.klabSideNav?.on()) return;
-    timer = setTimeout(() => {
-      if (window.klabSideNav?.on()) return;
-      if (nav.matches(':hover, :focus-within')) arm();
-      else document.body.classList.add('nav-mini');
-    }, IDLE_MS);
-  }
-  function open() {
-    if (document.body.classList.contains('nav-mini')) {
-      document.body.classList.remove('nav-mini');
-      // Let the sliding highlight find the active tab again once the bar
-      // has finished opening (it re-measures on resize).
-      setTimeout(() => window.dispatchEvent(new Event('resize')), 420);
-    }
-    arm();
-  }
-  // "Close to it": a margin around the bar, wider sideways because it
-  // grows sideways when it opens.
-  document.addEventListener('pointermove', e => {
-    if (!desk.matches || e.pointerType !== 'mouse') return;
-    const now = performance.now();
-    if (now - lastCheck < 60) return;
-    lastCheck = now;
-    const r = nav.getBoundingClientRect();
-    if (e.clientX > r.left - 180 && e.clientX < r.right + 180 && e.clientY > r.top - 70 && e.clientY < r.bottom + 70) open();
-  }, { passive: true });
-  document.addEventListener('keydown', e => {
-    // Not while typing: a "2" in a message isn't a tab shortcut.
-    if (e.ctrlKey || e.metaKey || e.altKey || e.composedPath()[0]?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
-    if (e.key === 'Tab' || /^[1-9]$/.test(e.key)) open();
-  }, true);
-  nav.addEventListener('focusin', open);
-  window.addEventListener('hashchange', open);
-  desk.addEventListener('change', () => { document.body.classList.remove('nav-mini'); arm(); });
-  arm();
-})();
-
 // ══════════════════════════════════════════
 //  SIDEBAR NAVIGATION (Settings → Appearance → Navigation)
 //  html[data-nav] is set in <head> and the CSS lays the page out from it;
@@ -753,10 +702,7 @@ window.klabSideNav = (function() {
     // title bar: ☰, the mark and the prompt typing the MOTD on the left,
     // the buttons on the right, and the sidebar under it.
     const bar = sideOn && !root.classList.contains('klabnet-app');
-    if (bar !== root.classList.contains('web-bar')) {
-      root.classList.toggle('web-bar', bar);
-      if (typeof _motdCurrent === 'string') fitMotdText(_motdCurrent);
-    }
+    root.classList.toggle('web-bar', bar);
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
     // sidebar is hidden.
@@ -778,7 +724,6 @@ window.klabSideNav = (function() {
     const more = document.querySelector('#headerMoreBtn i');
     if (more) more.className = 'ti ' + (sideOn ? 'ti-dots' : 'ti-menu-2');
     root.classList.toggle('nav-side-on', sideOn);
-    if (sideOn) document.body.classList.remove('nav-mini');
     burger.setAttribute('aria-expanded', String(inlineFull() || root.classList.contains('nav-flyout')));
     burger.title = (mode() === 'menu' ? 'Show sidebar' : 'Hide sidebar') + ' (b)';
     // The sliding highlight measures on resize.
@@ -846,14 +791,7 @@ window.klabSideNav = (function() {
     v = roomy.matches ? want : 'menu';
     root.setAttribute('data-nav', v);
     place();
-    document.querySelectorAll('#navStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
   }
-  document.getElementById('navStyle')?.addEventListener('click', e => {
-    const b = e.target.closest('button[data-v]');
-    if (!b) return;
-    SFX && SFX.play('click');
-    set(b.dataset.v);
-  });
 
   // The bar gets a backing once the page scrolls under it (the app does
   // the same for its title bar).
@@ -1372,9 +1310,6 @@ async function offerAppUpdate(current) {
 //  Chat's conversations and Photos' details come along too, under
 //  Social's sections while you're on Chat or Photos (like Slack's
 //  sidebar), so there's never a second sidebar beside this one.
-//  Folded to icons (the rail, a narrow window) it's the same tree in
-//  icons: sections, playlist covers, faces (html.nav-icons); a row says
-//  its name on hover.
 //  The rows move with their handlers, and go back to their page's own
 //  sidebar only with Navigation: Menu and on a phone.
 // ══════════════════════════════════════════
@@ -1441,7 +1376,6 @@ async function offerAppUpdate(current) {
     });
     bar.hidden = !find.firstElementChild;
     root.classList.toggle('nav-tree', tree);
-    root.classList.remove('nav-icons'); // (no icons-only sidebar any more)
     // (The CSS that hides what's left of the page sidebars keys on this.)
     root.classList.toggle('hdr-pagenav-on', tree);
     // The sliding highlights measure again where their rows are now: only
@@ -1479,14 +1413,5 @@ async function offerAppUpdate(current) {
     flyout = !flyout;
     place();
   }).observe(root, { attributes: true, attributeFilter: ['class'] });
-  // Folded, a row is only its icon: it says what it is on hover. Asked as
-  // the pointer arrives, since chat's and the playlists' rows are rebuilt.
-  document.getElementById('sideNav')?.addEventListener('pointerover', e => {
-    if (!root.classList.contains('nav-icons')) return;
-    const row = e.target.closest('.nav-sub :is(.picker-tab, .chat-conv, .music-playlist-row, .music-new-playlist-btn)');
-    if (!row || row.title) return;
-    const name = row.querySelector('.chat-channel-name, .music-playlist-row-name, span:not(.soc-dot):not(.soc-count):not(:empty)');
-    row.title = (name || row).textContent.trim();
-  });
   place();
 })();
