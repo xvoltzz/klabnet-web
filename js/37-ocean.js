@@ -73,10 +73,10 @@
   // never stops on its own, so it's held to ~15 frames a second (ASCII
   // doesn't need more), stops with the window unfocused or hidden, and is
   // one still frame in Performance mode or with reduced motion. Not on a
-  // phone, nor in the apps' native windows, which keep their material.
+  // phone. In the apps too, over the window's material.
   const FRAME_MS = 66;
   let bg = null, bgEngine = null, bgMo = null, bgWant = false;
-  const bgOk = () => !root.classList.contains('app-material') && !matchMedia('(max-width: 760px) and (pointer: coarse)').matches;
+  const bgOk = () => !matchMedia('(max-width: 760px) and (pointer: coarse)').matches;
   function bgSync() {
     if (!bgEngine) return;
     const run = !root.classList.contains('win-idle') && !document.hidden && !still();

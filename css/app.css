@@ -10759,20 +10759,20 @@
 .klab-ocean-x:hover { color: #fff; }
 
 /* ═══ WOOD (2026-11-02) ═══
-   The owner: "light but warm… brown sidebar/navbar and lighter foreground".
-   The light theme (data-theme="light", so everything light does still
-   applies) in a walnut frame: the title bar and sidebar are one piece of
-   wood (a fixed gradient with a grain of fractal noise stretched along
-   the planks, so the two meet without a seam), cream ink on it, and the
-   page is warm paper with espresso ink and an amber accent. Browser look
-   only, like light's frame (html.wood from applyTheme in js/01-shell.js). */
+   The owner: "light but warm… brown sidebar/navbar and lighter foreground",
+   then, of a walnut grain: "u dont literally need to make it wood". So:
+   the light theme (data-theme="light", everything light does still
+   applies) with a warm frame (chestnut into terracotta, smooth), cream ink
+   on it, and the page warm paper with espresso ink and a burnt-orange
+   accent. It sets light's --lt-frame* variables, so the apps get the
+   frame too (html.wood from applyTheme in js/01-shell.js). */
 html.wood[data-theme="light"] {
   --bg: #f6efe4;
-  --text: #3b2a1d;
-  --text-dim: #6e5847;
-  --text-dimmer: #9a8573;
+  --text: #2c1d12;
+  --text-dim: #5c4636;
+  --text-dimmer: #84705f;
   --text-faint: #c4b4a3;
-  --accent-rgb: 196,112,44;
+  --accent-rgb: 196,98,40;
   --glass-fill: rgba(150,92,40,0.06);
   --glass-fill-h: rgba(150,92,40,0.11);
   --glass-border: rgba(110,70,35,0.15);
@@ -10789,10 +10789,8 @@ html.wood[data-theme="light"] {
   --shadow-40: rgba(90,50,20,0.12);
   --shadow-50: rgba(90,50,20,0.16);
   --shadow-55: rgba(90,50,20,0.18);
-  --lt-frame:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='2400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.07 0.00375' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 1.9 -0.78'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") fixed,
-    linear-gradient(165deg, #94623b 0%, #835431 40%, #70452a 75%, #643d25 100%);
-  --lt-frame-color: #7b4e2f;
+  --lt-frame: linear-gradient(165deg, #6e4330 0%, #8a5237 42%, #a8633d 100%);
+  --lt-frame-color: #8a5237;
   --lt-frame-ink: #fbeedb;
   --lt-frame-dim: rgba(251,238,219,.8);
   --lt-frame-dimmer: rgba(251,238,219,.55);
@@ -10819,67 +10817,41 @@ html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(
 .scene-sw { padding: 0; appearance: none; -webkit-appearance: none; }
 .scene-sw[data-v=""] { background: linear-gradient(135deg, #16161a 0 50%, #f5f4f0 50% 100%); }
 .scene-sw[data-v="sky"] { background: linear-gradient(180deg, #77b6f0 0%, #ef8f78 60%, #3c3471 100%); }
-.scene-sw[data-v="wood"] { background: repeating-linear-gradient(95deg, #94623b 0 3px, #7b4e2f 3px 5px, #8a5a36 5px 8px); }
+.scene-sw[data-v="wood"] { background: linear-gradient(165deg, #6e4330 0%, #a8633d 70%, #f6ecdd 70%); }
 .scene-sw[data-v="ocean"] { background: radial-gradient(circle at 30% 35%, #1b4f63 0, #0a2433 45%, #03080f 100%); }
 
 /* Ocean: the dark theme with the ASCII sea (js/37-ocean.js) behind the
-   page, seen through a clear title bar and sidebar. The sheet is solid:
-   blurring a moving canvas would redraw the blur every frame. */
+   whole window: clear title bar and sidebar, and a page that's mostly
+   solid (82%) so the sharks pass faintly under what you read without
+   getting in its way. No blur over it: blurring a moving canvas would
+   redraw the blur every frame. In the apps too, painted over the
+   window's material (the owner didn't see any sharks: it was off there,
+   and the page hid them everywhere else). */
 .ocean-bg { display: none; }
 @media (min-width: 761px), (pointer: fine) {
-  html.ocean:not(.app-material) { background: #000 !important; }
-  html.ocean:not(.app-material) body { background: transparent !important; }
-  html.ocean:not(.app-material) .ambient-glow { opacity: 0 !important; }
-  html.ocean:not(.app-material) .ocean-bg {
-    display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none; opacity: .75;
+  html.ocean:not([data-desktop="linux"]) { background: #000 !important; }
+  html.ocean:not([data-desktop="linux"]) body { background: transparent !important; }
+  html.ocean[data-desktop="linux"] body { background: #000 !important; }
+  html.ocean .ambient-glow { opacity: 0 !important; }
+  html.ocean .ocean-bg {
+    display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none;
     font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   }
-  html.ocean.web-bar[data-theme] :is(.header, .side-nav),
-  html.ocean.web-bar[data-theme][data-fx="low"] :is(.header, .side-nav),
-  html.ocean.web-bar[data-theme]:not(.app-material).app-scrolled .header {
-    background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  html.ocean :is(.header, .side-nav),
+  html.ocean[data-nav]:not(.nav-flyout) .side-nav,
+  html.ocean[data-fx="low"] :is(.header, .side-nav),
+  html.ocean:not(.app-material).app-scrolled .header {
+    background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important;
   }
-  html.ocean.web-bar { --web-sheet: #0b0d12; --web-line: rgba(255,255,255,.12); }
-  html.ocean.web-bar body::before { box-shadow: 0 10px 50px rgba(0,0,0,.5); }
-  html.ocean.web-bar :is(.header, .side-nav) { --glass-fill: rgba(0,0,0,.45); --glass-fill-h: rgba(20,24,32,.7); }
+  html.ocean.nav-flyout .side-nav { background: rgba(0,0,0,.88) !important; }
+  html.ocean { --web-sheet: rgba(11,13,18,.82); --web-line: rgba(255,255,255,.12); --lx-sheet: rgba(11,13,18,.82); --lx-bar: rgba(11,13,18,.82); }
+  html.ocean.klabnet-app:not([data-desktop="linux"]) body::before { background: rgba(11,13,18,.82) !important; }
+  html.ocean body::before { box-shadow: 0 10px 50px rgba(0,0,0,.5); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  html.ocean :is(.header, .side-nav) { --glass-fill: rgba(0,0,0,.45); --glass-fill-h: rgba(20,24,32,.7); }
   /* Rows over the sea get a little shade so their words hold up. */
-  html.ocean.web-bar .side-nav :is(.picker-tab, .side-nav-row, a, button) { text-shadow: 0 0 6px #000, 0 0 2px #000; }
+  html.ocean .side-nav :is(.picker-tab, .side-nav-row, a, button) { text-shadow: 0 0 6px #000, 0 0 2px #000; }
   html.ocean.web-bar:not([data-nav="menu"])::after { background: #000 !important; }
 }
-
-/* ═══ ONE FOCUS (2026-11-02) ═══
-   The owner: clicking into a text box showed the browser's highlight and
-   klabnet's border both. Now a text field never draws the browser's ring
-   (nor the Mac app's accent ring), and what shows is klabnet's: the box's
-   hairline in the accent and a soft glow round it. A field that sits
-   borderless inside a box (the search boxes, the composers, the tag box)
-   lights that box instead, so it's one outline either way. Buttons keep
-   their keyboard ring (:focus-visible only, never on a click). */
-:root {
-  --focus-line: rgba(var(--accent-rgb), .55);
-  --focus-ring: 0 0 0 3px rgba(var(--accent-rgb), .16), 0 0 14px rgba(var(--accent-rgb), .22);
-}
-:is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible),
-html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible) { outline: none !important; }
-:is(.feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search):focus-within {
-  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
-}
-:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .term-input), textarea, select):focus:not(:is(.feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search) *) {
-  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
-}
-/* The prompt is typed into in place, with no box at all. */
-.term-input:focus { box-shadow: none !important; }
-
-/* ═══ STATUS (2026-11-02) ═══
-   Set from your name at the sidebar's foot (js/24-flair.js): the dot is
-   green online, amber away, red for do not disturb, hollow grey when
-   invisible. Home's rows the same (js/33-plaza.js). */
-:root { --st-on: #3ddc84; --st-away: #f4b33c; --st-dnd: #f0454f; }
-.side-me[data-status="away"] .side-me-av::after { background: var(--st-away); }
-.side-me[data-status="dnd"] .side-me-av::after { background: var(--st-dnd); }
-.side-me[data-status="invisible"] .side-me-av::after { background: var(--bg); box-shadow: inset 0 0 0 2.5px var(--text-dimmer), 0 0 0 2.5px var(--bg); }
-.pz-row.dnd .pz-dot { display: block; background: var(--st-dnd); }
-
 /* ═══ SKY'S WEATHER (js/38-sky-fx.js) ═══
    Over the window but clipped to the frame: the title bar's band and the
    sidebar's column, never the page. */
