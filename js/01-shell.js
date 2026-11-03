@@ -214,57 +214,150 @@ function applyTheme(t) {
   applyCustomBg(); // re-check the OTHER theme's stored color now that data-theme changed
 }
 
-// ── Sky: the time of day ──
+// ── Sky: the time of day, the season, the holidays ──
 // The theme that follows the clock (the owner, 2026-11-02: the site long
 // ago changed its colours with the time of day, "which was SWEET"). The
 // window is a sky, a three-stop gradient blended between the moments
-// below by the local time, minute by minute; the frame is clear glass
-// over it and the page a sheet. Dark or light ink is picked from how
-// bright the sky is, so a sunset doesn't get light text on orange.
-// Hours are local, as a fraction (6.5 is half past six).
+// below, minute by minute; the frame is clear glass over it and the page
+// a sheet. Dark or light ink is picked from how bright the sky is, so a
+// sunset doesn't get light text on orange.
+// The owner, same day: "warmer in day, much cooler in night… take inspo
+// from the seasons and location, use toledo ohio… it gets dark early
+// now, its starting to get cold, up the coolness in the winter… maybe
+// some snow in the holiday season… holiday themes on all major holidays".
+// So the moments hang off the real sunrise and sunset in Toledo (they
+// move through the year: dark by 5:15 in December, light past 9 in
+// June); days are warm and nights cold blue; the season is mixed in
+// (`cold`: greyer and icier toward late January, warmer toward late
+// July); and a holiday tints the horizon and may bring weather to the
+// frame (js/38-sky-fx.js: snow, leaves, fireworks, hearts).
+// Each moment: [anchor, offset in hours, stops].
 const SKY = [
-  [0,    ['#070b1d', '#141537', '#241a3b']], // night
-  [4.5,  ['#10153a', '#2c2456', '#58365f']], // before dawn
-  [6,    ['#5d7fc4', '#d99bb0', '#ffbb8a']], // dawn
-  [7.5,  ['#8ab9ec', '#d6e3f2', '#ffe2c2']], // sunrise
-  [10,   ['#77b6f0', '#bfe0fa', '#f1f8ff']], // morning
-  [13,   ['#5aa8ee', '#a9d6f8', '#e6f4ff']], // noon
-  [16,   ['#78ade4', '#c7dcef', '#fbe6c6']], // afternoon
-  [18,   ['#e4a86d', '#ef8f78', '#b2638f']], // golden hour
-  [19.25,['#3c3471', '#b4567a', '#ef935c']], // sunset
-  [20.5, ['#151d4a', '#3d2a66', '#7a4071']], // dusk
-  [22,   ['#0b1129', '#191941', '#2e1d45']], // night
-  [24,   ['#070b1d', '#141537', '#241a3b']],
+  ['rise', -1.7, ['#040919', '#0a1531', '#122544']], // night
+  ['rise', -0.9, ['#0d1640', '#2b2c5e', '#5a4170']], // before dawn
+  ['rise', -0.3, ['#5a78bd', '#d79aa9', '#ffb27d']], // dawn
+  ['rise',  0.5, ['#86b5e6', '#e5dccd', '#ffd49c']], // sunrise
+  ['rise',  2.3, ['#6daeea', '#cfe2ee', '#fff0d4']], // morning
+  ['noon',  0,   ['#58a6ea', '#b4d8f2', '#fff3dc']], // noon
+  ['set',  -2.2, ['#6faae0', '#dcd8c8', '#ffd9a0']], // afternoon
+  ['set',  -0.8, ['#e2a265', '#f08a6a', '#b75f86']], // golden hour
+  ['set',   0.1, ['#363372', '#b4517a', '#f08c55']], // sunset
+  ['set',   0.7, ['#111c4c', '#2c2c69', '#5d3f78']], // dusk
+  ['set',   1.5, ['#060c22', '#0c1936', '#15294a']], // night
 ];
+// Toledo, Ohio.
+const SKY_LAT = 41.6528, SKY_LON = -83.5379;
 const klabSky = (() => {
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-  const hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const hex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
   const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
   const lum = c => { const l = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
-  function at(d = new Date()) {
-    const h = d.getHours() + d.getMinutes() / 60;
+  const rad = Math.PI / 180;
+  const dayOfYear = d => Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 864e5);
+
+  // Sunrise, solar noon and sunset in local clock hours (NOAA's simple
+  // equations: within a couple of minutes, which is plenty for a sky).
+  function sun(d) {
+    const n = dayOfYear(d), g = 2 * Math.PI / 365 * (n - 1);
+    const eqt = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+    const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    const ha = Math.acos(Math.cos(90.833 * rad) / (Math.cos(SKY_LAT * rad) * Math.cos(decl)) - Math.tan(SKY_LAT * rad) * Math.tan(decl)) / rad;
+    const noonUtc = 720 - 4 * SKY_LON - eqt; // minutes after UTC midnight
+    const tz = -new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTimezoneOffset();
+    const local = m => (m + tz) / 60;
+    return { rise: local(noonUtc - 4 * ha), noon: local(noonUtc), set: local(noonUtc + 4 * ha) };
+  }
+  // 1 in late January, 0 in late July.
+  const coldness = d => (1 + Math.cos(2 * Math.PI * (dayOfYear(d) - 20) / 365)) / 2;
+
+  // ── Holidays ── (US, and a few that move: Easter, Thanksgiving,
+  // Hanukkah and Lunar New Year). tint: the horizon's colour for the
+  // day; fx: the weather in the frame (js/38-sky-fx.js).
+  function easter(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+      g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+      l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    return [Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1];
+  }
+  const HANUKKAH = { 2026: [12, 4, 12, 12], 2027: [12, 24, 1, 1], 2028: [12, 12, 12, 20], 2029: [12, 1, 12, 9], 2030: [12, 20, 12, 28] };
+  const LUNAR_NY = { 2027: [2, 6], 2028: [1, 26], 2029: [2, 13], 2030: [2, 3] };
+  function holiday(d = new Date()) {
+    const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate(), md = m * 100 + day;
+    const thanks = 22 + (11 - new Date(y, 10, 1).getDay() + 7) % 7; // the fourth Thursday of November
+    const [em, ed] = easter(y);
+    const hk = HANUKKAH[y] || HANUKKAH[y - 1];
+    const inHk = hk && (() => { const s = new Date(hk === HANUKKAH[y] ? y : y - 1, hk[0] - 1, hk[1]), e = new Date(hk[2] < hk[0] ? (hk === HANUKKAH[y] ? y + 1 : y) : (hk === HANUKKAH[y] ? y : y - 1), hk[2] - 1, hk[3], 23, 59); return d >= s && d <= e; })();
+    const ln = LUNAR_NY[y];
+    const season = md >= 1201 || md <= 106; // the holiday season: light snow
+    if (md === 1231 || md === 101) return { key: 'newyear', name: "New Year's", tint: '#f2c25c', amount: .35, fx: 'fireworks' };
+    if (md === 1224 || md === 1225) return { key: 'christmas', name: 'Christmas', tint: '#e0525a', amount: .3, fx: 'snow', heavy: true };
+    if (inHk) return { key: 'hanukkah', name: 'Hanukkah', tint: '#6f9cf0', amount: .35, fx: 'snow' };
+    if (season) return { key: 'season', name: 'The holidays', tint: '#9fc3ff', amount: .12, fx: 'snow' };
+    if (ln && m === ln[0] && day === ln[1]) return { key: 'lunar', name: 'Lunar New Year', tint: '#e5383b', amount: .35, fx: 'fireworks' };
+    if (md === 214) return { key: 'valentine', name: "Valentine's Day", tint: '#ff6f9e', amount: .4, fx: 'hearts' };
+    if (md === 317) return { key: 'stpatrick', name: "St. Patrick's Day", tint: '#3fbf6a', amount: .35, fx: null };
+    if (m === em && day === ed) return { key: 'easter', name: 'Easter', tint: '#c7a8f5', amount: .35, fx: null };
+    if (md === 704) return { key: 'july4', name: 'Independence Day', tint: '#e2524f', amount: .25, fx: 'fireworks' };
+    if (md === 1031) return { key: 'halloween', name: 'Halloween', tint: '#ff7a1a', amount: .45, fx: 'leaves', night: '#3b1653' };
+    if (m === 11 && day >= thanks - 1 && day <= thanks + 1) return { key: 'thanksgiving', name: 'Thanksgiving', tint: '#e08a3a', amount: .35, fx: 'leaves' };
+    return null;
+  }
+
+  function stopsAt(d) {
+    const t = sun(d), h = d.getHours() + d.getMinutes() / 60;
+    const moments = SKY.map(([anchor, off, stops]) => [t[anchor] + off, stops.map(rgb)]);
+    // Wrapped round midnight: yesterday's night before, tomorrow's after.
+    const list = [[moments[moments.length - 1][0] - 24, moments[moments.length - 1][1]], ...moments, [moments[0][0] + 24, moments[0][1]]];
     let i = 0;
-    while (i < SKY.length - 2 && SKY[i + 1][0] <= h) i++;
-    const [h0, a] = SKY[i], [h1, b] = SKY[i + 1];
+    while (i < list.length - 2 && list[i + 1][0] <= h) i++;
+    const [h0, a] = list[i], [h1, b] = list[i + 1];
     // Eased, so a moment holds a while and then moves on.
-    let k = (h - h0) / (h1 - h0);
+    let k = Math.max(0, Math.min(1, (h - h0) / (h1 - h0)));
     k = k * k * (3 - 2 * k);
-    return a.map((c, j) => mix(rgb(c), rgb(b[j]), k));
+    return a.map((c, j) => mix(c, b[j], k));
+  }
+  function at(d = new Date()) {
+    let stops = stopsAt(d);
+    const cold = coldness(d), hol = holiday(d);
+    stops = stops.map((c, j) => {
+      const L = lum(c), grey = [L, L, L].map(v => 255 * Math.pow(v, 1 / 2.2));
+      if (L < 0.06) {
+        // Night: colder and clearer the deeper into winter.
+        c = mix(c, [6, 16, 44], 0.35 * cold);
+      } else {
+        // Day: winter's flat, pale overcast; summer's warmth.
+        c = mix(c, grey, 0.3 * cold);
+        c = mix(c, [168, 190, 214], 0.16 * cold);
+        c = mix(c, [255, 206, 150], 0.14 * (1 - cold) * (j === 2 ? 1 : 0.5));
+      }
+      return c;
+    });
+    if (hol) {
+      // The day's colour on the horizon, a little in the middle; at night
+      // a holiday may have a sky of its own (Halloween's purple).
+      const tint = rgb(hol.tint), dark = lum(stops[1]) < 0.06;
+      stops[2] = mix(stops[2], tint, hol.amount * (dark ? 0.7 : 1));
+      stops[1] = mix(stops[1], tint, hol.amount * 0.3);
+      if (dark && hol.night) stops[0] = mix(stops[0], rgb(hol.night), 0.6);
+    }
+    return stops;
   }
   const PROPS = ['--sky-1', '--sky-2', '--sky-3', '--bg'];
   return {
-    at,
+    at, sun, holiday, coldness,
     paint() {
-      const stops = at(), root = document.documentElement;
+      const now = new Date(), stops = at(now), root = document.documentElement;
       const bright = (lum(stops[0]) + 2 * lum(stops[1]) + lum(stops[2])) / 4;
       const mode = bright > 0.32 ? 'light' : 'dark';
       if (root.dataset.theme !== mode) root.setAttribute('data-theme', mode);
       stops.forEach((c, i) => root.style.setProperty('--sky-' + (i + 1), hex(c)));
       // Things drawn "on the background" (rings, letter tiles) take the sky's middle.
       root.style.setProperty('--bg', hex(mix(stops[1], mode === 'dark' ? [0, 0, 0] : [255, 255, 255], mode === 'dark' ? 0.72 : 0.78)));
+      // The weather in the frame, and whether it's night for it (fireworks).
+      window.klabSkyFx?.set(holiday(now), mode === 'dark');
       return mode;
     },
-    clear() { PROPS.forEach(p => document.documentElement.style.removeProperty(p)); },
+    clear() { PROPS.forEach(p => document.documentElement.style.removeProperty(p)); window.klabSkyFx?.set(null); },
   };
 })();
 let _skyTimer = 0;

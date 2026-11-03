@@ -10879,3 +10879,11 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 .side-me[data-status="dnd"] .side-me-av::after { background: var(--st-dnd); }
 .side-me[data-status="invisible"] .side-me-av::after { background: var(--bg); box-shadow: inset 0 0 0 2.5px var(--text-dimmer), 0 0 0 2.5px var(--bg); }
 .pz-row.dnd .pz-dot { display: block; background: var(--st-dnd); }
+
+/* ═══ SKY'S WEATHER (js/38-sky-fx.js) ═══
+   Over the window but clipped to the frame: the title bar's band and the
+   sidebar's column, never the page. */
+.sky-fx {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+  clip-path: polygon(0 0, 100% 0, 100% var(--tb-h, 48px), var(--nav-w, 0px) var(--tb-h, 48px), var(--nav-w, 0px) 100%, 0 100%);
+}
