@@ -33,7 +33,7 @@ The KLAB homelab's own app: music, chat, a feed, photos and a radio for a group 
 
 ![Recap](docs/shots/recap.webp)
 
-**Looks.** Dark, Light (a coloured frame round a white page), and Sky, where the window is the sky at the local time and the app is glass over it. Also OLED black and a Performance mode. In the desktop app it looks native on each system, with its own look on Linux.
+**Looks.** Dark, Light (a coloured frame round a white page), Wood (a walnut frame round warm paper), and Sky, where the window is the sky at the local time and the app is glass over it. Also OLED black and a Performance mode. In the desktop app it looks native on each system, with its own look on Linux.
 
 | Light | Sky (sunset) |
 |---|---|

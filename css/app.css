@@ -10731,3 +10731,63 @@
 }
 .klab-ocean:hover .klab-ocean-x, .klab-ocean-x:focus-visible { opacity: 1; }
 .klab-ocean-x:hover { color: #fff; }
+
+/* ═══ WOOD (2026-11-02) ═══
+   The owner: "light but warm… brown sidebar/navbar and lighter foreground".
+   The light theme (data-theme="light", so everything light does still
+   applies) in a walnut frame: the title bar and sidebar are one piece of
+   wood (a fixed gradient with a grain of fractal noise stretched along
+   the planks, so the two meet without a seam), cream ink on it, and the
+   page is warm paper with espresso ink and an amber accent. Browser look
+   only, like light's frame (html.wood from applyTheme in js/01-shell.js). */
+html.wood[data-theme="light"] {
+  --bg: #f6efe4;
+  --text: #3b2a1d;
+  --text-dim: #6e5847;
+  --text-dimmer: #9a8573;
+  --text-faint: #c4b4a3;
+  --accent-rgb: 196,112,44;
+  --glass-fill: rgba(150,92,40,0.06);
+  --glass-fill-h: rgba(150,92,40,0.11);
+  --glass-border: rgba(110,70,35,0.15);
+  --glass-border-h: rgba(110,70,35,0.3);
+  --glass-shadow: rgba(90,50,20,0.08);
+  --tile-bg: #fffaf2;
+  --tile-bg-h: #fff6ea;
+  --tile-border: rgba(110,70,35,0.15);
+  --modal-bg: #fffaf2;
+  --modal-glass: rgba(255,250,242,0.9);
+  --shadow-20: rgba(90,50,20,0.06);
+  --shadow-30: rgba(90,50,20,0.08);
+  --shadow-35: rgba(90,50,20,0.1);
+  --shadow-40: rgba(90,50,20,0.12);
+  --shadow-50: rgba(90,50,20,0.16);
+  --shadow-55: rgba(90,50,20,0.18);
+  --lt-frame:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='2400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.07 0.00375' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 1.9 -0.78'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") fixed,
+    linear-gradient(165deg, #94623b 0%, #835431 40%, #70452a 75%, #643d25 100%);
+  --lt-frame-ink: #fbeedb;
+  --lt-label: #b0602a;
+}
+@media (min-width: 761px), (pointer: fine) {
+  html.wood.web-bar[data-theme="light"] { --web-sheet: #fffaf2; --web-line: rgba(60,30,10,.35); }
+  html.wood.web-bar[data-theme="light"] body { background: var(--lt-frame) fixed; background-color: #7b4e2f; }
+  html.wood.web-bar[data-theme="light"] body::before { box-shadow: 0 0 0 1px rgba(40,20,5,.3), 0 10px 40px rgba(30,12,0,.35); }
+  html.wood.web-bar[data-theme="light"] :is(.header, .side-nav) {
+    --text: var(--lt-frame-ink);
+    --text-dim: rgba(251,238,219,.78);
+    --text-dimmer: rgba(251,238,219,.52);
+    --text-faint: rgba(251,238,219,.32);
+    --glass-fill: rgba(255,236,210,.1);
+    --glass-fill-h: rgba(255,236,210,.17);
+    --glass-border: rgba(255,236,210,.16);
+    --glass-border-h: rgba(255,236,210,.3);
+    --accent-rgb: 255,196,120;
+  }
+  html.wood.web-bar[data-theme="light"] .side-nav :is(.picker-section-label, .music-sidebar-label, .chat-lbl) { color: rgba(251,238,219,.55); }
+  html.wood[data-theme="light"].web-bar .header .picker-search { background: rgba(40,20,5,.22); border-color: rgba(255,236,210,.14); }
+  html.wood[data-theme="light"].web-bar .header .picker-search input::placeholder { color: rgba(251,238,219,.5); }
+}
+html.wood[data-theme="light"] #sideNav :is(.music-sidebar-label, .picker-section-label, .settings-section-label, .chat-lbl, .sec-label) { color: rgba(251,238,219,.55); }
+html.wood[data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(120,60,20,.16), 0 0 0 1px rgba(120,60,20,.08); }
+html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(255,250,242,.94), rgba(255,250,242,.6)); }
