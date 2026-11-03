@@ -308,6 +308,7 @@ document.getElementById('oledToggle')?.addEventListener('click', e => {
   saveSettings();
   document.documentElement.classList.toggle('oled', _settings.oled);
   if (_settings.oled && currentTheme !== 'dark') applyTheme('dark');
+  syncThemeRow();
   syncOledRow();
 }, true);
 
@@ -348,8 +349,18 @@ document.getElementById('glassStyle')?.addEventListener('click', e => {
 });
 
 // Theme, here since it left the title bar.
+// Sky, Wood and Ocean are scenes, apart from the plain Dark/Light switch:
+// a scene picks its own ink, so the switch shows neither while one's on.
+const SCENES = { '': 'None', sky: 'Sky: the colours of the time of day', wood: 'Wood: warm paper in a walnut frame', ocean: 'Ocean: sharks swimming round the page' };
 function syncThemeRow() {
   document.querySelectorAll('#themeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === currentTheme)));
+  const scene = currentTheme in SCENES ? currentTheme : '';
+  document.querySelectorAll('#sceneSwatches .scene-sw').forEach(b => {
+    b.classList.toggle('selected', b.dataset.v === scene);
+    b.setAttribute('aria-pressed', String(b.dataset.v === scene));
+  });
+  const sub = document.getElementById('sceneSub');
+  if (sub) sub.textContent = SCENES[scene];
   const get = document.getElementById('getAppBtn'), row = document.getElementById('settingsGetApp');
   if (row) row.hidden = !get || get.hidden;
 }
@@ -358,6 +369,16 @@ document.getElementById('themeSeg')?.addEventListener('click', e => {
   if (!b || b.dataset.v === currentTheme) return;
   SFX && SFX.play('click');
   applyTheme(b.dataset.v);
+  syncThemeRow();
+});
+document.getElementById('sceneSwatches')?.addEventListener('click', e => {
+  const b = e.target.closest('.scene-sw');
+  if (!b) return;
+  const scene = b.dataset.v, now = currentTheme in SCENES ? currentTheme : '';
+  if (scene === now) return;
+  SFX && SFX.play('click');
+  // None: back to plain dark or light, whichever the scene was showing.
+  applyTheme(scene || (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'));
   syncThemeRow();
 });
 // What the ⋯ menu held: each row presses the menu's own item.

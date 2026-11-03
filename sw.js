@@ -20,7 +20,7 @@
 // asset request misses and goes to the network — even if their index.html
 // is itself still cached and still asking for the old URLs.
 // Bump this whenever a deploy MUST reach people who are already running.
-const CACHE = 'klabnet-static-v58';
+const CACHE = 'klabnet-static-v59'; // v59: recheck had stored binary files as mangled text
 const PRECACHE = ['./klab.png', './manifest.json'];
 
 self.addEventListener('install', event => {
@@ -55,12 +55,20 @@ function stamped(body, from, extra) {
   for (const k in extra) headers.set(k, extra[k]);
   return new Response(body, { status: from.status, statusText: from.statusText, headers });
 }
+function same(a, b) {
+  if (a.byteLength !== b.byteLength) return false;
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+  return true;
+}
 async function recheck(cache, request, hit, clientId) {
   try {
     const res = await fetch(request, { cache: 'no-cache' });
     if (!res.ok || res.type !== 'basic') return;
-    const [was, now] = await Promise.all([hit.text(), res.clone().text()]);
-    if (was === now) {
+    // Bytes, not text: the icon font and the pictures are binary, and a copy
+    // put back from .text() came out mangled (icons gone until a hard reload).
+    const [was, now] = await Promise.all([hit.arrayBuffer(), res.clone().arrayBuffer()]);
+    if (same(was, now)) {
       const at = +hit.headers.get('x-klab-at') || 0;
       if (!at) await cache.put(request, stamped(now, hit, { 'x-klab-at': String(Date.now()) }));
       else if (Date.now() - at > SETTLED_MS) await cache.put(request, stamped(now, hit, { 'x-klab-ok': '1' }));

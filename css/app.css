@@ -10791,3 +10791,38 @@ html.wood[data-theme="light"] {
 html.wood[data-theme="light"] #sideNav :is(.music-sidebar-label, .picker-section-label, .settings-section-label, .chat-lbl, .sec-label) { color: rgba(251,238,219,.55); }
 html.wood[data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(120,60,20,.16), 0 0 0 1px rgba(120,60,20,.08); }
 html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(255,250,242,.94), rgba(255,250,242,.6)); }
+
+/* ═══ SCENES; OCEAN (2026-11-02) ═══
+   Settings → Appearance: Dark/Light is the switch, and Sky, Wood and Ocean
+   are scenes, picked from swatches drawn like the background colours. */
+.scene-row { margin-top: 0; flex-wrap: nowrap; }
+.scene-sw { padding: 0; appearance: none; -webkit-appearance: none; }
+.scene-sw[data-v=""] { background: linear-gradient(135deg, #16161a 0 50%, #f5f4f0 50% 100%); }
+.scene-sw[data-v="sky"] { background: linear-gradient(180deg, #77b6f0 0%, #ef8f78 60%, #3c3471 100%); }
+.scene-sw[data-v="wood"] { background: repeating-linear-gradient(95deg, #94623b 0 3px, #7b4e2f 3px 5px, #8a5a36 5px 8px); }
+.scene-sw[data-v="ocean"] { background: radial-gradient(circle at 30% 35%, #1b4f63 0, #0a2433 45%, #03080f 100%); }
+
+/* Ocean: the dark theme with the ASCII sea (js/37-ocean.js) behind the
+   page, seen through a clear title bar and sidebar. The sheet is solid:
+   blurring a moving canvas would redraw the blur every frame. */
+.ocean-bg { display: none; }
+@media (min-width: 761px), (pointer: fine) {
+  html.ocean:not(.app-material) { background: #000 !important; }
+  html.ocean:not(.app-material) body { background: transparent !important; }
+  html.ocean:not(.app-material) .ambient-glow { opacity: 0 !important; }
+  html.ocean:not(.app-material) .ocean-bg {
+    display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none; opacity: .75;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  html.ocean.web-bar[data-theme] :is(.header, .side-nav),
+  html.ocean.web-bar[data-theme][data-fx="low"] :is(.header, .side-nav),
+  html.ocean.web-bar[data-theme]:not(.app-material).app-scrolled .header {
+    background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  html.ocean.web-bar { --web-sheet: #0b0d12; --web-line: rgba(255,255,255,.12); }
+  html.ocean.web-bar body::before { box-shadow: 0 10px 50px rgba(0,0,0,.5); }
+  html.ocean.web-bar :is(.header, .side-nav) { --glass-fill: rgba(0,0,0,.45); --glass-fill-h: rgba(20,24,32,.7); }
+  /* Rows over the sea get a little shade so their words hold up. */
+  html.ocean.web-bar .side-nav :is(.picker-tab, .side-nav-row, a, button) { text-shadow: 0 0 6px #000, 0 0 2px #000; }
+  html.ocean.web-bar:not([data-nav="menu"])::after { background: #000 !important; }
+}

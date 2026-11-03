@@ -201,11 +201,14 @@ try { currentTheme = localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) {} /
 
 function applyTheme(t) {
   currentTheme = t;
-  const sky = t === 'sky', wood = t === 'wood';
+  const sky = t === 'sky', wood = t === 'wood', ocean = t === 'ocean';
   document.documentElement.classList.toggle('sky', sky);
-  // Wood is the light theme in a walnut frame (css "WOOD").
+  // Wood is the light theme in a walnut frame (css "WOOD"); Ocean the dark
+  // one with the ASCII sea round the page (js/37-ocean.js, css "OCEAN").
   document.documentElement.classList.toggle('wood', wood);
-  if (sky) paintSky(); else { klabSky.clear(); document.documentElement.setAttribute('data-theme', wood ? 'light' : t); }
+  document.documentElement.classList.toggle('ocean', ocean);
+  if (sky) paintSky(); else { klabSky.clear(); document.documentElement.setAttribute('data-theme', wood ? 'light' : ocean ? 'dark' : t); }
+  window.klabOcean?.backdrop(ocean);
   document.getElementById('themeIcon').className = document.documentElement.dataset.theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
   try { localStorage.setItem(THEME_KEY, t); } catch (e) {} // storage blocked: same as the read above
   applyCustomBg(); // re-check the OTHER theme's stored color now that data-theme changed
@@ -338,8 +341,8 @@ function setCustomBg(theme, hex) {
 function applyCustomBg() {
   // Sky sets --bg from the sky itself.
   if (currentTheme === 'sky') { klabSky.paint(); return; }
-  // Wood keeps its own paper; a custom light background would undo it.
-  const hex = currentTheme === 'wood' ? '' : getCustomBg(currentTheme);
+  // Wood and Ocean keep their own page; a custom background would undo it.
+  const hex = currentTheme === 'wood' || currentTheme === 'ocean' ? '' : getCustomBg(currentTheme);
   if (hex) document.documentElement.style.setProperty('--bg', hex);
   else document.documentElement.style.removeProperty('--bg'); // falls back to the theme's own default
   const btn = document.getElementById('bgColorBtn');
