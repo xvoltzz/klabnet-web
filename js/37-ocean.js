@@ -9,7 +9,7 @@
 //  reduced motion. The Ocean scene keeps the same sea behind the page.
 // ══════════════════════════════════════════
 (function () {
-  const LIB = 'js/vendor/ascii-sharks.js?v=0.1.0-klab.1';
+  const LIB = 'js/vendor/ascii-sharks.js?v=0.1.0-klab.2';
   const root = document.documentElement;
   let libP = null, el = null, engine = null, mo = null;
 
@@ -84,7 +84,17 @@
     bgEngine.schedule();
     if (!run && still()) bgEngine.drawStill();
   }
+  // Ocean's type (css "OCEAN'S TYPE"): JetBrains Mono for everything and
+  // VT323 for the big titles, fetched the first time the scene is on.
+  let fontsIn = false;
+  function fonts() {
+    if (fontsIn) return;
+    fontsIn = true;
+    document.head.appendChild(Object.assign(document.createElement('link'), { rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=VT323&display=swap' }));
+  }
   async function backdrop(on) {
+    if (on) fonts();
     bgWant = on = !!on && bgOk();
     if (!on) {
       bgEngine?.destroy(); bgMo?.disconnect(); bg?.remove();
@@ -98,7 +108,10 @@
     bg = Object.assign(document.createElement('canvas'), { className: 'ocean-bg' });
     bg.setAttribute('aria-hidden', 'true');
     document.body.prepend(bg);
-    const e = bgEngine = new window.KlabOcean(bg);
+    // Behind the page it's a quieter sea than the open ocean: two small
+    // sharks and a thin school (owner: "less in general", legibility first).
+    const fish = Math.round(Math.min(90, Math.max(30, innerWidth * innerHeight / 22000)));
+    const e = bgEngine = new window.KlabOcean(bg, [{ kind: 'classic', size: 0.8 }, { kind: 'classic', size: 0.62 }], fish);
     // Splashes are for the open ocean; here a click is meant for the page.
     window.removeEventListener('pointerdown', e.onPointerDown);
     const frame = e.frame;

@@ -2,7 +2,8 @@
  * ascii-sharks (https://github.com/stackedlol/ascii-sharks), ported to a
  * classic script for klabnet: types stripped, modules joined. Exposes
  * window.KlabOcean = OceanEngine. klabnet changes: no cell grid behind the
- * sea and no gaps between a shark's cells (0.1.0-klab.1).
+ * sea and no gaps between a shark's cells, and the
+ * engine takes a fish count (0.1.0-klab.2).
  *
  * MIT License
  * 
@@ -1766,9 +1767,9 @@ class OceanEngine {
           intersectionObserver                      ;
           disposed = false;
 
-  constructor(canvas                   , sharks              ) {
+  constructor(canvas                   , sharks              , fishCount         ) {
     this.canvas = canvas;
-    this.world = new World(sharks);
+    this.world = new World(sharks, fishCount); // klabnet: fishCount passed through
     this.renderer = new AsciiRenderer(canvas);
     this.renderer.setFontFamily(getComputedStyle(canvas).fontFamily);
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");

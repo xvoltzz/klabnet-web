@@ -401,7 +401,7 @@ const BG_PALETTE_DARK = [
   { hex: '#1f1f1f', label: 'Graphite' },
 ];
 const BG_PALETTE_LIGHT = [
-  { hex: '', label: 'Default (warm white)' },
+  { hex: '', label: 'Default (neutral)' },
   { hex: '#ffffff', label: 'Pure white' },
   { hex: '#dedcd6', label: 'Soft gray' },
   { hex: '#fbe9c6', label: 'Cream' },
@@ -436,8 +436,17 @@ function applyCustomBg() {
   if (currentTheme === 'sky') { klabSky.paint(); return; }
   // Wood and Ocean keep their own page; a custom background would undo it.
   const hex = currentTheme === 'wood' || currentTheme === 'ocean' ? '' : getCustomBg(currentTheme);
-  if (hex) document.documentElement.style.setProperty('--bg', hex);
-  else document.documentElement.style.removeProperty('--bg'); // falls back to the theme's own default
+  const rs = document.documentElement.style;
+  // Light builds everything (its frame, page and labels) from one colour,
+  // --lt-pick (css "LIGHT, WITH COLOUR"); dark takes it as the background.
+  if (currentTheme === 'light') {
+    rs.removeProperty('--bg');
+    if (hex) rs.setProperty('--lt-pick', hex); else rs.removeProperty('--lt-pick');
+  } else {
+    rs.removeProperty('--lt-pick');
+    if (hex) rs.setProperty('--bg', hex);
+    else rs.removeProperty('--bg'); // falls back to the theme's own default
+  }
   const btn = document.getElementById('bgColorBtn');
   if (btn) btn.style.background = hex || getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
 }
@@ -446,7 +455,7 @@ applyCustomBg();
 function openBgColorModal() {
   const paletteRowHTML = (palette, theme) => palette.map(p => {
     const selected = getCustomBg(theme) === p.hex;
-    const swatchBg = p.hex || (theme === 'dark' ? '#000000' : '#f5f4f0');
+    const swatchBg = p.hex || (theme === 'dark' ? '#000000' : '#d9d6cf');
     return `<div class="bg-palette-swatch${selected ? ' selected' : ''}" data-bg-theme="${theme}" data-bg-hex="${esc(p.hex)}" style="background:${swatchBg}" title="${esc(p.label)}"></div>`;
   }).join('');
   openChatModal('// background color', `

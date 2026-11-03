@@ -120,12 +120,6 @@
     clearTimeout(sleepT);
     sleepT = setTimeout(() => { if (!dragging && !el.matches(':hover, :focus-visible')) el.classList.remove('awake'); }, 1400);
   }
-  // The title bar darkens with the stuck date (css: html.feed-stuck).
-  const root = document.documentElement;
-  const stuck = () => root.classList.toggle('feed-stuck', shown() && panel.scrollTop > 2);
-  panel.addEventListener('scroll', stuck, { passive: true });
-  new MutationObserver(stuck).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
   panel.addEventListener('scroll', () => {
     if (el.hidden) return;
     if (!following) wake();

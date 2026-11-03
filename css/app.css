@@ -9633,12 +9633,10 @@
     }
     .feed-rail-bubble small { text-transform: none; }
 
-    /* The Feed scrolled (html.feed-stuck, js/31-feed-rail.js): the title
-       bar takes the stuck date's colour, so the two read as one piece
-       hanging from the top rather than a dark tab under a clear bar. */
+    /* The stuck date's colour. The title bar no longer takes it while the
+       Feed scrolls (html.feed-stuck is gone): the owner didn't want the
+       bar tinting, and it broke on Wood's frame. */
     :root { --day-bar: color-mix(in srgb, color-mix(in srgb, var(--bg-tint) 80%, var(--text) 6%) 97%, transparent); }
-    html.app-titlebar[data-desktop="linux"].feed-stuck body.tab-feed-active .header::before { opacity: 1; background: var(--day-bar) !important; box-shadow: none !important; }
-    :is(html.app-titlebar:not([data-desktop="linux"]), html.web-bar).feed-stuck body.tab-feed-active .header { background: var(--day-bar) !important; box-shadow: none !important; }
 
     /* The title bar names the page now (the prompt: klabnet/feed>_), so
        pages don't spend a row on their own heading. Feed's @ is in the
@@ -10526,54 +10524,58 @@
       .pf-listen { grid-template-columns: 1fr; }
     }
 
-    /* ══ LIGHT, WITH COLOUR (2026-11-02, louder the same day) ══
-       The owner: light mode was "too bright", then, with a pastel frame
-       and glass, "a legibility nightmare… more color and contrast. dont
-       make it super light either, color color color". So:
-       · the title bar and sidebar are one bold, opaque frame (violet into
-         magenta into coral; a fixed gradient so they meet without a seam)
-         with white ink, in the browser and in the apps alike (it covers
-         the Mac's and Windows' blur: over a light page that blur is what
-         made it hard to read);
-       · the page is a tinted lavender, not white, its panels solid white
-         with firm hairlines, the ink near-black indigo;
-       · no glass anywhere: nothing in Light blurs what's behind it.
-       Wood (css "WOOD") is this with its own palette and frame. */
+    /* ══ LIGHT, WITH COLOUR (2026-11-02, redone twice the same day) ══
+        The owner: light mode was "too bright", then, with a pastel frame
+        and glass, "a legibility nightmare… more color and contrast", then
+        of the violet-to-coral frame: "make it neutral, the color picker
+        will choose which color to emphasize, build around that… a little
+        too intense on the color". So:
+        · everything comes from one colour, --lt-pick: the light background
+          colour picked in Settings (js/01-shell.js applyCustomBg sets it;
+          the default is a neutral warm grey);
+        · the title bar and sidebar are one opaque frame, a deep, muted
+          shade of it (mostly graphite), with white ink, in the browser and
+          the apps alike (it covers the Mac's and Windows' blur);
+        · the page is a pale wash of it, panels solid white, firm
+          hairlines, near-black ink; labels a darker shade of it;
+        · no glass anywhere: nothing in Light blurs what's behind it.
+        Wood (css "WOOD") sets its own frame and page over this. */
     [data-theme="light"] {
-      --bg: #e9e3f8;
-      --text: #170f36;
-      --text-dim: #423a68;
-      --text-dimmer: #675f8f;
-      --text-faint: #9a93bd;
-      --accent-rgb: 104,52,238;
+      --lt-pick: #d9d6cf;
+      --bg: color-mix(in oklab, var(--lt-pick) 42%, #f6f6f4);
+      --text: #17171c;
+      --text-dim: #45454f;
+      --text-dimmer: #6a6a75;
+      --text-faint: #a0a0a8;
+      --accent-rgb: 64,64,78;
       --glass-fill: rgba(255,255,255,0.72);
       --glass-fill-h: #fff;
-      --glass-border: rgba(58,34,150,0.17);
-      --glass-border-h: rgba(58,34,150,0.34);
-      --glass-shadow: rgba(50,25,130,0.1);
+      --glass-border: rgba(20,20,40,0.14);
+      --glass-border-h: rgba(20,20,40,0.28);
+      --glass-shadow: rgba(20,20,40,0.08);
       --tile-bg: #fff;
-      --tile-bg-h: #faf8ff;
-      --tile-border: rgba(58,34,150,0.17);
+      --tile-bg-h: #fafafa;
+      --tile-border: rgba(20,20,40,0.14);
       --modal-bg: #fff;
       --modal-glass: #fff;
-      --shadow-20: rgba(50,25,130,0.07);
-      --shadow-30: rgba(50,25,130,0.09);
-      --shadow-35: rgba(50,25,130,0.11);
-      --shadow-40: rgba(50,25,130,0.13);
-      --shadow-50: rgba(50,25,130,0.17);
-      --shadow-55: rgba(50,25,130,0.2);
+      --shadow-20: rgba(20,20,40,0.06);
+      --shadow-30: rgba(20,20,40,0.08);
+      --shadow-35: rgba(20,20,40,0.1);
+      --shadow-40: rgba(20,20,40,0.12);
+      --shadow-50: rgba(20,20,40,0.15);
+      --shadow-55: rgba(20,20,40,0.18);
       /* The frame, the ink on it, and the page's sheet. */
-      --lt-frame: linear-gradient(160deg, #4f35e8 0%, #7c3be0 32%, #b83fb4 66%, #ec6a58 100%);
-      --lt-frame-color: #7c3be0;
+      --lt-frame-color: color-mix(in oklab, var(--lt-pick) 40%, #24242a);
+      --lt-frame: linear-gradient(165deg, color-mix(in oklab, var(--lt-pick) 32%, #1f1f25) 0%, color-mix(in oklab, var(--lt-pick) 50%, #2a2a31) 100%);
       --lt-frame-ink: #fff;
       --lt-frame-dim: rgba(255,255,255,.8);
-      --lt-frame-dimmer: rgba(255,255,255,.6);
-      --lt-frame-fill: rgba(255,255,255,.14);
-      --lt-frame-fill-h: rgba(255,255,255,.22);
-      --lt-frame-line: rgba(255,255,255,.2);
+      --lt-frame-dimmer: rgba(255,255,255,.58);
+      --lt-frame-fill: rgba(255,255,255,.12);
+      --lt-frame-fill-h: rgba(255,255,255,.19);
+      --lt-frame-line: rgba(255,255,255,.16);
       --lt-frame-accent: 255,255,255;
-      --lt-sheet: #ece6fa;
-      --lt-label: #6834ee;
+      --lt-sheet: color-mix(in oklab, var(--lt-pick) 34%, #fbfbfa);
+      --lt-label: color-mix(in oklab, var(--lt-pick) 45%, #34343c);
     }
     /* No glass in Light, anywhere. (Sky is glass over a sky on purpose.) */
     html[data-theme="light"]:not(.sky) *,
@@ -10581,14 +10583,14 @@
     html[data-theme="light"]:not(.sky) *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
     @media (min-width: 761px), (pointer: fine) {
       /* The browser: the frame round the sheet. */
-      html.web-bar[data-theme="light"]:not(.sky) { --web-sheet: var(--lt-sheet); --web-line: rgba(30,10,80,.22); }
+      html.web-bar[data-theme="light"]:not(.sky) { --web-sheet: var(--lt-sheet); --web-line: rgba(20,20,40,.2); }
       html.web-bar[data-theme="light"]:not(.sky) body { background: var(--lt-frame) fixed; background-color: var(--lt-frame-color); }
       html.web-bar[data-theme="light"]:not(.sky) .header,
       html.web-bar[data-theme="light"]:not(.sky):not(.app-material).app-scrolled .header,
       html.web-bar[data-theme="light"]:not(.sky)[data-nav]:not(.nav-flyout) .side-nav,
       html.web-bar[data-theme="light"]:not(.sky).nav-flyout .side-nav,
       html.web-bar[data-theme="light"]:not(.sky)[data-fx="low"] :is(.header, .side-nav) { background: var(--lt-frame) fixed !important; }
-      html.web-bar[data-theme="light"]:not(.sky) body::before { box-shadow: 0 0 0 1px rgba(30,10,80,.18), 0 10px 40px rgba(30,10,80,.25); }
+      html.web-bar[data-theme="light"]:not(.sky) body::before { box-shadow: 0 0 0 1px rgba(10,10,20,.2), 0 10px 40px rgba(10,10,20,.25); }
       /* The apps: the same frame, painted over the window's material. */
       /* On the root, where it's the window's own background; the body's
          would paint over the sheet (body::before sits under the body). On
@@ -10598,10 +10600,13 @@
       html.klabnet-app[data-theme="light"]:not(.sky)[data-desktop="linux"] body { background: var(--lt-frame) fixed !important; background-color: var(--lt-frame-color) !important; }
       html.klabnet-app[data-theme="light"]:not(.sky):not([data-desktop="linux"]) body { background: transparent !important; }
       html.klabnet-app[data-theme="light"]:not(.sky):not([data-desktop="linux"]) body::before { background: var(--lt-sheet) !important; }
-      html.klabnet-app[data-theme="light"]:not(.sky)[data-desktop="linux"] { --lx-sheet: var(--lt-sheet); --lx-bar: var(--lt-sheet); --lx-line: rgba(30,10,80,.2); }
+      html.klabnet-app[data-theme="light"]:not(.sky)[data-desktop="linux"] { --lx-sheet: var(--lt-sheet); --lx-bar: var(--lt-sheet); --lx-line: rgba(20,20,40,.2); }
       html.klabnet-app[data-theme="light"]:not(.sky) :is(.header, .side-nav),
       html.klabnet-app[data-theme="light"]:not(.sky)[data-nav]:not(.nav-flyout) .side-nav { background: transparent !important; box-shadow: none !important; }
       html.klabnet-app[data-theme="light"]:not(.sky).nav-flyout .side-nav { background: var(--lt-frame) fixed !important; }
+      /* klab.png is a white mark: on the frame it stays white, not the
+         light theme's inverted black (owner, on Wood). */
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .logo { mix-blend-mode: normal; filter: none; }
       /* On the frame: white ink, white fills, white for what's lit. */
       html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) :is(.header, .side-nav) {
         --text: var(--lt-frame-ink);
@@ -10615,14 +10620,14 @@
         --accent-rgb: var(--lt-frame-accent);
         --mac-line: transparent;
       }
-      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search { background: rgba(255,255,255,.9); border-color: transparent; --text: #170f36; --text-dim: #423a68; --text-dimmer: #675f8f; }
-      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search input { background: transparent; color: #170f36; }
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search { background: rgba(255,255,255,.92); border-color: transparent; --text: #17171c; --text-dim: #45454f; --text-dimmer: #6a6a75; }
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search input { background: transparent; color: #17171c; }
       html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .side-nav :is(.picker-section-label, .music-sidebar-label, .chat-lbl, .settings-section-label, .sec-label) { color: var(--lt-frame-dimmer) !important; }
     }
     /* In the page: labels in colour, and a little colour where it's earned. */
     html[data-theme="light"] :is(.picker-section-label, .settings-section-label, .chat-lbl, .sec-label, .hp-day, #musicShell .picker-section-label) { color: var(--lt-label); }
     [data-theme="light"] .pz-note, [data-theme="light"] .hp-plaza { --pz-note: #fff; }
-    [data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(80,40,200,.2), 0 0 0 1px rgba(80,40,200,.1); }
+    [data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(20,20,40,.14), 0 0 0 1px rgba(20,20,40,.08); }
     [data-theme="light"] #feedList .feed-day { background: var(--lt-sheet); }
     /* The title bar's tray with nothing in it (js/07-tabnav.js). */
     .header .header-right.is-empty { opacity: 0 !important; pointer-events: none; }
@@ -10810,6 +10815,26 @@ html.wood[data-theme="light"] {
 html.wood[data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(120,60,20,.16), 0 0 0 1px rgba(120,60,20,.08); }
 html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(255,250,242,.94), rgba(255,250,242,.6)); }
 
+/* People's colours were picked for dark: on light's page they're pale
+   (sky blue, mint, orange on cream), so they're deepened there; on the
+   frame a name is the frame's own ink (blue on brown clashed). */
+html[data-theme="light"]:not(.sky) :is(.chat-msg-sender, .chat-msg-reply-quote-name, .chat-head-who h2, .ph-name, .feed-post-mention, .chat-channel-name)[style*="color"],
+html[data-theme="light"]:not(.sky) .feed-post-name { filter: brightness(.6) saturate(1.5); }
+@media (min-width: 761px), (pointer: fine) {
+  html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .side-nav :is(.chat-channel-name, .ph-name)[style*="color"] { color: var(--lt-frame-ink) !important; filter: none; }
+}
+/* Wood, Photos: the photo's blurred colours only warm the paper a little
+   (they turned the whole page pink or green). */
+html.wood .ph-backdrop::after { opacity: .86; }
+html.wood .ph-bd-layer { filter: blur(70px) saturate(.9) brightness(1.05); }
+
+/* Wood's type: a newspaper serif (owner: "a more times new roman font
+   theme"). Times New Roman on Windows and the Mac, Liberation Serif (its
+   metric twin) on most Linux; nothing to download. The prompt stays mono. */
+html.wood { --font-ui: 'Times New Roman', Times, 'Liberation Serif', Tinos, Georgia, serif; }
+html.wood body { font-size-adjust: 0.5; }
+html.wood :is(#musicShell .music-view-head h2, #socShell .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-style: italic; letter-spacing: -.01em; }
+
 /* ═══ SCENES; OCEAN (2026-11-02) ═══
    Settings → Appearance: Dark/Light is the switch, and Sky, Wood and Ocean
    are scenes, picked from swatches drawn like the background colours. */
@@ -10834,7 +10859,7 @@ html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(
   html.ocean[data-desktop="linux"] body { background: #000 !important; }
   html.ocean .ambient-glow { opacity: 0 !important; }
   html.ocean .ocean-bg {
-    display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none;
+    opacity: .6; display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -2; pointer-events: none;
     font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   }
   html.ocean :is(.header, .side-nav),
@@ -10844,14 +10869,32 @@ html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(
     background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important;
   }
   html.ocean.nav-flyout .side-nav { background: rgba(0,0,0,.88) !important; }
-  html.ocean { --web-sheet: rgba(11,13,18,.92); --web-line: rgba(255,255,255,.12); --lx-sheet: rgba(11,13,18,.92); --lx-bar: rgba(11,13,18,.92); }
-  html.ocean.klabnet-app:not([data-desktop="linux"]) body::before { background: rgba(11,13,18,.92) !important; }
+  html.ocean { --web-sheet: rgba(9,11,15,.95); --web-line: rgba(255,255,255,.12); --lx-sheet: rgba(9,11,15,.95); --lx-bar: rgba(9,11,15,.95); }
+  html.ocean.klabnet-app:not([data-desktop="linux"]) body::before { background: rgba(9,11,15,.95) !important; }
   html.ocean body::before { box-shadow: 0 10px 50px rgba(0,0,0,.5); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   html.ocean :is(.header, .side-nav) { --glass-fill: rgba(0,0,0,.45); --glass-fill-h: rgba(20,24,32,.7); }
   /* Rows over the sea get a little shade so their words hold up. */
   html.ocean .side-nav :is(.picker-tab, .side-nav-row, a, button) { text-shadow: 0 0 6px #000, 0 0 2px #000; }
   html.ocean.web-bar:not([data-nav="menu"])::after { background: #000 !important; }
 }
+
+/* ── OCEAN'S TYPE AND ASCII (2026-11-02) ──
+   Owner: "ascii more things in that theme… oceans font maybe more hacker
+   or video game like", legibility still first. Everything in JetBrains
+   Mono (fetched by js/37-ocean.js), the big titles in VT323 (a CRT
+   terminal's face), and a few terminal marks: labels as `// label`, the
+   lit row with `>`, square corners on buttons and fields, `--` round
+   dates, brackets round the primary button. */
+html.ocean { --font-ui: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+html.ocean body { letter-spacing: -.01em; }
+html.ocean :is(#musicShell .music-view-head h2, #socShell .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-family: 'VT323', 'JetBrains Mono', monospace; font-weight: 400; font-size: 40px; letter-spacing: 0; line-height: 1; }
+html.ocean :is(.music-sidebar-label, .chat-lbl > span:first-child, .ph-side-label, .settings-section-label, .picker-section-label)::before { content: '// '; opacity: .6; }
+html.ocean :is(.music-sidebar-label, .chat-lbl, .ph-side-label, .settings-section-label, .picker-section-label) { text-transform: lowercase; letter-spacing: .02em; }
+html.ocean .side-nav .picker-tab.active { position: relative; }
+html.ocean .side-nav .picker-tab.active::after { content: '>'; position: absolute; left: -1px; top: 50%; transform: translateY(-50%); color: rgba(var(--accent-rgb),1); font-weight: 700; font-size: 12px; pointer-events: none; }
+html.ocean :is(button, input, textarea, select, .picker-search) { border-radius: 2px !important; }
+html.ocean .chat-date-sep > :not([class*="line"])::before { content: '-- '; }
+html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
 /* ═══ SKY'S WEATHER (js/38-sky-fx.js) ═══
    Over the window but clipped to the frame: the title bar's band and the
    sidebar's column, never the page. */
