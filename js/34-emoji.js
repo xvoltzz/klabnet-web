@@ -51,6 +51,19 @@
       } catch {} finally { refreshing = null; }
     })();
   }
+  // Someone else's new emoji: a :name: we don't know asks the list again
+  // (at most every 15s), and changed() then draws it everywhere on screen,
+  // so nobody has to reload to see it. Coming back to the tab asks too.
+  let missAt = 0, missLater = 0;
+  function miss() {
+    if (server === false || missLater) return;
+    const wait = missAt + 15000 - Date.now();
+    // Inside the 15s, it's asked once at the end of it rather than dropped.
+    if (wait > 0) { missLater = setTimeout(() => { missLater = 0; missAt = Date.now(); refresh(); }, wait); return; }
+    missAt = Date.now();
+    refresh();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - missAt > 60000) { missAt = Date.now(); refresh(); } });
   // New ones show in what's already on screen; the picker redraws.
   function changed() {
     document.querySelectorAll('.chat-msg-text, .feed-post-text, .feed-post-reply-text').forEach(emojify);
@@ -79,7 +92,7 @@
   // jumbo emoji), Chat only.
   function emojify(root) {
     if (!root) return root;
-    if (custom.size) {
+    if (custom.size || root.textContent?.includes(':')) {
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode: n => n.parentElement.closest('code, pre, a') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
       });
@@ -92,7 +105,7 @@
         while ((m = TOKEN_RE.exec(t))) {
           const e = custom.get(m[1]);
           // ":not:one:" — try again from the second colon.
-          if (!e) { TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
+          if (!e) { miss(); TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
           frag ||= document.createDocumentFragment();
           frag.append(t.slice(last, m.index), img(e));
           last = m.index + m[0].length;
@@ -112,6 +125,7 @@
   function emojiKey(key) {
     const m = /^:([a-z0-9_]{2,30}):$/.exec(key || '');
     const e = m && custom.get(m[1]);
+    if (m && !e) miss();
     return e ? imgHTML(e) : esc(key);
   }
 
@@ -464,6 +478,7 @@
     const upto = field.value.slice(0, field.selectionStart);
     const m = field.selectionStart === field.selectionEnd && /(?:^|[\s(])(:([a-z0-9_+-]{2,30}))$/i.exec(upto);
     if (!m) return hideSug();
+    if (m[2].length === 2) miss(); // starting a :name: — have the newest list
     if (!groups) { loadData().then(() => { if (document.activeElement === field) showSug(field); }); }
     sugItems = suggestions(m[2].toLowerCase());
     if (!sugItems.length) return hideSug();
