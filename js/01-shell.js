@@ -469,7 +469,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   function flipPage(dir) {
     const P = pages(), i = P.indexOf(currentPage());
     const to = P[(i + dir + P.length) % P.length];
-    setActiveTab(to === 'social' ? _socialLast : to);
+    setActiveTab(to);
     // A button left focused by a click would take the next Tab itself.
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   }
@@ -543,7 +543,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 
     if (/^[1-9]$/.test(e.key)) {
       const P = pages(), target = P[+e.key - 1];
-      if (target) { e.preventDefault(); setActiveTab(target === 'social' ? _socialLast : target); }
+      if (target) { e.preventDefault(); setActiveTab(target); }
       return;
     }
 
