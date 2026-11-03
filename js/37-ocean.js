@@ -9,7 +9,7 @@
 //  reduced motion. The Ocean scene keeps the same sea behind the page.
 // ══════════════════════════════════════════
 (function () {
-  const LIB = 'js/vendor/ascii-sharks.js?v=0.1.0';
+  const LIB = 'js/vendor/ascii-sharks.js?v=0.1.0-klab.1';
   const root = document.documentElement;
   let libP = null, el = null, engine = null, mo = null;
 

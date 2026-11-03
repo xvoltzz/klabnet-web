@@ -1,7 +1,8 @@
 /*!
  * ascii-sharks (https://github.com/stackedlol/ascii-sharks), ported to a
  * classic script for klabnet: types stripped, modules joined. Exposes
- * window.KlabOcean = OceanEngine.
+ * window.KlabOcean = OceanEngine. klabnet changes: no cell grid behind the
+ * sea and no gaps between a shark's cells (0.1.0-klab.1).
  *
  * MIT License
  * 
@@ -1211,7 +1212,7 @@ class AsciiRenderer {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#000";
     g.fillRect(0, 0, W, H);
-    paintGrid(g, W, H, cw, ch, dpr);
+    // klabnet: no cell grid (the owner found it ugly over the whole window).
   }
 
   render(world       , dt        ) {
@@ -1617,7 +1618,7 @@ class AsciiRenderer {
       level *= dim;
       // Tinted per species; the classic tint is a cool blue-grey, like a back seen through deep water.
       ctx.fillStyle = `rgb(${Math.min(255, Math.round(level * tr))},${Math.min(255, Math.round(level * tg))},${Math.min(255, Math.round(level * tb + 4))})`;
-      ctx.fillRect(x + 1, y + 1, cw - 1, ch - 1);
+      ctx.fillRect(x, y, cw, ch); // klabnet: whole cells, no grid lines between them
 
       let color        ;
       if (flag === FLAG_EYE) color = "#9aa0ad";

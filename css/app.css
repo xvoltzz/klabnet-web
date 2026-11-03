@@ -10844,8 +10844,8 @@ html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(
     background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important;
   }
   html.ocean.nav-flyout .side-nav { background: rgba(0,0,0,.88) !important; }
-  html.ocean { --web-sheet: rgba(11,13,18,.82); --web-line: rgba(255,255,255,.12); --lx-sheet: rgba(11,13,18,.82); --lx-bar: rgba(11,13,18,.82); }
-  html.ocean.klabnet-app:not([data-desktop="linux"]) body::before { background: rgba(11,13,18,.82) !important; }
+  html.ocean { --web-sheet: rgba(11,13,18,.92); --web-line: rgba(255,255,255,.12); --lx-sheet: rgba(11,13,18,.92); --lx-bar: rgba(11,13,18,.92); }
+  html.ocean.klabnet-app:not([data-desktop="linux"]) body::before { background: rgba(11,13,18,.92) !important; }
   html.ocean body::before { box-shadow: 0 10px 50px rgba(0,0,0,.5); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   html.ocean :is(.header, .side-nav) { --glass-fill: rgba(0,0,0,.45); --glass-fill-h: rgba(20,24,32,.7); }
   /* Rows over the sea get a little shade so their words hold up. */
