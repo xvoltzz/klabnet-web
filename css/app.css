@@ -10526,78 +10526,104 @@
       .pf-listen { grid-template-columns: 1fr; }
     }
 
-    /* ══ LIGHT, WITH COLOUR (2026-11-02) ══
-       The owner: light mode was "a little too bright", wanted "a lot more
-       colorful… some personality", a coloured sidebar and a lighter page.
-       So: the title bar and the sidebar are one coloured frame (lilac into
-       rose, a fixed gradient so the two meet without a seam), the page is
-       a plain white sheet inside it, and the ink is indigo rather than
-       brown-grey, so everything filled with the text colour (primary
-       buttons, the send button) is indigo too. Hairlines, shadows and the
-       default accent lean violet; section labels take the frame's colour.
-       Only the plain look: the Mac and Windows apps keep their native frame. */
+    /* ══ LIGHT, WITH COLOUR (2026-11-02, louder the same day) ══
+       The owner: light mode was "too bright", then, with a pastel frame
+       and glass, "a legibility nightmare… more color and contrast. dont
+       make it super light either, color color color". So:
+       · the title bar and sidebar are one bold, opaque frame (violet into
+         magenta into coral; a fixed gradient so they meet without a seam)
+         with white ink, in the browser and in the apps alike (it covers
+         the Mac's and Windows' blur: over a light page that blur is what
+         made it hard to read);
+       · the page is a tinted lavender, not white, its panels solid white
+         with firm hairlines, the ink near-black indigo;
+       · no glass anywhere: nothing in Light blurs what's behind it.
+       Wood (css "WOOD") is this with its own palette and frame. */
     [data-theme="light"] {
-      --bg: #f3f1fa;
-      --text: #29234a;
-      --text-dim: #5d577d;
-      --text-dimmer: #8d88a8;
-      --text-faint: #b3afc9;
-      --accent-rgb: 124,92,255;
-      --glass-fill: rgba(124,92,255,0.05);
-      --glass-fill-h: rgba(124,92,255,0.09);
-      --glass-border: rgba(76,60,160,0.13);
-      --glass-border-h: rgba(76,60,160,0.28);
-      --glass-shadow: rgba(60,40,140,0.08);
+      --bg: #e9e3f8;
+      --text: #170f36;
+      --text-dim: #423a68;
+      --text-dimmer: #675f8f;
+      --text-faint: #9a93bd;
+      --accent-rgb: 104,52,238;
+      --glass-fill: rgba(255,255,255,0.72);
+      --glass-fill-h: #fff;
+      --glass-border: rgba(58,34,150,0.17);
+      --glass-border-h: rgba(58,34,150,0.34);
+      --glass-shadow: rgba(50,25,130,0.1);
       --tile-bg: #fff;
-      --tile-bg-h: #fbfaff;
-      --tile-border: rgba(76,60,160,0.14);
+      --tile-bg-h: #faf8ff;
+      --tile-border: rgba(58,34,150,0.17);
       --modal-bg: #fff;
-      --modal-glass: rgba(255,255,255,0.86);
-      --shadow-20: rgba(60,40,140,0.06);
-      --shadow-30: rgba(60,40,140,0.08);
-      --shadow-35: rgba(60,40,140,0.09);
-      --shadow-40: rgba(60,40,140,0.11);
-      --shadow-50: rgba(60,40,140,0.14);
-      --shadow-55: rgba(60,40,140,0.16);
-      /* The frame, and the ink on it. */
-      --lt-frame: linear-gradient(160deg, #cfc6ff 0%, #dcc8fb 38%, #f6c9de 78%, #ffd5c2 100%);
-      --lt-frame-ink: #241c52;
-      --lt-label: #7a4fe0;
+      --modal-glass: #fff;
+      --shadow-20: rgba(50,25,130,0.07);
+      --shadow-30: rgba(50,25,130,0.09);
+      --shadow-35: rgba(50,25,130,0.11);
+      --shadow-40: rgba(50,25,130,0.13);
+      --shadow-50: rgba(50,25,130,0.17);
+      --shadow-55: rgba(50,25,130,0.2);
+      /* The frame, the ink on it, and the page's sheet. */
+      --lt-frame: linear-gradient(160deg, #4f35e8 0%, #7c3be0 32%, #b83fb4 66%, #ec6a58 100%);
+      --lt-frame-color: #7c3be0;
+      --lt-frame-ink: #fff;
+      --lt-frame-dim: rgba(255,255,255,.8);
+      --lt-frame-dimmer: rgba(255,255,255,.6);
+      --lt-frame-fill: rgba(255,255,255,.14);
+      --lt-frame-fill-h: rgba(255,255,255,.22);
+      --lt-frame-line: rgba(255,255,255,.2);
+      --lt-frame-accent: 255,255,255;
+      --lt-sheet: #ece6fa;
+      --lt-label: #6834ee;
     }
+    /* No glass in Light, anywhere. (Sky is glass over a sky on purpose.) */
+    html[data-theme="light"]:not(.sky) *,
+    html[data-theme="light"]:not(.sky) *::before,
+    html[data-theme="light"]:not(.sky) *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
     @media (min-width: 761px), (pointer: fine) {
-      html.web-bar[data-theme="light"] { --web-sheet: #fff; --web-line: rgba(76,60,160,0.16); }
-      html.web-bar[data-theme="light"] body { background: #cfc6ff var(--lt-frame) fixed; }
-      html.web-bar[data-theme="light"] .header,
-      html.web-bar[data-theme="light"]:not(.app-material).app-scrolled .header,
-      html.web-bar[data-theme="light"][data-nav]:not(.nav-flyout) .side-nav,
-      html.web-bar[data-theme="light"].nav-flyout .side-nav {
-        background: var(--lt-frame) fixed;
-        -webkit-backdrop-filter: none; backdrop-filter: none;
-      }
-      /* Performance mode only drops the blur; the colour stays. */
-      html.web-bar[data-theme="light"][data-fx="low"] :is(.header, .side-nav) { background: var(--lt-frame) fixed !important; }
-      html.web-bar[data-theme="light"] body::before { box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 8px 40px rgba(60,40,140,.12); }
-      /* On the frame: the ink deeper, the faint bits not grey. */
-      html[data-theme="light"].web-bar :is(.header, .side-nav) {
+      /* The browser: the frame round the sheet. */
+      html.web-bar[data-theme="light"]:not(.sky) { --web-sheet: var(--lt-sheet); --web-line: rgba(30,10,80,.22); }
+      html.web-bar[data-theme="light"]:not(.sky) body { background: var(--lt-frame) fixed; background-color: var(--lt-frame-color); }
+      html.web-bar[data-theme="light"]:not(.sky) .header,
+      html.web-bar[data-theme="light"]:not(.sky):not(.app-material).app-scrolled .header,
+      html.web-bar[data-theme="light"]:not(.sky)[data-nav]:not(.nav-flyout) .side-nav,
+      html.web-bar[data-theme="light"]:not(.sky).nav-flyout .side-nav,
+      html.web-bar[data-theme="light"]:not(.sky)[data-fx="low"] :is(.header, .side-nav) { background: var(--lt-frame) fixed !important; }
+      html.web-bar[data-theme="light"]:not(.sky) body::before { box-shadow: 0 0 0 1px rgba(30,10,80,.18), 0 10px 40px rgba(30,10,80,.25); }
+      /* The apps: the same frame, painted over the window's material. */
+      /* On the root, where it's the window's own background; the body's
+         would paint over the sheet (body::before sits under the body). On
+         Linux the root stays clear for the window's rounded corners, and
+         the body's background is the window's. */
+      html.klabnet-app[data-theme="light"]:not(.sky):not([data-desktop="linux"]),
+      html.klabnet-app[data-theme="light"]:not(.sky)[data-desktop="linux"] body { background: var(--lt-frame) fixed !important; background-color: var(--lt-frame-color) !important; }
+      html.klabnet-app[data-theme="light"]:not(.sky):not([data-desktop="linux"]) body { background: transparent !important; }
+      html.klabnet-app[data-theme="light"]:not(.sky):not([data-desktop="linux"]) body::before { background: var(--lt-sheet) !important; }
+      html.klabnet-app[data-theme="light"]:not(.sky)[data-desktop="linux"] { --lx-sheet: var(--lt-sheet); --lx-bar: var(--lt-sheet); --lx-line: rgba(30,10,80,.2); }
+      html.klabnet-app[data-theme="light"]:not(.sky) :is(.header, .side-nav),
+      html.klabnet-app[data-theme="light"]:not(.sky)[data-nav]:not(.nav-flyout) .side-nav { background: transparent !important; box-shadow: none !important; }
+      html.klabnet-app[data-theme="light"]:not(.sky).nav-flyout .side-nav { background: var(--lt-frame) fixed !important; }
+      /* On the frame: white ink, white fills, white for what's lit. */
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) :is(.header, .side-nav) {
         --text: var(--lt-frame-ink);
-        --text-dim: rgba(36,28,82,.74);
-        --text-dimmer: rgba(36,28,82,.5);
-        --glass-fill: rgba(255,255,255,.32);
-        --glass-fill-h: rgba(255,255,255,.5);
-        --glass-border: rgba(36,28,82,.12);
-        --glass-border-h: rgba(36,28,82,.24);
-        --accent-rgb: 92,52,220;
+        --text-dim: var(--lt-frame-dim);
+        --text-dimmer: var(--lt-frame-dimmer);
+        --text-faint: rgba(255,255,255,.4);
+        --glass-fill: var(--lt-frame-fill);
+        --glass-fill-h: var(--lt-frame-fill-h);
+        --glass-border: var(--lt-frame-line);
+        --glass-border-h: rgba(255,255,255,.36);
+        --accent-rgb: var(--lt-frame-accent);
+        --mac-line: transparent;
       }
-      html[data-theme="light"].web-bar .header .picker-search { background: rgba(255,255,255,.6); border-color: rgba(255,255,255,.7); }
-      html[data-theme="light"].web-bar .header .picker-search input { background: transparent; }
-      html[data-theme="light"].web-bar .side-nav :is(.picker-section-label, .music-sidebar-label, .chat-lbl) { color: rgba(36,28,82,.55); }
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search { background: rgba(255,255,255,.9); border-color: transparent; --text: #170f36; --text-dim: #423a68; --text-dimmer: #675f8f; }
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .header .picker-search input { background: transparent; color: #170f36; }
+      html[data-theme="light"]:not(.sky):is(.web-bar, .klabnet-app) .side-nav :is(.picker-section-label, .music-sidebar-label, .chat-lbl, .settings-section-label, .sec-label) { color: var(--lt-frame-dimmer) !important; }
     }
     /* In the page: labels in colour, and a little colour where it's earned. */
     html[data-theme="light"] :is(.picker-section-label, .settings-section-label, .chat-lbl, .sec-label, .hp-day, #musicShell .picker-section-label) { color: var(--lt-label); }
-    html[data-theme="light"] #sideNav :is(.music-sidebar-label, .picker-section-label, .settings-section-label, .chat-lbl, .sec-label) { color: rgba(36,28,82,.55); }
     [data-theme="light"] .pz-note, [data-theme="light"] .hp-plaza { --pz-note: #fff; }
-    [data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(92,52,220,.16), 0 0 0 1px rgba(92,52,220,.08); }
-    [data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.6)); }
+    [data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(80,40,200,.2), 0 0 0 1px rgba(80,40,200,.1); }
+    [data-theme="light"] #feedList .feed-day { background: var(--lt-sheet); }
     /* The title bar's tray with nothing in it (js/07-tabnav.js). */
     .header .header-right.is-empty { opacity: 0 !important; pointer-events: none; }
 
@@ -10766,29 +10792,23 @@ html.wood[data-theme="light"] {
   --lt-frame:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='2400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.07 0.00375' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 1.9 -0.78'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") fixed,
     linear-gradient(165deg, #94623b 0%, #835431 40%, #70452a 75%, #643d25 100%);
+  --lt-frame-color: #7b4e2f;
   --lt-frame-ink: #fbeedb;
+  --lt-frame-dim: rgba(251,238,219,.8);
+  --lt-frame-dimmer: rgba(251,238,219,.55);
+  --lt-frame-fill: rgba(255,236,210,.1);
+  --lt-frame-fill-h: rgba(255,236,210,.17);
+  --lt-frame-line: rgba(255,236,210,.16);
+  --lt-frame-accent: 255,196,120;
+  --lt-sheet: #fffaf2;
   --lt-label: #b0602a;
 }
 @media (min-width: 761px), (pointer: fine) {
-  html.wood.web-bar[data-theme="light"] { --web-sheet: #fffaf2; --web-line: rgba(60,30,10,.35); }
-  html.wood.web-bar[data-theme="light"] body { background: var(--lt-frame) fixed; background-color: #7b4e2f; }
+  html.wood.web-bar[data-theme="light"] { --web-line: rgba(60,30,10,.35); }
   html.wood.web-bar[data-theme="light"] body::before { box-shadow: 0 0 0 1px rgba(40,20,5,.3), 0 10px 40px rgba(30,12,0,.35); }
-  html.wood.web-bar[data-theme="light"] :is(.header, .side-nav) {
-    --text: var(--lt-frame-ink);
-    --text-dim: rgba(251,238,219,.78);
-    --text-dimmer: rgba(251,238,219,.52);
-    --text-faint: rgba(251,238,219,.32);
-    --glass-fill: rgba(255,236,210,.1);
-    --glass-fill-h: rgba(255,236,210,.17);
-    --glass-border: rgba(255,236,210,.16);
-    --glass-border-h: rgba(255,236,210,.3);
-    --accent-rgb: 255,196,120;
-  }
-  html.wood.web-bar[data-theme="light"] .side-nav :is(.picker-section-label, .music-sidebar-label, .chat-lbl) { color: rgba(251,238,219,.55); }
-  html.wood[data-theme="light"].web-bar .header .picker-search { background: rgba(40,20,5,.22); border-color: rgba(255,236,210,.14); }
-  html.wood[data-theme="light"].web-bar .header .picker-search input::placeholder { color: rgba(251,238,219,.5); }
+  html.wood[data-theme="light"]:is(.web-bar, .klabnet-app) .header .picker-search { background: rgba(40,20,5,.22); border-color: rgba(255,236,210,.14); --text: #fbeedb; --text-dim: rgba(251,238,219,.75); --text-dimmer: rgba(251,238,219,.5); }
+  html.wood[data-theme="light"]:is(.web-bar, .klabnet-app) .header .picker-search input { color: #fbeedb; }
 }
-html.wood[data-theme="light"] #sideNav :is(.music-sidebar-label, .picker-section-label, .settings-section-label, .chat-lbl, .sec-label) { color: rgba(251,238,219,.55); }
 html.wood[data-theme="light"] .pz-note { box-shadow: 0 3px 14px rgba(120,60,20,.16), 0 0 0 1px rgba(120,60,20,.08); }
 html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(rgba(255,250,242,.94), rgba(255,250,242,.6)); }
 
