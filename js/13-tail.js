@@ -208,8 +208,13 @@ function sampleImageColor(imgUrl) {
         // longer flashes on every new track.
         // 85% since: at 60% everything coloured looked washed out.
         const base = _defaultAccentRgb();
-        const cover = dominantColorFromPixels(px);
-        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.85)) : base, 1200);
+        let cover = dominantColorFromPixels(px);
+        // Sky comes first (owner, 2026-11-02): the cover only nudges the
+        // sky's accent, 30% of the way, and the window's tint is the sky's
+        // with a little of the cover in it.
+        const sky = document.documentElement.classList.contains('sky');
+        tweenAccentRgb(cover ? cover.map((c, i) => Math.round(base[i] + (c - base[i]) * (sky ? 0.3 : 0.85))) : base, 1200);
+        if (cover && sky) cover = cover.map((c, i) => Math.round(base[i] + (c - base[i]) * 0.3));
         // The window's tint (--bg-tint, css "LEGIBILITY") is the cover's own
         // colour or nothing: tinting it with the default accent, a light
         // grey, laid a grey film over everything.
@@ -252,18 +257,30 @@ function sampleImageColor(imgUrl) {
       });
       document.documentElement.style.removeProperty('--cover');
       _last = ''; // cleared so resume re-triggers extraction
-    } else {
-      // Resumed — _last was cleared on pause so sample() will re-run.
-      // The song's own cover, not whatever the dock shows (that can be the
-      // high-res artwork, a different picture to sample).
-      const art = playerState.currentSong?.coverArt;
-      if (art) { sample(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(art)}&size=64&${subsonicParams()}`); return; }
-      const img = document.querySelector('#playerArtWrap img')
-               || document.querySelector('#fsArt img')
-               || document.querySelector('.player-art');
-      if (img && img.src) sample(img.src);
-    }
+    } else resample();
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  // Resumed (_last was cleared on pause), or the theme changed under a
+  // playing song (Sky mixes the cover in differently): sample it again.
+  // The song's own cover, not whatever the dock shows (that can be the
+  // high-res artwork, a different picture to sample).
+  function resample() {
+    _last = '';
+    const art = playerState.currentSong?.coverArt;
+    if (art) { sample(`${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(art)}&size=64&${subsonicParams()}`); return; }
+    const img = document.querySelector('#playerArtWrap img')
+             || document.querySelector('#fsArt img')
+             || document.querySelector('.player-art');
+    if (img && img.src) sample(img.src);
+  }
+  // Sky repaints every minute and on switching; follow it while playing.
+  let skyWas = document.documentElement.classList.contains('sky');
+  new MutationObserver(() => {
+    const sky = document.documentElement.classList.contains('sky');
+    if (sky === skyWas) return;
+    skyWas = sky;
+    if (document.body.classList.contains('is-playing')) resample();
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  window._klabResampleAccent = () => { if (document.body.classList.contains('is-playing')) resample(); };
 })();
 
 // ══════════════════════════════════════════

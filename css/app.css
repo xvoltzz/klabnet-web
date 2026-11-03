@@ -10691,6 +10691,8 @@
        native windows (vibrancy, Mica) keep their own material. */
     /* On the root only: a background on <body> covers the sheet (body::before). */
     html.sky:not(.app-material) { background: linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 55%, var(--sky-3) 100%) fixed !important; }
+    /* The sky's accent (klabSky.paint); a playing cover only nudges it. */
+    html.sky[data-theme] { --accent-rgb: var(--sky-accent, 200,195,188); }
     html.sky:not(.app-material) body { background: transparent !important; }
     html.sky:not(.app-material) .ambient-glow { opacity: 0 !important; }
     @media (min-width: 761px), (pointer: fine) {

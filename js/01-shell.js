@@ -342,7 +342,7 @@ const klabSky = (() => {
     }
     return stops;
   }
-  const PROPS = ['--sky-1', '--sky-2', '--sky-3', '--bg'];
+  const PROPS = ['--sky-1', '--sky-2', '--sky-3', '--bg', '--sky-accent'];
   return {
     at, sun, holiday, coldness,
     paint() {
@@ -353,11 +353,18 @@ const klabSky = (() => {
       stops.forEach((c, i) => root.style.setProperty('--sky-' + (i + 1), hex(c)));
       // Things drawn "on the background" (rings, letter tiles) take the sky's middle.
       root.style.setProperty('--bg', hex(mix(stops[1], mode === 'dark' ? [0, 0, 0] : [255, 255, 255], mode === 'dark' ? 0.72 : 0.78)));
+      // The accent is the sky's: its most colourful stop, lifted for dark
+      // ink or deepened for light (css "SKY", --sky-accent). Music only
+      // nudges it (js/13-tail.js: the sky comes first, owner 2026-11-02).
+      const vivid = stops.reduce((b, c) => (Math.max(...c) - Math.min(...c)) > (Math.max(...b) - Math.min(...b)) ? c : b);
+      this.accent = mix(vivid, mode === 'dark' ? [255, 255, 255] : [0, 0, 0], mode === 'dark' ? 0.3 : 0.42).map(Math.round);
+      root.style.setProperty('--sky-accent', this.accent.join(','));
       // The weather in the frame, and whether it's night for it (fireworks).
       window.klabSkyFx?.set(holiday(now), mode === 'dark');
       return mode;
     },
-    clear() { PROPS.forEach(p => document.documentElement.style.removeProperty(p)); window.klabSkyFx?.set(null); },
+    accent: null,
+    clear() { this.accent = null; PROPS.forEach(p => document.documentElement.style.removeProperty(p)); window.klabSkyFx?.set(null); },
   };
 })();
 let _skyTimer = 0;
@@ -366,7 +373,12 @@ function paintSky() {
   const mode = klabSky.paint();
   if (mode !== was) { const ic = document.getElementById('themeIcon'); if (ic) ic.className = mode === 'dark' ? 'ti ti-sun' : 'ti ti-moon'; }
   clearInterval(_skyTimer);
-  _skyTimer = setInterval(() => { if (currentTheme === 'sky') klabSky.paint(); else clearInterval(_skyTimer); }, 60e3);
+  _skyTimer = setInterval(() => {
+    if (currentTheme !== 'sky') { clearInterval(_skyTimer); return; }
+    klabSky.paint();
+    // The sky moved on; a playing song's accent is built on it.
+    window._klabResampleAccent?.();
+  }, 60e3);
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && currentTheme === 'sky') klabSky.paint(); });
 

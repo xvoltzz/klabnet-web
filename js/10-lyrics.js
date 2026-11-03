@@ -47,6 +47,7 @@ function tweenAccentRgb(target, duration, onDone) {
   _accentTweenId = requestAnimationFrame(step);
 }
 function _defaultAccentRgb() {
+  if (document.documentElement.classList.contains('sky') && typeof klabSky !== 'undefined' && klabSky.accent) return klabSky.accent.slice();
   return document.documentElement.getAttribute('data-theme') === 'light' ? [192,150,96] : [200,195,188];
 }
 
