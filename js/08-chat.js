@@ -3420,6 +3420,7 @@ function notifyNewMessage(event, room) {
   _chatUnreadRooms.add(room.roomId);
   updateSocialUnreadBadge();
   if (_chatMuted.has(room.roomId)) return; // muted: unread, quietly
+  if (klabStatus() === 'dnd') return;       // do not disturb: the same, everywhere
   // A room just joined hands over its recent history as if it were live:
   // unread, yes, but not a toast and a sound for each old message.
   if (Date.now() - event.getTs() > 5 * 60000) return;

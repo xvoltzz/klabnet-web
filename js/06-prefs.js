@@ -13,6 +13,7 @@ const PREF_KEYS = {
   playlists:     'klabnet_playlists',
   bg_dark:       'klabnet_bg_dark',
   bg_light:      'klabnet_bg_light',
+  status:        'klabnet_status',
 };
 
 async function fetchMe() {
@@ -109,8 +110,8 @@ window.addEventListener('focus', checkSession);
 // (Uploading everything used to let an old tab put back yesterday's
 // favorites, and every song played made it think it had changes.)
 const PREF_BASE_KEY = 'klabnet_prefs_base';
-const PREF_STRINGS  = new Set(['theme', 'bg_dark', 'bg_light']);
-const PREF_DEFAULTS = { login_song: null, favorites: [], play_history: [], theme: 'dark', playlists: [], bg_dark: '', bg_light: '' };
+const PREF_STRINGS  = new Set(['theme', 'bg_dark', 'bg_light', 'status']);
+const PREF_DEFAULTS = { login_song: null, favorites: [], play_history: [], theme: 'dark', playlists: [], bg_dark: '', bg_light: '', status: '' };
 const PREF_NAMES    = Object.keys(PREF_KEYS);
 
 function localPref(name) {
@@ -146,6 +147,8 @@ function afterPrefsWritten() {
   // Playlists live on the API now (js/09b-playlists.js); what prefs still
   // hold is the list from before, on its way over.
   window.klabPlaylists?.prefsChanged();
+  // A status set on another device.
+  if (typeof statusChanged === 'function') statusChanged();
 }
 
 async function fetchServerPrefs() {
@@ -471,6 +474,33 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(_settings)); } catch (e) {}
 }
 
+// ── Your status ──
+// What you've set from your name at the sidebar's foot (js/24-flair.js):
+// '' (online: the usual, away when you step away), 'away', 'dnd' (a red
+// dot; no message or mention pop-ups, their sounds or desktop
+// notifications) or 'invisible' (others see you offline). Synced, so it's
+// the same on every device; sent with presence (js/11-presence.js).
+const KLAB_STATUSES = {
+  '': { label: 'Online', dot: 'on' },
+  away: { label: 'Away', dot: 'away' },
+  dnd: { label: 'Do not disturb', dot: 'dnd' },
+  invisible: { label: 'Invisible', dot: 'off' },
+};
+function klabStatus() {
+  try { const s = localStorage.getItem('klabnet_status') || ''; return s in KLAB_STATUSES ? s : ''; } catch (e) { return ''; }
+}
+function setKlabStatus(s) {
+  try { localStorage.setItem('klabnet_status', s in KLAB_STATUSES ? s : ''); } catch (e) {}
+  typeof scheduleSave === 'function' && scheduleSave();
+  statusChanged();
+  window.klabPresenceBeat?.();
+}
+function statusChanged() {
+  document.documentElement.classList.toggle('status-dnd', klabStatus() === 'dnd');
+  window.dispatchEvent(new Event('klab:status'));
+}
+statusChanged();
+
 // ── Desktop notifications ──
 // For when klabnet is open but you're not looking at it: another tab,
 // another window, minimized. If you're looking, the in-page toast is
@@ -478,6 +508,7 @@ function saveSettings() {
 // server; this covers the tab left open, which is how klabnet gets used.)
 const _notifClicks = new Map();   // tag -> click handler, for the service-worker path
 function klabDesktopNotify({ title, body, icon, tag, onClick }) {
+  if (klabStatus() === 'dnd') return;
   if (!_settings.desktopNotif || !('Notification' in window) || Notification.permission !== 'granted') return;
   if (!document.hidden && document.hasFocus()) return;
   const opts = {

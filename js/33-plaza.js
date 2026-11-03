@@ -59,10 +59,11 @@
     const mine = u === me();
     const on = mine || !!p.online;
     return {
-      mine, on, away: on && !mine && !!p.away, note: (p.note || '').trim(),
+      mine, on, away: on && (mine ? p.status === 'away' : !!p.away), note: (p.note || '').trim(),
       avatar: window.klabResolveUserAvatar?.(u) || null,
       song: on ? p.song || '' : '', artist: p.artist || '',
       color: on ? p.color : null, plat: on ? p.platformInfo : null,
+      paused: on ? p.paused : null, where: on ? p.where || '' : '', status: on ? p.status || '' : '',
     };
   }
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')).getTime() : 0;
@@ -74,12 +75,18 @@
   }
 
   // ── The lists ──
+  const WHERE = { home: 'Home', social: 'Social', feed: 'On the feed', chat: 'In chat', photos: 'Looking at photos', music: 'In music', radio: 'On the radio' };
   function row(u, s) {
     let sub = '';
+    // What they're doing: the song, or that they're not listening and
+    // where they are; Away / Do not disturb in front of it.
     if (s.song) sub = '<span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + (s.artist ? ' · ' + esc(s.artist) : '');
-    else if (s.on) sub = s.away ? 'Away' : s.plat ? esc(s.plat[1]) : 'Online';
+    else if (s.on) {
+      const doing = s.paused ? 'Paused · ' + esc(s.paused.song) : ['Not listening', WHERE[s.where]].filter(Boolean).join(' · ');
+      sub = s.status === 'dnd' ? 'Do not disturb · ' + doing : s.away ? 'Away' : doing;
+    }
     else { const t = when(stats.get(u)?.lastSeen); sub = t ? 'Last here ' + esc(shortAgo(t)) : ''; }
-    const cls = 'pz-row' + (s.on ? s.away ? ' away' : ' on' : ' off') + (s.song ? ' playing' : '');
+    const cls = 'pz-row' + (s.on ? s.status === 'dnd' ? ' dnd' : s.away ? ' away' : ' on' : ' off') + (s.song ? ' playing' : '');
     const glow = s.color ? ' style="--glow:' + s.color.join(',') + '"' : '';
     return '<button class="' + cls + '" data-u="' + esc(u) + '"' + glow + ' type="button">' +
       '<span class="pz-row-face">' + face(u, s, 'pz-av') + '<i class="pz-dot"></i></span>' +
@@ -289,6 +296,7 @@
   // ── Hooks ──
   const presenceChanged = window.klabHomePresenceChanged;
   window.klabHomePresenceChanged = () => { presenceChanged?.(); if (active) paint(); };
+  window.addEventListener('klab:status', () => { if (active) paint(); });
   const tabChanged = window.klabHomeTabChanged;
   window.klabHomeTabChanged = show => {
     tabChanged?.(show);

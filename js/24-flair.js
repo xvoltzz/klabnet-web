@@ -141,15 +141,26 @@
   const me = document.createElement('button');
   me.type = 'button';
   me.className = 'side-me';
-  me.title = 'Your profile';
+  me.title = 'Your status and profile';
   me.innerHTML = '<span class="side-me-av"></span><span class="side-me-text"><span class="side-me-name"></span><span class="side-me-sub"></span></span>';
   foot.appendChild(me);
   const av = me.querySelector('.side-me-av'), nameEl = me.querySelector('.side-me-name'), sub = me.querySelector('.side-me-sub');
+  // Your status (js/06-prefs.js klabStatus), then your profile.
+  const STATUS_ICON = { '': 'ti-point', away: 'ti-moon', dnd: 'ti-bell-off', invisible: 'ti-eye-off' };
   me.addEventListener('click', () => {
     SFX && SFX.play('click');
-    const user = window.KLAB_USER?.username;
-    if (user && typeof openProfileView === 'function') openProfileView(user);
+    const user = window.KLAB_USER?.username, now = klabStatus(), r = me.getBoundingClientRect();
+    klabMenu({ target: me, clientX: r.left + 8, clientY: r.top - 4, shiftKey: false, defaultPrevented: false, preventDefault() {} }, [
+      { header: 'Status' },
+      ...Object.entries(KLAB_STATUSES).map(([k, v]) => ({
+        label: v.label, icon: k === now ? 'ti-check' : STATUS_ICON[k],
+        action: () => { setKlabStatus(k); paint(); },
+      })),
+      '-',
+      { label: 'Your profile', icon: 'ti-user', action: () => user && typeof openProfileView === 'function' && openProfileView(user) },
+    ]);
   });
+  window.addEventListener('klab:status', () => paint());
 
   let lastAv;
   function paint() {
@@ -164,7 +175,9 @@
       av.innerHTML = url ? '<img src="' + esc(url) + '" alt="" />' : esc(user[0].toUpperCase());
     }
     // Your note, not the song: the player is right underneath.
-    sub.textContent = window.klabMyNote?.() || 'Online';
+    const st = klabStatus();
+    me.dataset.status = st;
+    sub.textContent = st ? KLAB_STATUSES[st].label : window.klabMyNote?.() || 'Online';
   }
   // Your picture and note arrive on their own time.
   let tries = 0;

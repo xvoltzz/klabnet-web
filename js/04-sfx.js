@@ -349,6 +349,7 @@ const SFX = (() => {
     if (typeof _settings !== 'undefined') {
       if (!_settings.sfxEnabled) return;
       if (!_settings.notifSound && NOTIF.has(type)) return;
+      if (NOTIF.has(type) && typeof klabStatus === 'function' && klabStatus() === 'dnd') return;
       _sfxVol = _settings.sfxVolume ?? 0.7;
     }
     const now = performance.now();

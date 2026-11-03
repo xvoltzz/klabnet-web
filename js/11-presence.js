@@ -535,6 +535,13 @@
 
   let _lastRoster = [];
   // For chat: who's around and what they're doing, by username.
+  // The page you're on, as presence calls it.
+  function klabWhere() {
+    const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
+    if (t === 'music' && document.querySelector('.music-nav .picker-tab.active[data-tab="radio"]')) return 'radio';
+    return t;
+  }
+  window.klabWhere = klabWhere;
   window.klabPresenceOf = function(username) {
     const me = window.KLAB_USER?.username;
     let l = (_lastOthers || []).find(x => x && x.username === username);
@@ -556,6 +563,10 @@
       away: awayLabel(username),
       song: l && l.playing ? l.song : '', artist: l && l.playing ? l.artist : '', songId: l && l.playing ? l.songId : '',
       note: _notesCache.get(username) || '', avatar: _avatarCache.get(username) || null,
+      // A song loaded but paused, where they are, and the status they set.
+      paused: l && !l.playing && l.song ? { song: l.song, artist: l.artist } : null,
+      where: username === me ? klabWhere() : l?.where || '',
+      status: username === me ? klabStatus() : l?.status || '',
     };
   };
   // Everyone the site knows, online first, for chat's search.
@@ -1008,6 +1019,10 @@
           // really playing on your card.
           device:    KLAB_DEVICE,
           remote:    !!window.klabSession?.remote,
+          // Where you are in klabnet (Home's "what's everyone doing") and
+          // the status you've set (js/06-prefs.js klabStatus).
+          where:     klabWhere(),
+          status:    klabStatus(),
           ...away,
         })
       }, 6000);
@@ -1137,6 +1152,10 @@
   // but out of sight flickered offline for half of every minute. A
   // worker's timers aren't throttled that way; each tick just asks the
   // page to beat, and messages to the page aren't throttled either.
+  // A status just set, or a page changed: said now, not at the next beat.
+  let _soonBeat = 0;
+  window.klabPresenceBeat = () => { clearTimeout(_soonBeat); _soonBeat = setTimeout(() => { postPresence().then(fetchPresence); }, 400); };
+  window.addEventListener('hashchange', () => window.klabPresenceBeat());
   let _heartbeatTimer = null;
   let _beatWorker = null;
   function beat() {
