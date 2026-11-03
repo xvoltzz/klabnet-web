@@ -10846,3 +10846,26 @@ html.wood[data-theme="light"] #feedList .feed-day { background: linear-gradient(
   html.ocean.web-bar .side-nav :is(.picker-tab, .side-nav-row, a, button) { text-shadow: 0 0 6px #000, 0 0 2px #000; }
   html.ocean.web-bar:not([data-nav="menu"])::after { background: #000 !important; }
 }
+
+/* ═══ ONE FOCUS (2026-11-02) ═══
+   The owner: clicking into a text box showed the browser's highlight and
+   klabnet's border both. Now a text field never draws the browser's ring
+   (nor the Mac app's accent ring), and what shows is klabnet's: the box's
+   hairline in the accent and a soft glow round it. A field that sits
+   borderless inside a box (the search boxes, the composers, the tag box)
+   lights that box instead, so it's one outline either way. Buttons keep
+   their keyboard ring (:focus-visible only, never on a click). */
+:root {
+  --focus-line: rgba(var(--accent-rgb), .55);
+  --focus-ring: 0 0 0 3px rgba(var(--accent-rgb), .16), 0 0 14px rgba(var(--accent-rgb), .22);
+}
+:is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible),
+html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible) { outline: none !important; }
+:is(.feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search):focus-within {
+  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
+}
+:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .term-input), textarea, select):focus:not(:is(.feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search) *) {
+  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
+}
+/* The prompt is typed into in place, with no box at all. */
+.term-input:focus { box-shadow: none !important; }
