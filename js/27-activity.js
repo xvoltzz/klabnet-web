@@ -75,7 +75,7 @@
         '<button type="button" class="act-song" data-play="' + songAttr(n) + '" title="Play this">' +
           '<span class="act-title">' + esc(n.song) + '</span><span class="act-artist">' + esc(n.artist) + (n.album ? ' · ' + esc(n.album) : '') + '</span></button>' +
         (pos != null && n.duration ? '<div class="act-prog"><span class="act-t act-t-at">' + clock(pos) + '</span>' +
-          '<span class="act-bar"><span class="act-fill" style="width:' + pct.toFixed(2) + '%"></span></span>' +
+          '<span class="act-bar"><span class="act-fill" style="transform:scaleX(' + (pct / 100).toFixed(4) + ')"></span></span>' +
           '<span class="act-t">' + clock(n.duration) + '</span></div>' : '') +
         (!mine && n.playing ? '<button type="button" class="act-along" data-along="' + esc(p.username) + '"><i class="ti ti-headphones"></i>Listen along</button>' : '') +
       '</div></div>';
@@ -134,7 +134,7 @@
       if (!card) return;
       const pos = posNow(p.now);
       const fill = card.querySelector('.act-fill'), at = card.querySelector('.act-t-at');
-      if (fill) fill.style.width = Math.min(100, pos / p.now.duration * 100).toFixed(2) + '%';
+      if (fill) fill.style.transform = 'scaleX(' + Math.min(1, pos / p.now.duration).toFixed(4) + ')';
       if (at) at.textContent = clock(pos);
       // Past the end: the next song will be in the next poll; ask now,
       // once per song (a device that slept mid-song goes on saying it's

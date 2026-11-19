@@ -740,7 +740,7 @@ function openPicker() {
   ensureMusicTabLoaded();
 }
 function closePicker() {
-  document.getElementById('sortMenu')?.classList.remove('visible');
+  if (document.getElementById('pickerSortBtn')?.getAttribute('aria-expanded') === 'true') klabMenu.close();
 }
 
 // The artist/album detail view now lives inline in the Music tab-panel too,
@@ -1104,14 +1104,17 @@ function toastIconHTML(icon, avatarUrl) {
 }
 // opts.onReply(text): a quick-reply field like macOS notifications, for
 // chat messages. Resolve to confirm; throw to keep the field open.
+// opts.action = { label, run }: a button in the toast ("Undo"); pressing
+// it runs run() and dismisses the toast. opts.onGone(): called once the
+// toast leaves, however it goes (klabUndo commits then). A pointer resting
+// on a toast holds it until it leaves. Returns the toast's element.
 function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
+  // showToast(msg, icon, { action, onGone, ms }) works too.
+  if (durationMs && typeof durationMs === 'object') { opts = durationMs; durationMs = opts.ms; }
   const host = document.getElementById('toastFlyout');
-  if (!host) return;
+  if (!host) return null;
 
-  // Cap the stack so a burst of calls doesn't grow the column forever —
-  // dismissed through the normal animated path (not a bare .remove())
-  // so evicting the oldest toast mid-burst collapses smoothly instead of
-  // just popping the rest of the stack up a slot.
+  // Cap the stack so a burst of calls doesn't grow the column forever.
   // Count only the ones still on their way in: a dismissed toast lingers
   // for its fade, and counting those made this loop spin forever (a
   // "Queue all" of 5+ tracks froze the page).
@@ -1127,6 +1130,17 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
     msgEl.firstChild.textContent = msg.title || '';
     msgEl.lastChild.textContent = msg.body || '';
   } else msgEl.textContent = msg;
+  if (opts?.onGone) item._onGone = opts.onGone;
+  if (opts?.action) {
+    const act = document.createElement('button');
+    act.type = 'button'; act.className = 'k-btn sm toast-action'; act.textContent = opts.action.label || 'Undo';
+    act.addEventListener('click', e => {
+      e.stopPropagation();
+      try { opts.action.run?.(); } catch (err) { console.error('[toast]', err); }
+      dismissToast(item);
+    });
+    item.appendChild(act);
+  }
   host.appendChild(item);
   // Double rAF so the enter transition reliably fires on the frame after insertion.
   requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
@@ -1135,16 +1149,33 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
   // the normal dismiss, rather than replacing it — clicking any toast
   // should always at least get it out of the way.
   item.addEventListener('click', e => {
-    if (e.target.closest('.toast-reply, .toast-reply-btn')) return; // replying isn't a click-through
+    if (e.target.closest('.toast-reply, .toast-reply-btn, .toast-action')) return; // replying isn't a click-through
     dismissToast(item); onClick?.();
   });
-  const armHide = ms => { clearTimeout(item._hide); item._hide = setTimeout(() => dismissToast(item), ms); };
-  armHide(durationMs ?? TOAST_DEFAULT_MS);
+  // The time left, held while the pointer rests on it.
+  let left = durationMs ?? TOAST_DEFAULT_MS, since = 0;
+  const armHide = ms => {
+    clearTimeout(item._hide);
+    left = ms; since = performance.now();
+    item._hide = setTimeout(() => dismissToast(item), ms);
+  };
+  armHide(left);
+  item.addEventListener('pointerenter', () => {
+    if (!item._hide || item._dismissed) return;
+    clearTimeout(item._hide); item._hide = 0;
+    left = Math.max(1500, left - (performance.now() - since));
+    item._held = true;
+  });
+  item.addEventListener('pointerleave', () => {
+    if (!item._held || item._dismissed || item.classList.contains('replying')) return;
+    item._held = false;
+    armHide(left);
+  });
 
   if (opts?.onReply) {
     item.classList.add('has-reply');
     const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'toast-reply-btn'; btn.textContent = 'Reply';
+    btn.type = 'button'; btn.className = 'toast-reply-btn k-btn sm'; btn.textContent = 'Reply';
     item.appendChild(btn);
     const form = document.createElement('form');
     form.className = 'toast-reply';
@@ -1153,7 +1184,8 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
     const input = form.querySelector('input');
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      clearTimeout(item._hide);          // stays while you type
+      clearTimeout(item._hide); item._hide = 0; // stays while you type
+      item._held = false;
       item.classList.add('replying');
       input.focus();
     });
@@ -1176,17 +1208,32 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
       }
     });
   }
+  return item;
 }
+// It fades up and out, then is taken out, and the toasts below it glide
+// up into its place (FLIP: transforms only, nothing re-lays out mid-way).
 function dismissToast(item) {
-  if (item._dismissed) return;
+  if (!item || item._dismissed) return;
   item._dismissed = true;
   clearTimeout(item._hide);
   item.classList.remove('visible');
   item.classList.add('leaving');
-  // Gone once its collapse is done (the fade ends first, and removing it
-  // then snapped the stack below it up mid-collapse).
-  item.addEventListener('transitionend', e => { if (e.propertyName === 'max-height') item.remove(); });
-  setTimeout(() => item.remove(), 700); // fallback if transitionend never fires (fade + delayed collapse together run under this)
+  const gone = () => {
+    if (!item.isConnected) return;
+    const host = item.parentElement;
+    const rest = host ? [...host.children].filter(el => el !== item) : [];
+    const motion = (window.klabMotionOk?.() ?? true) && item.animate;
+    const before = motion ? rest.map(el => el.getBoundingClientRect().top) : [];
+    item.remove();
+    if (motion) rest.forEach((el, i) => {
+      const dy = before[i] - el.getBoundingClientRect().top;
+      if (Math.abs(dy) > 0.5) el.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+    const f = item._onGone; item._onGone = null;
+    try { f?.(); } catch (err) { console.error('[toast]', err); }
+  };
+  item.addEventListener('transitionend', e => { if (e.target === item && e.propertyName === 'opacity') gone(); });
+  setTimeout(gone, 260); // if transitionend never comes (reduced motion, a hidden tab)
 }
 
 // ══════════════════════════════════════════

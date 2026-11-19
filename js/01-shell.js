@@ -470,7 +470,7 @@ function openBgColorModal() {
     const swatchBg = p.hex || (theme === 'dark' ? '#000000' : '#d9d6cf');
     return `<div class="bg-palette-swatch${selected ? ' selected' : ''}" data-bg-theme="${theme}" data-bg-hex="${esc(p.hex)}" style="background:${swatchBg}" title="${esc(p.label)}"></div>`;
   }).join('');
-  openChatModal('// background color', `
+  openChatModal('Background color', `
     <div class="bg-palette-group">
       <div class="settings-row-label">Dark mode</div>
       <div class="bg-palette-row" data-bg-group="dark">${paletteRowHTML(BG_PALETTE_DARK, 'dark')}</div>
@@ -542,10 +542,22 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     pane.scrollTo({ top: toTop ? 0 : pane.scrollHeight, behavior: 'smooth' });
   }
 
+  // The keyboard goes into it, and back where it was on closing.
+  let keyHintsReturn = null;
   function toggleKeyHints() {
-    document.getElementById('keyHintsBackdrop')?.classList.toggle('open');
-    SFX && SFX.play('click');
+    const bd = document.getElementById('keyHintsBackdrop');
+    if (!bd) return;
+    const opening = !bd.classList.contains('open');
+    if (opening) keyHintsReturn = document.activeElement;
+    bd.classList.toggle('open', opening);
+    SFX && SFX.play(opening ? 'sheet' : 'sheet_close');
+    if (opening) bd.querySelector('.add-app-modal')?.focus({ preventScroll: true });
+    else {
+      const back = keyHintsReturn; keyHintsReturn = null;
+      if (back?.isConnected && (!document.activeElement || document.activeElement === document.body || bd.contains(document.activeElement))) back.focus?.({ preventScroll: true });
+    }
   }
+  klabLayers.watch(document.getElementById('keyHintsBackdrop'), { kind: 'dialog', dim: true, close: () => toggleKeyHints() });
   document.getElementById('keyHintsBtn')?.addEventListener('click', toggleKeyHints);
   document.getElementById('feedbackBtn')?.addEventListener('click', () => {
     document.getElementById('headerMoreMenu')?.classList.remove('visible');
@@ -571,15 +583,16 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   // Real dialogs only. This used to match any "*backdrop*" and the album /
   // artist page, which is a view, not a dialog: with one open, Tab went
   // back to hopping between buttons.
+  // (The layer stack, js/00-util.js: menus, pickers, dialogs, Settings,
+  // the picture viewer.)
   function dialogOpen() {
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .klab-menu.visible')
-      || document.body.classList.contains('feed-composer-open');
+    return klabLayers.modal() || document.body.classList.contains('feed-composer-open');
   }
   // Something that fills the window is over the page: keys that move
   // around the page would do it unseen (Tab behind the full-screen player
   // switched to Photos, which paused the music).
-  const slideshowOpen = () => !!document.querySelector('.ss.open');
-  const covered = () => slideshowOpen() || !!document.querySelector('.fs-player.open');
+  const slideshowOpen = () => klabLayers.any('slideshow');
+  const covered = () => klabLayers.covered();
   function flipPage(dir) {
     const P = pages(), i = P.indexOf(currentPage());
     const to = P[(i + dir + P.length) % P.length];
@@ -638,10 +651,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // never fight a browser/OS shortcut
-    if (e.key === 'Escape') {
-      if (document.getElementById('keyHintsBackdrop')?.classList.contains('open')) toggleKeyHints();
-      return; // never swallow Escape — other open panels have their own handlers for it
-    }
+    if (e.key === 'Escape') return; // the layer stack's (js/00-util.js)
     if (isEditableTarget()) return;
     // Not behind a dialog: a number switched tabs and "n" skipped the song
     // under an open "Delete this?". "?" still closes the shortcuts panel.

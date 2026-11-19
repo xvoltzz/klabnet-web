@@ -120,14 +120,10 @@ window.klabBrowse = (function() {
   });
 
   // ── The bar's menus ──
-  const menu = document.createElement('div');
-  menu.className = 'ctx-menu browse-menu';
-  menu.setAttribute('role', 'menu');
-  document.body.appendChild(menu);
+  // klabMenu.at (js/00-util.js): radio items with a check, counts on the right.
   let menuFor = null;
-  function closeMenu() { menu.classList.remove('visible'); menuFor = null; }
+  function closeMenu() { if (menuFor?.getAttribute('aria-expanded') === 'true') klabMenu.close(); menuFor = null; }
   function openMenu(tab, anchor) {
-    if (menuFor === anchor && menu.classList.contains('visible')) { closeMenu(); return; }
     const f = filters[tab];
     const which = anchor.dataset.menu;
     const counts = key => {
@@ -155,28 +151,18 @@ window.klabBrowse = (function() {
       rows = [{ label: 'Any length', on: !f.kind, pick: () => { f.kind = null; } },
         ...KINDS.map(([k, l, test]) => ({ label: l, n: itemsOf(tab).filter(test).length, on: f.kind === k, pick: () => { f.kind = k; } }))];
     }
-    menu.innerHTML = `<div class="ctx-label">${label}</div>` + rows.map((r, i) =>
-      `<div class="ctx-item" role="menuitemradio" aria-checked="${r.on}" tabindex="-1" data-i="${i}"><i class="ti ${r.on ? 'ti-check' : ''}"></i><span>${esc(r.label)}</span>${r.n != null ? `<small>${r.n.toLocaleString()}</small>` : ''}</div>`).join('');
-    menu.onclick = e => {
-      const it = e.target.closest('[data-i]');
-      if (!it) return;
-      rows[+it.dataset.i].pick();
-      closeMenu();
-      SFX && SFX.play('click');
-      render(tab);
-    };
-    const r = anchor.getBoundingClientRect(), z = zoomFactor();
-    menu.style.top = (r.bottom / z + 6) + 'px';
-    menu.style.left = Math.max(8, Math.min(r.left / z, innerWidth / z - 240)) + 'px';
-    menu.style.right = 'auto';
-    menu.style.transformOrigin = 'top left';
-    menu.classList.add('visible');
     menuFor = anchor;
+    const shown = klabMenu.at(anchor, [
+      { section: label },
+      ...rows.map(r => ({ label: r.label, checked: !!r.on, hint: r.n != null ? r.n.toLocaleString() : '', action: () => {
+        menuFor = null;
+        r.pick();
+        SFX && SFX.play('click');
+        render(tab);
+      } })),
+    ], { align: 'start' });
+    if (!shown) menuFor = null;
   }
-  document.addEventListener('pointerdown', e => {
-    if (menuFor && !menu.contains(e.target) && !menuFor.contains(e.target)) closeMenu();
-  }, true);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && menuFor) { closeMenu(); e.stopPropagation(); } }, true);
 
   // ── Rendering ──
   // Where each item of the list sits (scrollTop units) and its element,

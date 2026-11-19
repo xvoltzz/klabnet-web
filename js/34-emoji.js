@@ -158,6 +158,7 @@
       '<div class="emo-foot"><span class="emo-big"></span><span class="emo-what"><b></b><small></small></span>' +
         '<button type="button" class="emo-del" title="Delete this emoji" hidden><i class="ti ti-trash"></i></button></div>';
     document.body.appendChild(panel);
+    klabLayers.watch(panel, { kind: 'popover', close: () => close(true) });
     railEl = panel.querySelector('.emo-rail');
     scrollEl = panel.querySelector('.emo-scroll');
     searchEl = panel.querySelector('.emo-search input');
@@ -368,8 +369,8 @@
       </div>
       <p class="emo-err" id="emoErr" hidden></p>
       <div class="dlg-actions">
-        <button class="ap-btn-queue" id="emoCancel">Cancel</button>
-        <button class="chat-connect-btn" id="emoSave" disabled>Add</button>
+        <button class="k-btn" id="emoCancel">Cancel</button>
+        <button class="k-btn primary" id="emoSave" disabled>Add</button>
       </div>`, null);
     const $ = id => document.getElementById(id);
     let file = null, previewUrl = null;

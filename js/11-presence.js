@@ -941,30 +941,18 @@
     }
   };
 
-  // ── Right-click context menu: Listen Party / Message ─────
-  const presenceCtxMenu = document.getElementById('presenceCtxMenu');
-  function hidePresenceCtx() { presenceCtxMenu.classList.remove('visible'); }
-  function showPresenceCtx(x, y, card) {
-    const username = card.dataset.username;
-    document.getElementById('presenceCtxLabel').textContent = username;
-    const listenItem = document.getElementById('presenceCtxListen');
-    listenItem.style.display = card.classList.contains('is-playable') ? 'flex' : 'none';
-    listenItem.onclick = () => { hidePresenceCtx(); playFromCard(card); };
-    document.getElementById('presenceCtxProfile').onclick = () => { hidePresenceCtx(); openProfileView(username); };
-    document.getElementById('presenceCtxMessage').onclick = () => { hidePresenceCtx(); messageUser(username); };
-    // See zoomFactor()'s comment above showCtx() — same zoomed-viewport
-    // fix-up, needed here too.
-    const z = zoomFactor();
-    presenceCtxMenu.style.left = Math.min(x / z, window.innerWidth / z - 210) + 'px';
-    presenceCtxMenu.style.top  = Math.min(y / z, window.innerHeight / z - 140) + 'px';
-    presenceCtxMenu.classList.add('visible');
-  }
+  // ── Right-click menu: Listen along / Profile / Message ─────
   const onCardContext = e => {
     const card = e.target.closest('.presence-card');
     // Not yourself — listen-partying or DMing your own card makes no sense.
     if (!card || card.classList.contains('is-me') || !card.dataset.username) return;
-    e.preventDefault();
-    showPresenceCtx(e.clientX, e.clientY, card);
+    const username = card.dataset.username;
+    klabMenu(e, [
+      { header: username },
+      { label: 'Listen along', icon: 'ti-headphones', hidden: !card.classList.contains('is-playable'), action: () => playFromCard(card) },
+      { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(username) },
+      { label: 'Message', icon: 'ti-message-2-plus', action: () => messageUser(username) },
+    ]);
   };
   // Delegate so Home's copies and rebuilt chat faces share the same keys.
   // Links retain interactive descendants (your note / Leave party).
@@ -977,8 +965,6 @@
   }, true);
   list.addEventListener('click', onCardClick);
   list.addEventListener('contextmenu', onCardContext);
-  document.addEventListener('click', e => { if (!presenceCtxMenu.contains(e.target)) hidePresenceCtx(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePresenceCtx(); });
 
   // ── API calls ────────────────────────────
   // Presence used to be entirely gated on having a song loaded — someone
@@ -1078,7 +1064,7 @@
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;
-    const text = await showInputDialog('// share a note', 'Everyone sees it until you write a new one (max 60 characters).', 'Note text', _notesCache.get(me) || '', { maxLength: 60 });
+    const text = await showInputDialog('Share a note', 'Everyone sees it until you write a new one (60 characters at most).', 'Note text', _notesCache.get(me) || '', { maxLength: 60 });
     if (text === null) return; // cancelled
     try {
       const r = await fetchTimeout('/api/notes', {

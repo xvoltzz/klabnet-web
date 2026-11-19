@@ -383,43 +383,174 @@ window.klabSoften = (function() {
   return soften;
 })();
 
-// ── Right-click menus ──
+// ── The layer stack ──
+// Everything that opens over the page says so here, so "what's on top"
+// has one answer and Escape / mouse Back close only that:
+//   klabLayers.push(el, { kind, close, dim }) → pop()   when it opens (call pop() when it closes)
+//   klabLayers.watch(el, { kind, close, dim, open })   or let it follow el by itself: it's open
+//       while open(el) says so (default: .open or .visible, and not [hidden])
+//   klabLayers.top(kinds?)     the top layer { el, kind, close, dim }, or null
+//   klabLayers.any(kinds?)     is anything open (kinds: a kind or a list of them)
+//   klabLayers.modal()         a menu, popover, dialog, sheet or viewer is open (keys stand aside)
+//   klabLayers.covered()       the full player or the slideshow fills the window
+//   klabLayers.closeTop()      closes the top one (not the album page); true if there was one
+//   klabLayers.isTop(el)
+// Kinds: 'menu', 'popover' (the pickers, the recap), 'dialog', 'sheet'
+// (Settings, a profile), 'viewer' (the picture viewer, the cropper),
+// 'player' (the full player), 'slideshow', 'terminal', and 'page' (the
+// album page: a view with a Back, which kinds left unsaid leave out).
+// One capture listener, ahead of every other, gives Escape to the top
+// layer only (a dialog over the full player used to close both). A
+// dimming layer over another leaves its own scrim clear (.k-scrim-off):
+// one dim, however many are stacked. Opening anything over a menu closes
+// the menu. Fires 'klab:layers' on document when the stack changes.
+const klabLayers = (() => {
+  const stack = [];
+  const MODAL = ['menu', 'popover', 'dialog', 'sheet', 'viewer'];
+  const match = kinds => kinds == null ? (l => l.kind !== 'page')
+    : typeof kinds === 'string' ? (l => l.kind === kinds) : (l => kinds.includes(l.kind));
+  function prune() {
+    for (let i = stack.length - 1; i >= 0; i--) if (stack[i].el && !stack[i].el.isConnected) stack.splice(i, 1);
+  }
+  function restack() {
+    let dimmed = false;
+    for (const l of stack) {
+      if (!l.dim) continue;
+      l.el?.classList.toggle('k-scrim-off', dimmed);
+      dimmed = true;
+    }
+  }
+  function changed() {
+    restack();
+    document.dispatchEvent(new CustomEvent('klab:layers'));
+  }
+  function remove(entry) {
+    const i = stack.indexOf(entry);
+    if (i < 0) return;
+    stack.splice(i, 1);
+    entry.el?.classList.remove('k-scrim-off');
+    changed();
+  }
+  function push(el, opts = {}) {
+    const old = el && stack.find(l => l.el === el);
+    if (old) remove(old); // opened again: back on top
+    const entry = { el, kind: opts.kind || 'dialog', close: opts.close, dim: !!opts.dim, onEscape: opts.onEscape };
+    // Something opening over a menu means the menu's moment has passed.
+    if (entry.kind !== 'menu') stack.filter(l => l.kind === 'menu').forEach(l => l.close?.());
+    stack.push(entry);
+    changed();
+    return () => remove(entry);
+  }
+  function watch(el, opts = {}) {
+    if (!el || el._klabLayerSync) return;
+    const isOpen = opts.open || (x => !x.hidden && (x.classList.contains('open') || x.classList.contains('visible')));
+    let pop = null;
+    const sync = () => {
+      const o = el.isConnected && isOpen(el);
+      if (o && !pop) pop = push(el, opts);
+      else if (!o && pop) { pop(); pop = null; }
+    };
+    new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    el._klabLayerSync = sync;
+    sync();
+  }
+  function top(kinds) {
+    // A watched layer that has just closed is dropped now, not when its
+    // MutationObserver gets round to it (two closeTop()s in a row each
+    // close one layer).
+    for (const l of stack.slice()) l.el?._klabLayerSync?.();
+    prune();
+    const ok = match(kinds);
+    for (let i = stack.length - 1; i >= 0; i--) if (ok(stack[i])) return stack[i];
+    return null;
+  }
+  const any = kinds => !!top(kinds);
+  function closeTop() {
+    const t = top();
+    if (!t || !t.close) return false;
+    t.close('back');
+    return true;
+  }
+  // An autocomplete open in a field (@mentions, :emoji:) takes Escape first.
+  const suggesting = () => [...document.querySelectorAll('.mention-suggest:not([hidden]), .emo-suggest:not([hidden])')]
+    .some(el => el.checkVisibility ? el.checkVisibility() : el.offsetParent);
+  addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+    const t = top();
+    if (!t || !t.close || suggesting()) return;
+    if (t.onEscape && t.onEscape(e) === false) return; // it handled the key itself
+    e.preventDefault(); e.stopImmediatePropagation();
+    t.close('escape');
+  }, true);
+  return {
+    push, watch, top, any, closeTop,
+    modal: () => any(MODAL),
+    covered: () => any(['player', 'slideshow']),
+    isTop: el => top()?.el === el,
+    list: () => (top(), stack.map(l => ({ kind: l.kind, el: l.el }))),
+  };
+})();
+window.klabLayers = klabLayers;
+
+// ── Menus ──
 // One menu element, built fresh from a list each time it opens:
-//   { label, icon, action, warn, hidden }   an item
-//   '-'                                      a divider (doubled or stray ones drop out)
-//   { header: 'text' }                       the small label on top
+//   { label, icon, action }          an item. Also: danger (red; `warn` is the old name),
+//                                    disabled, hint ('12', dim on the right), hidden,
+//                                    checked: true/false (a radio item with a check column)
+//   '-'                              a divider (doubled or stray ones drop out)
+//   { header: 'Song title' }         what the menu is about: sentence case, dim, one line
+//   { section: 'Sort by' }           a section label (Music's tracked caps)
 //   { reacts: ['👍', …], action: emoji => … } a row of emoji to react with
 // klabMenu(e, items) opens it at the pointer from a contextmenu event. It
 // leaves the browser's own menu alone for text fields, selected text, and
 // Shift+right-click, so copy, paste and spellcheck still work.
+// klabMenu.at(anchorEl, items, { align: 'start'|'end', gap, focus }) opens
+// it under the element (over it when there's no room below), lined up
+// with its left edge (or its right, for one on the right half). Pressing
+// the same element again closes it.
+// klabMenu.close() closes it. It closes by itself on a press outside, a
+// scroll, a resize, the window losing focus, changing page, and anything
+// opening over it (the full player, the album page, a dialog).
 const klabMenu = (() => {
-  let menu = null;
+  let menu = null, anchorEl = null, popLayer = null, hideTimer = 0;
   const isOpen = () => !!menu && menu.classList.contains('visible');
-  const close = () => { if (isOpen()) menu.classList.remove('visible'); };
+  function close() {
+    if (!isOpen()) return;
+    menu.classList.remove('visible');
+    anchorEl?.setAttribute?.('aria-expanded', 'false');
+    anchorEl = null;
+    const p = popLayer; popLayer = null; p?.();
+  }
 
   function setup() {
     menu = document.createElement('div');
     menu.className = 'ctx-menu klab-menu';
     menu.setAttribute('role', 'menu');
     document.body.appendChild(menu);
-    document.addEventListener('pointerdown', e => { if (isOpen() && !menu.contains(e.target)) close(); }, true);
+    document.addEventListener('pointerdown', e => {
+      if (isOpen() && !menu.contains(e.target) && !(anchorEl && anchorEl.contains(e.target))) close();
+    }, true);
     // Capture, so another right-click closes this one before whatever
     // handler it hits opens the next menu.
     document.addEventListener('contextmenu', e => { if (!menu.contains(e.target)) close(); }, true);
     addEventListener('scroll', e => { if (e.target !== menu) close(); }, true);
     addEventListener('resize', close);
     addEventListener('blur', close);
+    addEventListener('hashchange', close);
+    addEventListener('popstate', close);
     document.addEventListener('keydown', e => {
       if (!isOpen()) return;
-      const rows = [...menu.querySelectorAll('.ctx-item, .ctx-reacts button')];
+      const rows = [...menu.querySelectorAll('.ctx-item:not(.disabled), .ctx-reacts button')];
       const i = rows.indexOf(document.activeElement);
-      if (e.key === 'Escape') close();
-      else if (e.key === 'ArrowDown') rows[(i + 1) % rows.length]?.focus();
+      // (Escape is the layer stack's.)
+      if (e.key === 'ArrowDown') rows[(i + 1) % rows.length]?.focus();
       else if (e.key === 'ArrowUp') rows[i <= 0 ? rows.length - 1 : i - 1]?.focus();
+      else if (e.key === 'Home') rows[0]?.focus();
+      else if (e.key === 'End') rows[rows.length - 1]?.focus();
       else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) rows[i].click();
       else { if (e.key === 'Tab') close(); return; }
-      // The menu has the keyboard while it's open: Escape shouldn't also
-      // close the player or a dialog underneath it.
+      // The menu has the keyboard while it's open: arrows shouldn't also
+      // move the photo or the sidebar underneath it.
       e.preventDefault(); e.stopImmediatePropagation();
     }, true);
   }
@@ -436,7 +567,7 @@ const klabMenu = (() => {
     for (const it of items) {
       if (!it || it.hidden) continue;
       const last = out[out.length - 1];
-      if (it === '-' && (!last || last === '-' || last.header)) continue;
+      if (it === '-' && (!last || last === '-' || last.header || last.section)) continue;
       out.push(it);
     }
     while (out[out.length - 1] === '-') out.pop();
@@ -449,27 +580,11 @@ const klabMenu = (() => {
     catch (err) { console.error('[menu]', err); }
   }
 
-  function open(e, items) {
-    if (e.defaultPrevented || native(e)) return false;
-    // A link inside whatever was clicked gets the usual link actions too.
-    const a = e.target.closest?.('a[href]');
-    if (a && /^https?:/.test(a.href)) {
-      const at = items.findIndex(it => !it?.header);
-      items = [...items];
-      items.splice(at < 0 ? items.length : at, 0,
-        { label: 'Open link', icon: 'ti-external-link', action: () => window.open(a.href, '_blank', 'noopener') },
-        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(a.href, 'Link') },
-        '-');
-    }
-    const list = tidy(items);
-    if (!list.some(it => it.action)) return false;
-    e.preventDefault();
-    if (!menu) setup();
-    document.querySelectorAll('.ctx-menu.visible').forEach(m => m.classList.remove('visible'));
-
+  function build(list) {
     menu.replaceChildren(...list.map(it => {
-      if (it === '-') return Object.assign(document.createElement('div'), { className: 'ctx-divider' });
-      if (it.header) return Object.assign(document.createElement('div'), { className: 'ctx-label', textContent: it.header });
+      if (it === '-') return Object.assign(document.createElement('div'), { className: 'ctx-divider', role: 'separator' });
+      if (it.header) return Object.assign(document.createElement('div'), { className: 'ctx-title', textContent: it.header, title: it.header });
+      if (it.section) return Object.assign(document.createElement('div'), { className: 'ctx-label k-label', textContent: it.section });
       if (it.reacts) {
         const row = document.createElement('div');
         row.className = 'ctx-reacts';
@@ -480,15 +595,60 @@ const klabMenu = (() => {
         });
         return row;
       }
+      const radio = typeof it.checked === 'boolean';
       const row = document.createElement('div');
-      row.className = 'ctx-item' + (it.warn ? ' warn' : '');
+      row.className = 'ctx-item' + (it.danger || it.warn ? ' danger' : '') + (it.disabled ? ' disabled' : '') + (radio ? ' radio' : '');
       row.tabIndex = -1;
-      row.setAttribute('role', 'menuitem');
-      row.innerHTML = '<i class="ti ' + (it.icon || 'ti-point') + '"></i>';
-      row.append(it.label);
-      row.addEventListener('click', () => run(it.action));
+      row.setAttribute('role', radio ? 'menuitemradio' : 'menuitem');
+      if (radio) row.setAttribute('aria-checked', String(it.checked));
+      if (it.disabled) row.setAttribute('aria-disabled', 'true');
+      const icon = radio ? (it.checked ? 'ti-check' : '') : (it.icon || 'ti-point');
+      row.innerHTML = '<i class="ti ' + icon + '"></i>';
+      const text = document.createElement('span');
+      text.className = 'ctx-text';
+      text.textContent = it.label;
+      row.append(text);
+      if (it.hint != null && it.hint !== '') row.append(Object.assign(document.createElement('small'), { className: 'ctx-hint', textContent: String(it.hint) }));
+      if (!it.disabled) row.addEventListener('click', () => run(it.action));
+      if (it.ref) it.ref(row, text); // for a label that changes after it opens (a star's count)
       return row;
     }));
+  }
+
+  // Shown fresh (a right-click while one is open, or closing, starts a new
+  // one rather than the old one sliding to the new spot), measurable only
+  // once it's shown.
+  function show(list) {
+    if (!menu) setup();
+    document.querySelectorAll('.ctx-menu.visible').forEach(m => { if (m !== menu) m.classList.remove('visible'); });
+    close();
+    build(list);
+    menu.style.transition = 'none';
+    menu.classList.remove('visible');
+    void menu.offsetWidth;
+    menu.style.transition = '';
+    menu.style.left = menu.style.top = '0px';
+    menu.style.right = 'auto';
+    menu.classList.add('visible');
+    popLayer = klabLayers.push(menu, { kind: 'menu', close });
+    return { w: menu.offsetWidth, h: menu.offsetHeight, z: zoomFactor() };
+  }
+
+  function open(e, items) {
+    if (e.defaultPrevented || native(e)) return false;
+    // A link inside whatever was clicked gets the usual link actions too.
+    const a = e.target.closest?.('a[href]');
+    if (a && /^https?:/.test(a.href)) {
+      const at = items.findIndex(it => !it?.header && !it?.section);
+      items = [...items];
+      items.splice(at < 0 ? items.length : at, 0,
+        { label: 'Open link', icon: 'ti-external-link', action: () => window.open(a.href, '_blank', 'noopener') },
+        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(a.href, 'Link') },
+        '-');
+    }
+    const list = tidy(items);
+    if (!list.some(it => it.action)) return false;
+    e.preventDefault();
 
     // The menu key and Shift+F10 fire with no pointer position.
     let x = e.clientX, y = e.clientY;
@@ -496,16 +656,7 @@ const klabMenu = (() => {
       const r = e.target.getBoundingClientRect();
       x = r.left + 16; y = r.top + Math.min(r.height, 28);
     }
-    const z = zoomFactor();
-    // A right-click while one is open (or closing) starts a fresh one,
-    // rather than the old one sliding to the new spot.
-    menu.style.transition = 'none';
-    menu.classList.remove('visible');
-    void menu.offsetWidth;
-    menu.style.transition = '';
-    menu.style.left = menu.style.top = '0px';
-    menu.classList.add('visible'); // measurable only once it's shown
-    const w = menu.offsetWidth, h = menu.offsetHeight;
+    const { w, h, z } = show(list);
     const vw = innerWidth / z, vh = innerHeight / z;
     let left = x / z, top = y / z;
     // Like a native menu: flip to the other side of the pointer rather
@@ -515,10 +666,34 @@ const klabMenu = (() => {
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
     menu.style.transformOrigin = (left < x / z ? 'right' : 'left') + ' ' + (top < y / z ? 'bottom' : 'top');
+    if (!e.clientX && !e.clientY) menu.querySelector('.ctx-item:not(.disabled)')?.focus();
     return true;
   }
 
-  return Object.assign(open, { close });
+  function at(anchor, items, opts = {}) {
+    if (!anchor) return false;
+    if (isOpen() && anchorEl === anchor) { close(); return false; }
+    const list = tidy(items);
+    if (!list.some(it => it.action)) return false;
+    const { w, h, z } = show(list);
+    anchorEl = anchor;
+    anchor.setAttribute('aria-expanded', 'true');
+    const r = anchor.getBoundingClientRect(), gap = opts.gap ?? 6;
+    const vw = innerWidth / z, vh = innerHeight / z;
+    const L = r.left / z, R = r.right / z, T = r.top / z, B = r.bottom / z;
+    const end = opts.align ? opts.align === 'end' : (L + R) / 2 > vw / 2;
+    let left = end ? R - w : L;
+    left = Math.max(8, Math.min(left, vw - w - 8));
+    const below = B + gap + h <= vh - 8 || T - gap - h < 8;
+    const top = below ? Math.min(B + gap, vh - h - 8) : T - gap - h;
+    menu.style.left = left + 'px';
+    menu.style.top = Math.max(8, top) + 'px';
+    menu.style.transformOrigin = (end ? 'right' : 'left') + ' ' + (below ? 'top' : 'bottom');
+    if (opts.focus ?? (opts.event && opts.event.detail === 0)) menu.querySelector('.ctx-item:not(.disabled)')?.focus();
+    return true;
+  }
+
+  return Object.assign(open, { close, at, isOpen });
 })();
 
 // More reactions than a toolbar has room for: Feed's and Chat's "add
@@ -656,3 +831,71 @@ if (!KLAB_STARS) document.documentElement?.classList?.add('no-stars');
 let _pressedOn = null;
 document.addEventListener('pointerdown', e => { _pressedOn = e.target; }, true);
 window.klabPressedOn = el => _pressedOn === el;
+
+// ── Undo, instead of "Are you sure?" ──
+// klabUndo(label, { apply, undo, commit, ms = 5000, icon, failed })
+// does apply() now (hide the row, take it out of the list), shows
+// "<label> · Undo" for ms, and then runs commit() (the DELETE). Undo puts
+// it back with undo(), and commit never runs. Leaving the page (pagehide,
+// or the tab going hidden) runs every pending commit at once, so give
+// commit a request that survives that: fetch(url, { method: 'DELETE',
+// keepalive: true }). If commit throws or its promise rejects, undo()
+// runs and a toast says `failed` ("Couldn't do that"). Returns
+// { undo(), flush() }. For what the server can take back within seconds
+// (your own post or reply, a song off a playlist or the queue, a
+// favourite); Matrix redactions and deleting a playlist, station, video
+// or channel keep their confirm.
+//   klabUndo('Post deleted', {
+//     apply: () => { row.hidden = true; },
+//     undo: () => { row.hidden = false; },
+//     commit: async () => { const r = await fetch(url, { method: 'DELETE', keepalive: true }); if (!r.ok) throw r; },
+//   });
+const _klabUndoPending = new Set();
+function klabUndo(label, { apply, undo, commit, ms = 5000, icon = 'ti-trash', failed } = {}) {
+  let done = false, toast = null;
+  const job = {
+    flush() {
+      if (done) return; done = true;
+      _klabUndoPending.delete(job);
+      if (toast) dismissToast(toast);
+      const fail = err => {
+        console.error('[undo]', err);
+        try { undo?.(); } catch (e) { console.error('[undo]', e); }
+        showToast(failed || 'Couldn’t do that', 'ti-alert-triangle');
+      };
+      try { const r = commit?.(); if (r?.catch) r.catch(fail); } catch (err) { fail(err); }
+    },
+    undo() {
+      if (done) return; done = true;
+      _klabUndoPending.delete(job);
+      if (toast) dismissToast(toast);
+      try { undo?.(); } catch (err) { console.error('[undo]', err); }
+    },
+  };
+  try { apply?.(); } catch (err) { console.error('[undo]', err); return job; }
+  _klabUndoPending.add(job);
+  // Committed when its toast goes (its time up, or pushed out by newer
+  // ones), so a pointer resting on the toast holds it, Undo and all.
+  toast = showToast(label, icon, ms, null, null, { action: { label: 'Undo', run: () => job.undo() }, onGone: () => job.flush() });
+  if (!toast) setTimeout(() => job.flush(), ms);
+  return job;
+}
+addEventListener('pagehide', () => [..._klabUndoPending].forEach(j => j.flush()));
+document.addEventListener('visibilitychange', () => { if (document.hidden) [..._klabUndoPending].forEach(j => j.flush()); });
+
+// ── A view arriving ──
+// klabEnter(el) eases a view in once (opacity, and up from 6px, 200ms:
+// .k-enter in css/app.css), when motion is on. For a view swap (a Music
+// list, the album page's body, a Videos or Photos view), never on a poll
+// or a re-render of what's already there.
+function klabEnter(el) {
+  if (!el || !(window.klabMotionOk?.() ?? true)) return el;
+  el.classList.remove('k-enter');
+  void el.offsetWidth;
+  el.classList.add('k-enter');
+  el.addEventListener('animationend', function done(e) {
+    if (e.target !== el) return;
+    el.classList.remove('k-enter'); el.removeEventListener('animationend', done);
+  });
+  return el;
+}

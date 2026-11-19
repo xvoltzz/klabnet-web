@@ -677,7 +677,7 @@ function buildChannelItem(room, icon) {
     // above this actually leaves the room outright, not a client-side
     // hide, so it deserves the same confirm() every other permanent-delete
     // action in the app already gets.
-    if (!(await showConfirmDialog('// close conversation', 'Close this conversation? You can start a new one, but this closes it for good.', 'Close'))) return;
+    if (!(await showConfirmDialog('Close this conversation?', 'It closes for good. You can start a new one any time.', 'Close'))) return;
     try {
       await MatrixChat.client.leave(room.roomId);
       if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
@@ -955,7 +955,7 @@ async function editChatMessage(eventId) {
 
 async function deleteChatMessage(eventId) {
   const roomId = _chatActiveRoomId;
-  if (!roomId || !(await showConfirmDialog('// delete message', 'Delete this message for everyone?', 'Delete'))) return;
+  if (!roomId || !(await showConfirmDialog('Delete this message?', 'It’s gone for everyone in the conversation.', 'Delete'))) return;
   try { await MatrixChat.client.redactEvent(roomId, eventId); }
   catch (e) { showToast("Couldn't delete that message", 'ti-message-x'); }
 }
@@ -1024,7 +1024,7 @@ function chatConvMenu(e) {
     '-',
     { label: 'Close conversation', icon: 'ti-x', warn: true, hidden: !isDm, action: () => row.querySelector('.chat-channel-close')?.click() },
     { label: 'Leave channel', icon: 'ti-door-exit', warn: true, hidden: isDm || invited || isHome, action: async () => {
-      if (!(await showConfirmDialog('// leave channel', 'Leave ' + (room.name || 'this channel') + '? You can join again from Browse.', 'Leave', { danger: false }))) return;
+      if (!(await showConfirmDialog('Leave ' + (room.name || 'this channel') + '?', 'You can join again from Browse.', 'Leave', { danger: false }))) return;
       try {
         await MatrixChat.client.leave(room.roomId);
         if (_chatActiveRoomId === room.roomId) _chatActiveRoomId = null;
@@ -1992,14 +1992,14 @@ function feedbackModalHTML() {
     <input type="text" class="chat-modal-input" id="fbTitle" placeholder="Short summary" maxlength="${FEEDBACK_TITLE_MAX}" autocomplete="off" />
     <textarea class="chat-modal-input" id="fbBody" rows="4" placeholder="What happened, and what did you expect instead?" maxlength="${FEEDBACK_BODY_MAX}" style="resize:vertical;margin-top:6px;"></textarea>
     <div class="chat-modal-error" id="fbError" hidden></div>
-    <div class="dlg-actions"><button class="chat-connect-btn" id="fbSubmit">Post</button></div>
+    <div class="dlg-actions"><button class="k-btn primary" id="fbSubmit">Post</button></div>
     <div class="fb-reported">Posted</div>
     <div class="chat-modal-list" id="fbList"><div class="picker-empty">Loading…</div></div>
   `;
 }
 
 function openFeedbackModal() {
-  const fbGen = openChatModal('// feedback', feedbackModalHTML());
+  const fbGen = openChatModal('Feedback', feedbackModalHTML());
   const typeWrap = document.getElementById('fbType');
   const titleEl  = document.getElementById('fbTitle');
   const bodyEl   = document.getElementById('fbBody');
@@ -2035,9 +2035,9 @@ function openFeedbackModal() {
           (i.reply ? '<div class="fb-row-reply"><i class="ti ti-message"></i>' + esc(i.reply) + '</div>' : '') +
           ((admin || i.can_delete) ? '<div class="fb-row-acts">' +
             (admin ? (i.state === 'open'
-              ? '<button type="button" class="ap-btn-queue" data-act="done">Mark done</button><button type="button" class="ap-btn-queue" data-act="wontfix">Won’t fix</button><button type="button" class="ap-btn-queue" data-act="reply">Reply</button>'
-              : '<button type="button" class="ap-btn-queue" data-act="open">Reopen</button><button type="button" class="ap-btn-queue" data-act="reply">Reply</button>') : '') +
-            (i.can_delete ? '<button type="button" class="ap-btn-queue fb-del" data-act="delete">Delete</button>' : '') +
+              ? '<button type="button" class="k-btn sm" data-act="done">Mark done</button><button type="button" class="k-btn sm" data-act="wontfix">Won’t fix</button><button type="button" class="k-btn sm" data-act="reply">Reply</button>'
+              : '<button type="button" class="k-btn sm" data-act="open">Reopen</button><button type="button" class="k-btn sm" data-act="reply">Reply</button>') : '') +
+            (i.can_delete ? '<button type="button" class="k-btn sm danger fb-del" data-act="delete">Delete</button>' : '') +
           '</div>' : '') +
         '</div>' : '') +
       '</div>';
@@ -2073,14 +2073,14 @@ function openFeedbackModal() {
     }
     try {
       if (act === 'delete') {
-        if (!(await showConfirmDialog('// delete', 'Delete this post?', 'Delete'))) { openFeedbackModal(); return; }
+        if (!(await showConfirmDialog('Delete this post?', 'It’s gone for everyone.', 'Delete'))) { openFeedbackModal(); return; }
         await change(id, 'DELETE');
         openFeedbackModal();
         return;
       }
       if (act === 'reply') {
         const item = items.find(i => i.id === id);
-        const text = await showInputDialog('// reply', 'Shown under it to everyone.', 'Reply', item?.reply || '', { multiline: true, maxLength: FEEDBACK_BODY_MAX });
+        const text = await showInputDialog('Reply', 'Shown under it to everyone.', 'Reply', item?.reply || '', { multiline: true, maxLength: FEEDBACK_BODY_MAX });
         if (text !== null) await change(id, 'PATCH', { reply: text });
         openFeedbackModal();
         return;
@@ -2136,12 +2136,12 @@ function openChatModal(title, bodyHTML, onDismiss) {
   if (prev) prev(); // a dialog replaced by another still gets its answer
   const backdrop = document.getElementById('chatModalBackdrop');
   // Where the keyboard was, to go back to when it closes.
-  if (!backdrop.classList.contains('open')) _chatModalReturnFocus = document.activeElement;
-  // Titles arrive in the old "// lower case" style from all over; shown as titles.
-  const t = String(title || '').replace(/^\/\/\s*/, '');
-  document.getElementById('chatModalTitle').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  const opening = !backdrop.classList.contains('open');
+  if (opening) _chatModalReturnFocus = document.activeElement;
+  document.getElementById('chatModalTitle').textContent = String(title || '');
   document.getElementById('chatModalBody').innerHTML = bodyHTML;
   backdrop.classList.add('open');
+  if (opening) SFX && SFX.play('sheet');
   // The keyboard goes into it: its first field, if it has one.
   const field = backdrop.querySelector('#chatModalBody :is(input:not([type="hidden"]):not([type="file"]), textarea)');
   if (field) field.focus({ preventScroll: true });
@@ -2153,6 +2153,7 @@ function closeChatModal(gen) {
   const backdrop = document.getElementById('chatModalBackdrop');
   const wasOpen = backdrop.classList.contains('open');
   backdrop.classList.remove('open');
+  if (wasOpen) SFX && SFX.play('sheet_close');
   const f = _chatModalOnDismiss;
   _chatModalOnDismiss = null;
   if (f) f();
@@ -2175,12 +2176,13 @@ document.addEventListener('visibilitychange', () => {
 // use this modal too, and before chat was connected their X (and a click
 // outside) did nothing.
 document.getElementById('chatModalClose')?.addEventListener('click', closeChatModal);
+// A dialog's own Cancel (data-dlg-cancel) needs no wiring of its own.
+document.getElementById('chatModalBody')?.addEventListener('click', e => { if (e.target.closest('[data-dlg-cancel]')) closeChatModal(); });
 document.getElementById('chatModalBackdrop')?.addEventListener('click', e => {
   if (e.target.id === 'chatModalBackdrop' && klabPressedOn(e.target)) closeChatModal();
 });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('chatModalBackdrop')?.classList.contains('open')) closeChatModal();
-});
+// Escape and mouse Back close it when it's the top layer (js/00-util.js).
+klabLayers.watch(document.getElementById('chatModalBackdrop'), { kind: 'dialog', dim: true, close: () => closeChatModal() });
 
 // ── In-site replacements for prompt()/confirm() — same shared modal shell
 // as everything else above, so a text-entry or yes/no dialog looks like
@@ -2203,8 +2205,8 @@ function showInputDialog(title, message, placeholder, defaultValue, opts = {}) {
       <div class="chat-modal-row-sub" style="margin-bottom:8px;">${esc(message || '')}</div>
       ${fieldHTML}
       <div class="dlg-actions">
-        <button class="ap-btn-queue" id="inputDialogCancel">Cancel</button>
-        <button class="chat-connect-btn" id="inputDialogOk">OK</button>
+        <button class="k-btn" id="inputDialogCancel">Cancel</button>
+        <button class="k-btn primary" id="inputDialogOk">OK</button>
       </div>
     `, () => resolve(null));
     const field = document.getElementById('inputDialogField');
@@ -2226,8 +2228,8 @@ function showConfirmDialog(title, message, confirmLabel, { danger = true } = {})
     openChatModal(title, `
       <div class="chat-modal-row-sub" style="margin-bottom:14px;">${esc(message || '')}</div>
       <div class="dlg-actions">
-        <button class="ap-btn-queue" id="confirmDialogCancel">Cancel</button>
-        <button class="chat-connect-btn${danger ? ' is-danger' : ''}" id="confirmDialogOk">${esc(confirmLabel || 'Confirm')}</button>
+        <button class="k-btn" id="confirmDialogCancel">Cancel</button>
+        <button class="k-btn${danger ? ' danger' : ' primary'}" id="confirmDialogOk">${esc(confirmLabel || 'Confirm')}</button>
       </div>
     `, () => resolve(false));
     const cleanup = result => { resolve(result); closeChatModal(); };
@@ -2268,7 +2270,7 @@ function showChoiceDialog(title, items, emptyMessage) {
 }
 
 function openBrowseModal() {
-  openChatModal('// browse channels', `
+  openChatModal('Browse channels', `
     <div class="chat-modal-search"><i class="ti ti-hash"></i><input type="text" id="chatJoinById" placeholder="Or paste a room ID / #alias:server" autocomplete="off" /><button class="chat-modal-row-btn" id="chatJoinByIdBtn">Join</button></div>
     <div class="chat-modal-search" style="margin-top:6px;"><i class="ti ti-search"></i><input type="text" id="chatBrowseSearch" placeholder="Search channels…" autocomplete="off" /></div>
     <div class="chat-modal-list" id="chatBrowseList"><div class="picker-empty">Loading…</div></div>
@@ -2357,10 +2359,10 @@ function openBrowseModal() {
 let browseSeq = 0;
 
 function openCreateModal() {
-  openChatModal('// create channel', `
+  openChatModal('Create a channel', `
     <input type="text" class="chat-modal-input" id="chatCreateName" placeholder="Channel name" autocomplete="off" />
     <input type="text" class="chat-modal-input" id="chatCreateTopic" placeholder="Topic (optional)" autocomplete="off" style="margin-top:8px;" />
-    <div class="dlg-actions"><button class="chat-connect-btn" id="chatCreateSubmit">Create</button></div>
+    <div class="dlg-actions"><button type="button" class="k-btn" data-dlg-cancel>Cancel</button><button class="k-btn primary" id="chatCreateSubmit">Create</button></div>
     <div class="chat-modal-error" id="chatCreateError" hidden></div>
   `);
   const nameEl  = document.getElementById('chatCreateName');
@@ -2520,8 +2522,8 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
           </div>
           <input type="range" class="img-crop-zoom" min="0" max="100" value="0" />
           <div class="img-crop-actions dlg-actions">
-            <button type="button" class="ap-btn-queue" id="imgCropCancel">Cancel</button>
-            <button type="button" class="chat-connect-btn" id="imgCropUse">Use photo</button>
+            <button type="button" class="k-btn" id="imgCropCancel">Cancel</button>
+            <button type="button" class="k-btn primary" id="imgCropUse">Use photo</button>
           </div>
         </div>
       `;
@@ -2582,17 +2584,18 @@ function openImageCropper(file, { shape = 'rect', outputWidth = 480, outputHeigh
       stage.addEventListener('pointerup', () => { dragging = false; });
       stage.addEventListener('pointercancel', () => { dragging = false; });
 
+      let done = false;
       function cleanup(result) {
-        backdrop.remove();
-        document.removeEventListener('keydown', onEscape, true);
+        if (done) return; done = true;
+        // Fades out (css), then goes.
+        backdrop.classList.remove('open');
+        setTimeout(() => backdrop.remove(), 160);
         URL.revokeObjectURL(objectUrl);
         resolve(result);
       }
-      // Captured and stopped here: the shared modal's own Escape listener
-      // would otherwise also close the profile editor underneath, throwing
-      // away whatever was typed there.
-      function onEscape(e) { if (e.key === 'Escape') { e.stopImmediatePropagation(); cleanup(null); } }
-      document.addEventListener('keydown', onEscape, true);
+      // On the layer stack: Escape closes this, not the profile editor
+      // underneath (which would throw away whatever was typed there).
+      klabLayers.watch(backdrop, { kind: 'dialog', dim: true, close: () => cleanup(null) });
       backdrop.querySelector('#imgCropCancel').addEventListener('click', () => cleanup(null));
       backdrop.addEventListener('click', e => { if (e.target === backdrop && klabPressedOn(backdrop)) cleanup(null); });
       backdrop.querySelector('#imgCropUse').addEventListener('click', () => {
@@ -2664,6 +2667,8 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
     '</div>' +
     '<div class="img-view-hint">Scroll to zoom · drag to pan · double-click to reset</div>';
   document.body.appendChild(backdrop);
+  // On the layer stack (js/00-util.js): Escape and mouse Back close only this.
+  const popLayer = klabLayers.push(backdrop, { kind: 'viewer', close: () => close() });
 
   const stage = backdrop.querySelector('.img-view-stage');
   const imgEl = backdrop.querySelector('.img-view-img');
@@ -2830,6 +2835,7 @@ function openImageViewer({ thumbSrc, mxc, fullSrc, alt = '', framed = false, dow
     fullAbort.abort();
     if (fullImage) fullImage.onload = null;
     _imgViewerOpen = false;
+    popLayer();
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     // Fades out the way it faded in, then lets go of the picture.
@@ -2903,7 +2909,7 @@ async function openProfileModal() {
   // Not loaded yet (or the last load failed): ask before filling the form.
   if (!_profiles.has(myUsername)) await fetchProfiles();
   const myProfile = _profiles.get(myUsername) || { chat_color: '', bio: '', banner_mxc: '' };
-  const profileGen = openChatModal('// edit profile', `
+  const profileGen = openChatModal('Edit profile', `
     <div class="profile-modal-banner-row">
       <div class="profile-modal-banner" id="profileBannerPreview">
         <div class="profile-modal-banner-overlay"><i class="ti ti-camera"></i> Banner</div>
@@ -2927,7 +2933,7 @@ async function openProfileModal() {
       <div class="profile-modal-color-swatch auto" data-color="" title="Auto"></div>
       ${CHAT_NAME_COLORS.map(c => `<div class="profile-modal-color-swatch" data-color="${c}" style="background:${c}" title="${c}"></div>`).join('')}
     </div>
-    <div class="dlg-actions"><button class="chat-connect-btn" id="profileSaveBtn">Save</button></div>
+    <div class="dlg-actions"><button type="button" class="k-btn" data-dlg-cancel>Cancel</button><button class="k-btn primary" id="profileSaveBtn">Save</button></div>
     <div class="chat-modal-error" id="profileError" hidden></div>
   `);
 
@@ -3094,7 +3100,7 @@ async function openProfileView(username) {
   if (!username) return;
   const client = MatrixChat.client;
   const profile = _profiles.get(username) || {};
-  openChatModal('// profile', `
+  openChatModal('Profile', `
     <div class="profile-view-banner" id="profileViewBanner"></div>
     <div class="profile-view-avatar-row">
       <div class="profile-view-avatar" id="profileViewAvatar">${esc((username[0] || '?').toUpperCase())}</div>
@@ -3107,10 +3113,10 @@ async function openProfileView(username) {
     ${username === window.KLAB_USER?.username
       // Your own (the sidebar's "you"): change it, rather than message yourself.
       ? `<div class="dlg-actions">
-          <button class="ap-btn-queue" id="profileViewNoteBtn"><i class="ti ti-message-circle"></i> Set a note</button>
-          <button class="chat-connect-btn" id="profileViewEditBtn"><i class="ti ti-pencil"></i> Edit profile</button>
+          <button class="k-btn" id="profileViewNoteBtn"><i class="ti ti-message-circle"></i> Set a note</button>
+          <button class="k-btn primary" id="profileViewEditBtn"><i class="ti ti-pencil"></i> Edit profile</button>
         </div>`
-      : `<div class="dlg-actions"><button class="chat-connect-btn" id="profileViewMessageBtn"><i class="ti ti-message-2-plus"></i> Message</button></div>`}
+      : `<div class="dlg-actions"><button class="k-btn primary" id="profileViewMessageBtn"><i class="ti ti-message-2-plus"></i> Message</button></div>`}
   `);
   document.getElementById('profileViewMessageBtn')?.addEventListener('click', () => {
     closeChatModal();

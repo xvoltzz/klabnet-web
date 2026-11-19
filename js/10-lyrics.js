@@ -107,8 +107,9 @@ document.addEventListener('keydown', e => {
   // Not under a dialog or an open menu (a number of them used to skip the
   // song behind "Delete this?"), and Space on a focused button presses
   // that button rather than playing or pausing the music.
-  if (e.code !== 'Escape' && (document.body.classList.contains('feed-composer-open') ||
-      document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .ctx-menu.visible, .ss.open'))) return;
+  // (Escape is the layer stack's: it closes only what's on top.)
+  if (e.code === 'Escape') return;
+  if (document.body.classList.contains('feed-composer-open') || klabLayers.modal() || klabLayers.any('slideshow')) return;
   // Only one reached from the keyboard, though: Chromium and Firefox leave
   // focus on a button you clicked, and Space then pressed Next (or the
   // heart) again instead of pausing. (:focus-visible can't tell: Chrome
@@ -127,15 +128,10 @@ document.addEventListener('keydown', e => {
     document.getElementById('volIcon')?.closest('button')?.click();
   } else if (e.code === 'KeyF' && document.getElementById('fsPlayer')?.classList.contains('open')) {
     closeFS();
-  } else if (e.code === 'Escape') {
-    // Picker no longer has an open/closed state to escape out of — it's
-    // just the Music tab's content. Album/artist detail view still does
-    // (handled by the ap-panel IIFE's own Escape listener), so only the
-    // fullscreen player needs handling here.
-    const fs = document.getElementById('fsPlayer');
-    if (fs?.classList.contains('open')) { closeFS(); return; }
   }
 });
+// The full player is a layer: Escape and mouse Back close it when nothing's over it.
+klabLayers.watch(document.getElementById('fsPlayer'), { kind: 'player', close: () => closeFS() });
 
 // ── Scroll wheel volume control ──────────────────
 // Scroll wheel volume — only fires when hovering over the vol slider area
@@ -501,7 +497,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   function syncTabs() {
     tabs.forEach(t => t.setAttribute('aria-selected', String((t.dataset.fsPane === 'lyrics') === _lyricsOpen)));
     const on = tabs.find(t => t.getAttribute('aria-selected') === 'true');
-    if (ink && on?.offsetWidth) { ink.style.setProperty('--ink-x', on.offsetLeft + 'px'); ink.style.setProperty('--ink-w', on.offsetWidth + 'px'); }
+    if (ink && on?.offsetWidth) { ink.style.setProperty('--ink-x', on.offsetLeft + 'px'); ink.style.setProperty('--ink-s', on.offsetWidth); }
   }
   lyricsBtn.addEventListener('click', syncTabs);
   tabs.forEach(t => t.addEventListener('click', syncTabs));

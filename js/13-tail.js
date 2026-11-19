@@ -20,13 +20,15 @@
   //   2. a Back button showing on the page: press it;
   //   3. otherwise nothing.
   // Forward has nothing on the page to mirror, so it does nothing.
-  const OVERLAYS = '.fs-player.open, .ss.open, .add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop, .img-crop-backdrop.open, .klab-menu.visible, .ctx-menu.visible, .hdr-more-menu.visible, .modal-backdrop.open, .drawer-backdrop.open, [id$="Backdrop"].open';
+  // Whatever's over the page is on the layer stack (js/00-util.js), which
+  // closes the top one. These are left for anything that isn't on it yet.
+  const OVERLAYS = '.modal-backdrop.open, .drawer-backdrop.open, [id$="Backdrop"].open';
   // The page's own Back buttons: the album/artist page's arrow, "← Genres",
   // a conversation's back to the list (phone layout).
   const BACKS = '#apBack, .picker-back, [data-chat-back], #chatMobileBack';
   const shown = el => el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : el.offsetParent !== null;
   function mouseBack() {
-    if (document.querySelector('.fs-player.open')) { closeFS(); return; }
+    if (klabLayers.closeTop()) return;
     if ([...document.querySelectorAll(OVERLAYS)].some(shown) || document.body.classList.contains('feed-composer-open')) {
       const t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document;
       t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
@@ -316,11 +318,16 @@ function sampleImageColor(imgUrl) {
       .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
       .replace(/&gt;/g,'>').replace(/&quot;/g,'"').trim();
   }
+  // On the layer stack as a 'page': a view with a Back, not something over
+  // the page, so it doesn't count as a dialog (keys still work) but opening
+  // it closes an open menu.
+  let popPage = null;
   function panelOpen() {
     // Inline in the Music tab now — no fixed-position modal to fade in over
     // content, so a plain class toggle is enough (see the scoped
     // .tab-panel[data-tab-panel="music"] .ap-panel/.ap-panel.open CSS rules).
     panel.classList.add('open');
+    popPage?.(); popPage = klabLayers.push(panel, { kind: 'page', close: () => panelClose() });
     document.body.classList.add('ap-open');
     SFX && SFX.play('nav');
   }
@@ -330,6 +337,7 @@ function sampleImageColor(imgUrl) {
     // revealed the instant this detail view hides.
     panel.classList.remove('open');
     document.body.classList.remove('ap-open');
+    popPage?.(); popPage = null;
     setNavRow(null);
     _stack = [];
     // A page still loading mustn't fill the closed panel (and set its
@@ -365,8 +373,9 @@ function sampleImageColor(imgUrl) {
   // closed itself first and then this found nothing open and closed the
   // page too, so one Escape took two things away.
   window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && panel.classList.contains('open') &&
-        !document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .img-crop-backdrop.open, .ctx-menu.visible, .hdr-more-menu.visible, .fs-player.open, .ss.open')) panelClose();
+    // (Nothing on the layer stack over it: that took the Escape already.)
+    if (e.key === 'Escape' && panel.classList.contains('open') && !klabLayers.any() &&
+        !document.body.classList.contains('feed-composer-open')) panelClose();
   }, true);
   trapFocusWithin(panel.querySelector('.ap-card'), () => panel.classList.contains('open'));
   scroll.addEventListener('scroll', () => {

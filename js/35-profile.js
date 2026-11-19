@@ -37,7 +37,7 @@
   function build() {
     el = document.createElement('div');
     el.className = 'pf-backdrop';
-    el.innerHTML = '<div class="pf" role="dialog" aria-modal="true" aria-label="Profile"><div class="pf-scroll"></div></div>';
+    el.innerHTML = '<div class="pf" tabindex="-1" role="dialog" aria-modal="true" aria-label="Profile"><div class="pf-scroll"></div></div>';
     document.body.appendChild(el);
     el.addEventListener('click', e => {
       if (e.target === el || e.target.closest('[data-pf-close]')) return close();
@@ -58,16 +58,17 @@
       else if (act === 'edit') { close(); openProfileModal(); }
       else if (act === 'note') { close(); window.klabEditNote?.(); }
     });
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && el.classList.contains('open') && !document.getElementById('chatModalBackdrop')?.classList.contains('open')) {
-        e.preventDefault(); e.stopPropagation(); close();
-      }
-    }, true);
+    // Escape and mouse Back close it when it's the top layer (js/00-util.js).
+    klabLayers.watch(el, { kind: 'sheet', dim: true, close: () => close() });
   }
 
+  let returnFocus = null;
   function close() {
     if (!el?.classList.contains('open')) return;
     el.classList.remove('open');
+    SFX && SFX.play('sheet_close');
+    const back = returnFocus; returnFocus = null;
+    if (back?.isConnected && (!document.activeElement || document.activeElement === document.body || el.contains(document.activeElement))) back.focus?.({ preventScroll: true });
     seq++;
     blobUrls.forEach(u => URL.revokeObjectURL(u));
     blobUrls = [];
@@ -82,6 +83,7 @@
     pane = 'posts';
     blobUrls.forEach(u => URL.revokeObjectURL(u));
     blobUrls = [];
+    if (!el.classList.contains('open')) { returnFocus = document.activeElement; SFX && SFX.play('sheet'); }
     el.classList.add('open');
     el.querySelector('.pf-scroll').innerHTML = ''; // not the last person's pictures
     paint();
@@ -140,8 +142,8 @@
           <div class="pf-sub">@${esc(who)} · <span class="pf-state${p.online ? (p.away ? ' away' : ' on') : ''}">${esc(state)}</span>${p.platformInfo?.[1] ? ' · ' + esc(p.platformInfo[1]) : ''}</div>
         </div>
         <div class="pf-actions">${me
-          ? '<button type="button" class="ap-btn-queue" data-pf-act="note"><i class="ti ti-message-circle"></i>Set a note</button><button type="button" class="chat-connect-btn" data-pf-act="edit"><i class="ti ti-pencil"></i>Edit profile</button>'
-          : '<button type="button" class="chat-connect-btn" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>'}</div>
+          ? '<button type="button" class="k-btn" data-pf-act="note"><i class="ti ti-message-circle"></i>Set a note</button><button type="button" class="k-btn primary" data-pf-act="edit"><i class="ti ti-pencil"></i>Edit profile</button>'
+          : '<button type="button" class="k-btn primary" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>'}</div>
       </div>
       ${p.note ? `<div class="pf-note">${esc(p.note)}</div>` : ''}
       ${prof.bio ? `<p class="pf-bio">${esc(prof.bio)}</p>` : ''}
@@ -197,7 +199,7 @@
       const list = vids && vids.who === who ? vids.list : null;
       html += !list ? '<p class="pf-empty">Loading…</p>'
         : list.length ? '<div class="pf-videos">' + list.map(v => window.klabVideoCardHTML?.(v, { noFace: true, noUser: true }) || '').join('') + '</div>' +
-            (vids.total > list.length ? '<button type="button" class="ap-btn-queue pf-more" data-pf-channel>All ' + vids.total + ' videos</button>' : '')
+            (vids.total > list.length ? '<button type="button" class="k-btn pf-more" data-pf-channel>All ' + vids.total + ' videos</button>' : '')
           : '<p class="pf-empty">No videos yet</p>';
     } else if (pane === 'gold') {
       html += d.gold.length ? '<div class="pf-posts">' + d.gold.map(p => postHTML(p, true)).join('') + '</div>'

@@ -293,8 +293,8 @@ document.getElementById('musicNewPlaylistBtn')?.addEventListener('click', async 
 });
 
 async function plConfirmDelete(p) {
-  const ok = await showConfirmDialog('// delete playlist',
-    `Delete "${p.name}"? ${p.featured ? 'It goes for everyone who saved it too. ' : ''}This can't be undone.`, 'Delete');
+  const ok = await showConfirmDialog(`Delete “${p.name}”?`,
+    `${p.featured ? 'It goes for everyone who saved it too, and it' : 'It'} can’t be brought back.`, 'Delete');
   if (!ok) return;
   try {
     await plDelete(p.id);
@@ -681,14 +681,14 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
     let coverBlob = null, coverGone = false, preview = '', made = '';
     let coverToSend = () => Promise.resolve(null);
 
-    const gen = openChatModal(pl ? '// playlist details' : '// new playlist', `
+    const gen = openChatModal(pl ? 'Playlist details' : 'New playlist', `
       <div class="pl-edit">
         <div class="pl-edit-top">
           ${rich ? `<div class="pl-edit-coverbox">
             <button type="button" class="pl-edit-cover" id="plEditCover" title="Choose a picture"></button>
             <div class="pl-edit-cover-btns">
-              <button type="button" class="ap-btn-queue" id="plEditMake" title="A cover from an emoji or a few letters">Make one</button>
-              <button type="button" class="ap-btn-queue" id="plEditNoCover" hidden>Remove</button>
+              <button type="button" class="k-btn sm" id="plEditMake" title="A cover from an emoji or a few letters">Make one</button>
+              <button type="button" class="k-btn sm" id="plEditNoCover" hidden>Remove</button>
             </div>
             <input type="file" accept="image/*" id="plEditFile" hidden />
           </div>` : ''}
@@ -719,8 +719,8 @@ function openPlaylistEditor(pl, { songs = [] } = {}) {
         </div>` : ''}
         <div class="chat-modal-error" id="plEditError" hidden></div>
         <div class="dlg-actions">
-          <button class="ap-btn-queue" id="plEditCancel">Cancel</button>
-          <button class="chat-connect-btn" id="plEditSave">${pl ? 'Save' : 'Create'}</button>
+          <button class="k-btn" id="plEditCancel">Cancel</button>
+          <button class="k-btn primary" id="plEditSave">${pl ? 'Save' : 'Create'}</button>
         </div>
       </div>`, () => finish(null));
 
@@ -852,7 +852,7 @@ async function addSongsToPlaylistFlow(songs, what) {
   const open = _pls.filter(p => p.mine || (p.featured && p.collab)).sort((a, b) => (b.mine - a.mine) || (b.saved - a.saved));
   let target = null;
   if (open.length) {
-    const idx = await showChoiceDialog(`// add ${what || `"${songs[0].title}"`} to...`, [
+    const idx = await showChoiceDialog(`Add ${what || `“${songs[0].title}”`} to…`, [
       { label: 'New playlist…', sub: 'Start one with ' + (songs.length === 1 ? 'this song' : 'these ' + songs.length) },
       ...open.map(p => ({ label: p.name, sub: `${p.mine ? '' : p.owner + ' · '}${klabCount(p.count, 'song')}` })),
     ]);

@@ -756,7 +756,7 @@
         },
       };
     });
-    klabMenu(e, [{ header: 'Play on' }, ...rows]);
+    klabMenu.at(e.currentTarget || e.target, [{ section: 'Play on' }, ...rows], { event: e });
   }
   for (const b of [dockBtn, fsBtn]) b?.addEventListener('click', openDevices);
 

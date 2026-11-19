@@ -486,12 +486,12 @@
     klabMenu(e, [
       { header: c.name },
       { label: 'Rename', icon: 'ti-pencil', action: async () => {
-        const name = await showInputDialog('// rename channel', '', 'Channel name', c.name, { maxLength: 32 });
+        const name = await showInputDialog('Rename channel', '', 'Channel name', c.name, { maxLength: 32 });
         if (name && name !== c.name) manage(() => api('PATCH', '/api/voice/channels/' + c.id, { name }));
       } },
       { label: 'Delete', icon: 'ti-trash', warn: true, action: async () => {
         const n = membersOf(c).length;
-        const ok = await showConfirmDialog('// delete channel', 'Delete "' + c.name + '"?' + (n ? ' ' + klabCount(n, 'person', 'people') + ' in it will be disconnected.' : ''), 'Delete');
+        const ok = await showConfirmDialog('Delete “' + c.name + '”?', (n ? klabCount(n, 'person', 'people') + ' in it will be disconnected, and it' : 'It') + ' goes for everyone.', 'Delete');
         if (ok) manage(() => api('DELETE', '/api/voice/channels/' + c.id));
       } },
     ]);
@@ -499,7 +499,7 @@
 
   $('vcAddBtn').addEventListener('click', async () => {
     sfx('click');
-    const name = await showInputDialog('// new voice channel', 'Name the channel.', 'Channel name', '', { maxLength: 32 });
+    const name = await showInputDialog('New voice channel', 'Name the channel.', 'Channel name', '', { maxLength: 32 });
     if (name) manage(() => api('POST', '/api/voice/channels', { name }));
   });
   $('vcMute').addEventListener('click', toggleMute);

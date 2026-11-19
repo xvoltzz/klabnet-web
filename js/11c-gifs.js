@@ -102,7 +102,8 @@ window.klabGifPicker = (function() {
       if (panel.hidden || panel.contains(e.target) || anchorEl?.contains(e.target) || e.target.closest?.('.add-app-backdrop, .klab-menu')) return; // its own "Remove this GIF?" dialog
       close();
     }, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden && !document.querySelector('.add-app-backdrop.open')) close(); });
+    // Escape and mouse Back: the layer stack's (js/00-util.js).
+    klabLayers.watch(panel, { kind: 'popover', open: el => !el.hidden, close: () => close() });
     window.addEventListener('resize', () => { if (!panel.hidden) place(); });
   }
 

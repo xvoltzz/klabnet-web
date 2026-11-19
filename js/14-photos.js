@@ -994,7 +994,7 @@
   $('phDelete').addEventListener('click', async () => {
     if (sel < 0) return;
     const post = items[sel].post;
-    if (!(await showConfirmDialog('// delete photo post', 'Delete this post and its photos? This can’t be undone.', 'Delete'))) return;
+    if (!(await showConfirmDialog('Delete this post?', 'Its photos go with it, for everyone. This can’t be undone.', 'Delete'))) return;
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}`, { method: 'DELETE' }, 10000);
       if (!r.ok) throw new Error();
@@ -1029,13 +1029,13 @@
     editTags.set(editing.tags || []);
     $('phEditError').hidden = true;
     editBackdrop.classList.add('open');
-    SFX && SFX.play('open');
+    SFX && SFX.play('sheet');
     $('phEditDate').focus();
   });
   const closeEdit = () => { editBackdrop.classList.remove('open'); editing = null; };
   $('phEditClose').addEventListener('click', closeEdit);
   editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop && klabPressedOn(editBackdrop)) closeEdit(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && editBackdrop.classList.contains('open')) closeEdit(); });
+  klabLayers.watch(editBackdrop, { kind: 'dialog', dim: true, close: closeEdit });
   trapFocusWithin(editBackdrop.querySelector('.add-app-modal'), () => editBackdrop.classList.contains('open'));
   $('phEditSave').addEventListener('click', async () => {
     if (!editing) return;
@@ -1344,7 +1344,7 @@
     // A right-click menu too: this handler runs before the menu's own (window
     // capture beats document capture), so ↑/↓ moved the photo instead of the
     // menu's highlight, under a menu still about the old one.
-    return !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-crop-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open, .ss.open');
+    return klabLayers.modal() || klabLayers.covered();
   }
   window.addEventListener('keydown', e => {
     if (!isActive() || e.metaKey || e.ctrlKey || e.altKey || anyModalOpen()) return;
@@ -1383,7 +1383,7 @@
 
   function openComposer(files) {
     backdrop.classList.add('open');
-    SFX && SFX.play('open');
+    SFX && SFX.play('sheet');
     loadRoster();
     $('phShotDate').max = localToday();
     if (files && files.length) addFiles(files);
@@ -1392,7 +1392,7 @@
   function closeComposer() {
     backdrop.classList.remove('open');
     stopPreview();
-    SFX && SFX.play('close');
+    SFX && SFX.play('sheet_close');
   }
   function resetComposer() {
     drafts.forEach(d => { d.xhr?.abort(); if (d.preview) URL.revokeObjectURL(d.preview); });
@@ -1408,7 +1408,7 @@
   $('phEmptyPost').addEventListener('click', () => openComposer());
   $('phComposeClose').addEventListener('click', closeComposer);
   backdrop.addEventListener('click', e => { if (e.target === backdrop && klabPressedOn(backdrop)) closeComposer(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && backdrop.classList.contains('open')) closeComposer(); });
+  klabLayers.watch(backdrop, { kind: 'dialog', dim: true, close: closeComposer });
   trapFocusWithin(backdrop.querySelector('.add-app-modal'), () => backdrop.classList.contains('open'));
   fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
 
@@ -1483,7 +1483,7 @@
     const src = d.preview || (d.id ? fileUrl(d.id, 'thumb') : '');
     const state = d.status === 'done' ? ''
       : d.status === 'error' ? `<div class="ph-tile-state error" title="${esc(d.error || '')}"><i class="ti ti-alert-triangle"></i><span>${esc(d.error || 'failed')}</span></div>`
-      : `<div class="ph-tile-state"><div class="ph-tile-bar" style="width:${Math.round((d.progress || 0) * 100)}%"></div></div>`;
+      : `<div class="ph-tile-state"><div class="ph-tile-bar" style="transform:scaleX(${(d.progress || 0).toFixed(3)})"></div></div>`;
     return (src ? `<img src="${esc(src)}" alt="" draggable="false" />` : '<i class="ti ti-photo ph-tile-ph"></i>') + state +
       `<button type="button" class="ph-tile-x" data-remove="${d.key}" title="Remove"><i class="ti ti-x"></i></button>`;
   }
@@ -1491,7 +1491,7 @@
     const el = grid.querySelector(`.ph-tile[data-key="${d.key}"]`);
     if (!el) return;
     const bar = el.querySelector('.ph-tile-bar');
-    if (bar && d.status === 'uploading') bar.style.width = Math.round((d.progress || 0) * 100) + '%';
+    if (bar && d.status === 'uploading') bar.style.transform = 'scaleX(' + (d.progress || 0).toFixed(3) + ')';
     else el.innerHTML = tileHTML(d);
   }
   // One upload finishing touches only its own tile, and the details editor

@@ -1343,7 +1343,7 @@
   }
 
   async function deletePost(id) {
-    if (!(await showConfirmDialog('// delete post', 'Delete this post?', 'Delete'))) return;
+    if (!(await showConfirmDialog('Delete this post?', 'It’s gone for everyone, with its replies.', 'Delete'))) return;
     try {
       const r = await fetchTimeout('/api/posts/' + id, { method: 'DELETE' }, 8000);
       if (r.ok) {
@@ -1580,7 +1580,7 @@
     // Fired immediately with zero confirmation before — deletePost() just
     // above already confirms; a reply is the same class of destructive,
     // hard-to-undo action.
-    if (!(await showConfirmDialog('// delete reply', 'Delete this reply?', 'Delete'))) return;
+    if (!(await showConfirmDialog('Delete this reply?', 'It’s gone for everyone.', 'Delete'))) return;
     try {
       const r = await fetchTimeout(`/api/posts/${postId}/replies/${replyId}`, { method: 'DELETE' }, 8000);
       if (!r.ok) return;

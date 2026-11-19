@@ -323,6 +323,7 @@
   }
 
   // ── Open / close ──
+  let popLayer = null; // on the layer stack while it's up (js/00-util.js)
   function open() {
     if (isOpen || !P() || !P().items().length) return;
     isOpen = true;
@@ -334,6 +335,7 @@
     tickClock();
     clockTimer = setInterval(tickClock, 15000);
     document.body.classList.add('ss-on');
+    popLayer = klabLayers.push(session, { kind: 'slideshow', close: () => close() });
     requestAnimationFrame(() => { if (root === session && isOpen) session.classList.add('open'); });
     // "Mine" left on from last time, with nothing of yours to show.
     if (opts.mine && !hasMine() && !P().hasOlder()) { opts.mine = false; save(); syncBar(); }
@@ -365,6 +367,7 @@
     if (pending) { pending.src = ''; pending = null; }
     if (document.fullscreenElement === root) document.exitFullscreen?.().catch(() => {});
     document.body.classList.remove('ss-on');
+    popLayer?.(); popLayer = null;
     const el = root;
     root = null;
     el.classList.remove('open');

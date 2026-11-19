@@ -149,16 +149,16 @@
   const STATUS_ICON = { '': 'ti-point', away: 'ti-moon', dnd: 'ti-bell-off', invisible: 'ti-eye-off' };
   me.addEventListener('click', () => {
     SFX && SFX.play('click');
-    const user = window.KLAB_USER?.username, now = klabStatus(), r = me.getBoundingClientRect();
-    klabMenu({ target: me, clientX: r.left + 8, clientY: r.top - 4, shiftKey: false, defaultPrevented: false, preventDefault() {} }, [
-      { header: 'Status' },
+    const user = window.KLAB_USER?.username, now = klabStatus();
+    klabMenu.at(me, [
+      { section: 'Status' },
       ...Object.entries(KLAB_STATUSES).map(([k, v]) => ({
         label: v.label, icon: k === now ? 'ti-check' : STATUS_ICON[k],
         action: () => { setKlabStatus(k); paint(); },
       })),
       '-',
       { label: 'Your profile', icon: 'ti-user', action: () => user && typeof openProfileView === 'function' && openProfileView(user) },
-    ]);
+    ], { align: 'start' });
   });
   window.addEventListener('klab:status', () => paint());
 

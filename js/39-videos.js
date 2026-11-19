@@ -766,8 +766,8 @@
         <p class="emo-err" id="vidErr" hidden></p>
       </div>
       <div class="dlg-actions">
-        <button class="ap-btn-queue" id="vidCancel">Cancel</button>
-        <button class="chat-connect-btn" id="vidSend" disabled>Upload</button>
+        <button class="k-btn" id="vidCancel">Cancel</button>
+        <button class="k-btn primary" id="vidSend" disabled>Upload</button>
       </div>`, () => xhr?.abort());
     let picked = null, xhr = null;
     const err = m => { $('vidErr').hidden = !m; $('vidErr').textContent = m || ''; };
@@ -806,7 +806,7 @@
       xhr.upload.onprogress = e => {
         if (!e.lengthComputable) return;
         const f = e.loaded / e.total;
-        bar.firstChild.style.width = (f * 100).toFixed(1) + '%';
+        bar.firstChild.style.transform = 'scaleX(' + f.toFixed(3) + ')';
         bar.lastChild.textContent = f < 1 ? Math.round(f * 100) + '%' : 'Saving…';
       };
       xhr.onload = () => {
@@ -849,13 +849,13 @@
         <textarea class="chat-modal-input vid-desc-in" id="vidDescIn" rows="5" maxlength="5000"></textarea>
         <label class="vid-field-label">Thumbnail</label>
         <div class="vid-thumb-pick"><img id="vidThumbImg" alt="" ${v.posterSmall ? 'src="' + esc(v.posterSmall) + '"' : 'hidden'} />
-          <button type="button" class="ap-btn-queue" id="vidThumbBtn"><i class="ti ti-photo"></i> Choose a picture</button>
+          <button type="button" class="k-btn" id="vidThumbBtn"><i class="ti ti-photo"></i> Choose a picture</button>
           <input type="file" id="vidThumbFile" accept="image/*" hidden></div>
         <p class="emo-err" id="vidErr" hidden></p>
       </div>
       <div class="dlg-actions">
-        <button class="ap-btn-queue" id="vidCancel">Cancel</button>
-        <button class="chat-connect-btn" id="vidSave">Save</button>
+        <button class="k-btn" id="vidCancel">Cancel</button>
+        <button class="k-btn primary" id="vidSave">Save</button>
       </div>`, null);
     $('vidTitle').value = v.title || '';
     $('vidDescIn').value = v.description || '';
@@ -893,7 +893,7 @@
     });
   }
   async function deleteVideo(v) {
-    if (!(await showConfirmDialog('Delete video', 'Delete “' + (v.title || 'this video') + '” and its comments? This can’t be undone.', 'Delete'))) return;
+    if (!(await showConfirmDialog('Delete “' + (v.title || 'this video') + '”?', 'Its comments go with it, for everyone. This can’t be undone.', 'Delete'))) return;
     try {
       await getJSON(API + '/' + v.id, { method: 'DELETE' }, 15000);
       cache.delete(v.id);

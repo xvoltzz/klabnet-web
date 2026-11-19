@@ -138,6 +138,7 @@
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
     else if (act === 'radio') { setActiveTab('music'); setTimeout(() => { document.querySelector('.music-nav .picker-tab[data-tab="radio"]')?.click(); window.klabRadio?.tune?.(d); }, 60); }
   }
+  let popLayer = null;
   function open() {
     if (panel) { close(); return; }
     panel = document.createElement('div');
@@ -146,6 +147,7 @@
     panel.setAttribute('aria-label', 'Recap');
     panel.innerHTML = '<div class="rc-head"><span class="rc-title">Recap</span><span class="rc-since"></span></div><div class="rc-body"></div>';
     document.body.appendChild(panel);
+    popLayer = klabLayers.push(panel, { kind: 'popover', close: () => close() });
     place();
     btn.setAttribute('aria-expanded', 'true');
     btn.classList.add('active');
@@ -158,7 +160,6 @@
     });
     setTimeout(() => {
       document.addEventListener('pointerdown', outside, true);
-      document.addEventListener('keydown', onKey, true);
     });
     requestAnimationFrame(() => panel?.classList.add('open'));
   }
@@ -172,16 +173,15 @@
     if (!panel) return;
     const p = panel;
     panel = null;
+    popLayer?.(); popLayer = null;
     p.classList.remove('open');
     setTimeout(() => p.remove(), 160);
     btn.setAttribute('aria-expanded', 'false');
     btn.classList.remove('active');
     document.removeEventListener('pointerdown', outside, true);
-    document.removeEventListener('keydown', onKey, true);
     paintCount();
   }
   function outside(e) { if (panel && !panel.contains(e.target) && !btn.contains(e.target)) close(); }
-  function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
 
   btn.addEventListener('click', open);
   addEventListener('resize', () => panel && place());

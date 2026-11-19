@@ -170,7 +170,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.11.19.4" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.11.19.5" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -182,7 +182,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.11.19.4" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.11.19.5" />
 </head>
 <body>
 
@@ -331,15 +331,6 @@ window.KLAB_BOOT = (function() {
   </div>
 </div>
 
-<div class="ctx-menu" id="sortMenu" style="min-width:170px;"></div>
-
-<div class="ctx-menu" id="presenceCtxMenu">
-  <div class="ctx-label" id="presenceCtxLabel">User</div>
-  <div class="ctx-item" id="presenceCtxListen"><i class="ti ti-headphones"></i> Listen along</div>
-  <div class="ctx-item" id="presenceCtxProfile"><i class="ti ti-user-circle"></i> View profile</div>
-  <div class="ctx-item" id="presenceCtxMessage"><i class="ti ti-message-2-plus"></i> Message</div>
-</div>
-
 <!-- Moved out of .header deliberately: an element inside it never
      blurs its backdrop, so backdrop-filter silently did nothing and
      these read as plain see-through panels. Positioned from the
@@ -359,24 +350,7 @@ window.KLAB_BOOT = (function() {
         <a class="ctx-item" id="accountBtn" href="https://auth.klab.gg" target="_blank" rel="noopener"><i class="ti ti-user-circle"></i> Account</a>
       </div>
 <!-- Voice channels (js/22-voice.js), under the header's headset button. -->
-<div class="toast-flyout" id="toastFlyout"></div>
-
-<div class="ctx-menu" id="songCtxMenu">
-  <div class="ctx-label" id="songCtxLabel">Song</div>
-  <div class="ctx-item" id="songCtxPlay"><i class="ti ti-player-play"></i> Play now</div>
-  <div class="ctx-item" id="songCtxQueue"><i class="ti ti-playlist-add"></i> Add to queue</div>
-  <div class="ctx-item" id="songCtxAddPl"><i class="ti ti-playlist"></i> Add to playlist</div>
-  <div class="ctx-divider"></div>
-  <div class="ctx-item" id="songCtxArtist"><i class="ti ti-microphone-2"></i> Go to artist</div>
-  <div class="ctx-item" id="songCtxAlbum"><i class="ti ti-disc"></i> Go to album</div>
-  <div class="ctx-divider"></div>
-  <div class="ctx-item" id="songCtxFav"><i class="ti ti-heart"></i> Add to favorites</div>
-  <div class="ctx-item" id="songCtxStar"><i class="ti ti-star"></i> Star</div>
-  <div class="ctx-item" id="songCtxLogin"><i class="ti ti-door-enter"></i> Set as login song</div>
-  <div class="ctx-divider"></div>
-  <div class="ctx-item" id="songCtxDownload"><i class="ti ti-download"></i> Download</div>
-  <div class="ctx-item" id="songCtxDownloadMp3"><i class="ti ti-file-music"></i> Download as MP3</div>
-</div>
+<div class="toast-flyout" id="toastFlyout" role="status" aria-live="polite"></div>
 
 <!-- Photos tab backdrop: a blur of the current photo behind the whole page. -->
 <div class="ph-backdrop" id="phBackdrop" aria-hidden="true"><div class="ph-bd-layer"></div><div class="ph-bd-layer"></div></div>
@@ -919,7 +893,7 @@ window.KLAB_BOOT = (function() {
 <!-- CHAT — browse/create/DM modal (one shared shell, body swapped per action
      by the JS in the KLAB SOCIAL section — see openChatModal()) -->
 <div class="add-app-backdrop" id="chatModalBackdrop">
-  <div class="add-app-modal" tabindex="-1" role="dialog" aria-labelledby="chatModalTitle">
+  <div class="add-app-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="chatModalTitle">
     <div class="add-app-title">
       <span id="chatModalTitle">Chat</span>
       <button class="add-app-close" id="chatModalClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -996,7 +970,7 @@ window.KLAB_BOOT = (function() {
      chatModal shell) so its own Escape/open-state handling never has to
      guess whether some OTHER modal is the one currently open. -->
 <div class="add-app-backdrop" id="keyHintsBackdrop">
-  <div class="add-app-modal" role="dialog" aria-label="Keyboard shortcuts" style="width:min(560px, calc(100vw - 2rem));">
+  <div class="add-app-modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="width:min(560px, calc(100vw - 2rem));">
     <div class="add-app-title">
       <span>Keyboard shortcuts</span>
       <button class="add-app-close" id="keyHintsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -1047,7 +1021,7 @@ window.KLAB_BOOT = (function() {
 
 <!-- SETTINGS MODAL -->
 <div class="settings-backdrop" id="settingsBackdrop">
-  <div class="settings-modal" role="dialog" aria-label="Settings">
+  <div class="settings-modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="settings-header">
       <span class="settings-title">Settings</span>
       <button class="settings-close" id="settingsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
@@ -1255,50 +1229,50 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.11.19.4';</script>
-<script defer src="js/00-util.js?v=v2026.11.19.4"></script>
-<script defer src="js/01-shell.js?v=v2026.11.19.4"></script>
-<script defer src="js/02-player.js?v=v2026.11.19.4"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.11.19.4"></script>
-<script defer src="js/04-sfx.js?v=v2026.11.19.4"></script>
-<script defer src="js/05-favorites.js?v=v2026.11.19.4"></script>
-<script defer src="js/06-prefs.js?v=v2026.11.19.4"></script>
-<script defer src="js/07-tabnav.js?v=v2026.11.19.4"></script>
-<script defer src="js/08-chat.js?v=v2026.11.19.4"></script>
-<script defer src="js/09-music-extras.js?v=v2026.11.19.4"></script>
-<script defer src="js/09b-playlists.js?v=v2026.11.19.4"></script>
-<script defer src="js/10-lyrics.js?v=v2026.11.19.4"></script>
-<script defer src="js/11-presence.js?v=v2026.11.19.4"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.11.19.4"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.11.19.4"></script>
-<script defer src="js/11b-markdown.js?v=v2026.11.19.4"></script>
-<script defer src="js/11c-gifs.js?v=v2026.11.19.4"></script>
-<script defer src="js/12-feed.js?v=v2026.11.19.4"></script>
-<script defer src="js/13-tail.js?v=v2026.11.19.4"></script>
-<script defer src="js/14-photos.js?v=v2026.11.19.4"></script>
-<script defer src="js/15-music-home.js?v=v2026.11.19.4"></script>
-<script defer src="js/16-motion.js?v=v2026.11.19.4"></script>
-<script defer src="js/17-history.js?v=v2026.11.19.4"></script>
-<script defer src="js/18-home.js?v=v2026.11.19.4"></script>
-<script defer src="js/19-slideshow.js?v=v2026.11.19.4"></script>
-<script defer src="js/20-mentions.js?v=v2026.11.19.4"></script>
-<script defer src="js/21-stars.js?v=v2026.11.19.4"></script>
-<script defer src="js/22-voice.js?v=v2026.11.19.4"></script>
-<script defer src="js/23-session.js?v=v2026.11.19.4"></script>
-<script defer src="js/24-flair.js?v=v2026.11.19.4"></script>
-<script defer src="js/25-social.js?v=v2026.11.19.4"></script>
-<script defer src="js/26-browse.js?v=v2026.11.19.4"></script>
-<script defer src="js/27-activity.js?v=v2026.11.19.4"></script>
-<script defer src="js/28-radio.js?v=v2026.11.19.4"></script>
-<script defer src="js/31-feed-rail.js?v=v2026.11.19.4"></script>
-<script defer src="js/32-terminal.js?v=v2026.11.19.4"></script>
-<script defer src="js/33-plaza.js?v=v2026.11.19.4"></script>
-<script defer src="js/34-emoji.js?v=v2026.11.19.4"></script>
-<script defer src="js/35-profile.js?v=v2026.11.19.4"></script>
-<script defer src="js/36-recap.js?v=v2026.11.19.4"></script>
-<script defer src="js/37-ocean.js?v=v2026.11.19.4"></script>
-<script defer src="js/38-sky-fx.js?v=v2026.11.19.4"></script>
-<script defer src="js/39-videos.js?v=v2026.11.19.4"></script>
+<script>const KLABNET_VERSION = 'v2026.11.19.5';</script>
+<script defer src="js/00-util.js?v=v2026.11.19.5"></script>
+<script defer src="js/01-shell.js?v=v2026.11.19.5"></script>
+<script defer src="js/02-player.js?v=v2026.11.19.5"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.11.19.5"></script>
+<script defer src="js/04-sfx.js?v=v2026.11.19.5"></script>
+<script defer src="js/05-favorites.js?v=v2026.11.19.5"></script>
+<script defer src="js/06-prefs.js?v=v2026.11.19.5"></script>
+<script defer src="js/07-tabnav.js?v=v2026.11.19.5"></script>
+<script defer src="js/08-chat.js?v=v2026.11.19.5"></script>
+<script defer src="js/09-music-extras.js?v=v2026.11.19.5"></script>
+<script defer src="js/09b-playlists.js?v=v2026.11.19.5"></script>
+<script defer src="js/10-lyrics.js?v=v2026.11.19.5"></script>
+<script defer src="js/11-presence.js?v=v2026.11.19.5"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.11.19.5"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.11.19.5"></script>
+<script defer src="js/11b-markdown.js?v=v2026.11.19.5"></script>
+<script defer src="js/11c-gifs.js?v=v2026.11.19.5"></script>
+<script defer src="js/12-feed.js?v=v2026.11.19.5"></script>
+<script defer src="js/13-tail.js?v=v2026.11.19.5"></script>
+<script defer src="js/14-photos.js?v=v2026.11.19.5"></script>
+<script defer src="js/15-music-home.js?v=v2026.11.19.5"></script>
+<script defer src="js/16-motion.js?v=v2026.11.19.5"></script>
+<script defer src="js/17-history.js?v=v2026.11.19.5"></script>
+<script defer src="js/18-home.js?v=v2026.11.19.5"></script>
+<script defer src="js/19-slideshow.js?v=v2026.11.19.5"></script>
+<script defer src="js/20-mentions.js?v=v2026.11.19.5"></script>
+<script defer src="js/21-stars.js?v=v2026.11.19.5"></script>
+<script defer src="js/22-voice.js?v=v2026.11.19.5"></script>
+<script defer src="js/23-session.js?v=v2026.11.19.5"></script>
+<script defer src="js/24-flair.js?v=v2026.11.19.5"></script>
+<script defer src="js/25-social.js?v=v2026.11.19.5"></script>
+<script defer src="js/26-browse.js?v=v2026.11.19.5"></script>
+<script defer src="js/27-activity.js?v=v2026.11.19.5"></script>
+<script defer src="js/28-radio.js?v=v2026.11.19.5"></script>
+<script defer src="js/31-feed-rail.js?v=v2026.11.19.5"></script>
+<script defer src="js/32-terminal.js?v=v2026.11.19.5"></script>
+<script defer src="js/33-plaza.js?v=v2026.11.19.5"></script>
+<script defer src="js/34-emoji.js?v=v2026.11.19.5"></script>
+<script defer src="js/35-profile.js?v=v2026.11.19.5"></script>
+<script defer src="js/36-recap.js?v=v2026.11.19.5"></script>
+<script defer src="js/37-ocean.js?v=v2026.11.19.5"></script>
+<script defer src="js/38-sky-fx.js?v=v2026.11.19.5"></script>
+<script defer src="js/39-videos.js?v=v2026.11.19.5"></script>
 
 </body>
 </html>

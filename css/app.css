@@ -190,7 +190,7 @@
       min-height: 100vh;
       overflow-x: hidden;
       position: relative;
-      transition: background 1.2s ease, color 0.4s ease;
+      transition: background var(--m-slow, 280ms) ease, color var(--m-slow, 280ms) ease;
     }
 
     /* Buttons + the player dock get the humanist UI font (see --font-ui above) */
@@ -292,7 +292,7 @@
         inset 0 -1px 0 var(--glass-inner-b),
         0 4px 24px var(--glass-shadow),
         0 1px 4px var(--shadow-20);
-      transition: background 0.4s, border-color 0.4s;
+      transition: background-color 140ms ease, border-color 140ms ease;
     }
 
 
@@ -725,51 +725,7 @@
        .hdr-more-menu above — toasts carry the blur too. Anchored under the
        header's icon tray by syncToastFlyout() rather than by being its
        child. */
-    .toast-flyout {
-      /* top/right set by syncToastFlyout(); fallback as above. */
-      position: fixed; top: 5.5rem; right: 1.5rem;
-      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-      /* Over everything that fills the window: the image viewer (600), the slideshow (3000). */
-      z-index: 3500; pointer-events: none;
-    }
-    .toast-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 13px 20px; border-radius: 12px;
-      width: max-content; max-width: min(360px, calc(100vw - 3rem)); min-width: 200px;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border-h);
-      box-shadow: 0 10px 32px var(--shadow-40), inset 0 1px 0 rgba(255,255,255,0.06);
-      font-family: var(--font-ui);
-      font-size: 12.5px; letter-spacing: 0.02em; line-height: 1.4;
-      color: var(--text);
-      cursor: pointer; pointer-events: auto;
-      opacity: 0; transform: translateX(20px) scale(0.96);
-      /* max-height/margin/padding are along for the ride so a dismissed
-         toast collapses its own footprint instead of vanishing outright —
-         `gap` on the flyout still puts fixed space around it while it
-         shrinks, but without this the rest of the stack used to just snap
-         upward the instant a toast was removed (worst with the 4-deep cap
-         silently dropping the oldest one mid-burst). Delayed so the
-         collapse only starts once the fade/slide-out has actually
-         finished, rather than the text visibly squishing while still
-         readable. */
-      transition: opacity 0.25s ease, transform 0.25s ease,
-                  max-height 0.28s ease 0.2s, margin-bottom 0.28s ease 0.2s, padding-block 0.28s ease 0.2s;
-      max-height: 160px; overflow: hidden;
-    }
-    .toast-item.visible { opacity: 1; transform: translateX(0) scale(1); }
-    /* Hints there's more to a click than dismissing it — a new-message
-       toast jumps to that chat (see notifyNewMessage/showToast's onClick). */
-    .toast-item.clickable:hover { border-color: rgba(var(--accent-rgb),0.4); }
-    .toast-item.leaving {
-      opacity: 0; transform: translateX(20px) scale(0.96);
-      max-height: 0; margin-bottom: 0; padding-block: 0;
-    }
-    .toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
-    @media (prefers-reduced-motion: reduce) {
-      .toast-item { transition: opacity 0.15s ease; transform: none !important; max-height: none; }
-      .toast-item.leaving { max-height: none; }
-    }
+    /* (The toasts' look and motion: COMPONENTS, "12. Toasts".) */
 
     /* ══ SECTIONS ══ */
     .sec { margin-bottom: 3rem; }
@@ -856,10 +812,7 @@
        mechanism .ctx-menu's display:none -> block already relies on for
        its own entrance), so this fires correctly on every genuine tab
        switch without needing to animate `display` itself. */
-    .tab-panel.active { display: block; animation: fadeInUp 0.25s ease both; }
-    @media (prefers-reduced-motion: reduce) {
-      .tab-panel.active { animation: none; }
-    }
+    .tab-panel.active { display: block; } /* fades in: MOTION, below */
 
     /* The song picker and artist/album panel used to be global fixed-position
        modals (.picker-backdrop, .ap-panel — see their base rules further
@@ -1206,31 +1159,6 @@
     .chat-connect i { font-size: 32px; color: var(--tile-icon); }
     .chat-connect-title { font-size: 15px; font-weight: 700; color: var(--text); }
     .chat-connect-sub { font-size: 11.5px; color: var(--text-dimmer); max-width: 340px; line-height: 1.55; }
-    /* Canonical accent "pill" CTA recipe — same beveled-glass treatment as
-       .ap-btn-play (identical values, kept as two rules since they sit in
-       very different parts of the file, but both should be read as one
-       component). .ap-btn-queue is this recipe's neutral sibling.
-       Fixed height (not just padding) — was 6px-padding-derived (~27px),
-       read as a short, cramped pill next to the app's other controls and
-       could visibly mismatch height against a neighboring icon button
-       depending on font metrics. 36px roughly matches .tab-nav-btn's own
-       rendered height without copying its exact recipe. */
-    .chat-connect-btn {
-      margin-top: 0.4rem;
-      height: 36px;
-      display: flex; align-items: center; gap: 7px;
-      padding: 0 20px; border-radius: var(--radius-md);
-      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
-      cursor: pointer; font-weight: 700;
-      background: rgba(var(--accent-rgb),0.15);
-      border: 1px solid rgba(var(--accent-rgb),0.35);
-      border-top-color: rgba(255,255,255,0.22);
-      color: rgba(var(--accent-rgb),1);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
-      transition: background 0.18s;
-    }
-    .chat-connect-btn:hover { background: rgba(var(--accent-rgb),0.25); }
-    .chat-connect-btn:disabled { opacity: 0.6; cursor: default; }
     .chat-connect-error { font-size: 9.5px; color: var(--danger-color); margin-top: 0.3rem; }
     .chat-app { display: flex; flex-direction: column; height: min(780px, 82vh); }
     /* Both set their own `display`, which otherwise beats the browser's
@@ -1556,54 +1484,16 @@
     }
     .chat-modal-row-btn:hover { background: rgba(var(--accent-rgb),0.25); }
     .chat-modal-row-btn:disabled { opacity: 0.5; cursor: default; }
-    .chat-modal-input {
-      width: 100%; background: var(--tile-bg); border: 1px solid var(--tile-border);
-      border-radius: 8px; padding: 8px 12px; font-size: var(--fs-13); color: var(--text);
-      font-family: var(--font-ui); outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-    .chat-modal-input::placeholder { color: var(--text-dimmer); }
-    .chat-modal-input:focus {
-      border-color: rgba(var(--accent-rgb),0.5);
-      box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.15), 0 0 14px rgba(var(--accent-rgb),0.25);
-    }
-    .chat-modal-input:focus-visible { outline: none; } /* see .chat-composer input:focus-visible comment above */
     .chat-modal-error { font-size: var(--fs-12); color: var(--danger-color); margin-top: 0.5rem; }
 
     /* ── Bug report / idea modal (openFeedbackModal) ── */
-    .fb-type { display: flex; gap: 6px; margin-bottom: 8px; }
-    .fb-type-btn {
-      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      height: 32px; border-radius: var(--radius-md); cursor: pointer;
-      font-family: var(--font-ui); font-size: var(--fs-11); letter-spacing: 0.06em; text-transform: uppercase;
-      background: var(--tile-bg); border: 1px solid var(--tile-border); color: var(--text-dim);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .fb-type-btn:hover { background: var(--tile-bg-h); color: var(--text); }
-    .fb-type-btn.active {
-      background: rgba(var(--accent-rgb),0.16);
-      border-color: rgba(var(--accent-rgb),0.35);
-      color: rgba(var(--accent-rgb),1);
-    }
+    .fb-type, .music-req-type-toggle { margin-bottom: 10px; } /* segmented controls: COMPONENTS */
     .fb-row { text-decoration: none; }
     .fb-state {
       flex: none; padding: 2px 7px; border-radius: 999px;
       font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     }
     .fb-state-open   { background: rgba(74,222,128,0.14); color: var(--success-color); }
-    /* Album/Song segmented toggle atop the New Request modal. */
-    .music-req-type-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
-    .music-req-type-btn {
-      flex: 1; padding: 7px; border-radius: var(--radius-md); cursor: pointer;
-      background: var(--tile-bg); border: 1px solid var(--tile-border);
-      color: var(--text-dim); font-size: var(--fs-11); font-family: var(--font-ui);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .music-req-type-btn.active {
-      background: rgba(var(--accent-rgb),0.15); border-color: rgba(var(--accent-rgb),0.4);
-      color: rgba(var(--accent-rgb),1);
-    }
-
     /* Profile-editor modal (avatar + display name, opened from your own
        presence card) — reuses .chat-modal-input/.chat-connect-btn for the
        form controls, just adds the clickable avatar preview. */
@@ -1673,16 +1563,6 @@
     /* Pan/zoom cropper — its own standalone overlay (not the shared
        #chatModalBody shell) since it needs to stack on top of the
        profile-edit modal that's still open underneath it. */
-    .img-crop-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 450; padding: 16px; /* above #chatModalBackdrop's z-index:400 (.add-app-backdrop) — this stacks on top of it */
-    }
-    .img-crop-dialog {
-      background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 10px;
-      padding: 1.6rem; width: 100%; max-width: 400px; box-shadow: 0 20px 60px var(--shadow-50);
-    }
-    .img-crop-title { font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; color: var(--text); margin-bottom: 14px; }
     .img-crop-stage {
       position: relative; width: 100%; overflow: hidden; border-radius: 8px;
       background: #000; cursor: grab; touch-action: none;
@@ -1745,41 +1625,6 @@
 
 
     /* ══ CONTEXT MENU ══ */
-    .ctx-menu {
-      position: fixed; z-index: 999; padding: 6px; border-radius: 8px;
-      min-width: 185px; display: none;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border-h);
-      box-shadow: 0 8px 32px var(--shadow-40);
-      /* Grows from the corner at the pointer (transform-origin, set when it
-         opens) and fades away when it closes. */
-      opacity: 0; transform: scale(.96);
-      transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), display var(--m-fast) allow-discrete;
-    }
-    .ctx-menu.visible { display: block; opacity: 1; transform: none; }
-    @starting-style { .ctx-menu.visible { opacity: 0; transform: scale(.96); } }
-    @keyframes ctxIn { from{opacity:0;transform:scale(0.94) translateY(-4px)} to{opacity:1;transform:scale(1) translateY(0)} }
-
-    .ctx-label { font-size: 9px; letter-spacing: 0.2em; color: var(--text-dimmer); text-transform: uppercase; padding: 4px 10px 8px; }
-    .ctx-item {
-      display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px;
-      font-size: 11px; letter-spacing: 0.08em; color: var(--text-dim); cursor: pointer;
-      /* The highlight follows the pointer at once, as in a native menu. */
-      transition: color .1s, transform .2s; text-transform: uppercase;
-    }
-    .ctx-item:hover { background: var(--glass-fill-h); color: var(--text); transform: translateX(2px); }
-    .ctx-item:active { transform: scale(0.96); }
-    .ctx-item i { font-size: 15px; }
-    .ctx-item.warn { color: var(--warn-color); }
-    .ctx-item.warn:hover { color: var(--warn-color); background: var(--warn-bg); transform: translateX(2px); }
-    /* .ctx-item sets display:flex above, which always wins over the
-       browser's own [hidden]{display:none} default regardless of
-       specificity (author CSS beats UA styles) — without this, a
-       hidden .ctx-item (the header overflow menu's Leaderboard row when
-       that experimental feature is off) would show anyway, empty of
-       function. Same bug/fix already needed for .feed-composer-song-preview. */
-    .ctx-item[hidden] { display: none; }
-    .ctx-divider { height: 1px; background: var(--glass-border); margin: 4px 0; }
 
     /* Header overflow ("more") menu — same look as .ctx-menu (background/
        border/shadow/entrance animation), just anchored under the header
@@ -1797,10 +1642,7 @@
       /* top/right are set by JS; these are only a sane fallback for the
          frame before it runs. */
       position: fixed; top: 5.5rem; right: 1.5rem; z-index: 60;
-      min-width: 210px; padding: 6px; border-radius: 8px; display: none;
-      animation: ctxIn 0.15s ease both;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h);
-      box-shadow: 0 8px 32px var(--shadow-40);
+      min-width: 210px; display: none;
     }
     .hdr-more-menu.visible { display: block; }
 
@@ -2148,16 +1990,16 @@
     .slider-track {
       position: absolute; left: 0; right: 0; height: 3px;
       top: 50%; transform: translateY(-50%);
-      border-radius: 2px; background: rgba(255,255,255,0.12);
-      transition: background 0.25s ease;
+      border-radius: 2px; background: color-mix(in srgb, var(--text) 13%, transparent);
+      transition: background-color var(--m-fast, 140ms) ease;
     }
-    .slider-wrap:hover .slider-track { background: rgba(255,255,255,0.18); }
+    .slider-wrap:hover .slider-track { background: color-mix(in srgb, var(--text) 20%, transparent); }
     .slider-fill {
       position: absolute; left: 0; height: 3px;
       top: 50%; transform: translateY(-50%);
-      border-radius: 2px; background: rgba(255,255,255,0.65);
+      border-radius: 2px; background: color-mix(in srgb, var(--text) 70%, transparent);
       transform-origin: left center;
-      pointer-events: none; transition: transform 0.08s linear, background 0.25s ease;
+      pointer-events: none; transition: transform 0.08s linear, background-color var(--m-fast, 140ms) ease;
     }
     .slider-dot {
       position: absolute; width: 14px; height: 14px;
@@ -2167,7 +2009,7 @@
          like the fill's scaleX. An inline style.left still works too. */
       left: 0; top: 50%; transform: translate(calc(var(--pct, 0) * 100cqi - 50%), -50%);
       pointer-events: none;
-      opacity: 0; transition: opacity 0.2s, box-shadow 0.2s;
+      opacity: 0; transition: opacity var(--m-fast, 140ms) ease, box-shadow var(--m-fast, 140ms) ease;
     }
     .slider-wrap:hover .slider-dot { opacity: 1; }
     .slider-wrap.dragging .slider-dot { opacity: 1; box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.5); }
@@ -2176,15 +2018,9 @@
     .player-progress { background: none !important; flex-shrink: 1 !important; }
     .vol-slider { background: none !important; width: 72px; flex-shrink: 0; }
 
-    /* light mode slider colors */
-    [data-theme="light"] .slider-track { background: rgba(90,78,62,0.18); transition: background 0.25s ease; }
-    [data-theme="light"] .slider-wrap:hover .slider-track { background: rgba(90,78,62,0.28); }
-    [data-theme="light"] .slider-fill {
-      background: linear-gradient(90deg, rgba(var(--accent-rgb),0.4), rgba(var(--accent-rgb),0.75) 45%, rgba(var(--accent-rgb),1));
-      transition: transform 0.08s linear, background 0.5s ease;
-    }
-    [data-theme="light"] .slider-dot { background: #a8660a; box-shadow: 0 2px 8px var(--shadow-30), 0 0 0 2px rgba(220,170,90,0.3); }
 
+    /* Light: the dot is the ink (a white one vanished on the page). */
+    [data-theme="light"] .slider-dot { background: var(--text); box-shadow: 0 1px 4px var(--shadow-30); }
     /* FS vol bar — use the slider-wrap system properly */
     #fsVolBar { width: 120px; background: none !important; }
 
@@ -2196,58 +2032,12 @@
        header toggle button, drag-ghost, and drop-indicator styles. */
 
     /* ══ APP MANAGEMENT ══ */
-    .add-app-backdrop {
-      position: fixed; inset: 0; z-index: 410;
-      background: rgba(0,0,0,0.6);
 
-      display: none; align-items: center; justify-content: center; padding: 1rem;
-    }
-    /* 410, not tied with .settings-backdrop's 400 — the background-color
-       picker (and any other .add-app-backdrop modal) opens FROM a button
-       inside Settings, so it needs to render on top of it, not lose the
-       stacking tie to whichever one happens to sit later in the DOM (that
-       tie is what caused it to render behind Settings instead). Still well
-       under .img-crop-backdrop's 450, so that relationship is untouched. */
-    .add-app-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
-    /* max-height/overflow added to match .settings-modal (the only other
-       consumer of this shell that had a height cap) — openChatModal()'s
-       #chatModalBody is the one truly generic content slot here (used by
-       9+ features with wildly different content lengths: a short confirm
-       dialog, a long channel list, the leaderboard, a profile editor), so
-       it's the one that gets the scroll rule. klabcraftList/key-hints-body
-       already self-cap their own content and don't need it. */
-    .add-app-modal {
-      width: min(480px, calc(100vw - 2rem));
-      max-height: 80vh; overflow: hidden;
-      border-radius: 10px; padding: 1.6rem;
-      display: flex; flex-direction: column; gap: 1rem;
-      animation: pickerUp 0.2s ease both;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px var(--shadow-50);
-    }
+    /* (The dialog shell: COMPONENTS, "11. Sheets and dialogs".) */
     #chatModalBody { overflow-y: auto; min-height: 0; }
-    .add-app-title {
-      font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer);
-      text-transform: uppercase;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .add-app-close {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-dimmer); font-size: var(--fs-18);
-      padding: 0 4px; border-radius: var(--radius-sm);
-      transition: color 0.15s, background 0.15s;
-    }
-    .add-app-close:hover { color: var(--text); background: var(--glass-fill-h); }
-
     /* Keyboard-shortcuts hints panel (see #keyHintsBackdrop). */
     .key-hints-group { margin-bottom: 14px; }
     .key-hints-group:last-child { margin-bottom: 0; }
-    .key-hints-group-label {
-      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-dimmer); margin-bottom: 4px;
-    }
     .key-hints-row {
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px; padding: 6px 2px; font-size: var(--fs-13); color: var(--text-dim);
@@ -2315,24 +2105,6 @@
     .update-banner button:hover { background: rgba(var(--accent-rgb),0.28); }
 
     /* ══ SETTINGS MODAL ══ */
-    .settings-backdrop {
-      position: fixed; inset: 0; z-index: 400;
-      background: rgba(0,0,0,0.6);
-
-      display: none; align-items: center; justify-content: center; padding: 1rem;
-    }
-    .settings-backdrop.open { display: flex; animation: backdropIn 0.2s ease both; }
-    .settings-modal {
-      width: min(480px, calc(100vw - 2rem));
-      border-radius: 10px; padding: 1.6rem;
-      display: flex; flex-direction: column; gap: 0; max-height: 80vh;
-      animation: pickerUp 0.2s ease both;
-      background: var(--modal-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 20px 60px var(--shadow-50);
-      overflow: hidden;
-    }
-    .settings-modal * { box-sizing: border-box; }
     .settings-body { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
     .settings-body::-webkit-scrollbar { display: none; }
     .s-slider-wrap { min-width: 0; max-width: 120px; position: relative; z-index: 1; }
@@ -2340,21 +2112,10 @@
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 1.2rem; flex-shrink: 0;
     }
-    .settings-title {
-      font-size: 10px; letter-spacing: 0.28em; color: var(--text-dimmer); text-transform: uppercase;
-    }
-    .settings-close {
-      background: none; border: none; cursor: pointer; color: var(--text-dimmer);
-      font-size: var(--fs-18); padding: 0 4px; border-radius: var(--radius-sm); transition: color 0.15s, background 0.15s;
-    }
-    .settings-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    .settings-modal * { box-sizing: border-box; }
     .settings-body { overflow-y: auto; flex: 1; }
     .settings-section {
       margin-bottom: 1.4rem;
-    }
-    .settings-section-label {
-      font-size: 8.5px; letter-spacing: 0.22em; color: var(--text-faint);
-      text-transform: uppercase; margin-bottom: 0.7rem; display: block;
     }
     .settings-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -2406,19 +2167,6 @@
     }
     /* Toggle switch */
     #playerArtWrap { padding: 0; border: 0; }
-    .s-toggle {
-      padding: 0; appearance: none;
-      width: 36px; height: 20px; border-radius: 100px; flex-shrink: 0;
-      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
-      cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s;
-    }
-    .s-toggle::after {
-      content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
-      background: #fff; top: 2px; left: 2px; transition: transform 0.2s, background 0.2s;
-      box-shadow: 0 1px 3px var(--shadow-30);
-    }
-    .s-toggle.on { background: rgba(var(--accent-rgb),0.5); border-color: rgba(var(--accent-rgb),0.6); }
-    .s-toggle.on::after { transform: translateX(16px); }
     /* Slider — SFX volume uses the shared draggable slider-wrap component
        (see makeSlider), not a native <input type=range>, so only the
        wrap/value styling is needed here. */
@@ -2453,17 +2201,9 @@
     [data-theme="light"] .picker-action:hover { color: var(--text); background: rgba(130,112,88,0.1); }
     [data-theme="light"] .picker-back   { color: var(--tile-icon); }
     [data-theme="light"] .picker-back:hover { color: var(--text); }
-    [data-theme="light"] .ctx-item { color: var(--text-dim); }
-    [data-theme="light"] .ctx-item:hover { background: rgba(130,112,88,0.08); color: var(--text); }
-    [data-theme="light"] .ctx-divider { background: rgba(130,112,88,0.1); }
     [data-theme="light"] .settings-row-label { color: var(--text); font-weight: 500; }
     [data-theme="light"] .settings-row-sub   { color: var(--text-dimmer); }
-    [data-theme="light"] .settings-section-label { color: var(--text-dimmer); }
     [data-theme="light"] .s-slider-val { color: var(--text-dim); }
-    [data-theme="light"] .s-toggle { background: rgba(90,78,62,0.12); border-color: rgba(90,78,62,0.22); }
-    [data-theme="light"] .s-toggle::after { background: var(--text-dimmer); }
-    [data-theme="light"] .s-toggle.on { background: rgba(var(--accent-rgb),0.45); border-color: rgba(var(--accent-rgb),0.6); }
-    [data-theme="light"] .s-toggle.on::after { background: #fff; }
 
     /* ── Album expand panel ── */
 
@@ -3005,32 +2745,6 @@
 
     /* Actions — same pill style as picker */
     .ap-actions { display: flex; gap: 8px; padding: 0.5rem 0.7rem 0.3rem; }
-    /* Same recipe as .chat-connect-btn (see its comment, including why
-       these are bigger now — was a short/cramped 6px-padding pill). */
-    .ap-btn-play {
-      display: flex; align-items: center; gap: 7px;
-      height: 36px; padding: 0 20px; border-radius: var(--radius-md);
-      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
-      cursor: pointer; font-weight: 700;
-      background: rgba(var(--accent-rgb),0.15);
-      border: 1px solid rgba(var(--accent-rgb),0.35);
-      border-top-color: rgba(255,255,255,0.22);
-      color: rgba(var(--accent-rgb),1);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px var(--shadow-20);
-      transition: background 0.18s;
-    }
-    .ap-btn-play:hover { background: rgba(var(--accent-rgb),0.25); }
-    .ap-btn-queue {
-      display: flex; align-items: center; gap: 7px;
-      height: 36px; padding: 0 18px; border-radius: var(--radius-md);
-      font-size: var(--fs-11); letter-spacing: 0.1em; text-transform: uppercase;
-      cursor: pointer;
-      background: var(--glass-fill); border: 1px solid var(--glass-border);
-      border-top-color: rgba(255,255,255,0.16); color: var(--text-dim);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-      transition: background 0.18s, color 0.18s;
-    }
-    .ap-btn-queue:hover { background: var(--glass-fill-h); color: var(--text); }
 
     /* Bio */
     .ap-bio {
@@ -3180,7 +2894,6 @@
       animation: backdropIn 0.22s ease both;
     }
     @keyframes backdropIn { from{opacity:0} to{opacity:1} }
-    @keyframes pickerUp { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
 
     /* .picker-modal/.picker-header/.picker-title/.picker-close removed —
        a fully-styled second dialog shell (title bar + close button) that
@@ -3347,17 +3060,14 @@
       outline-offset: 2px;
     }
 
-    /* Tactile press feedback */
+    /* Tactile press feedback: icon buttons .92, rows .98 (COMPONENTS has
+       the house buttons' .97). No sideways or downward nudge. */
     .hdr-btn:active,
     .ctrl-btn:active,
     .fs-btn:active,
-    .picker-action:active,
-    .picker-tab:active,
-    .ap-btn-play:active,
-    .ap-btn-queue:active,
-    .ap-read-more:active {
-      transform: translateY(1px) scale(0.97);
-    }
+    .picker-action:active { transform: scale(0.92); }
+    .picker-tab:active { transform: scale(0.98); }
+    .ap-read-more:active { transform: scale(0.97); }
 
     .ap-hero::after {
       content: '';
@@ -3656,7 +3366,7 @@
        dock is the only one that's persistently on screen; the other six
        are open for a few seconds at a time. */
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-msg-actions {
+      .player-dock, .chat-msg-actions {
         background:
           linear-gradient(180deg,
             rgba(255,255,255,0.07) 0%,
@@ -3671,15 +3381,10 @@
       .player-dock {
         box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 20px 60px var(--shadow-50);
       }
-      .ctx-menu, .hdr-more-menu {
-        box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 8px 32px var(--shadow-40);
-      }
-      .toast-item {
-        box-shadow: inset 0 1px 0 0 var(--glass-spec), 0 10px 32px var(--shadow-40);
-      }
     }
     @media (prefers-reduced-transparency: reduce) {
-      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-msg-actions {
+      .player-dock, .ctx-menu, .hdr-more-menu, .toast-item, .chat-msg-actions,
+      .mention-suggest, .emo-suggest, .rc-panel, .vp-menu {
         background: var(--modal-bg);
         -webkit-backdrop-filter: none; backdrop-filter: none;
       }
@@ -3697,7 +3402,6 @@
        34 crowds the dock's height for no alignment gain. */
     .chat-icon-btn { border-radius: var(--radius-sm); }
     .ctrl-btn      { border-radius: var(--radius-md); }
-    .ctx-menu, .hdr-more-menu { border-radius: var(--radius-lg); }
 
     /* Stacked, the tab tray spans the full width, so the segments should
        divide it rather than huddle at the left edge with dead tray to
@@ -4038,7 +3742,7 @@
     .ph-tile-add { display: grid; place-items: center; color: var(--text-dim); font-size: 26px; border-style: dashed; }
     .ph-tile-add:hover { color: var(--text); border-color: var(--glass-border-h); }
     .ph-tile-state { position: absolute; left: 6px; right: 6px; bottom: 6px; height: 4px; border-radius: 2px; background: rgba(0,0,0,0.45); overflow: hidden; }
-    .ph-tile-bar { height: 100%; background: #fff; transition: width .2s; }
+    .ph-tile-bar { height: 100%; background: #fff; transform-origin: 0 50%; transition: transform .2s linear; } /* scaleX, set from JS */
     .ph-tile-state.error {
       inset: 0; height: auto; border-radius: 0; background: rgba(0,0,0,0.65); color: var(--danger-color);
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -4611,9 +4315,12 @@
        uses the same values for what it animates. */
     :root {
       --m-ease: cubic-bezier(.2,.8,.2,1);
-      --m-fast: 140ms;
-      --m-med: 220ms;
-      --m-slow: 320ms;
+      --m-ease-exit: cubic-bezier(.4,0,1,1);   /* leaving: quick to go */
+      --m-spring: cubic-bezier(.34,1.3,.64,1);  /* only the sliding inks, pills and the rail's bubble */
+      --m-instant: 80ms;                        /* a press going down */
+      --m-fast: 140ms;                          /* hover, a menu in, a toast or a dialog out */
+      --m-med: 200ms;                           /* a scrim, a view arriving, a toast in */
+      --m-slow: 280ms;                          /* a dialog's panel in */
     }
     /* Fade only. A slide made the whole page (and everything in it) move on
        every tab switch; the chrome around it should feel bolted down. */
@@ -4637,23 +4344,6 @@
     #musicShell .music-nav.has-pill .music-sidebar-group,
     #musicShell .music-nav.has-pill .picker-tabs { position: relative; z-index: 1; }
 
-    /* Modals leave the way they arrived: a fade (and a little drop) out,
-       not a snap. display is transitioned discretely so it switches off only
-       once the fade has finished; browsers without that just close instantly. */
-    .add-app-backdrop, .settings-backdrop {
-      opacity: 0;
-      transition: opacity var(--m-med) var(--m-ease), display var(--m-med) allow-discrete, overlay var(--m-med) allow-discrete;
-    }
-    .add-app-backdrop.open, .settings-backdrop.open { opacity: 1; animation: none; }
-    .add-app-backdrop .add-app-modal, .settings-backdrop .settings-modal {
-      animation: none; transform: translateY(10px) scale(.985); opacity: 0;
-      transition: transform var(--m-slow) var(--m-ease), opacity var(--m-med) var(--m-ease);
-    }
-    .add-app-backdrop.open .add-app-modal, .settings-backdrop.open .settings-modal { transform: none; opacity: 1; }
-    @starting-style {
-      .add-app-backdrop.open, .settings-backdrop.open { opacity: 0; }
-      .add-app-backdrop.open .add-app-modal, .settings-backdrop.open .settings-modal { transform: translateY(14px) scale(.98); opacity: 0; }
-    }
 
     /* Artwork fades in as it loads instead of popping. */
     #musicShell .picker-list-grid .picker-item-art { animation: fadeInSoft var(--m-slow) ease both; }
@@ -4664,6 +4354,471 @@
     #musicShell .ap-body { animation: fadeInUp var(--m-slow) var(--m-ease) 60ms both; }
     /* Photos: the photo that's leaving (a copy laid over the new one). */
     .ph-ghost { pointer-events: none; z-index: 2; }
+
+
+/* ═══ COMPONENTS: the house parts (refresh 2026-11-19) ═══
+   The owner: "all buttons, sheets, menus, right click, all of it should
+   feel in line with the identity of the site and consistently look the
+   same", and motion that's "pretty and polished but still snappy".
+   One recipe per kind of thing, here, after the motion tokens and before
+   the platform skins, LIGHT, OLED, Wood, Sky and Ocean, which still
+   override it. Old class names are in the same selector lists as aliases;
+   use the k-* names for anything new:
+     .k-btn (.primary .danger .ghost .sm .lg .icon)   buttons
+     .k-icon (.sm .lg .on-media)                       icon-only buttons, close buttons
+     .k-row                                            sidebar/list rows (Music's 38px)
+     .k-chip (.on)  .k-seg  .k-switch  .k-field  .k-check
+     .ctx-menu and every popover: one surface, one way in and out
+     .k-toolbar                                         hover action strips
+     sheets and dialogs: .add-app-backdrop/.add-app-modal and friends
+     toasts, .k-label, .k-empty, .k-page-head, .k-enter
+   Spec: plan/system.md (the refresh). Nothing animates layout here: only
+   transform and opacity, so it stays smooth. */
+:root {
+  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-tray: calc(var(--r-md) + 3px);
+  --h-sm: 28px; --h-md: 34px; --h-lg: 38px;
+  --surface-pop: color-mix(in srgb, var(--modal-bg) 92%, transparent);
+  --surface-dialog: var(--modal-bg);
+  --scrim: rgba(0,0,0,.55);
+  --elev-1: 0 2px 10px var(--shadow-20);
+  --elev-2: inset 0 1px 0 var(--glass-spec), 0 10px 32px var(--shadow-40);
+  --elev-3: 0 20px 60px var(--shadow-50);
+  --danger: #ff6961; --danger-fill: rgba(255,69,58,.14); --danger-line: rgba(255,69,58,.35);
+  /* ONE FOCUS (restored): an accent hairline and a soft ring. */
+  --focus-line: rgba(var(--accent-rgb), .55);
+  --focus-ring: 0 0 0 3px rgba(var(--accent-rgb), .16);
+  /* STATUS (restored): online, away, do not disturb. */
+  --st-on: #3ddc84; --st-away: #f4b33c; --st-dnd: #f0454f;
+  /* Layers, bottom to top. */
+  --z-sheet: 100; --z-panel: 300; --z-dialog: 400; --z-dialog-2: 450; --z-viewer: 600; --z-pop: 1000; --z-toast: 3500;
+}
+/* The hairlines and fills follow the frame's own (light's frame, Sky's and
+   Ocean's set these on the title bar and the sidebar). */
+:root, .header, .side-nav {
+  --line: var(--glass-border); --line-strong: var(--glass-border-h);
+  --fill: var(--glass-fill); --fill-hover: var(--glass-fill-h);
+}
+[data-theme="light"] { --surface-pop: #fff; --scrim: rgba(20,20,40,.22); --danger: #d70015; }
+
+/* ── Focus: one look (ONE FOCUS, 2026-11-02, restored) ──
+   A text field never draws the browser's ring (nor the Mac app's accent
+   ring); it draws klabnet's: its hairline in the accent and a soft ring.
+   A borderless field inside a box (search boxes, composers, the tag box)
+   lights the box instead. A new wrapper of that kind goes in both lists.
+   Buttons keep their keyboard ring (:focus-visible only). */
+:is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible),
+html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):is(:focus, :focus-visible) { outline: none !important; }
+:is(.k-field-box, .feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search):focus-within {
+  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
+}
+:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .term-input), textarea, select):focus:not(:is(.k-field-box, .feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search) *) {
+  border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
+}
+/* The prompt is typed into in place, with no box at all. */
+.term-input:focus { box-shadow: none !important; }
+.k-btn:focus-visible, .k-icon:focus-visible, .k-chip:focus-visible, .k-switch:focus-visible, .s-toggle:focus-visible, .k-seg button:focus-visible {
+  outline: none; box-shadow: 0 0 0 1px var(--focus-line), var(--focus-ring);
+}
+
+/* ── Status dots (STATUS, 2026-11-02, restored) ──
+   Set from your name at the sidebar's foot (js/24-flair.js): green
+   online, amber away, red for do not disturb, hollow grey when invisible.
+   Home's rows the same (js/33-plaza.js). */
+.side-me[data-status="away"] .side-me-av::after { background: var(--st-away); }
+.side-me[data-status="dnd"] .side-me-av::after { background: var(--st-dnd); }
+.side-me[data-status="invisible"] .side-me-av::after { background: var(--bg); box-shadow: inset 0 0 0 2.5px var(--text-dimmer), 0 0 0 2.5px var(--bg); }
+.pz-row.on .pz-dot { background: var(--st-on); }
+.pz-row.away .pz-dot { display: block; background: var(--st-away); }
+.pz-row.dnd .pz-dot { display: block; background: var(--st-dnd); }
+
+/* ── 1. Buttons ──
+   Secondary by default (glass and a hairline), .primary filled with the
+   text colour, .danger red, .ghost bare. 34px; .sm 28, .lg 40; .icon square. */
+.k-btn, .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
+.chat-head-btn, .chat-hello-chip, .feed-post-more, .vid-btn, .act-along, .rd-pill, .radio-manage-btn, .radio-form-actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none;
+  height: var(--h-md); padding: 0 16px; box-sizing: border-box; margin: 0;
+  border-radius: var(--r-md); cursor: pointer; white-space: nowrap;
+  font: 600 var(--fs-13)/1 var(--font-ui); letter-spacing: 0; text-transform: none; text-decoration: none;
+  border: 1px solid var(--line); background: var(--fill-hover); color: var(--text); box-shadow: none;
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, color var(--m-fast) ease, opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.k-btn i, .chat-connect-btn i, .ap-btn-play i, .ap-btn-queue i, .vid-btn i, .app-btn i { font-size: 15px; }
+.k-btn:hover:not(:disabled), .ap-btn-queue:hover:not(:disabled), .feed-load-more:hover:not(:disabled), .app-btn:hover:not(:disabled),
+.chat-modal-row-btn:hover:not(:disabled), .update-banner button:hover, .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover,
+.vid-btn:hover:not(:disabled), .act-along:hover:not(:disabled), .rd-pill:hover, .radio-manage-btn:hover, .radio-form-actions button:hover:not(:disabled) {
+  border-color: var(--line-strong); background: color-mix(in srgb, var(--fill-hover), var(--text) 5%); color: var(--text);
+}
+/* primary */
+.k-btn.primary, .chat-connect-btn, .ap-btn-play, .vid-btn.primary, .radio-form-actions .radio-save {
+  border-color: transparent; background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
+}
+.k-btn.primary:hover:not(:disabled), .chat-connect-btn:hover:not(:disabled), .ap-btn-play:hover:not(:disabled),
+.vid-btn.primary:hover:not(:disabled), .radio-form-actions .radio-save:hover:not(:disabled) {
+  border-color: transparent; background: var(--text); color: var(--bg); opacity: .9;
+}
+/* danger (what can't be taken back) */
+.k-btn.danger, .chat-connect-btn.is-danger, .vid-btn.danger, .radio-form-actions .radio-del {
+  border-color: var(--danger-line); background: var(--danger-fill); color: var(--danger); box-shadow: none;
+}
+.k-btn.danger:hover:not(:disabled), .chat-connect-btn.is-danger:hover:not(:disabled), .vid-btn.danger:hover:not(:disabled), .radio-form-actions .radio-del:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); opacity: 1;
+}
+/* ghost */
+.k-btn.ghost { border-color: transparent; background: none; color: var(--text-dim); }
+.k-btn.ghost:hover:not(:disabled) { border-color: transparent; background: var(--fill); color: var(--text); }
+/* sizes */
+.k-btn.sm, .vid-btn.small, .act-along, .rd-pill, .radio-manage-btn, .toast-reply-btn {
+  height: var(--h-sm); padding: 0 11px; gap: 6px; border-radius: var(--r-sm); font-size: var(--fs-12);
+}
+.k-btn.sm i, .vid-btn.small i { font-size: 14px; }
+.k-btn.lg { height: 40px; padding: 0 18px; border-radius: var(--r-lg); }
+.k-btn.icon, .vid-btn.icon { width: var(--h-md); padding: 0; }
+.k-btn.sm.icon { width: var(--h-sm); }
+.k-btn.lg.icon { width: 40px; }
+.k-btn:disabled, .chat-connect-btn:disabled, .ap-btn-play:disabled, .ap-btn-queue:disabled, .app-btn:disabled, .vid-btn:disabled, .radio-form-actions button:disabled {
+  opacity: .5; cursor: default; pointer-events: none;
+}
+.k-btn:active:not(:disabled), .chat-connect-btn:active:not(:disabled), .ap-btn-play:active:not(:disabled), .ap-btn-queue:active:not(:disabled),
+.feed-load-more:active, .app-btn:active:not(:disabled), .chat-modal-row-btn:active, .vid-btn:active:not(:disabled), .radio-form-actions button:active:not(:disabled) {
+  transform: scale(.97); transition-duration: var(--m-instant);
+}
+
+/* ── 2. Icon buttons ──
+   Square, bare; dim until hovered. Pressed ([aria-pressed=true] or .on)
+   gets the fill and a ring. The accent is for what's playing or live,
+   never for hover. .on-media: over a picture or a video (white on dark). */
+.k-icon, .add-app-close, .settings-close, .ph-side-close, .update-banner-close, .pf-close {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--h-md); height: var(--h-md); padding: 0; box-sizing: border-box; margin: 0;
+  border: 0; border-radius: var(--r-md); background: none; color: var(--text-dim); cursor: pointer;
+  font-size: 16px; line-height: 1;
+  transition: background-color var(--m-fast) ease, color var(--m-fast) ease, box-shadow var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.k-icon:hover:not(:disabled), .add-app-close:hover, .settings-close:hover, .ph-side-close:hover, .update-banner-close:hover, .pf-close:hover {
+  background: var(--fill-hover); color: var(--text);
+}
+.k-icon[aria-pressed="true"], .k-icon.on { background: var(--fill-hover); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.k-icon.sm, .add-app-close, .settings-close, .ph-side-close, .update-banner-close { width: var(--h-sm); height: var(--h-sm); border-radius: var(--r-sm); }
+.k-icon.lg { width: var(--h-lg); height: var(--h-lg); font-size: 18px; }
+.k-icon:active:not(:disabled), .add-app-close:active, .settings-close:active, .pf-close:active { transform: scale(.92); transition-duration: var(--m-instant); }
+.k-icon:disabled { opacity: .4; cursor: default; }
+.k-icon.on-media { color: rgba(255,255,255,.85); }
+.k-icon.on-media:hover:not(:disabled) { background: rgba(255,255,255,.14); color: #fff; }
+.k-icon.on-media[aria-pressed="true"], .k-icon.on-media.on { background: rgba(255,255,255,.18); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+
+/* ── 3. Rows (Music's sidebar recipe) ── */
+.k-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--h-lg); padding: 0 12px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: var(--r-lg); background: none; cursor: pointer; text-align: left;
+  font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim);
+  transition: background-color var(--m-fast) ease, color var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
+}
+.k-row > i { font-size: 18px; width: 18px; text-align: center; opacity: .85; flex: none; }
+.k-row:hover { background: var(--fill); color: var(--text); }
+.k-row.active, .k-row[aria-current="page"] { background: var(--fill-hover); border-color: var(--line); color: var(--text); }
+.k-row:active, #sideNav .picker-tab:active, #musicShell .picker-tab:active { transform: scale(.98); transition-duration: var(--m-instant); }
+
+/* ── 4. Chips ── */
+.k-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--fill); cursor: pointer;
+  font: 500 var(--fs-13)/1 var(--font-ui); color: var(--text-dim);
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, color var(--m-fast) ease;
+}
+.k-chip:hover { border-color: var(--line-strong); color: var(--text); }
+.k-chip.on, .k-chip[aria-pressed="true"] { border-color: transparent; background: var(--text); color: var(--bg); }
+
+/* ── 5. Segmented control ── */
+.k-seg, .app-seg, .fb-type, .music-req-type-toggle, .pf-tabs {
+  display: inline-flex; flex: none; gap: 2px; padding: 3px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-tray); background: var(--fill);
+}
+.k-seg button, .app-seg button, .fb-type .fb-type-btn, .music-req-type-toggle .music-req-type-btn, .pf-tabs button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+  height: var(--h-sm); padding: 0 12px; box-sizing: border-box; margin: 0;
+  border: 0; border-radius: var(--r-md); background: none; box-shadow: none; cursor: pointer;
+  font: 500 12.5px/1 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dim);
+  transition: background-color var(--m-fast) ease, color var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+.k-seg button:hover, .app-seg button:hover, .fb-type .fb-type-btn:hover, .music-req-type-toggle .music-req-type-btn:hover, .pf-tabs button:hover {
+  background: none; color: var(--text);
+}
+.k-seg button:is([aria-pressed="true"], [aria-selected="true"], .active), .app-seg button[aria-pressed="true"],
+.fb-type .fb-type-btn.active, .music-req-type-toggle .music-req-type-btn.active, .pf-tabs button[aria-selected="true"] {
+  background: var(--fill-hover); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* ── 6. Switch ── */
+.k-switch, .s-toggle {
+  padding: 0; margin: 0; appearance: none; flex-shrink: 0; position: relative; cursor: pointer;
+  width: 36px; height: 20px; box-sizing: border-box; border-radius: 100px;
+  background: color-mix(in srgb, var(--text) 12%, transparent); border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+.k-switch::after, .s-toggle::after {
+  content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; top: 2px; left: 2px;
+  background: #fff; box-shadow: 0 1px 3px var(--shadow-30);
+  transition: transform var(--m-med) var(--m-ease);
+}
+.k-switch.on, .k-switch[aria-checked="true"], .s-toggle.on {
+  background: rgba(var(--accent-rgb), .55); border-color: rgba(var(--accent-rgb), .7);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), .3);
+}
+.k-switch.on::after, .k-switch[aria-checked="true"]::after, .s-toggle.on::after { transform: translateX(16px); }
+[data-theme="light"] :is(.k-switch, .s-toggle) { background: color-mix(in srgb, var(--text) 14%, transparent); border-color: color-mix(in srgb, var(--text) 18%, transparent); }
+[data-theme="light"] :is(.k-switch.on, .k-switch[aria-checked="true"], .s-toggle.on) { background: rgb(var(--accent-rgb)); border-color: rgb(var(--accent-rgb)); box-shadow: none; }
+
+/* ── 7. Fields ── */
+.k-field, .chat-modal-input {
+  width: 100%; height: var(--h-md); padding: 0 12px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--fill);
+  font: 400 13.5px var(--font-ui); color: var(--text); outline: none;
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+textarea.k-field, textarea.chat-modal-input { height: auto; min-height: 80px; padding: 9px 12px; line-height: 1.45; resize: none; }
+.k-field::placeholder, .chat-modal-input::placeholder { color: var(--text-dimmer); }
+.k-field:hover, .chat-modal-input:hover { background: var(--fill-hover); }
+/* A box with a borderless field in it (a search box): .k-field-box. */
+.k-field-box {
+  display: flex; align-items: center; gap: 8px; height: var(--h-md); padding: 0 10px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--fill); color: var(--text-dimmer); cursor: text;
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+.k-field-box:hover { background: var(--fill-hover); }
+.k-field-box > i { font-size: 15px; flex: none; }
+.k-field-box input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: none; padding: 0; font: 400 13.5px var(--font-ui); color: var(--text); }
+.k-field-box input::placeholder { color: var(--text-dimmer); }
+
+/* ── 8. Checkbox ── */
+input[type="checkbox"].k-check {
+  appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; flex: none; cursor: pointer; position: relative;
+  border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--fill);
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease;
+}
+input[type="checkbox"].k-check:checked { background: var(--text); border-color: var(--text); }
+input[type="checkbox"].k-check:checked::after {
+  content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── 9. Menus and popovers: one surface, one way in and out ──
+   The right-click menu (klabMenu), the ⋯ menu, the pickers, the
+   autocompletes, the recap, the video player's menus. Near-opaque frosted
+   glass; the pickers, full of moving pictures, are opaque instead (a live
+   blur under them would redraw every frame). They grow from the corner
+   they're anchored to (transform-origin, set by whoever opens them) in
+   140ms and fade in 100. */
+.ctx-menu, .hdr-more-menu, .mention-suggest, .emo-suggest, .rc-panel, .vp-menu, .emo-picker, .gif-picker {
+  box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface-pop); box-shadow: var(--elev-2); color: var(--text);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+}
+.emo-picker, .gif-picker { background: var(--surface-dialog); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ctx-menu, .hdr-more-menu, .mention-suggest, .emo-suggest, .vp-menu { padding: 5px; }
+.ctx-menu, .hdr-more-menu { position: fixed; z-index: var(--z-pop); min-width: 200px; max-width: 300px; }
+.ctx-menu { display: none; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.ctx-menu.visible, .hdr-more-menu.visible { display: block; }
+.mention-suggest, .emo-suggest, .rc-panel, .emo-picker { z-index: var(--z-pop); }
+/* Over the composers (390), under dialogs (410): its own "Remove this GIF?" goes over it. */
+.gif-picker { z-index: 405; }
+/* In and out. */
+.ctx-menu, .hdr-more-menu, .mention-suggest, .emo-suggest, .rc-panel, .vp-menu, .emo-picker, .gif-picker {
+  opacity: 0; transform: scale(.98);
+  transition: opacity 100ms var(--m-ease-exit), transform 100ms var(--m-ease-exit), display 100ms allow-discrete, overlay 100ms allow-discrete;
+}
+.ctx-menu.visible, .hdr-more-menu.visible, .mention-suggest:not([hidden]), .emo-suggest:not([hidden]), .rc-panel.open,
+.vp-menu:not([hidden]), .emo-picker.open, .gif-picker:not([hidden]) {
+  opacity: 1; transform: none;
+  transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), display var(--m-fast) allow-discrete, overlay var(--m-fast) allow-discrete;
+}
+@starting-style {
+  .ctx-menu.visible, .hdr-more-menu.visible, .mention-suggest:not([hidden]), .emo-suggest:not([hidden]), .rc-panel.open,
+  .vp-menu:not([hidden]), .emo-picker.open, .gif-picker:not([hidden]) { opacity: 0; transform: scale(.96); }
+}
+/* The recap and the ⋯ menu hang from the title bar's right. */
+.rc-panel, .hdr-more-menu { transform-origin: top right; }
+/* Rows: the highlight follows the pointer at once, as in a native menu. */
+.ctx-item, .vp-menu-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0 10px; box-sizing: border-box;
+  border: 0; border-radius: var(--r-sm); background: none; cursor: pointer; text-align: left; text-decoration: none;
+  font: 500 var(--fs-13)/1.2 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dim);
+  transition: none; white-space: nowrap;
+}
+.ctx-item[hidden] { display: none; }
+.ctx-item > i { font-size: 16px; width: 18px; text-align: center; flex: none; }
+.ctx-item .ctx-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ctx-item .ctx-hint, .ctx-item small { margin-left: auto; padding-left: 12px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.ctx-item:hover, .ctx-item:focus, .klab-menu .ctx-item:focus, .vp-menu-row:hover, .vp-menu-row:focus-visible {
+  outline: none; background: var(--fill-hover); color: var(--text); transform: none;
+}
+.ctx-item.radio[aria-checked="true"], .vp-menu-row.on { color: var(--text); }
+.ctx-item:is(.danger, .warn), .ctx-item:is(.danger, .warn):hover, .ctx-item:is(.danger, .warn):focus { color: var(--danger); }
+.ctx-item:is(.danger, .warn):hover, .ctx-item:is(.danger, .warn):focus { background: var(--danger-fill); }
+.ctx-item.disabled { opacity: .45; cursor: default; }
+.ctx-item.disabled:hover { background: none; color: var(--text-dim); }
+.ctx-divider { height: 1px; background: var(--line); margin: 4px 6px; }
+/* What the menu is about (a song's title, a person): sentence case, dim, one line. */
+.ctx-title {
+  max-width: 260px; padding: 6px 10px 5px; box-sizing: border-box;
+  font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-dimmer);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ctx-label { display: block; padding: 7px 10px 5px; }
+/* Autocomplete rows: the menu's highlight. */
+.mention-suggest button, .emo-suggest-row { border-radius: var(--r-sm); border-color: transparent; transition: none; }
+.mention-suggest button.hi, .emo-suggest-row.sel { background: var(--fill-hover); border-color: transparent; color: var(--text); }
+/* The video player's menus sit over the video: the menu's look, all the same. */
+.vp-menu-row { justify-content: space-between; gap: 12px; }
+
+/* ── 10. Hover toolbars (a post's, a message's actions) ── */
+.k-toolbar {
+  display: inline-flex; gap: 1px; padding: 2px; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-pop); box-shadow: var(--elev-1);
+  transition: opacity var(--m-fast) ease;
+}
+.k-toolbar .k-icon { width: var(--h-sm); height: var(--h-sm); border-radius: var(--r-sm); font-size: 15px; }
+
+/* ── 11. Sheets and dialogs ──
+   A scrim (no blur), the panel on --surface-dialog with a hairline and
+   a deep shadow. In: the scrim fades (200ms), the panel rises 8px out of
+   a .985 scale (280ms). Out: quicker (140ms), a little drop. display is
+   transitioned discretely so it switches off only once that's done. A
+   dialog over another sheet leaves its own scrim clear (.k-scrim-off,
+   from the layer stack in js/00-util.js): one dim, never two. */
+.add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop {
+  position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box;
+  background: var(--scrim); -webkit-backdrop-filter: none; backdrop-filter: none;
+  opacity: 0;
+  transition: opacity var(--m-fast) var(--m-ease-exit), background-color var(--m-fast) ease, display var(--m-fast) allow-discrete, overlay var(--m-fast) allow-discrete;
+}
+.add-app-backdrop.open, .settings-backdrop.open, .pf-backdrop.open, .img-crop-backdrop.open {
+  display: flex; opacity: 1; animation: none;
+  transition: opacity var(--m-med) var(--m-ease), background-color var(--m-fast) ease, display var(--m-med) allow-discrete, overlay var(--m-med) allow-discrete;
+}
+.settings-backdrop, .pf-backdrop { z-index: var(--z-dialog); }
+/* Dialogs open from Settings and from a profile: above them. */
+.add-app-backdrop { z-index: calc(var(--z-dialog) + 10); }
+/* The cropper opens from the profile editor, over it. */
+.img-crop-backdrop { z-index: var(--z-dialog-2); }
+.k-scrim-off { background: transparent !important; }
+.add-app-modal, .settings-modal, .pf, .img-crop-dialog {
+  box-sizing: border-box; max-height: 80vh;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-dialog); box-shadow: var(--elev-3);
+  transform: translateY(4px) scale(.99); opacity: 0; animation: none;
+  transition: transform var(--m-fast) var(--m-ease-exit), opacity var(--m-fast) var(--m-ease-exit);
+}
+.add-app-modal, .settings-modal, .img-crop-dialog { padding: 22px 24px; }
+.add-app-modal, .settings-modal { width: min(480px, calc(100vw - 2rem)); display: flex; flex-direction: column; overflow: hidden; }
+.add-app-modal { gap: 1rem; }
+.img-crop-dialog { width: 100%; max-width: 400px; }
+:is(.add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop).open :is(.add-app-modal, .settings-modal, .pf, .img-crop-dialog) {
+  transform: none; opacity: 1;
+  transition: transform var(--m-slow) var(--m-ease), opacity var(--m-med) var(--m-ease);
+}
+@starting-style {
+  .add-app-backdrop.open, .settings-backdrop.open, .pf-backdrop.open, .img-crop-backdrop.open { opacity: 0; }
+  :is(.add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop).open :is(.add-app-modal, .settings-modal, .pf, .img-crop-dialog) { transform: translateY(8px) scale(.985); opacity: 0; }
+}
+/* Titles are titles: 17px bold, sentence case. */
+.k-dialog-title, .add-app-title, .settings-title, .img-crop-title {
+  font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text);
+}
+.add-app-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.add-app-title .add-app-close { margin: -4px -6px -4px 0; }
+.img-crop-title { margin-bottom: 14px; }
+/* Buttons at the right, at their own width, Cancel then the verb. */
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.dlg-actions > button { margin-top: 0; }
+/* A form's field labels: sentence case, never caps. */
+.k-form-label { display: block; margin: 0 0 6px; font: 600 12.5px/1.3 var(--font-ui); color: var(--text-dim); text-transform: none; letter-spacing: 0; }
+
+/* ── 12. Toasts ──
+   The menu's surface, hanging under the title bar's right. In: down 6px
+   and a fade (200ms); out: a fade up (140ms), then the ones below glide up
+   into its place (dismissToast in js/02-player.js, transforms only). A
+   pointer resting on one holds it; .toast-action is its button (Undo). */
+.toast-flyout {
+  position: fixed; top: 5.5rem; right: 1.5rem; /* top/right set by syncToastFlyout() */
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  /* Over everything that fills the window: the image viewer (600), the slideshow (3000). */
+  z-index: var(--z-toast); pointer-events: none;
+}
+.toast-item {
+  display: flex; align-items: center; gap: 12px; box-sizing: border-box;
+  width: min(340px, calc(100vw - 2rem)); padding: 11px 14px 11px 11px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface-pop); box-shadow: var(--elev-2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  font: 400 13px/1.35 var(--font-ui); letter-spacing: 0; color: var(--text);
+  cursor: pointer; pointer-events: auto;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity var(--m-med) var(--m-ease), transform var(--m-med) var(--m-ease);
+}
+.toast-item.visible { opacity: 1; transform: none; }
+.toast-item.leaving { opacity: 0; transform: translateY(-4px); transition-duration: var(--m-fast); transition-timing-function: var(--m-ease-exit); pointer-events: none; }
+.toast-item.clickable:hover { border-color: color-mix(in srgb, var(--line-strong), var(--text) 18%); }
+.toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
+.toast-action { margin-left: auto; }
+
+/* ── 13. Section labels (Music's) ──
+   10px semibold tracked caps, dim: for section labels only. A note after
+   one ("MOST PLAYED  across klabnet") is plain case and dimmer (.mh-note). */
+.k-label, .picker-section-label, .ap-sec-label, #musicShell .picker-section-label, .settings-section-label, .chat-lbl, .sec-label,
+.key-hints-group-label, .music-sidebar-label, #musicShell .music-sidebar-label, .profile-modal-label, .ctx-label,
+.feed-composer-live-label, .chat-date-sep-label, .ph-side-head, .fb-reported, #settingsBackdrop .settings-section-label,
+#sideNav .nav-sub .music-sidebar-label, #sideNav .nav-sub :is(.chat-lbl, .soc-label-row), #sideNav .nav-sub #phSidebar .ph-side-label {
+  font-family: var(--font-ui); font-size: var(--fs-10); font-weight: 600; line-height: 1.2;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer);
+}
+.mh-note { text-transform: none; letter-spacing: normal; font-weight: 500; opacity: .7; }
+.settings-section-label { display: block; margin-bottom: .6rem; padding-left: 2px; }
+.key-hints-group-label { margin-bottom: 4px; }
+.fb-reported { margin: 22px 0 6px; }
+.profile-modal-label { margin-bottom: 6px; }
+/* Sentence case for everything you press. */
+.ap-read-more, .ap-sim-chip, .picker-sort-btn, .picker-back { text-transform: none; letter-spacing: 0; }
+
+/* ── 14. Empty and loading lines ── */
+.k-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 20px; text-align: center;
+  font: 400 13.5px/1.45 var(--font-ui); color: var(--text-dim);
+}
+.k-empty > i { font-size: 22px; color: var(--text-dimmer); }
+.k-empty .k-btn { margin-top: 4px; }
+
+/* ── 15. A page's head (Music's) ── */
+.k-page-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 18px; }
+.k-page-title { margin: 0; font: 700 30px/1.1 var(--font-ui); letter-spacing: -0.02em; color: var(--text); }
+.k-page-count { font: 500 var(--fs-14) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.k-page-actions { margin-left: auto; align-self: center; display: flex; gap: 8px; }
+
+/* ── Motion utilities ──
+   .k-enter: a view arriving (klabEnter(el) in js/00-util.js adds it once,
+   when motion is on): opacity and up from 6px, 200ms. */
+@keyframes kEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes kFade { from { opacity: 0; } to { opacity: 1; } }
+.k-enter { animation: kEnter var(--m-med) var(--m-ease) both; }
+
+/* Reduced motion: one reset for everything. Durations go to .01ms (so
+   transitionend and animationend still fire for the code waiting on
+   them); the house surfaces and a view arriving keep a plain fade, with
+   nothing moving. Spinners keep spinning: they say something's going on. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.loading-spinner), *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+  .ctx-menu, .hdr-more-menu, .mention-suggest, .emo-suggest, .rc-panel, .vp-menu, .emo-picker, .gif-picker,
+  .add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop, .toast-item {
+    transform: none !important; transition-duration: var(--m-fast) !important;
+  }
+  :is(.add-app-modal, .settings-modal, .pf, .img-crop-dialog) { transform: none !important; transition-duration: var(--m-fast) !important; }
+  .k-enter, .tab-panel.active { animation-name: kFade !important; animation-duration: var(--m-med) !important; }
+}
 
     /* ══ BLOOM — lit things glow, softly ══
        Anything emissive (the white primary pill, active highlights, the
@@ -4693,7 +4848,6 @@
 
     @media (prefers-reduced-motion: reduce) {
       .motion-pill.ready { transition: opacity var(--m-fast) ease; }
-      .add-app-backdrop .add-app-modal, .settings-backdrop .settings-modal { transform: none; }
       #musicShell .ap-hero, #musicShell .ap-body, .tab-panel.active { animation: none; }
     }
 
@@ -4778,9 +4932,7 @@
     /* Settings: grouped lists (one rounded block per section, hairlines
        between rows) rather than a stack of separately-boxed rows. */
     #settingsBackdrop .settings-modal { border-radius: 10px; }
-    #settingsBackdrop .settings-section-label {
-      font-size: var(--fs-11); font-weight: 600; letter-spacing: .12em; color: var(--text-dimmer); padding: 0 4px;
-    }
+    #settingsBackdrop .settings-section-label { padding: 0 4px; }
     /* Plain rows with a hairline between, not a card per group inside the
        card that is the modal. */
     #settingsBackdrop .settings-row {
@@ -4836,12 +4988,6 @@
        A card with a large square tile on the left: an album cover, the
        person it's about (picture, or their initial on their colour), or the
        notification's own icon. Two lines when there's a title. */
-    .toast-item {
-      gap: 14px; padding: 12px 18px 12px 12px; border-radius: 10px;
-      width: min(340px, calc(100vw - 2rem)); min-width: 0; max-width: none;
-      font-size: 14px; letter-spacing: 0; line-height: 1.35;
-      max-height: 200px;
-    }
     .toast-item-pic {
       width: 48px; height: 48px; flex-shrink: 0; border-radius: 10px; object-fit: cover;
       display: grid; place-items: center; box-shadow: 0 4px 14px var(--shadow-30);
@@ -4890,7 +5036,7 @@
     @media (hover: none) { .toast-reply-btn { opacity: 1; } }
     .toast-reply { display: none; width: 100%; gap: 6px; margin-top: 2px; }
     .toast-item.replying .toast-reply { display: flex; animation: fadeInUp var(--m-med) var(--m-ease) both; }
-    .toast-item.replying { cursor: default; max-height: 260px; }
+    .toast-item.replying { cursor: default; }
     .toast-reply input {
       flex: 1; min-width: 0; height: 34px; border-radius: 10px; padding: 0 14px;
       background: var(--glass-fill-h); border: 1px solid var(--glass-border); color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none;
@@ -5406,9 +5552,7 @@
     #feedList .feed-post-reply-gif:hover { color: var(--text); background: var(--glass-fill-h); }
 
     /* Opaque on purpose: no live blur behind a panel full of moving GIFs */
-    .gif-picker { position: fixed; z-index: 405; /* over the composers (390), under dialogs (410): its own "Remove this GIF?" */ display: flex; flex-direction: column; overflow: hidden;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 10px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45); animation: fadeInUp var(--m-med) var(--m-ease) both; }
+    .gif-picker { position: fixed; display: flex; flex-direction: column; overflow: hidden; } /* surface, z and motion: COMPONENTS */
     .gif-picker[hidden] { display: none; }
     .gif-top { display: flex; gap: 6px; margin: 10px 10px 8px; }
     .gif-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 36px; border-radius: 8px;
@@ -5841,23 +5985,6 @@
       .settings-section-label, .music-nav, .picker-tab, .fs-player) { -webkit-user-select: none; user-select: none; }
 
     /* ── Settings → App ── */
-    .app-btn {
-      flex-shrink: 0; height: 30px; padding: 0 12px; border-radius: var(--radius-md);
-      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
-      font: 600 var(--fs-12) var(--font-ui); cursor: pointer;
-    }
-    .app-btn:hover:not(:disabled) { border-color: var(--glass-border-h); }
-    .app-btn:disabled { opacity: .5; cursor: default; }
-    .app-seg {
-      flex-shrink: 0; display: inline-flex; gap: 2px; padding: 3px;
-      border-radius: calc(var(--radius-md) + 3px); border: 1px solid var(--glass-border); background: var(--glass-fill);
-    }
-    .app-seg button {
-      border: 0; background: none; color: var(--text-dim); cursor: pointer;
-      font: 500 var(--fs-12) var(--font-ui); padding: 5px 10px; border-radius: var(--radius-md);
-    }
-    .app-seg button:hover { color: var(--text); }
-    .app-seg button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); box-shadow: inset 0 0 0 1px var(--glass-border-h); }
 
     /* A 1.0 Windows app, which can't update itself, gets told about the new one. */
     .app-update-banner {
@@ -6032,20 +6159,6 @@
         .feed-post-name, .feed-post-reply-name, .feed-post-mention,
         .chat-msg-sender, .chat-msg-reply-quote-name):hover { text-decoration-line: underline; }
 
-    /* Menus are surfaces you read, not panes you look through: nearly
-       opaque, still frosted. In the app a CSS blur can only blur the
-       page's own pixels, and over the window material there often aren't
-       any, which left a 72% glass menu showing straight through. */
-    .ctx-menu, .hdr-more-menu {
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 45%, rgba(255,255,255,0) 100%),
-        color-mix(in srgb, var(--modal-bg) 92%, transparent);
-    }
-
-    /* Shared right-click menu (klabMenu in 00-util.js): the emoji row on
-       messages and posts, and a cap so a long menu scrolls, not overflows. */
-    .klab-menu { max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
-    .klab-menu .ctx-item:focus { outline: none; background: var(--glass-fill-h); color: var(--text); }
     .ctx-reacts { display: flex; gap: 2px; padding: 2px 2px 4px; }
     .ctx-reacts + .ctx-item { margin-top: 0; }
     .ctx-reacts button {
@@ -6253,81 +6366,11 @@
          · Dialog and panel titles are titles: 17px bold, not "// labels".
        ══════════════════════════════════════════════════════════════════ */
 
-    /* ── Section labels ── */
-    .picker-section-label,
-    .ap-sec-label,
-    #musicShell .picker-section-label,
-    .settings-section-label,
-    .chat-lbl,
-    .sec-label,
-    .key-hints-group-label,
-    .music-sidebar-label,
-    #musicShell .music-sidebar-label,
-    .profile-modal-label,
-    .ctx-label,
-    .feed-composer-live-label,
-    .chat-date-sep-label,
-    .ph-side-head {
-      font-family: var(--font-ui); font-size: var(--fs-10); font-weight: 600;
-      letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer);
-    }
-    .mh-note { text-transform: none; letter-spacing: normal; font-weight: 500; opacity: .7; }
-    .settings-section-label { margin-bottom: .6rem; padding-left: 2px; }
-    .ctx-label { padding: 6px 10px 6px; }
 
-    /* ── Sentence case for everything you press ── */
-    .ctx-item, .feed-load-more, .chat-connect-btn, .chat-modal-row-btn, .fb-type-btn, .update-banner button,
-    .ap-btn-play, .ap-btn-queue, .ap-read-more, .ap-sim-chip, .picker-sort-btn, .picker-back {
-      text-transform: none; letter-spacing: 0;
-    }
 
-    /* ── Menus read like the sidebar: 13px rows, no shouting ── */
-    .ctx-item { font: 500 var(--fs-13)/1.2 var(--font-ui); padding: 8px 10px; gap: 10px; border-radius: var(--radius-sm); color: var(--text-dim); }
-    .ctx-item i { font-size: 16px; width: 18px; text-align: center; flex: none; }
-    .ctx-item:hover, .klab-menu .ctx-item:focus { transform: none; }
-    .ctx-item:active { transform: scale(0.98); }
-    .ctx-menu, .hdr-more-menu { padding: 5px; min-width: 200px; }
-    .hdr-more-menu .ctx-item { font-size: var(--fs-13); }
-
-    /* ── Two kinds of button ── */
-    .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
-    .chat-head-btn, .chat-hello-chip, .feed-post-more, .fb-type-btn, .music-req-type-btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      height: var(--control-h); padding: 0 16px; box-sizing: border-box;
-      border-radius: var(--radius-md); cursor: pointer;
-      font: 600 var(--fs-13)/1 var(--font-ui);
-      transition: background-color .15s, border-color .15s, color .15s, opacity .15s, transform .12s;
-    }
-    /* secondary */
-    .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
-    .chat-head-btn, .chat-hello-chip, .feed-post-more, .fb-type-btn, .music-req-type-btn {
-      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
-    }
-    .ap-btn-queue:hover, .feed-load-more:hover, .app-btn:hover:not(:disabled), .chat-modal-row-btn:hover, .update-banner button:hover,
-    .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover, .fb-type-btn:hover, .music-req-type-btn:hover {
-      border-color: var(--glass-border-h); background: var(--glass-fill-h); color: var(--text);
-    }
-    .fb-type-btn.active, .music-req-type-btn.active {
-      border-color: transparent; background: var(--text); color: var(--bg);
-    }
+    /* (Labels, buttons, menus and titles: COMPONENTS.) .fb-type-btn and
+       .music-req-type-btn are segments now ("5. Segmented control"). */
     .picker-sort-btn { height: var(--control-h); border-radius: var(--radius-md); }
-    /* primary */
-    .chat-connect-btn, .ap-btn-play {
-      border: 1px solid transparent; background: var(--text); color: var(--bg);
-    }
-    .chat-connect-btn:hover:not(:disabled), .ap-btn-play:hover { opacity: .9; background: var(--text); color: var(--bg); border-color: transparent; }
-    :is(.chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn):active:not(:disabled) { transform: scale(0.97); }
-    .chat-connect-btn:disabled { opacity: .5; cursor: default; }
-    /* destructive (confirm dialogs) */
-    .chat-connect-btn.is-danger { background: rgba(255,69,58,0.14); color: #ff6961; border-color: rgba(255,69,58,0.35); }
-    .chat-connect-btn.is-danger:hover:not(:disabled) { background: rgba(255,69,58,0.22); color: #ff7b74; border-color: rgba(255,69,58,0.5); opacity: 1; }
-    [data-theme="light"] .chat-connect-btn.is-danger { color: #d70015; }
-
-    /* ── Titles are titles ── */
-    .add-app-title, .settings-title {
-      font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text);
-    }
-    [data-theme="light"] .settings-title { color: var(--text); }
 
     /* ── Feed: days are sections, labelled the way Music labels its rows ──
        Plain on the page; a backing only while one is pinned to the top
@@ -6358,7 +6401,7 @@
     }
 
     /* Dialog messages are read, not squinted at. */
-    #chatModalBody > .chat-modal-row-sub:first-child { font-size: var(--fs-14); line-height: 1.45; color: var(--text-dim); }
+    #chatModalBody > .chat-modal-row-sub:first-child { font-size: var(--fs-14); line-height: 1.45; color: var(--text-dim); white-space: normal; overflow: visible; }
 
     /* What someone's on (the desktop app's OS, or their browser), beside
        their name on presence cards and chat's faces. Quiet: it's a detail. */
@@ -6468,7 +6511,7 @@
       #tabNav, #playerDock, #tabNav .tab-nav-btn, .header .tab-nav .tab-nav-btn, .tab-nav { transition: none !important; }
     }
     @media (prefers-reduced-transparency: reduce) {
-      #tabNav, #playerDock, .side-nav, #feedList .feed-day-in, .ctx-menu, .hdr-more-menu {
+      #tabNav, #playerDock, .side-nav, #feedList .feed-day-in, .ctx-menu, .hdr-more-menu, .toast-item, .rc-panel, .mention-suggest, .emo-suggest {
         background: var(--modal-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
       }
     }
@@ -6855,10 +6898,8 @@
        Under the cursor while typing @name: Music's panel (hairline,
        radius 10, glass) with a row per person. */
     .mention-suggest {
-      position: fixed; z-index: 4000; min-width: 200px; max-width: 280px; padding: 4px;
+      position: fixed; min-width: 200px; max-width: 280px;
       display: flex; flex-direction: column; gap: 2px;
-      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--modal-bg);
-      box-shadow: 0 14px 36px var(--shadow-40);
     }
     .mention-suggest[hidden] { display: none; }
     .mention-suggest button {
@@ -7194,11 +7235,11 @@
     .pl-edit-cover .pl-art.ph > .ti { display: none; }
     .pl-edit-cover .pl-art.ph .pl-art-over { opacity: 1; background: none; }
     .pl-edit-cover-btns { display: flex; gap: 6px; margin-top: 8px; }
-    .pl-edit-cover-btns .ap-btn-queue {
+    .pl-edit-cover-btns .k-btn {
       flex: 1; height: 28px; padding: 0 6px; justify-content: center; border-radius: 8px;
       font: 600 var(--fs-12) var(--font-ui); letter-spacing: 0; text-transform: none;
     }
-    .pl-edit-cover-btns .ap-btn-queue:disabled { opacity: .5; cursor: default; }
+    .pl-edit-cover-btns .k-btn:disabled { opacity: .5; cursor: default; }
     .pl-edit-cover-btns [hidden] { display: none; }
     .pl-edit-fields { flex: 1; min-width: 0; }
     .pl-edit-fields textarea { display: block; height: 88px; resize: none; line-height: 1.45; }
@@ -8034,16 +8075,9 @@
 
     /* ══ One of each (2026-10-14) ══
        Where the same kind of thing had drifted into several looks. */
-    /* Close buttons: one 28px square, the same hover. */
-    .add-app-close, .settings-close, .ph-side-close, .update-banner-close {
-      width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
-      border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-dimmer); font-size: 16px; cursor: pointer;
-    }
-    .add-app-close:hover, .settings-close:hover, .ph-side-close:hover, .update-banner-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    /* (Close buttons: COMPONENTS, "2. Icon buttons", a .k-icon.sm.) */
     /* Primary buttons share the dialogs' corner and padding. */
     .ph-compose-submit { border-radius: var(--radius-md); padding: 0 16px; }
-    /* Section labels: Music's size and tracking, Settings included. */
-    #settingsBackdrop .settings-section-label { font-size: var(--fs-10); letter-spacing: .16em; }
     /* Fields: a brighter hairline when you're in one, everywhere. */
     .chat-modal-input:focus { border-color: var(--glass-border-h); box-shadow: none; }
     .ph-field input:focus-visible, .ph-song-search input:focus-visible { outline: none; }
@@ -8830,10 +8864,6 @@
     }
     .browse-clear:hover, .browse-clear-inline:hover { color: var(--text); background: var(--glass-fill); }
     .browse-none { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-    .browse-menu { max-height: min(60vh, 460px); overflow-y: auto; min-width: 210px; }
-    .browse-menu .ctx-item { text-transform: none; letter-spacing: 0; font-size: var(--fs-13); padding: 8px 10px; }
-    .browse-menu .ctx-item i { width: 15px; }
-    .browse-menu .ctx-item small { margin-left: auto; padding-left: 14px; color: var(--text-dimmer); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
 
     body.tab-music-active #pickerBackdrop { position: relative; }
     #musicShell #pickerList.has-abc { padding-right: 34px; }
@@ -8984,8 +9014,9 @@
       .fs-side-tab:hover { color: var(--fs-t); background: rgba(255,255,255,.06); }
       .fs-side-tab[aria-selected="true"] { color: var(--fs-t); }
       .fs-side-ink {
-        position: absolute; left: 0; bottom: -1px; height: 2px; width: var(--ink-w, 0); border-radius: 2px; background: var(--fs-t);
-        transform: translateX(var(--ink-x, 0)); transition: transform .5s cubic-bezier(.34,1.3,.64,1), width .5s cubic-bezier(.34,1.3,.64,1);
+        /* 1px wide, scaled to the tab: a transform, not a width, so it never lays out. */
+        position: absolute; left: 0; bottom: -1px; height: 2px; width: 1px; background: var(--fs-t); transform-origin: 0 50%;
+        transform: translateX(var(--ink-x, 0)) scaleX(var(--ink-s, 0)); transition: transform .5s var(--m-spring, cubic-bezier(.34,1.3,.64,1));
       }
       .fs-side-note { margin-left: auto; font-size: var(--fs-12); color: var(--fs-dimmer); white-space: nowrap; }
 
@@ -9089,7 +9120,7 @@
     .act-song:hover .act-title, .act-last:hover .act-title { text-decoration: underline; text-underline-offset: 3px; }
     .act-prog { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
     .act-bar { height: 4px; border-radius: 2px; background: var(--glass-fill-h); overflow: hidden; }
-    .act-fill { display: block; height: 100%; border-radius: 2px; background: rgb(var(--accent-rgb)); transition: width 1s linear; }
+    .act-fill { display: block; height: 100%; background: rgb(var(--accent-rgb)); transform-origin: 0 50%; transition: transform 1s linear; } /* scaleX, set from JS */
     .act-now:not(.is-playing) .act-fill { background: var(--text-dimmer); }
     .act-along {
       align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
@@ -9205,7 +9236,7 @@
     .radio-color input { width: 54px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--glass-fill-h); cursor: pointer; }
     .radio-progress { height: 4px; border-radius: 2px; background: var(--glass-fill-h); overflow: hidden; }
     .radio-progress[hidden] { display: none; }
-    .radio-progress span { display: block; height: 100%; width: 0; background: rgb(var(--accent-rgb)); transition: width .2s linear; }
+    .radio-progress span { display: block; height: 100%; background: rgb(var(--accent-rgb)); transform: scaleX(0); transform-origin: 0 50%; transition: transform .2s linear; }
     .radio-form-actions { display: flex; justify-content: flex-end; gap: 10px; }
     .radio-form-actions button { padding: 7px 14px; border-radius: 8px; cursor: pointer; font: 600 var(--fs-13) var(--font-ui); border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text); }
     .radio-save { background: rgb(var(--accent-rgb)) !important; color: #000 !important; border-color: transparent !important; }
@@ -10140,7 +10171,6 @@
     /* ══ GIF PICKER, TIDIED ══
        A desktop popover: wider with three columns, square-ish corners,
        names on hover. The GIF buttons draw the same icon-sized glyph. */
-    .gif-picker { border-radius: 10px; }
     .gif-top { margin: 8px 8px 6px; }
     .gif-search, .gif-add-toggle { height: 32px; border-radius: 6px; }
     .gif-add-toggle { width: 32px; }
@@ -10161,30 +10191,10 @@
     /* Radio's controls: rounded squares, not the only circles on Music. */
     .rd-btn { border-radius: var(--radius-md); }
     .rd-power { border-radius: 10px; }
-    /* Its form's buttons: Save is primary, the others secondary, Delete the danger one. */
-    .radio-form-actions button {
-      height: var(--control-h); padding: 0 16px; border-radius: var(--radius-md);
-      border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
-    }
-    .radio-form-actions button:hover:not(:disabled) { border-color: var(--glass-border-h); }
-    .radio-save { background: var(--text) !important; color: var(--bg) !important; border-color: transparent !important; }
-    .radio-save:hover:not(:disabled) { opacity: .9; }
-    .radio-del { background: rgba(255,69,58,0.14) !important; color: #ff6961 !important; border-color: rgba(255,69,58,0.35) !important; }
-    [data-theme="light"] .radio-del { color: #d70015 !important; }
-    /* Small secondary buttons: Play along, Your stations, Manage. */
-    .act-along, .rd-pill, .radio-manage-btn {
-      height: 30px; padding: 0 12px; border-radius: var(--radius-md); font: 600 var(--fs-12)/1 var(--font-ui);
-    }
-    .act-along, .rd-pill { background: var(--glass-fill-h); border-color: var(--glass-border); }
-    .act-along:hover, .rd-pill:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
     .rd-chat-send { width: auto; aspect-ratio: 1; }
     /* Panels are 10px. */
     .act-now, .act-person, .radio-item, .soc-collage, .radio-hub-art { border-radius: 10px; }
-    /* Labels: Music's (10px, semibold, tracked caps, dim) everywhere. */
-    #settingsBackdrop .settings-section-label { font-size: var(--fs-10); letter-spacing: .16em; }
-    #sideNav .nav-sub .music-sidebar-label,
-    #sideNav .nav-sub :is(.chat-lbl, .soc-label-row),
-    #sideNav .nav-sub #phSidebar .ph-side-label { font-size: var(--fs-10); letter-spacing: .16em; }
+    /* (Radio's form buttons, the small secondary buttons and the labels: COMPONENTS.) */
     /* Counts in the sidebar are plain dim numbers (unread stays red). */
     .soc-label-count { padding: 0; background: none; color: var(--text-dimmer); font-weight: 500; border-radius: 0; }
     /* Empty and loading lines: Music's, everywhere. */
@@ -10192,14 +10202,7 @@
     .rd-quiet { color: var(--text-dimmer); }
     /* Under a section label, the empty line sits with it, not in the middle of the page. */
     .picker-section-label + .picker-empty, .rd-col .picker-empty { text-align: left; padding: 6px 4px 18px; }
-    /* Inputs: a hairline that brightens on focus, no accent glow. */
-    .chat-modal-search:focus-within, #musicShell .picker-search:focus-within, .chat-search:focus-within {
-      border-color: var(--glass-border-h); box-shadow: none;
-    }
-    .rd-chat-input:focus { border-color: var(--glass-border-h); }
-    /* Dialog buttons: at the right, their own width, as in a desktop dialog. */
-    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-    .dlg-actions > button { margin-top: 0; }
+    /* (Focus and .dlg-actions: COMPONENTS.) */
     /* Requests' button, over its list. */
     .mr-actions { display: flex; margin: 0 0 12px; }
     #musicShell .mr-actions .ap-btn-queue { height: var(--control-h); padding: 0 14px; }
@@ -10222,22 +10225,7 @@
     }
     .chat-backdrop .hm-bd-layer.on { opacity: .45 !important; }
     [data-theme="light"] .chat-backdrop .hm-bd-layer.on { opacity: .6 !important; }
-    /* Bug/Idea and Album/Song: the segmented control Settings uses, not two
-       half-width buttons. */
-    :is(.fb-type, .music-req-type-toggle) {
-      display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 10px;
-      border-radius: calc(var(--radius-md) + 3px); border: 1px solid var(--glass-border); background: var(--glass-fill);
-    }
-    :is(.fb-type, .music-req-type-toggle) :is(.fb-type-btn, .music-req-type-btn) {
-      flex: none; height: auto; padding: 5px 12px; gap: 6px; border: 0; background: none; color: var(--text-dim);
-      font: 500 var(--fs-12) var(--font-ui); border-radius: var(--radius-md); box-shadow: none;
-    }
-    :is(.fb-type, .music-req-type-toggle) :is(.fb-type-btn, .music-req-type-btn):hover { background: none; color: var(--text); border: 0; }
-    :is(.fb-type, .music-req-type-toggle) :is(.fb-type-btn, .music-req-type-btn).active {
-      background: var(--glass-fill-h); color: var(--text); box-shadow: inset 0 0 0 1px var(--glass-border-h);
-    }
     /* What's been reported: a label like any other, and rows split by hairlines. */
-    .fb-reported { font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); margin: 22px 0 6px; }
     /* Bugs and ideas: rows split by hairlines; a row opens to its details. */
     #fbList { max-height: min(46vh, 420px); overflow-y: auto; }
     #fbList .fb-row { border-bottom: 1px solid var(--glass-border); }
@@ -10257,28 +10245,20 @@
     .fb-row-reply { display: flex; gap: 6px; font-size: var(--fs-13); line-height: 1.5; color: var(--text); white-space: pre-wrap; }
     .fb-row-reply i { flex: none; color: rgb(var(--accent-rgb)); margin-top: 3px; }
     .fb-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
-    .fb-row-acts .ap-btn-queue { height: 28px; padding: 0 10px; font-size: var(--fs-12); }
-    .fb-row-acts .fb-del { color: #ff6961; margin-left: auto; }
+    .fb-row-acts .fb-del { margin-left: auto; }
     .fb-state { flex: none; padding: 2px 7px; border-radius: 6px; font: 600 var(--fs-10)/1.4 var(--font-ui); letter-spacing: .02em; text-transform: none; }
     .fb-state-open { background: rgba(var(--accent-rgb), .14); color: var(--text-dim); }
     .fb-state-done { background: rgba(74,222,128,0.14); color: var(--success-color); }
     .fb-state-wontfix { background: var(--glass-fill-h); color: var(--text-dimmer); }
     /* The profile editor's field labels: the house label, not 9px. */
-    .profile-modal-label { font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; color: var(--text-dimmer); margin-bottom: 6px; }
     .profile-modal-banner-overlay { border-radius: 6px; font-size: var(--fs-11); letter-spacing: 0; }
 
     /* ══ EMOJI PICKER (js/34-emoji.js) ══
        Discord's layout in the house look: search on top, the sections down
        a rail, the grid with its section names stuck to the top, the one
        under the pointer named at the foot. A menu's surface (--modal-bg). */
-    .emo-picker {
-      position: fixed; z-index: 1000; width: 384px; height: 448px; display: none; flex-direction: column;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 10px;
-      box-shadow: 0 12px 40px var(--shadow-40); overflow: hidden;
-      opacity: 0; transform: scale(.97); transition: opacity .12s, transform .14s var(--m-ease);
-    }
-    .emo-picker.open { display: flex; opacity: 1; transform: none; }
-    @starting-style { .emo-picker.open { opacity: 0; transform: scale(.97); } }
+    .emo-picker { position: fixed; width: 384px; height: 448px; display: none; flex-direction: column; overflow: hidden; } /* surface and motion: COMPONENTS */
+    .emo-picker.open { display: flex; }
     .emo-top { display: flex; gap: 6px; padding: 10px 10px 8px; border-bottom: 1px solid var(--glass-border); }
     .emo-search {
       flex: 1; display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px; border-radius: 6px;
@@ -10376,10 +10356,7 @@
     .chat-msg-text.emoji-only img.cemoji { width: 48px; height: 48px; vertical-align: -10px; }
 
     /* :name as you type: what matches, over the field. */
-    .emo-suggest {
-      position: fixed; z-index: 1000; padding: 4px; border-radius: 8px; background: var(--modal-bg);
-      border: 1px solid var(--glass-border-h); box-shadow: 0 8px 32px var(--shadow-40); box-sizing: border-box;
-    }
+    .emo-suggest { position: fixed; } /* surface and motion: COMPONENTS */
     .emo-suggest[hidden] { display: none; }
     .emo-suggest-h { padding: 6px 8px 4px; font: 600 var(--fs-10)/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
     .emo-suggest-h b { color: var(--text-dim); letter-spacing: 0; text-transform: none; font-weight: 600; }
@@ -10418,14 +10395,10 @@
     /* ══ PROFILES (js/35-profile.js) ══
        A page per person in a large panel: banner, face, name in Music's
        30px title, a row of numbers, then Posts / Photos / Gold / Listening. */
-    .pf-backdrop {
-      position: fixed; inset: 0; z-index: 900; display: none; align-items: center; justify-content: center; padding: 24px;
-      background: rgba(0,0,0,.45); backdrop-filter: blur(6px);
-    }
-    .pf-backdrop.open { display: flex; animation: fadeUp .2s var(--m-ease) both; }
+    /* The sheet's scrim, surface and motion: COMPONENTS (no blur behind it now). */
+    .pf-backdrop { padding: 24px; }
     .pf {
-      position: relative; width: min(920px, 100%); height: min(860px, 100%); display: flex; flex-direction: column; overflow: hidden;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 10px; box-shadow: 0 20px 60px var(--shadow-40);
+      position: relative; width: min(920px, 100%); height: min(860px, 100%); max-height: none; display: flex; flex-direction: column; overflow: hidden;
     }
     .pf:focus { outline: none; }
     .pf-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
@@ -10471,14 +10444,8 @@
     .pf-stats div { display: flex; flex-direction: column; gap: 2px; }
     .pf-stats b { font: 700 20px/1.1 var(--font-ui); font-variant-numeric: tabular-nums; }
     .pf-stats span { font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
-    .pf-tabs { display: flex; gap: 4px; margin: 16px 0 14px; }
-    .pf-tabs button {
-      height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer;
-      font: 600 var(--fs-13) var(--font-ui); color: var(--text-dim);
-    }
+    .pf-tabs { margin: 16px 0 14px; } /* a segmented control (COMPONENTS) */
     .pf-tabs button.dim { color: var(--text-dimmer); }
-    .pf-tabs button:hover { color: var(--text); background: var(--glass-fill); }
-    .pf-tabs button[aria-selected="true"] { color: var(--text); background: var(--glass-fill-h); border-color: var(--glass-border); }
     .pf-empty { margin: 36px 0; text-align: center; font-size: var(--fs-13); color: var(--text-dimmer); }
     .pf-empty.pf-left { margin: 4px 0; text-align: left; }
     .pf-posts { display: flex; flex-direction: column; gap: 10px; }
@@ -10652,14 +10619,10 @@
     }
     .recap-count[hidden] { display: none; }
     .rc-panel {
-      position: fixed; z-index: 9000; width: 380px; max-width: calc(100vw - 16px); max-height: min(70vh, 620px);
+      position: fixed; width: 380px; max-width: calc(100vw - 16px); max-height: min(70vh, 620px);
       display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;
-      border: 1px solid var(--glass-border); border-radius: 10px; background: var(--modal-glass);
-      -webkit-backdrop-filter: blur(28px) saturate(1.4); backdrop-filter: blur(28px) saturate(1.4);
-      box-shadow: 0 18px 50px var(--shadow-50); user-select: none; -webkit-user-select: none;
-      opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right; transition: opacity .16s ease, transform .16s var(--m-ease, ease);
+      user-select: none; -webkit-user-select: none; /* surface and motion: COMPONENTS */
     }
-    .rc-panel.open { opacity: 1; transform: none; }
     html[data-fx="low"] .rc-panel { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .rc-head { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px 6px; }
     .rc-title { font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); color: var(--text); }
@@ -10926,19 +10889,6 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vid-head-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
     /* (Music's head dims every span in it, the count's rule.) */
     #videosShell .music-view-head .vid-btn span { font-size: inherit; color: inherit; }
-    .vid-btn {
-      display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px;
-      font: 600 var(--fs-13) var(--font-ui); color: var(--text); cursor: pointer; white-space: nowrap;
-      background: var(--glass-fill-h); border: 1px solid var(--glass-border);
-    }
-    .vid-btn:hover { border-color: var(--glass-border-h); }
-    .vid-btn i { font-size: 16px; }
-    .vid-btn.primary { background: var(--text); color: var(--bg); border-color: transparent; }
-    .vid-btn.primary:hover { opacity: .88; }
-    .vid-btn.small { height: 30px; padding: 0 12px; border-radius: 8px; font-size: var(--fs-12); }
-    .vid-btn.icon { width: 36px; padding: 0; justify-content: center; }
-    .vid-btn.danger:hover { color: #ff6961; border-color: rgba(255,69,58,.4); }
-    [data-theme="light"] .vid-btn.danger:hover { color: #d70015; }
     .vid-label { padding: 0 2px 10px !important; }
     .vid-loading, .vid-quiet { color: var(--text-dimmer); font-size: var(--fs-13); padding: 8px 2px; }
     .vid-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 70px 20px; color: var(--text-dimmer); font-size: var(--fs-13); text-align: center; }
@@ -11131,17 +11081,9 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vp-peek-img { display: block; border-radius: 6px; border: 1px solid rgba(255,255,255,.4); background: #000 no-repeat; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
     .vp-peek-img[hidden] { display: none; }
     .vp-peek-t { padding: 2px 6px; border-radius: 5px; background: rgba(0,0,0,.8); font: 600 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; }
-    .vp-menu {
-      position: absolute; bottom: 52px; min-width: 140px; padding: 4px; border-radius: 10px;
-      background: rgba(22,22,24,.94); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 10px 40px rgba(0,0,0,.5);
-    }
+    .vp-menu { position: absolute; bottom: 52px; min-width: 140px; } /* surface and motion: COMPONENTS */
     .vp-menu[hidden] { display: none; }
-    .vp-menu-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 32px; padding: 0 10px;
-      border: none; border-radius: 7px; background: none; color: #fff; font: 500 var(--fs-13) var(--font-ui); cursor: pointer; text-align: left;
-    }
-    .vp-menu-row:hover { background: rgba(255,255,255,.12); }
-    .vp-menu-row.on { font-weight: 700; }
+    .vp-menu-row.on { font-weight: 600; }
     @media (prefers-reduced-motion: reduce) { .vid-thumb img, .vp-ctrl, .vp-big { transition: none; } .vid-card:hover .vid-thumb img { transform: none; } }
 
     /* ── Upload and edit dialogs ── */
@@ -11160,7 +11102,7 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vid-desc-in { resize: vertical; min-height: 84px; font: var(--fs-14)/1.45 var(--font-ui); padding: 8px 10px; }
     .vid-bar { position: relative; height: 22px; margin-top: 10px; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h); border: 1px solid var(--glass-border); }
     .vid-bar[hidden] { display: none; }
-    .vid-bar b { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(var(--accent-rgb), .55); transition: width .2s linear; }
+    .vid-bar b { position: absolute; inset: 0; background: rgba(var(--accent-rgb), .55); transform: scaleX(0); transform-origin: 0 50%; transition: transform .2s linear; }
     .vid-bar span { position: relative; display: block; text-align: center; font: 600 var(--fs-11)/22px var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; }
     .vid-thumb-pick { display: flex; align-items: center; gap: 12px; }
     .vid-thumb-pick img { width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); }

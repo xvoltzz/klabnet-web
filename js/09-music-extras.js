@@ -402,8 +402,8 @@ document.addEventListener('contextmenu', e => {
 //  for the same actions each row's buttons already offer, without
 //  needing that whole action row (the player dock has no room for one).
 // ══════════════════════════════════════════
-const songCtxMenu = document.getElementById('songCtxMenu');
-function hideSongCtx() { songCtxMenu.classList.remove('visible'); }
+// Built as a klabMenu (js/00-util.js), like every other right-click menu.
+function hideSongCtx() { klabMenu.close(); }
 // contextSongs (optional): the list `song` actually belongs to, for
 // setting up the right queue/playlist context on "Play" — defaults to the
 // picker's own pickerSongs since most callers open this from the main
@@ -414,85 +414,60 @@ let _songCtxFor = null; // the song the menu was last opened on
 function showSongCtx(x, y, song, contextSongs) {
   if (!song) return;
   _songCtxFor = song;
-  document.getElementById('songCtxLabel').textContent = song.title || 'Song';
-
-  document.getElementById('songCtxPlay').onclick = async () => {
-    hideSongCtx();
-    const list = contextSongs || pickerSongs;
-    if (Array.isArray(list) && list.includes(song)) {
-      playerState.playlist = list; playerState.playlistIndex = list.indexOf(song);
-    }
-    await playSong(song);
-  };
-  document.getElementById('songCtxQueue').onclick = () => { hideSongCtx(); addToQueue(song); };
-  document.getElementById('songCtxAddPl').onclick = () => { hideSongCtx(); addSongToPlaylistFlow(song); };
-
-  const artistItem = document.getElementById('songCtxArtist');
-  artistItem.style.display = song.artistId ? 'flex' : 'none';
-  artistItem.onclick = () => { hideSongCtx(); loadArtistView({ id: song.artistId, name: song.artist }); };
-
-  const albumItem = document.getElementById('songCtxAlbum');
-  albumItem.style.display = song.albumId ? 'flex' : 'none';
-  albumItem.onclick = () => { hideSongCtx(); loadAlbumView(song.albumId, song.album); };
-
-  const favItem = document.getElementById('songCtxFav');
   const isFav = isFavorite(song.id);
-  favItem.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i> ${isFav ? 'Remove from favorites' : 'Add to favorites'}`;
-  favItem.onclick = () => {
-    hideSongCtx();
-    if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
-    updateFavBadge();
-    SFX.play('star');
-  };
-
-  const starItem = document.getElementById('songCtxStar');
-  const starKey = 'song:' + song.id;
-  const labelStar = mine => {
-    starItem.innerHTML = `<i class="ti ${mine ? 'ti-star-filled' : 'ti-star'}"></i> ${mine ? 'Unstar' : 'Star'}`;
-    // Does what the label says, whatever the server turns out to hold.
-    starItem.onclick = () => { hideSongCtx(); klabStars.toggle(starKey, !mine); };
-  };
-  labelStar(klabStars.get(starKey).mine);
-  // A song from the wheel or Cover Flow has no star drawn, so nothing has
-  // asked for its stars yet.
-  klabStars.ensure(starKey).then(s => { if (_songCtxFor === song) labelStar(s.mine); });
-
-  const loginItem = document.getElementById('songCtxLogin');
   const existingLogin = getLoginSong();
   const isLogin = existingLogin && existingLogin.id === song.id;
-  loginItem.innerHTML = `<i class="ti ${isLogin ? 'ti-door-exit' : 'ti-door-enter'}"></i> ${isLogin ? 'Clear login song' : 'Set as login song'}`;
-  loginItem.onclick = () => {
-    hideSongCtx();
-    if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-door-exit'); }
-    else { setLoginSong(song); showToast(`"${song.title}" set as login song`, toastArt(song.coverArt)); }
-    syncLoginSongRows();
-  };
-
   // Label the original with what it actually is ("Download FLAC"), since
   // that's the whole reason someone would pick it over the MP3. The MP3
   // row hides when the file already is one — transcoding mp3 to mp3 just
   // costs quality.
   const suffix = (song.suffix || '').toLowerCase();
-  const dlItem = document.getElementById('songCtxDownload');
-  dlItem.innerHTML = `<i class="ti ti-download"></i> Download${suffix ? ' ' + esc(suffix.toUpperCase()) : ''}`;
-  dlItem.onclick = () => { hideSongCtx(); downloadSongOriginal(song); };
-
-  const dlMp3Item = document.getElementById('songCtxDownloadMp3');
-  dlMp3Item.style.display = suffix === 'mp3' ? 'none' : 'flex';
-  dlMp3Item.onclick = () => { hideSongCtx(); downloadSongMp3(song); };
-
-  const z = zoomFactor();
-  songCtxMenu.style.left = Math.min(x / z, window.innerWidth / z - 200) + 'px';
-  // Show it first: the menu is display:none until .visible lands, and a
-  // display:none element measures 0, so the clamp below has to come after.
-  // The height isn't a constant any more anyway — the MP3 row drops out
-  // for files that already are MP3s.
-  songCtxMenu.classList.add('visible');
-  songCtxMenu.style.top = Math.max(8,
-    Math.min(y / z, window.innerHeight / z - songCtxMenu.offsetHeight - 12)) + 'px';
+  const starKey = 'song:' + song.id;
+  let starMine = !!klabStars.get(starKey).mine;
+  const items = [
+    { header: song.title || 'Song' },
+    { label: 'Play now', icon: 'ti-player-play', action: async () => {
+      const list = contextSongs || pickerSongs;
+      if (Array.isArray(list) && list.includes(song)) {
+        playerState.playlist = list; playerState.playlistIndex = list.indexOf(song);
+      }
+      await playSong(song);
+    } },
+    { label: 'Add to queue', icon: 'ti-playlist-add', action: () => addToQueue(song) },
+    { label: 'Add to playlist', icon: 'ti-playlist', action: () => addSongToPlaylistFlow(song) },
+    '-',
+    { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !song.artistId, action: () => loadArtistView({ id: song.artistId, name: song.artist }) },
+    { label: 'Go to album', icon: 'ti-disc', hidden: !song.albumId, action: () => loadAlbumView(song.albumId, song.album) },
+    '-',
+    { label: isFav ? 'Remove from favorites' : 'Add to favorites', icon: isFav ? 'ti-heart-filled' : 'ti-heart', action: () => {
+      if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
+      updateFavBadge();
+      SFX.play('star');
+    } },
+    // Does what the label says, whatever the server turns out to hold.
+    { label: starMine ? 'Unstar' : 'Star', icon: starMine ? 'ti-star-filled' : 'ti-star', hidden: typeof KLAB_STARS !== 'undefined' && !KLAB_STARS,
+      action: () => klabStars.toggle(starKey, !starMine),
+      // A song from the wheel or Cover Flow has no star drawn, so nothing
+      // has asked for its stars yet: the label follows once they're in.
+      ref: (row, text) => klabStars.ensure(starKey).then(s => {
+        if (_songCtxFor !== song || !row.isConnected) return;
+        starMine = !!s.mine;
+        text.textContent = starMine ? 'Unstar' : 'Star';
+        row.querySelector('i').className = 'ti ' + (starMine ? 'ti-star-filled' : 'ti-star');
+      }) },
+    { label: isLogin ? 'Clear login song' : 'Set as login song', icon: isLogin ? 'ti-door-exit' : 'ti-door-enter', action: () => {
+      if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-door-exit'); }
+      else { setLoginSong(song); showToast(`"${song.title}" set as login song`, toastArt(song.coverArt)); }
+      syncLoginSongRows();
+    } },
+    '-',
+    { label: 'Download' + (suffix ? ' ' + suffix.toUpperCase() : ''), icon: 'ti-download', action: () => downloadSongOriginal(song) },
+    { label: 'Download as MP3', icon: 'ti-file-music', hidden: suffix === 'mp3', action: () => downloadSongMp3(song) },
+  ];
+  // Opened from a right-click that's already been handled (its handler
+  // called preventDefault), so the menu gets the point, not the event.
+  klabMenu({ clientX: x, clientY: y, target: document.body, shiftKey: false, defaultPrevented: false, preventDefault() {} }, items);
 }
-document.addEventListener('click', e => { if (!songCtxMenu.contains(e.target)) hideSongCtx(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideSongCtx(); });
 
 // Player dock — right-click anywhere on it for the full menu on whatever's
 // currently playing, instead of just the one login-song shortcut this
@@ -692,7 +667,7 @@ function renderMusicRequestsList() {
   });
   pickerList.querySelectorAll('[data-req-delete]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const ok = await showConfirmDialog('// delete request', 'Remove this request?', 'Delete');
+      const ok = await showConfirmDialog('Delete this request?', 'It comes off the list for everyone.', 'Delete');
       if (!ok) return;
       try {
         const res = await fetchTimeout(`/api/music-requests/${btn.dataset.reqDelete}`, { method: 'DELETE' }, 8000);
@@ -726,7 +701,7 @@ function refreshRequestAvatars() {
 
 function openMusicRequestModal() {
   let reqType = 'album';
-  const gen = openChatModal('// request music', `
+  const gen = openChatModal('Request music', `
     <div class="music-req-type-toggle">
       <button type="button" class="music-req-type-btn active" data-req-type="album">Album</button>
       <button type="button" class="music-req-type-btn" data-req-type="song">Song</button>
@@ -882,7 +857,7 @@ function showSortBtn(tab) {
 function hideSortBtn() {
   const btn = document.getElementById('pickerSortBtn');
   if (btn) btn.classList.remove('shown');
-  document.getElementById('sortMenu')?.classList.remove('visible');
+  if (btn && btn.getAttribute('aria-expanded') === 'true') klabMenu.close();
 }
 
 function rerenderSortedTab() {
@@ -894,31 +869,18 @@ function rerenderSortedTab() {
 
 document.getElementById('pickerSortBtn').addEventListener('click', e => {
   e.stopPropagation();
-  const menu = document.getElementById('sortMenu');
   const opts = SORT_OPTIONS[pickerTab];
   if (!opts) return;
-  if (menu.classList.contains('visible')) { menu.classList.remove('visible'); return; }
   const current = getSort(pickerTab);
-  menu.innerHTML = '<div class="ctx-label">Sort by</div>' + opts.map(([key, label]) =>
-    `<div class="ctx-item" data-sort-key="${key}"><i class="ti ${key === current ? 'ti-check' : ''}" style="width:15px;"></i> ${label}</div>`
-  ).join('');
-  menu.querySelectorAll('[data-sort-key]').forEach(el => {
-    el.addEventListener('click', () => {
-      setSort(pickerTab, el.dataset.sortKey);
-      menu.classList.remove('visible');
+  klabMenu.at(e.currentTarget, [
+    { section: 'Sort by' },
+    ...opts.map(([key, label]) => ({ label, checked: key === current, action: () => {
+      setSort(pickerTab, key);
       SFX && SFX.play('click');
       rerenderSortedTab();
       showSortBtn(pickerTab);
-    });
-  });
-  anchorPanelUnder(menu, e.currentTarget, 6); // zoom-aware (see 00-util.js)
-  menu.classList.add('visible');
-});
-document.addEventListener('click', e => {
-  const menu = document.getElementById('sortMenu');
-  if (menu && menu.classList.contains('visible') && !menu.contains(e.target) && e.target.id !== 'pickerSortBtn') {
-    menu.classList.remove('visible');
-  }
+    } })),
+  ], { event: e });
 });
 
 // ══════════════════════════════════════════

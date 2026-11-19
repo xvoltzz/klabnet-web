@@ -104,6 +104,7 @@
     ghost.textContent = input.selectionStart === input.value.length ? suggest(input.value) : '';
   }
 
+  let popLayer = null; // on the layer stack while it's open (js/00-util.js)
   function open() {
     if (input) { input.focus(); return; }
     say('');
@@ -123,6 +124,7 @@
     input.style.fontSize = ghost.style.fontSize = fs;
     textEl.after(input, ghost);
     root.classList.add('term-on');
+    popLayer = klabLayers.push(input, { kind: 'terminal', close: () => close() });
     hIdx = history.length;
     size();
     input.focus();
@@ -135,6 +137,7 @@
     input.remove(); ghost.remove();
     input = ghost = null;
     root.classList.remove('term-on');
+    popLayer?.(); popLayer = null;
   }
 
   function key(e) {

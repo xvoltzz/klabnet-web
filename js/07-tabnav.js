@@ -59,6 +59,8 @@ function setActiveTab(key) {
   }
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
+  // A menu belongs to the page it was opened on (tab changes don't fire hashchange).
+  if (leaving !== key) window.klabMenu?.close?.();
   if (leaving && leaving !== key) _tabScroll[leaving] = PANEL_SCROLLS.has(leaving) ? tabPanel(leaving).scrollTop : window.scrollY;
   // Captured before the tab-panel/body-class toggles below — used further
   // down to detect "just arrived on Chat" vs. "already there".
@@ -218,13 +220,24 @@ function openSettings() {
   sfxVolumeSlider.setPct(pct);
   if (volVal) volVal.textContent = Math.round(pct * 100) + '%';
 
-  document.getElementById('settingsBackdrop').classList.add('open');
-  SFX && SFX.play('open');
+  const backdrop = document.getElementById('settingsBackdrop');
+  if (backdrop.classList.contains('open')) return;
+  // The keyboard goes in, and back where it was on closing (as openChatModal does).
+  _settingsReturnFocus = document.activeElement;
+  backdrop.classList.add('open');
+  backdrop.querySelector('.settings-modal')?.focus({ preventScroll: true });
+  SFX && SFX.play('sheet');
 }
+let _settingsReturnFocus = null;
 
 function closeSettings() {
-  document.getElementById('settingsBackdrop').classList.remove('open');
-  SFX && SFX.play('close');
+  const backdrop = document.getElementById('settingsBackdrop');
+  if (!backdrop.classList.contains('open')) return;
+  backdrop.classList.remove('open');
+  SFX && SFX.play('sheet_close');
+  const back = _settingsReturnFocus;
+  _settingsReturnFocus = null;
+  if (back?.isConnected && (!document.activeElement || document.activeElement === document.body || backdrop.contains(document.activeElement))) back.focus?.({ preventScroll: true });
 }
 
 // Desktop notifications: on only when the setting is on *and* the browser
@@ -433,8 +446,8 @@ const sfxVolumeSlider = makeSlider(
 );
 
 // Reset prefs
-document.getElementById('clearPrefsRow').addEventListener('click', async () => { SFX.play('error');
-  if (!(await showConfirmDialog('// reset preferences', 'Reset all preferences? This cannot be undone.', 'Reset'))) return;
+document.getElementById('clearPrefsRow').addEventListener('click', async () => {
+  if (!(await showConfirmDialog('Reset all preferences?', 'Settings, theme and everything else klabnet keeps on this device are cleared, and it reloads.', 'Reset'))) return;
   // Clear localStorage
   Object.values(PREF_KEYS).forEach(k => localStorage.removeItem(k));
   localStorage.removeItem(SETTINGS_KEY);
@@ -502,7 +515,7 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
       menu.classList.remove('visible');
     }
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.classList.remove('visible'); });
+  klabLayers.watch(menu, { kind: 'menu', close: () => menu.classList.remove('visible') });
 })();
 
 document.getElementById('settingsBtn').addEventListener('click', () => { openSettings(); });
@@ -510,14 +523,9 @@ document.getElementById('settingsClose').addEventListener('click', () => { close
 document.getElementById('settingsBackdrop').addEventListener('click', e => {
   if (e.target === document.getElementById('settingsBackdrop') && klabPressedOn(e.target)) closeSettings();
 });
-// Had click-outside but no Escape — every other backdrop-modal in the app
-// already closes on Escape, this one just got missed.
-document.addEventListener('keydown', e => {
-  // Not under a dialog opened from here (the background colours, "Reset?"):
-  // Escape closed that and Settings with it.
-  if (e.key === 'Escape' && document.getElementById('settingsBackdrop').classList.contains('open')
-      && !document.querySelector('.add-app-backdrop.open, .img-view-backdrop.open, .klab-menu.visible')) closeSettings();
-});
+// Escape and mouse Back close it when it's the top layer: a dialog opened
+// from here (the background colours, "Reset?") goes first.
+klabLayers.watch(document.getElementById('settingsBackdrop'), { kind: 'sheet', dim: true, close: () => closeSettings() });
 trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),
   () => document.getElementById('settingsBackdrop').classList.contains('open')

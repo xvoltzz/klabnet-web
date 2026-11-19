@@ -319,6 +319,7 @@
     '<div class="radio-foot"><span class="radio-hint">Point and let go of Q · click · ← → and Enter</span>' +
     '<button type="button" class="radio-manage-btn"><i class="ti ti-upload"></i>Your stations</button></div>';
   document.body.appendChild(wheel);
+  klabLayers.watch(wheel, { kind: 'popover', open: el => !el.hidden && el.classList.contains('open'), close: () => closeWheel() });
   const slotsEl = wheel.querySelector('.radio-slots'), hub = wheel.querySelector('.radio-hub-in'), ring = wheel.querySelector('.radio-ring');
   let sel = 0, hubTimer = 0;
   const choices = () => [null, ...stations]; // the first is "off"
@@ -413,7 +414,7 @@
 
   // ── Keys: hold Q for the wheel ──
   const typing = () => { const el = document.activeElement; return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); };
-  const blocked = () => !!document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .ss.open') && wheel.hidden;
+  const blocked = () => (klabLayers.modal() || klabLayers.any('slideshow')) && wheel.hidden;
   let qDown = 0;
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -450,10 +451,10 @@
     '<div class="radio-manage-body"></div></div>';
   document.body.appendChild(manage);
   const mBody = manage.querySelector('.radio-manage-body');
-  const closeManage = () => { manage.classList.remove('open'); SFX && SFX.play('close'); };
+  const closeManage = () => { if (!manage.classList.contains('open')) return; manage.classList.remove('open'); SFX && SFX.play('sheet_close'); };
   manage.querySelector('.add-app-close').addEventListener('click', closeManage);
   manage.addEventListener('click', e => { if (e.target === manage) closeManage(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && manage.classList.contains('open')) { e.stopPropagation(); closeManage(); } }, true);
+  klabLayers.watch(manage, { kind: 'dialog', dim: true, close: closeManage });
   const tracklistText = s => (s.tracklist || []).map(([t, name]) => clockOf(t) + ' ' + name).join('\n');
   const clockOf = t => { t = Math.floor(t); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = String(t % 60).padStart(2, '0'); return h ? h + ':' + String(m).padStart(2, '0') + ':' + sec : m + ':' + sec; };
 
@@ -483,7 +484,7 @@
   }
   async function openManage(openId) {
     manage.classList.add('open');
-    SFX && SFX.play('open');
+    SFX && SFX.play('sheet');
     mBody.innerHTML = '<div class="picker-empty">Loading…</div>';
     await load(true);
     paintManage(openId);
@@ -502,7 +503,7 @@
       const x = new XMLHttpRequest();
       x.open(method, url);
       x.responseType = 'json';
-      if (bar) x.upload.onprogress = e => { if (e.lengthComputable) { bar.hidden = false; bar.firstChild.style.width = (e.loaded / e.total * 100).toFixed(1) + '%'; } };
+      if (bar) x.upload.onprogress = e => { if (e.lengthComputable) { bar.hidden = false; bar.firstChild.style.transform = 'scaleX(' + (e.loaded / e.total).toFixed(3) + ')'; } };
       x.onload = () => (x.status >= 200 && x.status < 300 ? resolve(x.response) : reject(new Error(x.response?.error || 'failed (' + x.status + ')')));
       x.onerror = () => reject(new Error('the upload didn’t get through'));
       x.send(body);
@@ -969,7 +970,7 @@
     // its previous, next and play).
     document.addEventListener('keydown', e => {
       if (!showing || !el || e.metaKey || e.ctrlKey || e.altKey || typing() || !wheel.hidden || covered()) return;
-      if (document.querySelector('.add-app-backdrop.open, .settings-backdrop.open, .img-view-backdrop.open, .klab-menu.visible, .fs-player.open')) return;
+      if (klabLayers.modal() || klabLayers.any('player')) return;
       const k = e.key;
       if (k === 'ArrowLeft' || k === 'ArrowRight') {
         if (!power) powerOn();

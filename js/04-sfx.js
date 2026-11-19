@@ -311,6 +311,10 @@ const SFX = (() => {
     nav_back: () => clack(0.62, 0.78),
     open:     () => { air(500, 1800, 0.05, 0.28); note(N.D4, 0.3, 0.4); note(N.A4, 0.26, 0.4, 0.05); note(N.D5, 0.22, 0.5, 0.1); },
     close:    () => { air(1600, 450, 0.045, 0.26); note(N.D5, 0.24, 0.3); note(N.A4, 0.2, 0.4, 0.06); },
+    // Sheets and dialogs (Settings, a confirm, the shortcuts, a profile):
+    // just a breath of air, no notes. Calm, and under the click.
+    sheet:       () => { air(700, 1500, 0.022, 0.16); },
+    sheet_close: () => { air(1400, 650, 0.018, 0.13); },
     play:     () => { note(N.D4, 0.34, 0.6); note(N.A4, 0.26, 0.6, 0.012); note(N.Fs5, 0.24, 0.7, 0.07); },
     pause:    () => { note(N.A4, 0.26, 0.4); note(N.D4, 0.28, 0.5, 0.06, { bright: 0.6 }); },
     skip:     () => { note(N.E5, 0.24, 0.14); note(N.A5, 0.22, 0.2, 0.06); },
