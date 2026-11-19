@@ -63,6 +63,7 @@
   // minute. Until one works, it tries again sooner: 2s, 4s, 8s, 16s.
   let _feedRetryMs = 0, _feedRetryTimer = null;
   let _pendingFile   = null;
+  let _pendingVideo  = null; // { id, title, poster, duration, username, start } — window.klabShareVideoToFeed (js/39-videos.js)
   let _pendingSong   = null; // { songId, title, artist, album, coverArt, lyric, start } — see setPendingSong()/window.klabShareSongToFeed
   let _mentionsOnly  = false; // toggled by the @ button — filters the list to posts mentioning me
   const _repliesCache       = new Map(); // postId -> array of replies, fetched lazily as each post renders
@@ -469,6 +470,17 @@
         '<button type="button" class="feed-post-song-play" title="' + (at ? 'Play from ' + formatTime(at) : 'Play') + '"><i class="ti ti-player-play"></i></button>' +
       '</div>';
     }
+    // A klabnet video: its poster, which opens it on Videos (from its moment).
+    let videoHTML = '';
+    if (post.video) {
+      const v = post.video, at = v.start > 0 ? v.start : 0;
+      videoHTML = '<button type="button" class="feed-post-video" data-video-id="' + v.id + '"' + (at ? ' data-at="' + at + '"' : '') + ' data-silent>' +
+        '<span class="feed-post-video-thumb">' + (v.poster ? '<img src="' + esc(v.poster) + '" alt="" loading="lazy" />' : '<i class="ti ti-movie"></i>') +
+          '<span class="feed-post-video-play"><i class="ti ti-player-play-filled"></i></span>' +
+          (v.duration ? '<span class="feed-post-video-dur">' + (at ? formatTime(at) + ' / ' : '') + formatTime(v.duration) + '</span>' : '') + '</span>' +
+        '<span class="feed-post-video-tx"><b>' + esc(v.title || 'Video') + '</b><span>' + esc(v.username || '') + (v.status && v.status !== 'ready' ? ' · processing' : '') + '</span></span>' +
+      '</button>';
+    }
     // Only the first YouTube link in a post gets a player — a post with a
     // list of links shouldn't turn into a stack of iframes. The link itself
     // stays in the text either way.
@@ -516,6 +528,7 @@
         imageHTML +
         embedHTML +
         songHTML +
+        videoHTML +
         '<div class="feed-post-footer">' +
           starHTML +
           pillsHTML +
@@ -549,6 +562,7 @@
           ':' + profileColor(p.username) +
           ':' + (_feedAvatarCache.get(p.username) || '') +
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
+          ':' + (p.video ? p.video.id + '.' + (p.video.status || '') + '.' + (p.video.poster || '') : '') +
           ':' + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
@@ -1195,6 +1209,8 @@
   // other way to reach into this closure's composer state.
   function setPendingSong(song) {
     _pendingSong = song || null;
+    _pendingVideo = null;
+    songPreviewEl.classList.remove('is-video');
     if (!song) { songPreviewEl.hidden = true; return; }
     songArtEl.src = song.coverArt
       ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=100&${subsonicParams()}`
@@ -1217,8 +1233,31 @@
     }
     songPreviewEl.hidden = false;
   }
+  // A video, in the same box: its poster, title and who it's by.
+  function setPendingVideo(v) {
+    setPendingSong(null);
+    _pendingVideo = v || null;
+    if (!v) return;
+    songPreviewEl.classList.add('is-video');
+    songArtEl.src = v.poster || '';
+    songTitleEl.textContent = v.title || 'Video';
+    songArtistEl.textContent = 'Video · ' + (v.username || '');
+    songLyricEl.hidden = true;
+    const at = document.getElementById('feedComposerSongAt');
+    at.hidden = !(v.start > 0);
+    if (v.start > 0) {
+      at.innerHTML = '<i class="ti ti-clock"></i>From ' + formatTime(v.start) + '<i class="ti ti-x"></i>';
+      at.title = 'Share it from the start instead';
+    }
+    songPreviewEl.hidden = false;
+  }
+  window.klabShareVideoToFeed = function(v) {
+    setPendingVideo(v);
+    textEl.focus();
+  };
   songRemoveEl.addEventListener('click', () => setPendingSong(null));
   document.getElementById('feedComposerSongAt')?.addEventListener('click', () => {
+    if (_pendingVideo) { const { start, ...whole } = _pendingVideo; setPendingVideo(whole); return; }
     if (!_pendingSong) return;
     const { start, ...whole } = _pendingSong;
     setPendingSong(whole);
@@ -1248,7 +1287,7 @@
   async function submitPost() {
     if (postBtnEl.disabled) return; // already sending: ⌘↵ held down or pressed twice
     const text = textEl.value.trim();
-    if (!text && !_pendingFile && !_pendingSong) return;
+    if (!text && !_pendingFile && !_pendingSong && !_pendingVideo) return;
     if (text.length > FEED_MAX_CHARS) {
       errEl.textContent = 'Too long by ' + (text.length - FEED_MAX_CHARS).toLocaleString() + ' characters';
       errEl.hidden = false;
@@ -1268,7 +1307,7 @@
       const r = await fetchTimeout('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, image_mxc, song: _pendingSong || null }),
+        body: JSON.stringify({ text, image_mxc, song: _pendingSong || null, ...(_pendingVideo ? { video: { id: _pendingVideo.id, ...(_pendingVideo.start ? { start: _pendingVideo.start } : {}) } } : {}) }),
       }, 15000);
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
@@ -1644,6 +1683,8 @@
       openImageViewer({ thumbSrc: photo.src, mxc: photo.dataset.mxc, alt: photo.alt });
       return;
     }
+    const videoCard = e.target.closest('.feed-post-video[data-video-id]');
+    if (videoCard) { window.klabOpenVideo?.(+videoCard.dataset.videoId, +videoCard.dataset.at || 0); return; }
     const songCard = e.target.closest('.feed-post-song');
     if (songCard) {
       try {

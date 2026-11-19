@@ -565,6 +565,7 @@ function roomPreview(room, ev, isDm) {
   if (ev.isRedacted?.()) return who + 'message deleted';
   const c = ev.getContent() || {};
   if (c['klab.song']) return who + '🎵 ' + (c['klab.song'].title || 'a song');
+  if (c['klab.video']) return who + '🎬 ' + (c['klab.video'].title || 'a video');
   if (c.msgtype === 'm.image') return who + '📷 Photo';
   // Replies carry the quoted text as "> …" lines first; skip those.
   const body = typeof c.body === 'string' ? c.body.replace(/^>.*\n?/gm, '').trim() : '';
@@ -969,7 +970,7 @@ function chatMessageMenu(e) {
   const user = mxIdToUsername(ev.getSender());
   const content = ev.getContent();
   const alive = !ev.isRedacted();
-  const isText = alive && content.msgtype !== 'm.image' && !content['klab.song'] && !!content.body;
+  const isText = alive && content.msgtype !== 'm.image' && !content['klab.song'] && !content['klab.video'] && !!content.body;
   const img = alive && row.querySelector('.chat-msg-image');
   const imgReady = img?.src?.startsWith('blob:');
   let song = null;
@@ -1472,7 +1473,23 @@ function renderTimeline() {
     }
 
     const song = !ev.isRedacted() && content['klab.song'];
-    if (song && song.id) {
+    const vid = !ev.isRedacted() && content['klab.video'];
+    if (vid && +vid.id > 0) {
+      // A klabnet video (js/39-videos.js): its poster, which opens it.
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'chat-msg-video';
+      card.dataset.videoId = String(+vid.id);
+      const at = +vid.start > 0 && +vid.start < 86400 ? +vid.start : 0;
+      if (at) card.dataset.at = at;
+      // Only our own API's pictures: the poster came from another client.
+      const poster = typeof vid.poster === 'string' && vid.poster.startsWith('/api/posts/videos/') ? vid.poster : '';
+      card.innerHTML = '<span class="chat-msg-video-thumb">' + (poster ? '<img src="' + esc(poster) + '" alt="" loading="lazy" />' : '<i class="ti ti-movie"></i>') +
+          '<span class="feed-post-video-play"><i class="ti ti-player-play-filled"></i></span>' +
+          (+vid.duration ? '<span class="feed-post-video-dur">' + (at ? formatTime(at) + ' / ' : '') + formatTime(+vid.duration) + '</span>' : '') + '</span>' +
+        '<span class="chat-msg-video-tx"><b>' + esc(vid.title || 'Video') + '</b><span>' + esc(vid.username || '') + '</span></span>';
+      body.appendChild(card);
+    } else if (song && song.id) {
       // A song shared from the player: a card you can play.
       const card = document.createElement('button');
       card.type = 'button';
@@ -3960,6 +3977,8 @@ document.getElementById('chatTimeline')?.addEventListener('click', e => {
     input.value = say.dataset.say; sendChatMessage(); return;
   }
   if (e.target.closest('[data-share-np]')) { shareNowPlaying(); return; }
+  const vcard = e.target.closest('.chat-msg-video[data-video-id]');
+  if (vcard) { window.klabOpenVideo?.(+vcard.dataset.videoId, +vcard.dataset.at || 0); return; }
   const card = e.target.closest('.chat-msg-song');
   if (card) { try { const s = klabCleanSong(JSON.parse(decodeURIComponent(card.dataset.song))); if (s) klabPlayFrom(s, +card.dataset.at || 0); } catch (err) {} }
 });

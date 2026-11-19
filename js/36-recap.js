@@ -92,12 +92,12 @@
     for (const i of data?.forYou || []) {
       const at = t(i.at), fresh = at > seen;
       let html = '', sub = '';
-      if (i.kind === 'reply') { html = who(i.who[0]) + ' replied to your post'; sub = esc(i.text); }
+      if (i.kind === 'reply') { html = who(i.who[0]) + (i.video ? ' commented on your video' : ' replied to your post'); sub = esc(i.text); }
       else if (i.kind === 'mention') { html = who(i.who[0]) + ' mentioned you' + (i.reply ? ' in a reply' : ''); sub = esc(i.text); }
-      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
+      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : i.video ? esc('to “' + (i.on || 'your video') + '”') : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
       else continue;
-      out.push({ at, html: row({ act: i.kind === 'tag' || i.photo ? 'photos' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
+      out.push({ at, html: row({ act: i.video ? 'video' : i.kind === 'tag' || i.photo ? 'photos' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
     }
     return out.sort((a, b) => b.at - a.at).map(r => r.html).join('');
   }
@@ -108,6 +108,7 @@
     if (a.posts) h += row({ act: 'feed', icon: 'ti-news', html: '<b>' + klabCount(a.posts, 'new post') + '</b> from ' + names(a.postPeople),
       sub: a.latest?.[0] ? esc(a.latest[0].who + ': ' + (a.latest[0].text || (a.latest[0].song ? 'shared a song' : ''))) : '' });
     if (a.photos) h += row({ act: 'photos', icon: 'ti-photo', html: '<b>' + klabCount(a.photos, 'new photo') + '</b> from ' + names(a.photoPeople) });
+    if (a.videos) h += row({ act: 'videos', icon: 'ti-movie', html: '<b>' + klabCount(a.videos, 'new video') + '</b> from ' + names(a.videoPeople) });
     if (a.songCount) h += row({ act: 'post', data: a.songs[0].postId, icon: 'ti-music', html: '<b>' + klabCount(a.songCount, 'song') + '</b> shared',
       sub: a.songs.slice(0, 3).map(s => esc(s.title) + (s.artist ? ' · ' + esc(s.artist) : '')).join(', ') });
     for (const p of a.playlists || []) h += row({ act: 'playlist', data: p.id, icon: 'ti-playlist', html: who(p.who) + ' featured a playlist', sub: esc(p.name) });
@@ -132,6 +133,8 @@
     else if (act === 'post') window.klabFeedFocus?.(d);
     else if (act === 'feed') setActiveTab('feed');
     else if (act === 'photos') setActiveTab('photos');
+    else if (act === 'videos') setActiveTab('videos');
+    else if (act === 'video') window.klabOpenVideo?.(+d);
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
     else if (act === 'radio') { setActiveTab('music'); setTimeout(() => { document.querySelector('.music-nav .picker-tab[data-tab="radio"]')?.click(); window.klabRadio?.tune?.(d); }, 60); }
   }

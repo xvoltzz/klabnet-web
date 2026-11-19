@@ -1,8 +1,9 @@
 // ══════════════════════════════════════════
-//  SOCIAL — Feed, Chat and Photos as one page, laid out like Music.
+//  SOCIAL — Feed and Chat as one page, laid out like Music (Photos was
+//  one of its pages until 2026-11-19; it's its own now).
 //    · The sidebar (#socSidebar in index.html) holds Social's own home,
-//      Feed, Photos and Chat's people and conversations. Pressing
-//      something in it that belongs to another of the four pages goes there.
+//      Feed and Chat's people and conversations. Pressing something in
+//      it that belongs to another of its pages goes there.
 //    · Social's home is Music Home's kind of page: the newest photos in a
 //      collage that reshuffles itself and the latest posts in a row. It
 //      only fetches (and moves) while it's showing.

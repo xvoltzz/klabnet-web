@@ -93,6 +93,7 @@
       if (activeTab() !== desc.tab) setActiveTab(desc.tab);
       if (desc.tab === 'music') restoreMusic(desc);
       else if (desc.tab === 'chat') restoreChat(desc);
+      else if (desc.tab === 'videos') window.klabVideosRestore?.(desc);
     } finally {
       // Click handlers and async openers may push a tick later.
       setTimeout(() => { restoring = false; }, 0);

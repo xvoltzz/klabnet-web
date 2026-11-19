@@ -11,6 +11,21 @@
 (function () {
   const API = '/api/posts/people/';
   let el, seq = 0, blobUrls = [], who = '', data = null, pane = 'posts';
+  // Their videos (js/39-videos.js), fetched when the tab is opened.
+  let vids = null;
+  async function loadVideos() {
+    if (vids && vids.who === who) return;
+    const mine = seq, u = who;
+    vids = { who: u, list: null };
+    try {
+      const r = await fetchTimeout('/api/posts/videos?limit=24&user=' + encodeURIComponent(u), {}, 10000);
+      const j = r.ok ? await r.json() : null;
+      if (mine !== seq || vids.who !== u) return;
+      vids.list = j ? (j.videos || []).filter(v => v.status === 'ready') : [];
+      vids.total = j?.total || 0;
+    } catch { if (mine === seq) vids.list = []; }
+    if (mine === seq && pane === 'videos') paint();
+  }
 
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')) : null;
   const ago = s => { const d = when(s); return d && !isNaN(d) ? shortAgo(d.getTime()) : ''; };
@@ -27,7 +42,10 @@
     el.addEventListener('click', e => {
       if (e.target === el || e.target.closest('[data-pf-close]')) return close();
       const tab = e.target.closest('[data-pf-pane]');
-      if (tab) { pane = tab.dataset.pfPane; paint(); return; }
+      if (tab) { pane = tab.dataset.pfPane; paint(); if (pane === 'videos') loadVideos(); return; }
+      const vid = e.target.closest('.vid-card[data-vid-id]');
+      if (vid) { close(); window.klabOpenVideo?.(+vid.dataset.vidId); return; }
+      if (e.target.closest('[data-pf-channel]')) { close(); window.klabOpenChannel?.(who); return; }
       const song = e.target.closest('[data-pf-song]');
       if (song) {
         try { const s = klabCleanSong(JSON.parse(decodeURIComponent(song.dataset.pfSong))); if (s) klabPlayFrom(s, +song.dataset.at || 0); } catch {}
@@ -135,6 +153,7 @@
     const items = [
       [c.posts, c.posts === 1 ? 'post' : 'posts'],
       [c.photos, c.photos === 1 ? 'photo' : 'photos'],
+      ...(c.videos ? [[c.videos, c.videos === 1 ? 'video' : 'videos']] : []),
       [c.stars, c.stars === 1 ? 'star' : 'stars'],
       [c.listened ? hours(c.listened) : '0 h', 'listened'],
     ];
@@ -164,7 +183,7 @@
     if (!data) return '<p class="pf-empty">Loading…</p>';
     if (data.error) return `<p class="pf-empty">${data.error === 'old' ? 'Profiles need the latest klabnet-api' : data.error === 'none' ? 'Nothing from them here yet' : "Couldn't load their page"}</p>`;
     const d = data, L = d.listening || {};
-    const tabs = [['posts', 'Posts', d.posts.length], ['photos', 'Photos', d.photos.length], ['gold', 'Gold', d.gold.length], ['listening', 'Listening', (L.recent || []).length]];
+    const tabs = [['posts', 'Posts', d.posts.length], ['photos', 'Photos', d.photos.length], ['videos', 'Videos', d.counts?.videos || 0], ['gold', 'Gold', d.gold.length], ['listening', 'Listening', (L.recent || []).length]];
     let html = stats(d.counts) + '<div class="pf-tabs" role="tablist">' + tabs.map(([k, label, n]) =>
       `<button type="button" role="tab" data-pf-pane="${k}" aria-selected="${pane === k}"${!n ? ' class="dim"' : ''}>${label}</button>`).join('') + '</div>';
     if (pane === 'posts') {
@@ -174,6 +193,12 @@
       html += all.length ? '<div class="pf-photos">' + all.map(({ post, ph }) =>
         `<button type="button" class="pf-photo" data-pf-photo="${esc(ph.id)}" data-post="${post.id}" style="aspect-ratio:${ph.w && ph.h ? ph.w + '/' + ph.h : '1'}"><img src="${photoFile(ph.id, 'thumb')}" alt="" loading="lazy"></button>`).join('') + '</div>'
         : '<p class="pf-empty">No photos yet</p>';
+    } else if (pane === 'videos') {
+      const list = vids && vids.who === who ? vids.list : null;
+      html += !list ? '<p class="pf-empty">Loading…</p>'
+        : list.length ? '<div class="pf-videos">' + list.map(v => window.klabVideoCardHTML?.(v, { noFace: true, noUser: true }) || '').join('') + '</div>' +
+            (vids.total > list.length ? '<button type="button" class="ap-btn-queue pf-more" data-pf-channel>All ' + vids.total + ' videos</button>' : '')
+          : '<p class="pf-empty">No videos yet</p>';
     } else if (pane === 'gold') {
       html += d.gold.length ? '<div class="pf-posts">' + d.gold.map(p => postHTML(p, true)).join('') + '</div>'
         : `<p class="pf-empty">Nothing gold yet. A post with ${KLAB_GOLD_AT} stars turns gold</p>`;

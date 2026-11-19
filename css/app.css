@@ -8149,7 +8149,7 @@
 
     /* ══════════════════════════════════════════════════════════════════
        SOCIAL — Feed, Chat and Photos as one page, laid out like Music
-       (index.html #socShell, js/07-tabnav.js TAB_GROUP, js/25-social.js).
+       (index.html :is(#socShell, #photosShell, #videosShell), js/07-tabnav.js TAB_GROUP, js/25-social.js).
        One sidebar beside whichever of its four pages is up: its home,
        Feed, Photos or Chat. Chat's and Photos' own sidebars are groups
        inside it now (#chatSide and #phSidebar keep their ids and classes,
@@ -8158,21 +8158,27 @@
        sidebar never moves between them.
        ══════════════════════════════════════════════════════════════════ */
     .soc-shell { display: none; }
-    body.tab-social-group .soc-shell { display: flex; gap: 1.4rem; flex: 1; min-height: 0; }
-    body.tab-social-group { overflow: hidden; height: 100%; min-height: 0; }
-    body.tab-social-group .dash { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-    body.tab-social-group:not(.tab-photos-active) .dash { padding-bottom: 7rem; }
-    body.tab-social-group.player-hidden:not(.tab-photos-active) .dash { padding-bottom: 1.75rem; }
+    body.tab-shell .soc-shell { display: flex; gap: 1.4rem; flex: 1; min-height: 0; }
+    /* One shell at a time: Social's (home, Feed, Chat), Photos' or Videos'
+       (body.tab-shell is on for all of them, js/07-tabnav.js). */
+    body.tab-shell:is(.tab-photos-active, .tab-videos-active) #socShell,
+    body.tab-shell:not(.tab-photos-active) #photosShell,
+    body.tab-shell:not(.tab-videos-active) #videosShell { display: none; }
+    body.tab-shell { overflow: hidden; height: 100%; min-height: 0; }
+    body.tab-shell .dash { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+    body.tab-shell:not(.tab-photos-active) .dash { padding-bottom: 7rem; }
+    body.tab-shell.player-hidden:not(.tab-photos-active) .dash { padding-bottom: 1.75rem; }
     @media (min-width: 761px), (pointer: fine) {
-      body.tab-social-group .dash { max-width: min(96vw, 2800px); }
+      body.tab-shell .dash { max-width: min(96vw, 2800px); }
     }
-    body.tab-social-group .dash-body { flex: 1; min-height: 0; }
-    body.tab-social-group .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+    body.tab-shell .dash-body { flex: 1; min-height: 0; }
+    body.tab-shell .dash-main { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
     .soc-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
-    body.tab-social-group .soc-main > .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    body.tab-shell .soc-main > .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     /* Social's home and Feed scroll inside the page, as Music's lists do. */
-    body.tab-social-group .soc-main > .tab-panel[data-tab-panel="social"].active,
-    body.tab-social-group .soc-main > .tab-panel[data-tab-panel="feed"].active {
+    body.tab-shell .soc-main > .tab-panel[data-tab-panel="social"].active,
+    body.tab-shell .soc-main > .tab-panel[data-tab-panel="feed"].active,
+    body.tab-shell .soc-main > .tab-panel[data-tab-panel="videos"].active {
       display: block; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
     }
     .soc-main > .tab-panel::-webkit-scrollbar { display: none; }
@@ -8192,39 +8198,39 @@
       display: flex; flex-direction: column; gap: 18px; padding-top: 4px;
     }
     .soc-side-scroll::-webkit-scrollbar { display: none; }
-    #socShell .music-sidebar-label {
+    :is(#socShell, #photosShell, #videosShell) .music-sidebar-label {
       font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
       color: var(--text-dimmer); padding: 0 12px 6px; margin: 0;
     }
-    #socShell .picker-tabs { gap: 2px; }
-    #socShell .picker-tab {
+    :is(#socShell, #photosShell, #videosShell) .picker-tabs { gap: 2px; }
+    :is(#socShell, #photosShell, #videosShell) .picker-tab {
       height: 38px; padding: 0 12px; gap: 12px; border-radius: 10px;
       font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim);
       background: none; border: 1px solid transparent; box-shadow: none;
     }
-    #socShell .picker-tab i { font-size: 18px; width: 20px; color: inherit; opacity: .85; }
-    #socShell .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
-    #socShell .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
-    #socShell .picker-tab.active i { color: var(--text); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+    :is(#socShell, #photosShell, #videosShell) .picker-tab i { font-size: 18px; width: 20px; color: inherit; opacity: .85; }
+    :is(#socShell, #photosShell, #videosShell) .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
+    :is(#socShell, #photosShell, #videosShell) .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
+    :is(#socShell, #photosShell, #videosShell) .picker-tab.active i { color: var(--text); opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
     .soc-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text); box-shadow: 0 0 8px rgba(255,255,255,.5); }
     .soc-dot[hidden] { display: none; }
     /* A row only a phone needs: Chat's list is a screen of its own there. */
-    #socShell .soc-chat-row { display: none; }
+    :is(#socShell, #photosShell, #videosShell) .soc-chat-row { display: none; }
 
     /* Photos' group: the photo's details, the Show toggles and its song,
        while Photos is up. */
     @media (min-width: 901px), (pointer: fine) {
-      :is(#socShell, #sideNav) .ph-sidebar {
+      :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-sidebar {
         display: flex; flex-direction: column; gap: 18px; width: auto; flex: none;
         min-height: auto; overflow: visible; padding-top: 0;
       }
     }
     /* The same test as Photos' own (narrowMq in js/14-photos.js). */
     @media (max-width: 900px) and (not (pointer: fine)) {
-      :is(#socShell, #sideNav) .ph-sidebar { display: none; }
+      :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-sidebar { display: none; }
     }
-    body:not(.tab-photos-active) :is(#socShell, #sideNav) .soc-ph-only { display: none; }
-    body:has(#phShell.is-empty) :is(#socShell, #sideNav) .ph-now { display: none; }
+    body:not(.tab-photos-active) :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-ph-only { display: none; }
+    body:has(#phShell.is-empty) :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-now { display: none; }
     .soc-sidebar > .ph-now { margin-top: 0; }
 
     /* Photos' head: Timeline and What's new as one switch (a pill that
@@ -8257,31 +8263,31 @@
 
     /* Chat's group: who's online always (it's presence, not chat); the
        channels and messages once chat is signed in, "Connect chat" until. */
-    :is(#socShell, #sideNav) .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
-    :is(#socShell, #sideNav) .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
-    :is(#socShell, #sideNav) .chat-side > .music-sidebar-label { display: none; }
-    :is(#socShell, #sideNav) .chat-lbl { padding: 16px 12px 6px; }
-    body:not(.chat-on) #socShell .chat-side > .music-sidebar-label { display: block; }
-    :is(#socShell, #sideNav) .soc-chat-connect { width: 100%; margin-bottom: 10px; }
-    body.chat-on :is(#socShell, #sideNav) .soc-chat-connect { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-side-scroll { flex: none; min-height: auto; overflow: visible; padding-bottom: 0; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-side > .music-sidebar-label { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-lbl { padding: 16px 12px 6px; }
+    body:not(.chat-on) :is(#socShell, #photosShell, #videosShell) .chat-side > .music-sidebar-label { display: block; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-chat-connect { width: 100%; margin-bottom: 10px; }
+    body.chat-on :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-chat-connect { display: none; }
     /* Not signed in: no empty Channels and Messages headings, just the
-       way in. (Only #socShell had this, and the sidebar tree showed them.) */
-    body:not(.chat-on) :is(#socShell, #sideNav) :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
+       way in. (Only :is(#socShell, #photosShell, #videosShell) had this, and the sidebar tree showed them.) */
+    body:not(.chat-on) :is(#socShell, #photosShell, #videosShell, #sideNav) :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
     body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
     /* Voice: its channels are sidebar rows you press to join, who's in
        each under it, and the connected strip as a small card. */
-    :is(#socShell, #sideNav) .soc-voice { display: flex; flex-direction: column; }
-    :is(#socShell, #sideNav) .soc-voice[hidden] { display: none; }
-    :is(#socShell, #sideNav) .soc-label-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
-    :is(#socShell, #sideNav) .soc-label-row::after { content: ''; flex: 1; order: 1; }
-    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn {
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-voice { display: flex; flex-direction: column; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-voice[hidden] { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-label-row { display: flex; align-items: center; gap: 2px; padding-right: 2px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-label-row::after { content: ''; flex: 1; order: 1; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-label-row .chat-icon-btn {
       order: 2; width: 24px; height: 24px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
       color: var(--text-dimmer); letter-spacing: 0;
     }
-    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
-    :is(#socShell, #sideNav) .soc-label-row .chat-icon-btn[hidden] { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-label-row .chat-icon-btn:hover { color: var(--text); background: var(--glass-fill-h); }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-label-row .chat-icon-btn[hidden] { display: none; }
     .soc-label-count {
       margin-left: 6px; padding: 1px 6px; border-radius: 99px; letter-spacing: 0;
       background: rgba(74,222,128,0.14); color: var(--success-color); font-weight: 600;
@@ -8328,16 +8334,16 @@
     #presenceList.soc-presence .presence-card-unread-dot { position: absolute; top: 10px; right: 10px; margin: 0; }
 
     /* The conversation takes the whole page now: no column for a list. */
-    #socShell #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    :is(#socShell, #photosShell, #videosShell) #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
 
     /* Social's home: Music Home's head, Cover Flow and rows. */
     .soc-home { padding-bottom: 18px; }
-    #socShell .music-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 14px; flex: none; }
-    #socShell .music-view-head h2 {
+    :is(#socShell, #photosShell, #videosShell) .music-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 14px; flex: none; }
+    :is(#socShell, #photosShell, #videosShell) .music-view-head h2 {
       margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #socShell .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
+    :is(#socShell, #photosShell, #videosShell) .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
     .soc-home-body { display: flex; flex-direction: column; }
     /* Music Home's labels exactly (#musicShell .picker-section-label): the
        same type, 4px in from the boxes' edge, the same room above and below. */
@@ -8421,50 +8427,50 @@
     /* ── Phones: the pages are chips along the top, as in Music, and
        Chat's list is the Chat page's first screen ── */
     @media (max-width: 760px) and (pointer: coarse) {
-      body.tab-social-group .soc-shell { flex-direction: column; gap: 8px; }
+      body.tab-shell .soc-shell { flex-direction: column; gap: 8px; }
       .soc-sidebar { width: 100%; flex: none; gap: 8px; }
       .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; gap: 8px; }
-      #socShell .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-      #socShell .soc-nav::-webkit-scrollbar { display: none; }
-      #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
-      #socShell .soc-chat-row { display: flex; }
-      #socShell .soc-search, :is(#socShell, #sideNav) #chatSide, :is(#socShell, #sideNav) #socVoice { display: none; }
-      body.tab-chat-active.chat-rooms-view #socShell .soc-search { display: flex; }
-      body.tab-chat-active.chat-rooms-view :is(#socShell, #sideNav) #chatSide,
-      body.tab-chat-active.chat-rooms-view :is(#socShell, #sideNav) #socVoice:not([hidden]) { display: flex; }
+      :is(#socShell, #photosShell, #videosShell) .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      :is(#socShell, #photosShell, #videosShell) .soc-nav::-webkit-scrollbar { display: none; }
+      :is(#socShell, #photosShell, #videosShell) .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+      :is(#socShell, #photosShell, #videosShell) .soc-chat-row { display: flex; }
+      :is(#socShell, #photosShell, #videosShell) .soc-search, :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide, :is(#socShell, #photosShell, #videosShell, #sideNav) #socVoice { display: none; }
+      body.tab-chat-active.chat-rooms-view :is(#socShell, #photosShell, #videosShell) .soc-search { display: flex; }
+      body.tab-chat-active.chat-rooms-view :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide,
+      body.tab-chat-active.chat-rooms-view :is(#socShell, #photosShell, #videosShell, #sideNav) #socVoice:not([hidden]) { display: flex; }
       body.tab-chat-active.chat-rooms-view .soc-sidebar { flex: 1; min-height: 0; }
       body.tab-chat-active.chat-rooms-view .soc-side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
       body.tab-chat-active.chat-rooms-view .soc-main { display: none; }
       body.tab-chat-active:not(.chat-rooms-view) .soc-sidebar { display: none; }
-      #socShell .music-view-head h2 { font-size: 24px; }
+      :is(#socShell, #photosShell, #videosShell) .music-view-head h2 { font-size: 24px; }
       .soc-post { width: 220px; }
     }
     /* One box at a time, as in Music's sidebar: the sliding highlight is
        the active row's, and hovering only brightens a row's text. */
-    #socShell .soc-nav.has-pill .picker-tab,
-    #socShell .soc-nav.has-pill .picker-tab:hover:not(.active) {
+    :is(#socShell, #photosShell, #videosShell) .soc-nav.has-pill .picker-tab,
+    :is(#socShell, #photosShell, #videosShell) .soc-nav.has-pill .picker-tab:hover:not(.active) {
       background: transparent; border-color: transparent;
       transition: color var(--m-slow) var(--m-ease);
     }
-    #socShell .soc-nav.has-pill .picker-tab:hover:not(.active) { color: var(--text); }
+    :is(#socShell, #photosShell, #videosShell) .soc-nav.has-pill .picker-tab:hover:not(.active) { color: var(--text); }
     /* A narrow window on a computer: the sidebar gives up some width, as
        Music's does. */
     @media (min-width: 761px) and (max-width: 900px), (pointer: fine) and (max-width: 900px) {
       .soc-sidebar { width: 200px; }
-      body.tab-social-group .soc-shell { gap: 20px; }
+      body.tab-shell .soc-shell { gap: 20px; }
     }
     /* Photos on a narrow touch screen keeps its controls beside the photo
        and wants the width (js/14-photos.js narrowMq): Social's pages are
        chips along the top there, as on a phone, and the song box is empty. */
     @media (max-width: 900px) and (not (pointer: fine)) {
-      :is(#socShell, #sideNav) .ph-now { display: none; }
+      :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-now { display: none; }
       body.tab-photos-active .soc-shell { flex-direction: column; gap: 8px; }
       body.tab-photos-active .soc-sidebar { width: 100%; flex: none; }
       body.tab-photos-active .soc-side-scroll { flex: none; overflow: visible; padding-top: 0; }
-      body.tab-photos-active #socShell :is(.soc-search, #chatSide, #socVoice) { display: none; }
-      body.tab-photos-active #socShell .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-      body.tab-photos-active #socShell .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
-      body.tab-photos-active #socShell .soc-chat-row { display: flex; }
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell) :is(.soc-search, #chatSide, #socVoice) { display: none; }
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell) .soc-nav { flex-direction: row; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell) .soc-nav .picker-tab { flex: none; width: auto; white-space: nowrap; }
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell) .soc-chat-row { display: flex; }
     }
 
     /* ══ THE DOCK, TUCKED AWAY (js/02-player.js) ══
@@ -8525,7 +8531,7 @@
     #voiceMicBtn.speaking i { background: rgba(74,222,128,0.16); box-shadow: 0 0 0 3px rgba(74,222,128,0.16), 0 0 12px rgba(74,222,128,0.55); }
     #sideNav #voiceMicBtn.speaking { border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.07); }
     /* Sidebar groups that come and go with the page ease in rather than pop. */
-    #socShell :is(.soc-ph-only, .soc-chat-connect, .chat-side-scroll > .chat-lbl-row) { animation: fadeUp .32s var(--m-ease) both; }
+    :is(#socShell, #photosShell, #videosShell) :is(.soc-ph-only, .soc-chat-connect, .chat-side-scroll > .chat-lbl-row) { animation: fadeUp .32s var(--m-ease) both; }
     .player-dock.dock-flying { transition: none !important; }
     /* Photos hides the dock; brought up there, it shows over the strip. */
     body.tab-photos-active.dock-peek-open .player-dock { transform: translateX(-50%) !important; opacity: 1 !important; pointer-events: auto !important; }
@@ -8536,6 +8542,8 @@
        their size so a 22px one and a 96px one look alike. !important
        because the circles were set in many places, some of them by id. */
     :root { --av-radius: 28%; }
+    .vid-face,
+    .vid-face img,
     .chat-msg-avatar,
     .chat-msg-avatar img,
     .chat-msg-seen-avatar,
@@ -8652,10 +8660,10 @@
        Photos: its nav, the photo, the switch and the song. Chat and Online
        now step aside, and Voice too unless you're in a channel; leaving
        Photos brings them back. */
-    body.ph-bare.tab-photos-active :is(#socShell, #sideNav) .ph-side-this { display: none; }
+    body.ph-bare.tab-photos-active :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-side-this { display: none; }
     @media (min-width: 901px), (pointer: fine) {
-      body.tab-photos-active :is(#socShell, #sideNav) #chatSide,
-      body.tab-photos-active :is(#socShell, #sideNav) #socVoice:not(:has(#vcFoot:not([hidden]))) { display: none; }
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide,
+      body.tab-photos-active :is(#socShell, #photosShell, #videosShell, #sideNav) #socVoice:not(:has(#vcFoot:not([hidden]))) { display: none; }
     }
 
     /* ══ Pages under the player bar (desktop; a phone's dock is its mini player) ══ */
@@ -8671,10 +8679,10 @@
       body:not(.player-hidden) { --dock-room: calc(75px + 1.1rem + 16px); }
       body.tab-music-active .dash,
       body.tab-music-active.player-hidden .dash,
-      body.tab-social-group:not(.tab-photos-active):not(.tab-chat-active) .dash,
-      body.tab-social-group.player-hidden:not(.tab-photos-active):not(.tab-chat-active) .dash { padding-bottom: 0; }
+      body.tab-shell:not(.tab-photos-active):not(.tab-chat-active) .dash,
+      body.tab-shell.player-hidden:not(.tab-photos-active):not(.tab-chat-active) .dash { padding-bottom: 0; }
       body.tab-music-active :is(#pickerList, .ap-scroll, .music-sidebar),
-      body.tab-social-group:not(.tab-photos-active):not(.tab-chat-active) :is(.soc-main > .tab-panel.active, .soc-side-scroll) {
+      body.tab-shell:not(.tab-photos-active):not(.tab-chat-active) :is(.soc-main > .tab-panel.active, .soc-side-scroll) {
         padding-bottom: var(--dock-room);
       }
     }
@@ -8685,36 +8693,36 @@
        who's online as plain rows rather than tiles, and less air between
        the groups. The nav rows keep Music's 38px so the two sidebars
        line up. */
-    #socShell .soc-side-scroll { gap: 12px; }
-    :is(#socShell, #sideNav) .chat-lbl { padding: 10px 12px 4px; }
-    #socShell .music-sidebar-label { padding-bottom: 4px; }
+    :is(#socShell, #photosShell, #videosShell) .soc-side-scroll { gap: 12px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-lbl { padding: 10px 12px 4px; }
+    :is(#socShell, #photosShell, #videosShell) .music-sidebar-label { padding-bottom: 4px; }
 
     /* Channels and conversations: 32px rows. */
-    :is(#socShell, #sideNav) #chatSide .chat-conv { height: 32px; padding: 0 8px 0 10px; gap: 8px; margin: 0 0 1px; border-radius: 8px; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-lead { width: 20px; font-size: 15px; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-face { width: 22px; height: 22px; font-size: 10px; margin-left: -1px; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-face .chat-channel-online-dot { width: 7px; height: 7px; right: -2px; bottom: -2px; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-tx { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-top { display: contents; }
-    :is(#socShell, #sideNav) #chatSide .chat-channel-name { order: 0; flex: 0 1 auto; font-size: var(--fs-13); }
-    :is(#socShell, #sideNav) #chatSide .chat-channel-unread-dot { order: 1; align-self: center; width: 6px; height: 6px; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-last { order: 2; flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--fs-12); }
-    :is(#socShell, #sideNav) #chatSide .chat-conv-when { order: 3; margin-left: auto; font-size: var(--fs-11); }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv { height: 32px; padding: 0 8px 0 10px; gap: 8px; margin: 0 0 1px; border-radius: 8px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-lead { width: 20px; font-size: 15px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-face { width: 22px; height: 22px; font-size: 10px; margin-left: -1px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-face .chat-channel-online-dot { width: 7px; height: 7px; right: -2px; bottom: -2px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-tx { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-top { display: contents; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-channel-name { order: 0; flex: 0 1 auto; font-size: var(--fs-13); }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-channel-unread-dot { order: 1; align-self: center; width: 6px; height: 6px; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-last { order: 2; flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--fs-12); }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv-when { order: 3; margin-left: auto; font-size: var(--fs-11); }
     /* A channel's name says enough; the preview is a conversation's. */
-    :is(#socShell, #sideNav) #chatChannelsList .chat-conv-last { display: none; }
-    :is(#socShell, #sideNav) #chatSide .chat-channel-close {
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatChannelsList .chat-conv-last { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-channel-close {
       right: 4px; width: 22px; height: 22px; opacity: 0; background: none; box-shadow: none; border: none;
       color: var(--text-dimmer); font-size: 13px; transition: opacity .15s ease;
     }
-    :is(#socShell, #sideNav) #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    :is(#socShell, #sideNav) #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
-    :is(#socShell, #sideNav) #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-channel-close:hover { color: var(--text); background: var(--glass-fill-h); }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv:not(:hover) .chat-channel-close:not(:focus-visible) { opacity: 0; pointer-events: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #chatSide .chat-conv:hover .chat-channel-close { opacity: 1; }
 
     /* Voice: rows like the others. */
     #socVoice .vc-row { height: 32px; padding: 0 10px; gap: 8px; border-radius: 8px; font-size: var(--fs-13); }
     #socVoice .vc-row i { font-size: 16px; width: 20px; }
 
-    :is(#socShell, #sideNav) #presenceList[hidden] { display: none; }
+    :is(#socShell, #photosShell, #videosShell, #sideNav) #presenceList[hidden] { display: none; }
     /* Online now (hidden for now): rows, not tiles. Name, then what they're up to (or
        their note) faded on the same line; your own note to add on hover. */
     #presenceList.soc-presence { gap: 1px; }
@@ -9479,7 +9487,7 @@
       /* The foot keeps the room for the player now. */
 
       /* ── Folded: a rail ── */
-      html.pane-off-social #socShell #socSidebar,
+      html.pane-off-social :is(#socShell, #photosShell, #videosShell) #socSidebar,
       html.pane-off-music body.tab-music-active #musicShell #musicSidebar { width: calc(48px + 32px); }
       :is(html.pane-off-social #socSidebar, html.pane-off-music #musicSidebar)
         :is(#phSidebar, #socVoice, .music-new-playlist-btn, .chat-lbl, #presenceList, .ph-side-group) { display: none !important; }
@@ -9642,7 +9650,7 @@
        pages don't spend a row on their own heading. Feed's @ is in the
        title bar while it's up (js/07-tabnav.js). */
     .tab-panel[data-tab-panel="feed"] .sec[data-sec="feed"] > .sec-head { display: none; }
-    #socShell .music-view-head:has(#socHomeTitle) { display: none; }
+    :is(#socShell, #photosShell, #videosShell) .music-view-head:has(#socHomeTitle) { display: none; }
     .header-right .feed-mentions-btn { position: relative; }
     .header-right .feed-mentions-btn:not(.is-active) { border-color: transparent; background: none; }
 
@@ -9758,11 +9766,11 @@
       /* A page's front (Music's Home, Social's) is its own row: the
          highlight stays on that row, and the sections' Home rows go (three
          Homes in one sidebar read as a puzzle). */
-      #sideNav .nav-sub :is(.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]) { display: none; }
-      html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
+      #sideNav .nav-sub :is(.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"]) { display: none; }
+      html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]):not([data-vid="home"]), .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
       html.nav-tree #sideNav .tab-nav-btn.active:has(+ .nav-sub.open) { color: var(--text); font-weight: 600; }
       /* The pages' own sidebars have nothing left in them. */
-      html.nav-tree :is(#musicSidebar, #socSidebar) { display: none !important; }
+      html.nav-tree :is(#musicSidebar, #socSidebar, #photosSidebar, #videosSidebar) { display: none !important; }
 
       /* Chat's conversations and Photos' details, under Social's sections
          on their page: indented like the rows, in the rows' type. */
@@ -9804,7 +9812,7 @@
        now that things moved). With the rows and search in the title bar,
        that leaves nothing on Social's home or the Feed, so their sidebar
        goes. Photos keeps its own (this photo's info, its switches). */
-    html.hdr-pagenav-on body:not(.tab-chat-active) :is(#socShell, #sideNav) :is(#chatSide, #socVoice) { display: none !important; }
+    html.hdr-pagenav-on body:not(.tab-chat-active) :is(#socShell, #photosShell, #videosShell, #sideNav) :is(#chatSide, #socVoice) { display: none !important; }
     html.hdr-pagenav-on body:is(.tab-social-active, .tab-feed-active) #socSidebar { display: none !important; }
 
     /* The prompt, typed into (js/32-terminal.js). */
@@ -10010,7 +10018,7 @@
       background: #ff453a; color: #fff; font: 700 10px/18px var(--font-ui); letter-spacing: 0; text-align: center; font-variant-numeric: tabular-nums;
     }
     .soc-count[hidden] { display: none !important; }
-    html #sideNav .nav-sub .picker-tab > .soc-count, #socShell .picker-tab > .soc-count {
+    html #sideNav .nav-sub .picker-tab > .soc-count, :is(#socShell, #photosShell, #videosShell) .picker-tab > .soc-count {
       flex: none !important; width: auto; margin: 0 0 0 auto; padding: 0 5px; color: #fff; font: 700 10px/18px var(--font-ui);
       text-decoration: none !important; overflow: visible;
     }
@@ -10835,7 +10843,7 @@ html.wood .ph-bd-layer { filter: blur(70px) saturate(.9) brightness(1.05); }
    metric twin) on most Linux; nothing to download. The prompt stays mono. */
 html.wood { --font-ui: 'Times New Roman', Times, 'Liberation Serif', Tinos, Georgia, serif; }
 html.wood body { font-size-adjust: 0.5; }
-html.wood :is(#musicShell .music-view-head h2, #socShell .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-style: italic; letter-spacing: -.01em; }
+html.wood :is(#musicShell .music-view-head h2, :is(#socShell, #photosShell, #videosShell) .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-style: italic; letter-spacing: -.01em; }
 
 /* ═══ SCENES; OCEAN (2026-11-02) ═══
    Settings → Appearance: Dark/Light is the switch, and Sky, Wood and Ocean
@@ -10889,7 +10897,7 @@ html.wood :is(#musicShell .music-view-head h2, #socShell .music-view-head h2, .m
    dates, brackets round the primary button. */
 html.ocean { --font-ui: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
 html.ocean body { letter-spacing: -.01em; }
-html.ocean :is(#musicShell .music-view-head h2, #socShell .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-family: 'VT323', 'JetBrains Mono', monospace; font-weight: 400; font-size: 40px; letter-spacing: 0; line-height: 1; }
+html.ocean :is(#musicShell .music-view-head h2, :is(#socShell, #photosShell, #videosShell) .music-view-head h2, .music-view-head h2, .ph-view-head h2, .chat-head-who h2) { font-family: 'VT323', 'JetBrains Mono', monospace; font-weight: 400; font-size: 40px; letter-spacing: 0; line-height: 1; }
 html.ocean :is(.music-sidebar-label, .chat-lbl > span:first-child, .ph-side-label, .settings-section-label, .picker-section-label)::before { content: '// '; opacity: .6; }
 html.ocean :is(.music-sidebar-label, .chat-lbl, .ph-side-label, .settings-section-label, .picker-section-label) { text-transform: lowercase; letter-spacing: .02em; }
 html.ocean .side-nav .picker-tab.active { position: relative; }
@@ -10904,3 +10912,297 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
   position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
   clip-path: polygon(0 0, 100% 0, 100% var(--tb-h, 48px), var(--nav-w, 0px) var(--tb-h, 48px), var(--nav-w, 0px) 100%, 0 100%);
 }
+
+    /* ══════════════════════════════════════════════════════════════════
+       VIDEOS (js/39-videos.js, index.html #videosShell, 2026-11-19)
+       klabnet's own YouTube, in Music's clothes: the 30px title with its
+       dim count, 10px panels with a hairline, the two kinds of button.
+       The player is the one dark thing on the page in either theme (it's
+       a screen), its controls over a soft shade rather than a blur.
+       ══════════════════════════════════════════════════════════════════ */
+    .tab-panel[data-tab-panel="videos"] { max-width: none; margin: 0; }
+    .vid-page { padding: 0 4px var(--dock-room, 1.75rem); }
+    .vid-head { align-items: center !important; }
+    .vid-head-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    /* (Music's head dims every span in it, the count's rule.) */
+    #videosShell .music-view-head .vid-btn span { font-size: inherit; color: inherit; }
+    .vid-btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px;
+      font: 600 var(--fs-13) var(--font-ui); color: var(--text); cursor: pointer; white-space: nowrap;
+      background: var(--glass-fill-h); border: 1px solid var(--glass-border);
+    }
+    .vid-btn:hover { border-color: var(--glass-border-h); }
+    .vid-btn i { font-size: 16px; }
+    .vid-btn.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+    .vid-btn.primary:hover { opacity: .88; }
+    .vid-btn.small { height: 30px; padding: 0 12px; border-radius: 8px; font-size: var(--fs-12); }
+    .vid-btn.icon { width: 36px; padding: 0; justify-content: center; }
+    .vid-btn.danger:hover { color: #ff6961; border-color: rgba(255,69,58,.4); }
+    [data-theme="light"] .vid-btn.danger:hover { color: #d70015; }
+    .vid-label { padding: 0 2px 10px !important; }
+    .vid-loading, .vid-quiet { color: var(--text-dimmer); font-size: var(--fs-13); padding: 8px 2px; }
+    .vid-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 70px 20px; color: var(--text-dimmer); font-size: var(--fs-13); text-align: center; }
+    .vid-empty > i { font-size: 34px; opacity: .6; }
+    .vid-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; animation: vidSpin .9s linear infinite; flex: none; }
+    @keyframes vidSpin { to { transform: rotate(360deg); } }
+
+    /* ── Faces ── */
+    .vid-face {
+      --s: 32px; width: var(--s); height: var(--s); flex: none; display: grid; place-items: center; overflow: hidden;
+      background: color-mix(in srgb, var(--c, #888) 30%, var(--glass-fill-h)); color: var(--text);
+      font: 700 calc(var(--s) * .42) var(--font-ui);
+    }
+    .vid-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vid-face.big { --s: 64px; }
+
+    /* ── Cards ── */
+    .vid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 26px 18px; }
+    .vid-card {
+      display: flex; flex-direction: column; gap: 10px; padding: 0; border: none; background: none; color: var(--text);
+      text-align: left; cursor: pointer; font: inherit; min-width: 0;
+    }
+    .vid-thumb {
+      position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden;
+      background: #0b0b0c; border: 1px solid var(--glass-border);
+    }
+    .vid-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s var(--m-ease, ease); }
+    .vid-card:hover .vid-thumb img { transform: scale(1.03); }
+    .vid-card:hover .vid-thumb { border-color: var(--glass-border-h); box-shadow: 0 0 0 1px var(--glass-border-h), 0 8px 30px -12px rgba(var(--accent-rgb), .45); }
+    .vid-thumb-ph { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,.35); font-size: 30px; }
+    .vid-dur {
+      position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 5px;
+      background: rgba(0,0,0,.78); color: #fff; font: 600 var(--fs-11) var(--font-ui); font-variant-numeric: tabular-nums;
+    }
+    .vid-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.25); }
+    .vid-prog b { display: block; height: 100%; background: rgb(var(--accent-rgb)); box-shadow: 0 0 8px rgba(var(--accent-rgb), .7); }
+    .vid-proc {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(0,0,0,.6); color: #fff; font: 600 var(--fs-12) var(--font-ui);
+    }
+    .vid-card-tx { display: flex; gap: 10px; min-width: 0; }
+    .vid-card-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .vid-card-title {
+      font: 600 var(--fs-14)/1.35 var(--font-ui); color: var(--text);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .vid-card-sub { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vid-card-user { color: var(--text-dim); }
+    /* A row: Up next, compact. */
+    .vid-card.row { flex-direction: row; gap: 10px; }
+    .vid-card.row .vid-thumb { width: 168px; flex: none; border-radius: 8px; }
+    .vid-card.row .vid-card-title { font-size: var(--fs-13); }
+    .vid-card.row .vid-dur { font-size: 10px; }
+
+    /* ── Home's Continue watching: one row that scrolls sideways ── */
+    .vid-shelf-wrap { margin-bottom: 28px; }
+    .vid-shelf { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 260px); gap: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .vid-shelf::-webkit-scrollbar { display: none; }
+
+    /* ── A channel's head ── */
+    .vid-channel { display: flex; align-items: center; gap: 16px; padding: 2px 0 22px; }
+    .vid-channel-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .vid-channel-tx h2 { margin: 0; font: 700 30px/1.1 var(--font-ui); letter-spacing: -.02em; color: var(--text); }
+    .vid-channel-tx span { font-size: var(--fs-13); color: var(--text-dimmer); }
+
+    /* ── Watching ── */
+    .vid-watch { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+    .vid-watch-main { min-width: 0; display: flex; flex-direction: column; }
+    .vid-back { align-self: flex-start; margin: 0 0 12px; }
+    .vid-watch-side { position: sticky; top: 0; min-width: 0; padding-top: 42px; }
+    .vid-next { display: flex; flex-direction: column; gap: 12px; }
+    @media (max-width: 1280px) {
+      .vid-watch { grid-template-columns: minmax(0, 1fr); }
+      .vid-watch-side { position: static; padding-top: 8px; }
+      .vid-next { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    }
+    .vid-title { margin: 16px 0 10px; font: 700 22px/1.25 var(--font-ui); letter-spacing: -.01em; color: var(--text); }
+    .vid-by { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .vid-by-who { display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: none; color: var(--text); cursor: pointer; font: inherit; text-align: left; }
+    .vid-by-who > span:not(.vid-face) { display: flex; flex-direction: column; }
+    .vid-by-who b { font: 600 var(--fs-14) var(--font-ui); }
+    .vid-by-who:hover b { text-decoration: underline; text-underline-offset: 3px; }
+    .vid-by-who > span > span { font-size: var(--fs-12); color: var(--text-dim); }
+    .vid-acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .vid-reacts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .vid-pill {
+      display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+      background: var(--glass-fill-h); border: 1px solid var(--glass-border); color: var(--text); font: 600 var(--fs-13) var(--font-ui);
+    }
+    .vid-pill:hover { border-color: var(--glass-border-h); }
+    .vid-pill.mine { background: rgba(var(--accent-rgb), .18); border-color: rgba(var(--accent-rgb), .45); }
+    .vid-star.mine i { color: #ffcc4d; filter: drop-shadow(0 0 6px rgba(255,204,77,.55)); }
+    .vid-pill i { font-size: 16px; }
+    .vid-desc {
+      margin-top: 16px; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill);
+      font-size: var(--fs-14); line-height: 1.55; color: var(--text); user-select: text; -webkit-user-select: text;
+    }
+    .vid-desc-tx { max-height: calc(1.55em * 4); overflow: hidden; overflow-wrap: anywhere; }
+    .vid-desc.open .vid-desc-tx { max-height: none; }
+    .vid-desc a { color: rgb(var(--accent-rgb)); }
+    .vid-more { margin-top: 6px; padding: 0; border: none; background: none; color: var(--text-dim); font: 600 var(--fs-13) var(--font-ui); cursor: pointer; }
+    .vid-more:hover { color: var(--text); }
+    .vid-more[hidden] { display: none; }
+    .vid-stamp { padding: 0; border: none; background: none; color: rgb(var(--accent-rgb)); font: inherit; cursor: pointer; }
+    .vid-stamp:hover { text-decoration: underline; }
+
+    /* ── Comments ── */
+    .vid-comments { margin-top: 26px; }
+    .vid-com-form { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .vid-com-input {
+      flex: 1; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--glass-border);
+      background: var(--glass-fill); color: var(--text); font: var(--fs-14) var(--font-ui); outline: none;
+    }
+    .vid-com-input:focus { border-color: var(--focus-line, var(--glass-border-h)); box-shadow: var(--focus-ring, none); }
+    .vid-com-list { display: flex; flex-direction: column; gap: 16px; }
+    .vid-com { display: flex; gap: 12px; }
+    .vid-com-tx { min-width: 0; flex: 1; }
+    .vid-com-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-12); color: var(--text-dimmer); }
+    .vid-com-name { padding: 0; border: none; background: none; font: 600 var(--fs-13) var(--font-ui); cursor: pointer; }
+    .vid-com-del { margin-left: auto; padding: 2px 4px; border: none; background: none; color: var(--text-dimmer); cursor: pointer; opacity: 0; }
+    .vid-com:hover .vid-com-del, .vid-com-del:focus-visible { opacity: 1; }
+    .vid-com-del:hover { color: #ff6961; }
+    .vid-com-body { margin-top: 2px; font-size: var(--fs-14); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+
+    /* ── The player ── */
+    .vp {
+      position: relative; aspect-ratio: 16 / 9; max-height: calc(100vh - 230px); width: 100%; margin: 0 auto;
+      border-radius: 10px; overflow: hidden; background: #000; border: 1px solid var(--glass-border); outline: none;
+      color: #fff; isolation: isolate;
+    }
+    .vp:focus-visible { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .6); }
+    .vp video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+    .vp.full { max-height: none; border-radius: 0; border: none; aspect-ratio: auto; }
+    .vp.idle { cursor: none; }
+    .vp-loading { display: grid; place-items: center; }
+    .vp-wait { position: absolute; inset: 0; display: grid; place-items: center; }
+    .vp-wait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .35; filter: blur(6px); }
+    .vp-wait-tx { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 20px; }
+    .vp-wait-tx b { font: 700 var(--fs-15) var(--font-ui); }
+    .vp-wait-tx span { font-size: var(--fs-13); color: rgba(255,255,255,.75); max-width: 420px; }
+    .vp-wait-tx > i { font-size: 28px; color: #ff9f0a; }
+    .vp-big {
+      position: absolute; left: 50%; top: 50%; width: 68px; height: 68px; margin: -34px 0 0 -34px; z-index: 2;
+      display: grid; place-items: center; border-radius: 14px; cursor: pointer;
+      background: rgba(20,20,22,.62); border: 1px solid rgba(255,255,255,.22); color: #fff; font-size: 28px;
+      box-shadow: 0 0 40px rgba(var(--accent-rgb), .35); opacity: 0; pointer-events: none; transform: scale(.9);
+      transition: opacity .2s ease, transform .2s var(--m-ease, ease);
+    }
+    .vp.paused .vp-big { opacity: 1; pointer-events: auto; transform: none; }
+    .vp-big:hover { background: rgba(30,30,34,.8); }
+    .vp-spin { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; pointer-events: none; }
+    .vp-spin .vid-spin { width: 34px; height: 34px; border-width: 3px; }
+    .vp-spin[hidden] { display: none; }
+    .vp-ctrl {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 34px 12px 8px;
+      background: linear-gradient(transparent, rgba(0,0,0,.72));
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .vp.idle .vp-ctrl, .vp.fresh .vp-ctrl { opacity: 0; transform: translateY(6px); pointer-events: none; }
+    .vp.idle .vp-big { opacity: 0; }
+    .vp-row { display: flex; align-items: center; gap: 2px; }
+    .vp-btn {
+      height: 34px; min-width: 34px; padding: 0 8px; display: inline-grid; place-items: center; border-radius: 8px;
+      border: none; background: none; color: #fff; cursor: pointer; font: 600 var(--fs-12) var(--font-ui); font-size: 19px;
+    }
+    .vp-btn.vp-text { font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+    .vp-btn[hidden] { display: none; }
+    .vp-btn:hover { background: rgba(255,255,255,.14); }
+    .vp-gap { flex: 1; }
+    .vp-time { margin: 0 8px; font: 500 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; color: rgba(255,255,255,.85); white-space: nowrap; }
+    .vp-vol { display: flex; align-items: center; }
+    .vp-vol-range { width: 0; opacity: 0; transition: width .2s ease, opacity .2s ease; accent-color: #fff; height: 4px; }
+    .vp-vol:hover .vp-vol-range, .vp-vol:focus-within .vp-vol-range { width: 80px; opacity: 1; margin: 0 6px 0 2px; }
+    .vp-scrub { position: relative; height: 16px; display: flex; align-items: center; cursor: pointer; touch-action: none; margin-bottom: 2px; }
+    .vp-rail { position: relative; flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); transition: height .12s ease; }
+    .vp-scrub:hover .vp-rail, .vp-scrub.drag .vp-rail { height: 6px; }
+    .vp-buf, .vp-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; }
+    .vp-buf { background: rgba(255,255,255,.35); }
+    .vp-fill { background: rgb(var(--accent-rgb)); box-shadow: 0 0 10px rgba(var(--accent-rgb), .8); }
+    .vp-knob {
+      position: absolute; top: 50%; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 4px; background: #fff;
+      box-shadow: 0 0 10px rgba(var(--accent-rgb), .9); transform: scale(0); transition: transform .12s ease;
+    }
+    .vp-scrub:hover .vp-knob, .vp-scrub.drag .vp-knob { transform: none; }
+    .vp-peek {
+      position: absolute; bottom: 22px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px;
+      pointer-events: none;
+    }
+    .vp-peek[hidden] { display: none; }
+    .vp-peek-img { display: block; border-radius: 6px; border: 1px solid rgba(255,255,255,.4); background: #000 no-repeat; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
+    .vp-peek-img[hidden] { display: none; }
+    .vp-peek-t { padding: 2px 6px; border-radius: 5px; background: rgba(0,0,0,.8); font: 600 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; }
+    .vp-menu {
+      position: absolute; bottom: 52px; min-width: 140px; padding: 4px; border-radius: 10px;
+      background: rgba(22,22,24,.94); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    }
+    .vp-menu[hidden] { display: none; }
+    .vp-menu-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 32px; padding: 0 10px;
+      border: none; border-radius: 7px; background: none; color: #fff; font: 500 var(--fs-13) var(--font-ui); cursor: pointer; text-align: left;
+    }
+    .vp-menu-row:hover { background: rgba(255,255,255,.12); }
+    .vp-menu-row.on { font-weight: 700; }
+    @media (prefers-reduced-motion: reduce) { .vid-thumb img, .vp-ctrl, .vp-big { transition: none; } .vid-card:hover .vid-thumb img { transform: none; } }
+
+    /* ── Upload and edit dialogs ── */
+    .vid-up { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .vid-up > * { box-sizing: border-box; max-width: 100%; }
+    .vid-drop {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 16px; margin-bottom: 10px;
+      border-radius: 10px; border: 1px dashed var(--glass-border-h); background: var(--glass-fill); color: var(--text); cursor: pointer; font: inherit;
+    }
+    .vid-drop > i { font-size: 26px; color: var(--text-dim); }
+    .vid-drop b { font: 600 var(--fs-14) var(--font-ui); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vid-drop span { font-size: var(--fs-12); color: var(--text-dimmer); }
+    .vid-drop:hover, .vid-drop.over { border-color: rgba(var(--accent-rgb), .7); background: rgba(var(--accent-rgb), .08); }
+    .vid-drop.has { border-style: solid; }
+    .vid-field-label { font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); margin-top: 6px; }
+    .vid-desc-in { resize: vertical; min-height: 84px; font: var(--fs-14)/1.45 var(--font-ui); padding: 8px 10px; }
+    .vid-bar { position: relative; height: 22px; margin-top: 10px; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h); border: 1px solid var(--glass-border); }
+    .vid-bar[hidden] { display: none; }
+    .vid-bar b { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(var(--accent-rgb), .55); transition: width .2s linear; }
+    .vid-bar span { position: relative; display: block; text-align: center; font: 600 var(--fs-11)/22px var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; }
+    .vid-thumb-pick { display: flex; align-items: center; gap: 12px; }
+    .vid-thumb-pick img { width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); }
+    .vid-thumb-pick img[hidden] { display: none; }
+    .vid-check { display: flex; align-items: center; gap: 8px; margin: 0 2px 12px; font-size: var(--fs-13); color: var(--text); cursor: pointer; }
+    .vid-check input { accent-color: rgb(var(--accent-rgb)); }
+    .vid-share-list .chat-modal-row { width: 100%; gap: 12px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+    .vid-share-list .chat-modal-row > i { font-size: 18px; color: var(--text-dim); }
+
+    /* ── Shared: a card in the Feed, in Chat, on a profile ── */
+    .feed-post-video, .chat-msg-video {
+      display: flex; flex-direction: column; width: 100%; max-width: 520px; margin-top: 10px; padding: 0; overflow: hidden;
+      border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text);
+      text-align: left; cursor: pointer; font: inherit;
+    }
+    .chat-msg-video { width: 320px; max-width: 100%; margin-top: 2px; }
+    .feed-post-video:hover, .chat-msg-video:hover { border-color: var(--glass-border-h); }
+    .feed-post-video-thumb, .chat-msg-video-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: #0b0b0c; color: rgba(255,255,255,.4); font-size: 28px; }
+    .feed-post-video-thumb img, .chat-msg-video-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .feed-post-video-play {
+      position: relative; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; color: #fff; font-size: 22px;
+      background: rgba(20,20,22,.62); border: 1px solid rgba(255,255,255,.22); transition: transform .2s var(--m-ease, ease);
+    }
+    .feed-post-video:hover .feed-post-video-play, .chat-msg-video:hover .feed-post-video-play { transform: scale(1.06); }
+    .feed-post-video-dur { position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 5px; background: rgba(0,0,0,.78); color: #fff; font: 600 var(--fs-11) var(--font-ui); font-variant-numeric: tabular-nums; }
+    .feed-post-video-tx, .chat-msg-video-tx { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; min-width: 0; }
+    .feed-post-video-tx b, .chat-msg-video-tx b { font: 600 var(--fs-14) var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-post-video-tx span, .chat-msg-video-tx span { font-size: var(--fs-12); color: var(--text-dim); }
+    .pf-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px 14px; }
+    .pf-more { margin: 16px auto 0; display: flex; }
+    /* The composer's attachment, as a video: a 16:9 poster. */
+    .feed-composer-song-preview.is-video .feed-composer-song-art { width: 96px; height: 54px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; }
+
+    /* ── Phones ── */
+    @media (max-width: 760px) and (pointer: coarse) {
+      .vid-grid { grid-template-columns: 1fr; gap: 22px; }
+      .vid-head-tools .vid-btn span { display: none; }
+      .vid-title { font-size: 18px; }
+      .vid-acts { margin-left: 0; width: 100%; }
+      .vp { max-height: none; border-radius: 8px; }
+      .vp-vol-range { display: none; }
+      .vid-card.row .vid-thumb { width: 140px; }
+    }
+    html[data-fx="low"] .vid-card:hover .vid-thumb img { transform: none; }
+    html[data-fx="low"] .vid-card:hover .vid-thumb { box-shadow: none; }

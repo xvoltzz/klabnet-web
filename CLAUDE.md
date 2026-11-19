@@ -1,6 +1,6 @@
 # klabnet-web: notes for Claude
 
-klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome), photos and home, as one site at `user.klab.gg`. Feed, Chat and Photos are one page, Social (see below). It's also the inside of **klabnet-desktop** (the Electron app for Windows, Linux and, in progress, macOS; see that repo's CLAUDE.md for the Mac work). The server side is **klabnet-api** (FastAPI + SQLite). README.md covers architecture and deployment.
+klabnet is the klab.gg homelab's own app: chat (Matrix), feed, music (Navidrome), photos, videos and home, as one site at `user.klab.gg`. Feed and Chat are one page, Social (see below); Photos and Videos are pages of their own. It's also the inside of **klabnet-desktop** (the Electron app for Windows, Linux and, in progress, macOS; see that repo's CLAUDE.md for the Mac work). The server side is **klabnet-api** (FastAPI + SQLite). README.md covers architecture and deployment.
 
 ## How the code is put together
 - No build step. `index.html` loads `css/app.css` and `js/NN-*.js` as classic `<script defer>` files that share globals. Top-level `const`/`let` are global bindings but **not** `window` properties (e.g. `ND_URL`, `KLABNET_VERSION`). Later files wrap earlier functions by reassigning them (`openFS`, `updateQueueBadge`, `syncShuffleBtns`).
@@ -118,6 +118,16 @@ The owner wanted the social parts in one tab, laid out like Music, with a quiet 
 - **The header's sidebar button** hides Social's sidebar as one (`pane-off-social`); the old `pane-off-chat`/`-photos` are gone.
 - **Not done yet:** recent chat on Social's home, and a phone run on a real device.
 
+
+## Photos out of Social; Videos (2026-11-19)
+The owner: "move the photos section out of the social tab and then implement a \"Videos\" option for an internal youtube that follows the rest of the sites design philosophy". The nav is Home, Social, Music, Photos, Videos.
+- **Photos is its own page** in its own shell (`#photosShell`, same `.soc-shell` classes as Social's, so its CSS still applies; selectors that said `#socShell` say `:is(#socShell, #photosShell, #videosShell)`). Its details and song unfold under the Photos row in the sidebar tree (`PAGES` in js/07-tabnav.js). `TAB_GROUP` is Social's three only. `body.tab-shell` (`SHELL_TABS`) is now the full-height shell layout class; `tab-social-group` means Social only. Social's home still shows the new-photos collage, which opens Photos.
+- **Videos** (js/39-videos.js, css "VIDEOS", `#videosShell`): rows Popular / Continue watching / Your videos under Videos (its Home row hides like Social's), a search box that goes to the title bar, channels (`klabOpenChannel(user)`), and a watch view in the same page with Back (`klabNav`, restored by `klabVideosRestore`). Deep links: `#videos/<id>` and `#videos/<id>?t=<s>` (parsed at the top of `setActiveTab`).
+  - **klabnet-api** `app/routers/videos.py` under `/api/posts/videos`. A video is a `posts` row with kind `video`, so comments and reactions are the Feed's routes. Uploads go to the media share (`videos/<fileId[:2]>/<fileId>/`, original kept), one ffmpeg worker makes an HLS fMP4 ladder (1080/720/480/360 by the short side, 4s aligned keyframes), posters and a storyboard; `progress` is on the row. The API image needs ffmpeg (Dockerfile). Caddy must allow big request bodies (`VIDEO_MAX_MB`, 4096) on that route.
+  - **The player** is klabnet's controls over `<video>`: hls.js (`js/vendor/hls.light.min.js`, fetched on first play, `?v=` is the library's version) or native HLS without MSE. Quality menu, speed, PiP, full screen, storyboard preview on the scrub bar; keys k/Space, j/l, f, m, and ←/→/0–9 only with the player focused (←/→ are the sidebar's otherwise). Volume is per device in `klabnet_video`. Playing pauses the music (not a remote's) and turns the radio off.
+  - **Watching**: a view counts after 10s played (once per person per 6h); where you stopped is saved every 10s and on pause/leave (`PUT …/progress`), cleared at 95%, and offered back (Continue watching, the bar under a card, resuming on open).
+  - **Sharing**: Feed posts carry `video: {id, start}` (the API expands it; the composer's song box shows it, `klabShareVideoToFeed`), Chat messages carry `klab.video` (only posters under `/api/posts/videos/` are drawn), and Copy link. Profiles have a Videos tab; the recap counts new videos and says when a reaction or comment is on your video.
+  - Not done yet: phones on a real device, a mini player that keeps playing off the page, captions, and anything like subscriptions or recommendations.
 
 ## Music's Activity page
 

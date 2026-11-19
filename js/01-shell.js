@@ -505,7 +505,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
 //  never hijacked.
 // ══════════════════════════════════════════
 (function() {
-  const GO_TO_TAB = { h: 'home', s: 'social', f: 'feed', c: 'chat', m: 'music', p: 'photos' };
+  const GO_TO_TAB = { h: 'home', s: 'social', f: 'feed', c: 'chat', m: 'music', p: 'photos', v: 'videos' };
   let awaitingG = false;
   let awaitingGTimer = null;
 
@@ -589,8 +589,8 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
   }
   // The page's own sidebar, one row at a time (W/S, ↑/↓): Tab goes
   // between pages, these between what's in one. Music's rows as they
-  // show (all of them while its sidebar is hidden); Social's Home, Feed,
-  // Photos and Chat, which on a wide window has no row of its own.
+  // show (all of them while its sidebar is hidden); Social's Home, Feed
+  // and Chat, which on a wide window has no row of its own; Videos' rows.
   function subTabs() {
     const page = currentPage();
     if (page === 'music') {
@@ -599,8 +599,13 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
       return { rows: (shown.length ? shown : all).map(b => b.dataset.tab), at: document.querySelector('.music-nav .picker-tab[data-tab].active')?.dataset.tab,
         go: key => document.querySelector(`.music-nav .picker-tab[data-tab="${CSS.escape(key)}"]`)?.click() };
     }
+    if (page === 'videos') {
+      const all = [...document.querySelectorAll('#vidNav .picker-tab[data-vid]')];
+      return { rows: all.map(b => b.dataset.vid), at: document.querySelector('#vidNav .picker-tab.active')?.dataset.vid,
+        go: key => document.querySelector(`#vidNav .picker-tab[data-vid="${CSS.escape(key)}"]`)?.click() };
+    }
     if (page === 'social') {
-      const rows = ['social', 'feed', 'photos', 'chat'].filter(isTabEnabled);
+      const rows = ['social', 'feed', 'chat'].filter(isTabEnabled);
       return { rows, at: document.querySelector('.tab-panel.active')?.dataset.tabPanel,
         go: key => { SFX && SFX.play('click'); setActiveTab(key); } };
     }

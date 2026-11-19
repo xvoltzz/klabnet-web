@@ -170,7 +170,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.11.02.44" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.11.19.4" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -182,7 +182,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.11.02.44" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.11.19.4" />
 </head>
 <body>
 
@@ -400,11 +400,12 @@ window.KLAB_BOOT = (function() {
     </div>
     <nav class="tab-nav" id="tabNav">
       <button class="tab-nav-btn" data-tab-target="home" title="Home"><i class="ti ti-home"></i><span>Home</span></button>
-      <!-- Feed, Chat and Photos are one page now, with Music's kind of
-           sidebar (js/07-tabnav.js TAB_GROUP). This button lands on
-           whichever of them you were on last. -->
-      <button class="tab-nav-btn" data-tab-target="social" data-tab-group="social feed chat photos" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
+      <!-- Feed and Chat are one page, with Music's kind of sidebar
+           (js/07-tabnav.js TAB_GROUP). This button lands on Social's home. -->
+      <button class="tab-nav-btn" data-tab-target="social" data-tab-group="social feed chat" title="Social"><i class="ti ti-users"></i><span>Social</span><span id="socialUnreadBadge"></span></button>
       <button class="tab-nav-btn" data-tab-target="music" title="Music"><i class="ti ti-music"></i><span>Music</span></button>
+      <button class="tab-nav-btn" data-tab-target="photos" title="Photos"><i class="ti ti-photo"></i><span>Photos</span></button>
+      <button class="tab-nav-btn" data-tab-target="videos" title="Videos"><i class="ti ti-movie"></i><span>Videos</span></button>
     </nav>
     <div class="header-right">
       <!-- Voice's mute (js/22-voice.js), while you're in a channel: the
@@ -534,22 +535,8 @@ window.KLAB_BOOT = (function() {
         <div class="picker-tabs soc-nav" id="socNav">
           <button class="picker-tab" data-soc="social"><i class="ti ti-home"></i><span>Home</span></button>
           <button class="picker-tab" data-soc="feed"><i class="ti ti-news"></i><span>Feed</span><span class="soc-dot" id="socFeedDot" hidden></span></button>
-          <button class="picker-tab soc-photos-row" data-soc="photos"><i class="ti ti-photo"></i><span>Photos</span></button>
           <!-- Phones only: Chat's list is a screen of its own there. -->
           <button class="picker-tab soc-chat-row" data-soc="chat"><i class="ti ti-message-circle"></i><span>Chat</span><span class="soc-count" id="socChatCount" hidden></span></button>
-        </div>
-        <!-- js/14-photos.js moves the photo's details and the Show toggles
-             in here on a wide window, and back beside the photo on a phone.
-             Photos only. -->
-        <div class="ph-sidebar soc-group soc-ph-only" id="phSidebar" aria-label="Photos">
-          <div class="ph-side-group ph-side-this soc-ph-only">
-            <div class="ph-side-label">This photo</div>
-            <div class="ph-side-info" id="phSideInfo"></div>
-          </div>
-          <div class="ph-side-group soc-ph-only">
-            <div class="ph-side-label">Show</div>
-            <div class="ph-side-toggles" id="phSideToggles"></div>
-          </div>
         </div>
         <!-- Voice (js/22-voice.js): hidden until the API says it's set up. -->
         <div class="soc-group soc-voice" id="socVoice" hidden>
@@ -585,8 +572,6 @@ window.KLAB_BOOT = (function() {
           </div>
         </div>
       </div>
-      <!-- The photo's song, pinned to the bottom, with its mute button. Photos only. -->
-      <div class="ph-now soc-ph-only" id="phNow"></div>
     </nav>
     <div class="soc-main" id="socMain">
 
@@ -743,6 +728,35 @@ window.KLAB_BOOT = (function() {
   </div>
   </div>
 
+
+
+    </div>
+  </div>
+
+  <!-- Photos: a page of its own (2026-11-19; it was one of Social's).
+       Same shell as Social's (.soc-shell), so the sidebar tree takes its
+       groups the same way (js/07-tabnav.js PAGES). -->
+  <div class="soc-shell" id="photosShell">
+    <nav class="soc-sidebar" id="photosSidebar" aria-label="Photos">
+      <div class="soc-side-scroll">
+        <!-- js/14-photos.js moves the photo's details and the Show toggles
+             in here on a wide window, and back beside the photo on a phone.
+             Photos only. -->
+        <div class="ph-sidebar soc-group soc-ph-only" id="phSidebar" aria-label="Photos">
+          <div class="ph-side-group ph-side-this soc-ph-only">
+            <div class="ph-side-label">This photo</div>
+            <div class="ph-side-info" id="phSideInfo"></div>
+          </div>
+          <div class="ph-side-group soc-ph-only">
+            <div class="ph-side-label">Show</div>
+            <div class="ph-side-toggles" id="phSideToggles"></div>
+          </div>
+        </div>
+      </div>
+      <!-- The photo's song, pinned to the bottom, with its mute button. -->
+      <div class="ph-now soc-ph-only" id="phNow"></div>
+    </nav>
+    <div class="soc-main" id="photosMain">
   <!-- Photos. Not a card on the page: while this tab is showing, the page
        itself becomes the viewer — the backdrop behind everything turns into
        a blur of the current photo (#phBackdrop, outside .dash), the dock
@@ -822,8 +836,27 @@ window.KLAB_BOOT = (function() {
     </div>
   </div>
   </div>
+    </div>
+  </div>
 
-
+  <!-- Videos: klabnet's own YouTube (js/39-videos.js, css "VIDEOS").
+       Its sections unfold under its row in the sidebar tree. -->
+  <div class="soc-shell" id="videosShell">
+    <nav class="soc-sidebar" id="videosSidebar" aria-label="Videos">
+      <label class="chat-search soc-search vid-search"><i class="ti ti-search"></i><input type="text" id="vidSearch" placeholder="Search videos" aria-label="Search videos" autocomplete="off" /></label>
+      <div class="soc-side-scroll">
+        <div class="picker-tabs soc-nav vid-nav" id="vidNav">
+          <button class="picker-tab" data-vid="home"><i class="ti ti-home"></i><span>Home</span></button>
+          <button class="picker-tab" data-vid="popular"><i class="ti ti-flame"></i><span>Popular</span></button>
+          <button class="picker-tab" data-vid="continue"><i class="ti ti-player-play"></i><span>Continue watching</span></button>
+          <button class="picker-tab" data-vid="mine"><i class="ti ti-user"></i><span>Your videos</span></button>
+        </div>
+      </div>
+    </nav>
+    <div class="soc-main" id="videosMain">
+  <div class="tab-panel" data-tab-panel="videos">
+    <div class="vid-page" id="vidPage"></div>
+  </div>
     </div>
   </div>
 
@@ -1222,49 +1255,50 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.11.02.44';</script>
-<script defer src="js/00-util.js?v=v2026.11.02.44"></script>
-<script defer src="js/01-shell.js?v=v2026.11.02.44"></script>
-<script defer src="js/02-player.js?v=v2026.11.02.44"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.11.02.44"></script>
-<script defer src="js/04-sfx.js?v=v2026.11.02.44"></script>
-<script defer src="js/05-favorites.js?v=v2026.11.02.44"></script>
-<script defer src="js/06-prefs.js?v=v2026.11.02.44"></script>
-<script defer src="js/07-tabnav.js?v=v2026.11.02.44"></script>
-<script defer src="js/08-chat.js?v=v2026.11.02.44"></script>
-<script defer src="js/09-music-extras.js?v=v2026.11.02.44"></script>
-<script defer src="js/09b-playlists.js?v=v2026.11.02.44"></script>
-<script defer src="js/10-lyrics.js?v=v2026.11.02.44"></script>
-<script defer src="js/11-presence.js?v=v2026.11.02.44"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.11.02.44"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.11.02.44"></script>
-<script defer src="js/11b-markdown.js?v=v2026.11.02.44"></script>
-<script defer src="js/11c-gifs.js?v=v2026.11.02.44"></script>
-<script defer src="js/12-feed.js?v=v2026.11.02.44"></script>
-<script defer src="js/13-tail.js?v=v2026.11.02.44"></script>
-<script defer src="js/14-photos.js?v=v2026.11.02.44"></script>
-<script defer src="js/15-music-home.js?v=v2026.11.02.44"></script>
-<script defer src="js/16-motion.js?v=v2026.11.02.44"></script>
-<script defer src="js/17-history.js?v=v2026.11.02.44"></script>
-<script defer src="js/18-home.js?v=v2026.11.02.44"></script>
-<script defer src="js/19-slideshow.js?v=v2026.11.02.44"></script>
-<script defer src="js/20-mentions.js?v=v2026.11.02.44"></script>
-<script defer src="js/21-stars.js?v=v2026.11.02.44"></script>
-<script defer src="js/22-voice.js?v=v2026.11.02.44"></script>
-<script defer src="js/23-session.js?v=v2026.11.02.44"></script>
-<script defer src="js/24-flair.js?v=v2026.11.02.44"></script>
-<script defer src="js/25-social.js?v=v2026.11.02.44"></script>
-<script defer src="js/26-browse.js?v=v2026.11.02.44"></script>
-<script defer src="js/27-activity.js?v=v2026.11.02.44"></script>
-<script defer src="js/28-radio.js?v=v2026.11.02.44"></script>
-<script defer src="js/31-feed-rail.js?v=v2026.11.02.44"></script>
-<script defer src="js/32-terminal.js?v=v2026.11.02.44"></script>
-<script defer src="js/33-plaza.js?v=v2026.11.02.44"></script>
-<script defer src="js/34-emoji.js?v=v2026.11.02.44"></script>
-<script defer src="js/35-profile.js?v=v2026.11.02.44"></script>
-<script defer src="js/36-recap.js?v=v2026.11.02.44"></script>
-<script defer src="js/37-ocean.js?v=v2026.11.02.44"></script>
-<script defer src="js/38-sky-fx.js?v=v2026.11.02.44"></script>
+<script>const KLABNET_VERSION = 'v2026.11.19.4';</script>
+<script defer src="js/00-util.js?v=v2026.11.19.4"></script>
+<script defer src="js/01-shell.js?v=v2026.11.19.4"></script>
+<script defer src="js/02-player.js?v=v2026.11.19.4"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.11.19.4"></script>
+<script defer src="js/04-sfx.js?v=v2026.11.19.4"></script>
+<script defer src="js/05-favorites.js?v=v2026.11.19.4"></script>
+<script defer src="js/06-prefs.js?v=v2026.11.19.4"></script>
+<script defer src="js/07-tabnav.js?v=v2026.11.19.4"></script>
+<script defer src="js/08-chat.js?v=v2026.11.19.4"></script>
+<script defer src="js/09-music-extras.js?v=v2026.11.19.4"></script>
+<script defer src="js/09b-playlists.js?v=v2026.11.19.4"></script>
+<script defer src="js/10-lyrics.js?v=v2026.11.19.4"></script>
+<script defer src="js/11-presence.js?v=v2026.11.19.4"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.11.19.4"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.11.19.4"></script>
+<script defer src="js/11b-markdown.js?v=v2026.11.19.4"></script>
+<script defer src="js/11c-gifs.js?v=v2026.11.19.4"></script>
+<script defer src="js/12-feed.js?v=v2026.11.19.4"></script>
+<script defer src="js/13-tail.js?v=v2026.11.19.4"></script>
+<script defer src="js/14-photos.js?v=v2026.11.19.4"></script>
+<script defer src="js/15-music-home.js?v=v2026.11.19.4"></script>
+<script defer src="js/16-motion.js?v=v2026.11.19.4"></script>
+<script defer src="js/17-history.js?v=v2026.11.19.4"></script>
+<script defer src="js/18-home.js?v=v2026.11.19.4"></script>
+<script defer src="js/19-slideshow.js?v=v2026.11.19.4"></script>
+<script defer src="js/20-mentions.js?v=v2026.11.19.4"></script>
+<script defer src="js/21-stars.js?v=v2026.11.19.4"></script>
+<script defer src="js/22-voice.js?v=v2026.11.19.4"></script>
+<script defer src="js/23-session.js?v=v2026.11.19.4"></script>
+<script defer src="js/24-flair.js?v=v2026.11.19.4"></script>
+<script defer src="js/25-social.js?v=v2026.11.19.4"></script>
+<script defer src="js/26-browse.js?v=v2026.11.19.4"></script>
+<script defer src="js/27-activity.js?v=v2026.11.19.4"></script>
+<script defer src="js/28-radio.js?v=v2026.11.19.4"></script>
+<script defer src="js/31-feed-rail.js?v=v2026.11.19.4"></script>
+<script defer src="js/32-terminal.js?v=v2026.11.19.4"></script>
+<script defer src="js/33-plaza.js?v=v2026.11.19.4"></script>
+<script defer src="js/34-emoji.js?v=v2026.11.19.4"></script>
+<script defer src="js/35-profile.js?v=v2026.11.19.4"></script>
+<script defer src="js/36-recap.js?v=v2026.11.19.4"></script>
+<script defer src="js/37-ocean.js?v=v2026.11.19.4"></script>
+<script defer src="js/38-sky-fx.js?v=v2026.11.19.4"></script>
+<script defer src="js/39-videos.js?v=v2026.11.19.4"></script>
 
 </body>
 </html>

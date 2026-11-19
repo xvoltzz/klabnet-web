@@ -4,13 +4,17 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos'];
-// Social is one page with a sidebar, like Music, holding its own home, Feed,
-// Chat and Photos. Each of those is still a tab of its own here (its own
-// panel, hash, body class and Back entry), so everything that sends you to
-// one keeps working; the app's nav has one Social button for the four, and
-// it lands on Social's home.
-const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social', photos: 'social' };
+const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos', 'videos'];
+// Social is one page with a sidebar, like Music, holding its own home, Feed
+// and Chat. Each of those is still a tab of its own here (its own panel,
+// hash, body class and Back entry), so everything that sends you to one
+// keeps working; the app's nav has one Social button for the three, and it
+// lands on Social's home. Photos was one of them until 2026-11-19; it and
+// Videos are pages of their own now, in the same kind of shell.
+const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social' };
+// The pages laid out as a sidebar shell beside the page (.soc-shell):
+// full height, scrolling inside (body.tab-shell, "SOCIAL" in css/app.css).
+const SHELL_TABS = new Set(['social', 'feed', 'chat', 'photos', 'videos']);
 // The pages the app's nav (and Tab, and 1–3) go between.
 const topTab = key => TAB_GROUP[key] || key;
 
@@ -43,9 +47,16 @@ function isTabEnabled(key) {
 // home and Feed scroll inside the page, beside its sidebar, and a panel
 // that's been hidden comes back scrolled to the top, so those are kept too.
 const _tabScroll = {};
-const PANEL_SCROLLS = new Set(['social', 'feed']);
+const PANEL_SCROLLS = new Set(['social', 'feed', 'videos']);
 const tabPanel = key => document.querySelector(`.tab-panel[data-tab-panel="${key}"]`);
 function setActiveTab(key) {
+  // A link to a video (#videos/12, #videos/12?t=90): Videos, then that video.
+  const vlink = /^videos\/(\d+)(?:\?t=(\d+))?$/.exec(key || '');
+  if (vlink) {
+    key = 'videos';
+    window.klabVideoLink = { id: +vlink[1], at: +vlink[2] || 0 };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
   if (leaving && leaving !== key) _tabScroll[leaving] = PANEL_SCROLLS.has(leaving) ? tabPanel(leaving).scrollTop : window.scrollY;
@@ -57,6 +68,7 @@ function setActiveTab(key) {
   // Social's sidebar: the row for the page you're on.
   document.querySelectorAll('#socNav [data-soc], .hdr-pagenav [data-soc]').forEach(b => b.classList.toggle('active', b.dataset.soc === key));
   document.body.classList.toggle('tab-social-group', topTab(key) === 'social');
+  document.body.classList.toggle('tab-shell', SHELL_TABS.has(key));
   document.body.classList.toggle('tab-social-active', key === 'social');
   // Chat wants to feel like its own app screen, not another section on
   // the scrolling dashboard — the hero/MOTD header and the presence rail
@@ -66,6 +78,7 @@ function setActiveTab(key) {
   // Same flex-fill idea as Chat, for the same reason — see body.tab-music-active's own CSS comment.
   document.body.classList.toggle('tab-music-active', key === 'music');
   document.body.classList.toggle('tab-photos-active', key === 'photos');
+  document.body.classList.toggle('tab-videos-active', key === 'videos');
   document.body.classList.toggle('tab-home-active', key === 'home');
   document.body.classList.toggle('tab-feed-active', key === 'feed');
   // Before the paint, so it never shows at the wrong spot first. Something
@@ -82,6 +95,7 @@ function setActiveTab(key) {
   // Voice's channels show on Chat: who's in them, fresh, not up to 30s old.
   if (key === 'chat' && enteringChat) afterSwitchPaints(() => window.klabVoice?.refresh());
   if (typeof window.klabPhotosTabChanged === 'function') { const on = key === 'photos'; afterSwitchPaints(() => window.klabPhotosTabChanged(on)); }
+  if (typeof window.klabVideosTabChanged === 'function') { const on = key === 'videos'; afterSwitchPaints(() => window.klabVideosTabChanged(on)); }
   if (typeof window.klabMusicTabChanged === 'function') { const on = key === 'music'; afterSwitchPaints(() => window.klabMusicTabChanged(on)); }
   // The header prompt cds into this page ("cd feed", then klabnet/feed>;
   // see retypePrompt()), so the page needn't spend a row on its own title
@@ -1306,7 +1320,9 @@ async function offerAppUpdate(current) {
   const desk = matchMedia(KLAB_DESK_MQ);
   const roomy = matchMedia('(min-width: 1100px)');
   const PAGES = [
-    { tab: 'social', pages: ['social', 'feed', 'chat', 'photos'], parts: ['socNav', 'phSidebar', 'phNow', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
+    { tab: 'social', pages: ['social', 'feed', 'chat'], parts: ['socNav', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
+    { tab: 'photos', pages: ['photos'], parts: ['phSidebar', 'phNow'].map(id => document.getElementById(id)) },
+    { tab: 'videos', pages: ['videos'], parts: [document.getElementById('vidNav')], search: document.querySelector('#videosSidebar .vid-search') },
     { tab: 'music', pages: ['music'], parts: [document.querySelector('#musicSidebar .music-nav')], search: document.querySelector('#musicSidebar .picker-search') },
   ];
   PAGES.forEach(p => {
@@ -1375,7 +1391,8 @@ async function offerAppUpdate(current) {
   // with any album or playlist page closed.
   PAGES.forEach(p => {
     const btn = tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`);
-    const front = p.in.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]') || p.parts[0]?.querySelector('.picker-tab[data-tab="random"], .picker-tab[data-soc="social"]');
+    const FRONT = '.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"]';
+    const front = p.in.querySelector(FRONT) || p.parts[0]?.querySelector(FRONT);
     if (!btn || !front) return;
     btn.addEventListener('click', () => setTimeout(() => {
       if (p.tab === 'music' && document.getElementById('apPanel')?.classList.contains('open')) window.closeApPanel?.();

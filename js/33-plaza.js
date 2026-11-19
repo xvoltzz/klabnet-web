@@ -75,7 +75,7 @@
   }
 
   // ── The lists ──
-  const WHERE = { home: 'Home', social: 'Social', feed: 'On the feed', chat: 'In chat', photos: 'Looking at photos', music: 'In music', radio: 'On the radio' };
+  const WHERE = { home: 'Home', social: 'Social', feed: 'On the feed', chat: 'In chat', photos: 'Looking at photos', videos: 'Watching videos', music: 'In music', radio: 'On the radio' };
   function row(u, s) {
     let sub = '';
     // What they're doing: the song, or that they're not listening and

@@ -17,7 +17,7 @@
   if (!prompt || !textEl || !cursor) return;
   const root = document.documentElement;
 
-  const ALL_PAGES = ['social', 'feed', 'chat', 'photos', 'music'];
+  const ALL_PAGES = ['social', 'feed', 'chat', 'photos', 'videos', 'music'];
   // Only the ones that are on.
   let PAGES = ALL_PAGES;
   const pages = () => (PAGES = ALL_PAGES.filter(p => typeof isTabEnabled !== 'function' || isTabEnabled(p)));
