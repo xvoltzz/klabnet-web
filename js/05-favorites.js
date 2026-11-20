@@ -52,26 +52,133 @@ function removeFavorite(id) {
   updateFavBadge();
 }
 function updateFavBadge() {
-  // Every heart on screen follows, however it was toggled (a right-click
-  // menu or a list row used to leave the dock's and full player's stale).
+  // Every heart on screen follows, however it was toggled (a row, a card,
+  // the album page, a menu, the dock, the full player, another device).
   updateDockFavBtn();
   updateFSFavBtn();
-  // And the song rows' own: a heart from the song menu, the dock or the
-  // full player left the same song's row in the list showing the old state.
-  document.querySelectorAll('#pickerList .picker-item').forEach(r => {
-    const b = r._song && r.querySelector('[data-fav]');
-    if (!b) return;
-    const on = isFavorite(r._song.id);
-    if (b.classList.contains('fav-active') === on) return;
-    b.classList.toggle('fav-active', on);
-    b.title = on ? 'Remove from favorites' : 'Add to favorites';
-    const i = b.querySelector('i'); if (i) i.className = 'ti ' + (on ? 'ti-heart-filled' : 'ti-heart');
-  });
+  klabPaintHearts();
   const el = document.getElementById('favCount');
-  const n = getFavorites().length;
-  if (el) el.textContent = n ? '(' + n + ')' : '';
+  const n = getFavorites().length + (window.klabFavAlbums?.list().length || 0) + (window.klabFavArtists?.list().length || 0);
+  if (el) el.textContent = n ? n.toLocaleString() : '';
+  window._favViewSync?.();
 }
-updateFavBadge();
+
+// ══════════════════════════════════════════
+//  FAVORITE ALBUMS AND ARTISTS — kept like songs: slim records in
+//  localStorage, synced as prefs (fav_albums, fav_artists; js/06-prefs.js).
+//  Not Navidrome's stars: everyone plays through one Navidrome account.
+//  Every change fires 'klab:favs' ({ kind, local }).
+// ══════════════════════════════════════════
+function makeFavStore({ key, kind, slim, max = 2000, noun }) {
+  let cache = null, ids = null;
+  const read = () => {
+    if (cache) return cache;
+    try { cache = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { cache = []; }
+    if (!Array.isArray(cache)) cache = [];
+    cache = cache.filter(x => x && x.id);
+    ids = new Set(cache.map(x => x.id));
+    return cache;
+  };
+  const write = list => {
+    try { localStorage.setItem(key, JSON.stringify(list)); return true; }
+    catch (e) { showToast?.('Couldn’t save that favorite: storage is full', 'ti-alert-triangle'); return false; }
+  };
+  const changed = () => {
+    cache = null; ids = null;
+    window.dispatchEvent(new CustomEvent('klab:favs', { detail: { kind, local: true } }));
+    updateFavBadge();
+  };
+  const store = {
+    key, kind,
+    list: () => read(),
+    has: id => { read(); return ids.has(id); },
+    add(obj) {
+      if (!obj?.id || store.has(obj.id)) return;
+      const list = read();
+      if (list.length >= max) { showToast?.(`Favorites are full (${max.toLocaleString()} ${noun}s). Remove some to add more.`, 'ti-heart'); return; }
+      if (write([{ ...slim(obj), added: Date.now() }, ...list])) changed();
+    },
+    remove(id) {
+      if (!store.has(id)) return;
+      if (write(read().filter(x => x.id !== id))) changed();
+    },
+    toggle(obj) { if (store.has(obj.id)) store.remove(obj.id); else store.add(obj); return store.has(obj.id); },
+    invalidate() { cache = null; ids = null; },
+  };
+  return store;
+}
+const _pick = (o, keys) => { const out = {}; for (const k of keys) if (o[k] != null && o[k] !== '') out[k] = o[k]; return out; };
+window.klabFavAlbums = makeFavStore({
+  key: 'klabnet_fav_albums', kind: 'album', noun: 'album',
+  slim: a => ({ ..._pick(a, ['id', 'artist', 'artistId', 'coverArt', 'year', 'songCount']), name: a.name || a.title || '' }),
+});
+window.klabFavArtists = makeFavStore({
+  key: 'klabnet_fav_artists', kind: 'artist', noun: 'artist',
+  slim: a => ({ ..._pick(a, ['id', 'coverArt', 'albumCount']), name: a.name || a.artist || '' }),
+});
+
+// ── One heart, everywhere ──
+// Any button with data-heart="song:<id>" (album:, artist:) is a favourite
+// toggle: painted here (aria-pressed, the filled heart, its title) and
+// pressed through one handler. What it favourites comes from the element
+// itself (._fav) or the row or card it sits in (._song, ._album, ._artist);
+// the dock's and the full player's are the song playing.
+const _favStoreFor = kind => kind === 'album' ? klabFavAlbums : kind === 'artist' ? klabFavArtists : null;
+function klabIsFav(kind, id) { return kind === 'song' ? isFavorite(id) : !!_favStoreFor(kind)?.has(id); }
+function klabToggleFav(kind, obj) {
+  if (!obj?.id) return false;
+  let on;
+  if (kind === 'song') { if (isFavorite(obj.id)) removeFavorite(obj.id); else addFavorite(obj); on = isFavorite(obj.id); }
+  else on = _favStoreFor(kind).toggle(obj);
+  SFX && SFX.play('star');
+  return on;
+}
+const _heartTitle = on => on ? 'Remove from favorites' : 'Add to favorites';
+function klabHeartHTML(kind, id, cls = '') {
+  const on = klabIsFav(kind, id);
+  return `<button type="button" class="k-heart${cls ? ' ' + cls : ''}${on ? ' on' : ''}" data-heart="${kind}:${esc(String(id))}" aria-pressed="${on}" title="${_heartTitle(on)}" aria-label="${_heartTitle(on)}"><i class="ti ${on ? 'ti-heart-filled' : 'ti-heart'}"></i></button>`;
+}
+function _paintHeart(b, pop) {
+  const v = b.dataset.heart || '', at = v.indexOf(':');
+  const on = at > 0 && klabIsFav(v.slice(0, at), v.slice(at + 1));
+  if (b.classList.contains('on') !== on || b.getAttribute('aria-pressed') !== String(on)) {
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on);
+    b.title = _heartTitle(on);
+    b.setAttribute('aria-label', b.title);
+    const i = b.querySelector('i'); if (i) i.className = 'ti ' + (on ? 'ti-heart-filled' : 'ti-heart');
+  }
+  if (pop && on && (window.klabMotionOk?.() ?? true)) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+}
+function klabPaintHearts(root = document) {
+  root.querySelectorAll?.('[data-heart]').forEach(b => _paintHeart(b));
+}
+window.klabHeartHTML = klabHeartHTML;
+window.klabPaintHearts = klabPaintHearts;
+function _heartObject(b, kind) {
+  if (b._fav) return b._fav;
+  if (b.hasAttribute('data-heart-now')) return playerState.currentSong;
+  const prop = { song: '_song', album: '_album', artist: '_artist' }[kind];
+  for (let n = b; n && n !== document.body; n = n.parentElement) if (n[prop]) return n[prop];
+  return null;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('[data-heart]');
+  if (!b) return;
+  // Before the row or card under it hears the click (that plays or opens).
+  e.stopPropagation(); e.preventDefault();
+  const v = b.dataset.heart, at = v.indexOf(':');
+  if (at < 1) return;
+  const kind = v.slice(0, at), id = v.slice(at + 1);
+  const obj = _heartObject(b, kind) || { id };
+  if (String(obj.id) !== id) return;
+  klabToggleFav(kind, obj);
+  updateFavBadge();
+  _paintHeart(b, true);
+}, true);
+window.addEventListener('klab:favs', () => {
+  if (pickerTab === 'favorites' && document.querySelector('.tab-panel[data-tab-panel="music"]')?.classList.contains('active')) _favRedrawSoon();
+});
 
 // ══════════════════════════════════════════
 //  PLAY HISTORY
@@ -91,10 +198,83 @@ function addToPlayHistory(song) {
 }
 
 // ══════════════════════════════════════════
-//  FAVORITES TAB RENDER
+//  FAVORITES — a hub: the albums, artists and playlists you keep, then
+//  your songs (with Play and Shuffle). A section with nothing in it isn't
+//  shown.
 // ══════════════════════════════════════════
+let _favSig = '', _favRedrawT = 0;
+const _favSigNow = () => [getFavorites().length, klabFavAlbums.list().length, klabFavArtists.list().length,
+  (window.klabPlaylists?.mine() || []).filter(p => p.saved && !p.mine).length].join(',');
+function _favRedrawSoon() {
+  clearTimeout(_favRedrawT);
+  _favRedrawT = setTimeout(() => {
+    if (pickerTab !== 'favorites' || _favSigNow() === _favSig) return;
+    const top = pickerList.scrollTop;
+    renderFavoritesView(true);
+    pickerList.scrollTop = top;
+  }, 250);
+}
+window._favViewSync = () => { if (typeof pickerTab !== 'undefined' && pickerTab === 'favorites') _favRedrawSoon(); };
+window.addEventListener('klab:playlists', () => window._favViewSync());
+
+let _favFind = '';
+function renderFavoritesView(redraw) {
+  _favSig = _favSigNow();
+  const songs = getFavorites(), albums = klabFavAlbums.list(), artists = klabFavArtists.list();
+  const pls = (window.klabPlaylists?.mine() || []).filter(p => p.saved && !p.mine);
+  const cards = window.klabMusicCards;
+  pickerList.innerHTML = '';
+  pickerList.classList.add('fav-hub');
+  const total = songs.length + albums.length + artists.length + pls.length;
+  document.getElementById('musicViewSub').textContent = total ? total.toLocaleString() : '';
+  if (!total) {
+    pickerList.innerHTML = '<div class="k-empty fav-empty"><i class="ti ti-heart"></i><div>No favorites yet. Use the ♥ on a song, album or artist.</div></div>';
+    hideSortBtn();
+    return;
+  }
+  if (albums.length && cards) pickerList.appendChild(cards.row('Albums', albums.map(cards.album), null, albums.length));
+  if (artists.length && cards) pickerList.appendChild(cards.row('Artists', artists.map(cards.artist), null, artists.length));
+  if (pls.length && cards) pickerList.appendChild(cards.row('Saved playlists', pls.map(p => window.klabPlaylists.card(p)), null, pls.length));
+  if (!songs.length) { hideSortBtn(); return; }
+
+  // Songs: a label with Play, Shuffle and a find box beside it.
+  const sorted = applySort(songs, 'favorites');
+  const head = document.createElement('div');
+  head.className = 'fav-songs-head';
+  head.innerHTML = `<div class="picker-section-label">Songs <span class="k-count">${songs.length.toLocaleString()}</span></div>
+    <div class="fav-songs-actions">
+      <label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"></label>
+      <button type="button" class="k-btn sm" data-fav-shuffle><i class="ti ti-arrows-shuffle"></i>Shuffle</button>
+      <button type="button" class="k-btn sm primary" data-fav-play><i class="ti ti-player-play-filled"></i>Play</button>
+    </div>`;
+  const box = document.createElement('div');
+  box.className = 'fav-songs';
+  const input = head.querySelector('input');
+  input.value = _favFind;
+  const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const shown = () => {
+    const words = fold(_favFind).split(/\s+/).filter(Boolean);
+    return words.length ? sorted.filter(s => { const h = fold(`${s.title} ${s.artist} ${s.album}`); return words.every(w => h.includes(w)); }) : sorted;
+  };
+  const draw = () => {
+    const list = shown();
+    pickerSongs = list;
+    box.textContent = '';
+    if (!list.length) box.innerHTML = '<div class="picker-empty">No favorite songs match.</div>';
+    else renderSongItems(list, box);
+  };
+  input.addEventListener('input', () => { _favFind = input.value; draw(); });
+  input.addEventListener('keydown', e => { if (e.key === 'Escape' && input.value) { e.stopPropagation(); input.value = ''; _favFind = ''; draw(); } });
+  head.querySelector('[data-fav-play]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l); SFX && SFX.play('click'); } });
+  head.querySelector('[data-fav-shuffle]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l, { shuffle: true }); SFX && SFX.play('click'); } });
+  pickerList.append(head, box);
+  draw();
+  showSortBtn('favorites');
+}
+
 const _origLoadPickerTab2 = loadPickerTab;
 loadPickerTab = async function(tab) {
+  if (tab !== 'favorites') pickerList.classList.remove('fav-hub');
   if (tab === 'favorites') {
     pickerTab = tab;
     // Bump the shared race-guard token used by every other tab (random/
@@ -102,88 +282,97 @@ loadPickerTab = async function(tab) {
     // tab was active before switching to Favorites would pass its own
     // stale-token check once it resolves and overwrite this list.
     _pickerLoadToken++;
-    const favs = getFavorites();
-    if (!favs.length) {
-      pickerList.innerHTML = '<div class="picker-empty">No favorites yet. Hit the heart on any song</div>';
-      return;
-    }
-    const sorted = applySort(favs, 'favorites');
-    pickerList.innerHTML = '';
-    const lbl = document.createElement('div');
-    lbl.className = 'picker-section-label';
-    lbl.textContent = 'Favorites (' + sorted.length + ')';
-    pickerList.appendChild(lbl);
-    pickerSongs = sorted;
-    renderSongItems(sorted, pickerList);
-    showSortBtn('favorites');
+    renderFavoritesView();
     return;
   }
   return _origLoadPickerTab2(tab);
 };
 
 // ══════════════════════════════════════════
-//  FULLSCREEN FAVORITE BUTTON
+//  SHUFFLE AND REPEAT
+//  Shuffle is a real order: the list shuffled once (the song playing
+//  first), walked in turn, so nothing comes round twice before the rest
+//  has. Repeat is off, all (round the list again) or one (this song again:
+//  _repeatOn, which is what js/23-session.js shares as "repeat").
 // ══════════════════════════════════════════
 let _shuffleOn = false;
 let _repeatOn  = false;
+let _repeatAll = false;
 
-// The dock's and full-screen player's stars follow the song that's playing.
-function syncPlayingStar(id) {
-  const song = playerState.currentSong;
-  const b = document.getElementById(id);
-  if (!b) return;
-  if (song?.id) { b.dataset.star = 'song:' + song.id; window.klabStars?.paint(b); }
-  else delete b.dataset.star;
-}
-
-function updateFSFavBtn() {
-  const song = playerState.currentSong;
-  syncPlayingStar('fsStar');
-  const icon = document.getElementById('fsFavIcon');
-  const btn  = document.getElementById('fsFav');
-  if (!icon || !btn || !song) return;
-  const fav = isFavorite(song.id);
-  icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
-  btn.classList.toggle('is-fav', fav);
-  btn.setAttribute('aria-pressed', fav);
-  btn.title = fav ? 'Remove from favorites' : 'Add to favorites';
-}
-
-document.getElementById('fsFav').addEventListener('click', () => {
-  const song = playerState.currentSong;
-  if (!song) return;
-  if (isFavorite(song.id)) removeFavorite(song.id);
-  else addFavorite(song);
-  updateFSFavBtn();
-  SFX.play('star');
-});
-
-// Shared so the dock and FS shuffle buttons never fall out of sync with
-// each other — previously the FS button's own click handler only updated
-// itself, so toggling shuffle there left the dock icon stale.
-function syncShuffleBtns() {
-  const dockBtn = document.getElementById('dockShuffle');
-  const fsBtn   = document.getElementById('fsShuffle');
-  if (dockBtn) {
-    dockBtn.style.opacity = _shuffleOn ? '1' : '0.45';
-    dockBtn.style.color   = _shuffleOn ? 'rgba(var(--accent-rgb),1)' : '';
+function klabShuffleOrder(rebuild) {
+  const pl = playerState.playlist || [];
+  let o = playerState.shuffleOrder;
+  if (rebuild || !o || playerState._shuffleOf !== pl || o.length !== pl.length) {
+    o = [...pl.keys()];
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    const at = o.indexOf(playerState.playlistIndex);
+    if (at > 0) { o.splice(at, 1); o.unshift(playerState.playlistIndex); }
+    playerState.shuffleOrder = o;
+    playerState._shuffleOf = pl;
   }
-  if (fsBtn) fsBtn.setAttribute('aria-pressed', _shuffleOn);
+  return o;
 }
+// What comes after the song playing, as indexes into the playlist, in the
+// order they'll play (the queue comes before all of it).
+function klabUpcoming(n = 30) {
+  const pl = playerState.playlist || [], i = playerState.playlistIndex;
+  if (!pl.length) return [];
+  if (_shuffleOn) {
+    const o = klabShuffleOrder(), at = o.indexOf(i);
+    return o.slice(at + 1, at + 1 + n);
+  }
+  const out = [];
+  for (let k = i + 1; k < pl.length && out.length < n; k++) out.push(k);
+  if (_repeatAll) for (let k = 0; k <= i && k < pl.length && out.length < n; k++) out.push(k);
+  return out;
+}
+window.klabUpcoming = klabUpcoming;
 
-document.getElementById('fsShuffle').addEventListener('click', () => {
+const _repeatTitles = { off: 'Repeat: off', all: 'Repeat: all', one: 'Repeat: this song' };
+const repeatMode = () => _repeatOn ? 'one' : _repeatAll ? 'all' : 'off';
+function syncRepeatBtns() {
+  const m = repeatMode();
+  for (const id of ['fsRepeat', 'dockRepeat']) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.setAttribute('aria-pressed', m !== 'off');
+    b.dataset.mode = m;
+    b.title = _repeatTitles[m];
+    b.setAttribute('aria-label', b.title);
+  }
+  window.klabUpNextRender?.();
+}
+window.syncRepeatBtns = syncRepeatBtns;
+function cycleRepeat() {
+  const next = { off: 'all', all: 'one', one: 'off' }[repeatMode()];
+  _repeatAll = next === 'all';
+  _repeatOn = next === 'one';
+  playerState.audio.loop = _repeatOn;
+  syncRepeatBtns();
+  klabSavePlayerSoon?.();
+  SFX.play('click');
+}
+for (const id of ['fsRepeat', 'dockRepeat']) document.getElementById(id)?.addEventListener('click', cycleRepeat);
+
+// Shared so the dock and FS shuffle buttons never fall out of sync.
+function syncShuffleBtns() {
+  for (const id of ['dockShuffle', 'fsShuffle']) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.setAttribute('aria-pressed', _shuffleOn);
+    b.title = _shuffleOn ? 'Shuffle: on' : 'Shuffle: off';
+    b.setAttribute('aria-label', b.title);
+  }
+}
+function toggleShuffle() {
   _shuffleOn = !_shuffleOn;
+  if (_shuffleOn) klabShuffleOrder(true); // a fresh order, from the song playing
   syncShuffleBtns();
+  klabSavePlayerSoon?.();
   SFX.play('click');
-});
-
-document.getElementById('fsRepeat').addEventListener('click', () => {
-  _repeatOn = !_repeatOn;
-  document.getElementById('fsRepeat').setAttribute('aria-pressed', _repeatOn);
-  SFX.play('click');
-  if (_repeatOn) playerState.audio.loop = true;
-  else playerState.audio.loop = false;
-});
+}
+document.getElementById('fsShuffle').addEventListener('click', toggleShuffle);
+document.getElementById('dockShuffle').addEventListener('click', toggleShuffle);
 
 // Update FS fav button when track changes
 const _origUpdateFSUI2 = updateFSUI;
@@ -192,74 +381,70 @@ updateFSUI = function(song) {
   setTimeout(updateFSFavBtn, 50);
 };
 
-// Shuffle integration — if shuffle on, pick random from playlist on next
+// Shuffled: the next in the shuffled order. Songs you queued come first,
+// shuffle or not; at the end, repeat all goes round again (a new order),
+// and otherwise it's what the end of any list is (js/02-player.js).
 const _origNextSong2 = nextSong;
 nextSong = async function() {
-  // Songs you queued come first, shuffle or not.
   const queued = typeof queue !== 'undefined' && queue.length;
-  if (_shuffleOn && !queued && playerState.playlist.length > 1) {
+  const pl = playerState.playlist;
+  if (_shuffleOn && !queued && pl.length > 1) {
+    const o = klabShuffleOrder(), at = o.indexOf(playerState.playlistIndex);
     let idx;
-    do { idx = Math.floor(Math.random() * playerState.playlist.length); }
-    while (idx === playerState.playlistIndex);
+    if (at >= 0 && at + 1 < o.length) idx = o[at + 1];
+    else if (_repeatAll) idx = klabShuffleOrder(true)[1];
+    else return klabEndOfList();
     playerState.playlistIndex = idx;
-    await playSong(playerState.playlist[idx]);
+    await playSong(pl[idx]);
     return;
   }
   return _origNextSong2();
 };
 
 // ══════════════════════════════════════════
-//  DOCK SHUFFLE + FAV BUTTONS
+//  THE DOCK'S AND FULL PLAYER'S HEARTS — the song playing
 // ══════════════════════════════════════════
-function updateDockFavBtn() {
+// The dock's and full-screen player's stars follow the song that's playing.
+function syncPlayingStar(id) {
   const song = playerState.currentSong;
-  syncPlayingStar('dockStar');
-  const icon = document.getElementById('dockFavIcon');
-  const btn  = document.getElementById('dockFav');
-  if (!icon || !btn) return;
-  if (!song) { icon.className = 'ti ti-heart'; btn.style.opacity = '0.45'; btn.style.color = ''; return; }
-  const fav = isFavorite(song.id);
-  icon.className = fav ? 'ti ti-heart-filled' : 'ti ti-heart';
-  btn.title = fav ? 'Remove from favorites' : 'Add to favorites';
-  btn.style.color  = fav ? 'var(--danger-color)' : '';
-  btn.style.opacity = fav ? '0.9' : '0.45';
+  const b = document.getElementById(id);
+  if (!b) return;
+  if (song?.id) { b.dataset.star = 'song:' + song.id; window.klabStars?.paint(b); }
+  else delete b.dataset.star;
 }
-
-document.getElementById('dockFav').addEventListener('click', () => {
-  const song = playerState.currentSong;
-  if (!song) return;
-  if (isFavorite(song.id)) removeFavorite(song.id);
-  else addFavorite(song);
-  updateDockFavBtn();
-  updateFSFavBtn();
-  SFX.play('star');
-});
-
-document.getElementById('dockShuffle').addEventListener('click', () => {
-  _shuffleOn = !_shuffleOn;
-  syncShuffleBtns();
-  SFX.play('click');
-});
+function syncNowHeart(id) {
+  const b = document.getElementById(id), song = playerState.currentSong;
+  if (!b) return;
+  b.setAttribute('data-heart-now', '');
+  b.classList.add('k-heart');
+  b.disabled = !song?.id;
+  if (song?.id) { b.dataset.heart = 'song:' + song.id; _paintHeart(b); }
+  else { delete b.dataset.heart; b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); const i = b.querySelector('i'); if (i) i.className = 'ti ti-heart'; }
+}
+function updateFSFavBtn() { syncPlayingStar('fsStar'); syncNowHeart('fsFav'); }
+function updateDockFavBtn() { syncPlayingStar('dockStar'); syncNowHeart('dockFav'); }
 
 // ══════════════════════════════════════════
 //  SHARE TO FEED — post the currently-playing song, optionally with
 //  whatever lyric line is on screen right now (see window._klabLyrics'
 //  getActiveLine(), exposed by the LYRICS ENGINE module above).
 // ══════════════════════════════════════════
-function shareCurrentSongToFeed() {
-  const song = playerState.currentSong;
+function shareSongToFeed(song) {
   if (!song) { showToast('Nothing playing to share', 'ti-player-stop'); return; }
-  const lyric = window._klabLyrics?.getActiveLine?.() || null;
+  // The song playing shares the moment it's at and the lyric on screen.
+  const now = playerState.currentSong?.id === song.id;
+  const lyric = now ? window._klabLyrics?.getActiveLine?.() || null : null;
   setActiveTab('feed');
   // window.klabShareSongToFeed is exposed by the FEED module (a separate
   // IIFE later in the script) — guarded since that module could in theory
   // fail to init (missing #feedList markup, see its own early return).
   window.klabShareSongToFeed?.({
     songId: song.id, title: song.title, artist: song.artist, album: song.album,
-    coverArt: song.coverArt, lyric, start: klabMomentNow() || undefined,
+    coverArt: song.coverArt, lyric, start: (now && klabMomentNow()) || undefined,
   });
   SFX.play('click');
 }
+function shareCurrentSongToFeed() { shareSongToFeed(playerState.currentSong); }
 document.getElementById('dockShare')?.addEventListener('click', shareCurrentSongToFeed);
 document.getElementById('fsShare')?.addEventListener('click', shareCurrentSongToFeed);
 
@@ -278,3 +463,39 @@ updatePlayerUI = function(song) {
 // content now (the custom-app builder that would've made reordering them
 // meaningful was already removed earlier — see APP MANAGEMENT below).
 
+syncShuffleBtns();
+syncRepeatBtns();
+updateFavBadge();
+
+// The dock's queue button: the full player, on Up next. The full player's
+// disc button: the album playing.
+document.getElementById('dockQueue')?.addEventListener('click', () => { window.klabOpenUpNext?.(); SFX && SFX.play('open'); });
+document.getElementById('fsGoAlbum')?.addEventListener('click', () => {
+  const song = playerState.currentSong;
+  if (!song?.albumId) return;
+  closeFS();
+  goToMusicDetail(() => loadAlbumView(song.albumId, song.album));
+});
+
+// Recently played: Clear history (with Undo), beside its count.
+const _origLoadPickerTabRecent = loadPickerTab;
+loadPickerTab = async function(tab) {
+  const r = await _origLoadPickerTabRecent.apply(this, arguments);
+  if (tab === 'recent' && pickerTab === 'recent' && getPlayHistory().length) {
+    const lbl = pickerList.querySelector(':scope > .picker-section-label');
+    if (lbl && !pickerList.querySelector('.recent-clear')) {
+      const row = document.createElement('div');
+      row.className = 'mr-actions recent-actions';
+      row.innerHTML = '<button type="button" class="k-btn sm recent-clear"><i class="ti ti-trash"></i>Clear history</button>';
+      row.firstChild.addEventListener('click', () => {
+        let saved = null;
+        klabUndo('Listening history cleared', {
+          apply: () => { saved = localStorage.getItem(HISTORY_KEY); localStorage.setItem(HISTORY_KEY, '[]'); scheduleSave?.(); if (pickerTab === 'recent') loadPickerTab('recent'); },
+          undo: () => { if (saved) localStorage.setItem(HISTORY_KEY, saved); scheduleSave?.(); if (pickerTab === 'recent') loadPickerTab('recent'); },
+        });
+      });
+      lbl.after(row);
+    }
+  }
+  return r;
+};

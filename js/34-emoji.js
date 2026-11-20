@@ -66,7 +66,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - missAt > 60000) { missAt = Date.now(); refresh(); } });
   // New ones show in what's already on screen; the picker redraws.
   function changed() {
-    document.querySelectorAll('.chat-msg-text, .feed-post-text, .feed-post-reply-text').forEach(emojify);
+    document.querySelectorAll('.chat-msg-text, .feed-post-text, .k-com-body').forEach(emojify);
     document.querySelectorAll('.feed-post-reaction-pill, .chat-msg-reaction-pill').forEach(p => {
       const key = p.dataset.emoji, c = p.firstChild;
       if (custom.has(key.slice(1, -1)) && c?.nodeType === 3 && c.nodeValue.trim() === key) {
@@ -536,6 +536,23 @@
   }
   watch(feedText);
   watch(document.getElementById('chatComposerInput'));
+  // Fields drawn and redrawn on the fly (every comment box, the post
+  // editor, Photos' and Videos' forms): the same, delegated.
+  const LATER = '.k-com-input, .feed-edit-text, #phComposeCaption, #phEditCaption, #vidDescIn';
+  document.addEventListener('input', e => { if (e.target.matches?.(LATER)) showSug(e.target); });
+  document.addEventListener('focusout', e => { const f = e.target; if (f.matches?.(LATER)) setTimeout(() => { if (sugField === f) hideSug(); }, 100); });
+  document.addEventListener('keydown', e => {
+    const field = e.target;
+    if (!field.matches?.(LATER) || sugField !== field || sug?.hidden) return;
+    const n = sugItems.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') sugSel = (sugSel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+    else if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); sugPick(sugSel); return; }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); hideSug(); return; }
+    else return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    sug.querySelectorAll('[data-i]').forEach((r, i) => r.classList.toggle('sel', i === sugSel));
+  }, true);
 
   window.klabEmojiPicker = open;
   window.klabEmojiInsert = insertInto;

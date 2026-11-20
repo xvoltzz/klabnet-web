@@ -128,15 +128,18 @@
     search: { title: v => '“' + v.q + '”', query: v => 'q=' + encodeURIComponent(v.q) },
     continue: { title: 'Continue watching' },
   };
+  // The house page head (Photos' twin): the title, its dim count on the
+  // baseline, and the page's one action.
   function headHTML(title, sub, extra) {
-    return '<div class="music-view-head vid-head"><h2>' + esc(title) + '</h2><span id="vidSub">' + esc(sub || '') + '</span>' +
-      '<div class="vid-head-tools">' + (extra || '') +
-      '<button type="button" class="vid-btn primary" data-act="upload"><i class="ti ti-upload"></i><span>Upload</span></button></div></div>';
+    return '<div class="k-page-head vid-head"><h2 class="k-page-title">' + esc(title) + '</h2><span class="k-page-count" id="vidSub">' + esc(sub || '') + '</span>' +
+      '<div class="k-page-actions">' + (extra || '') +
+      '<button type="button" class="k-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload</span></button></div></div>';
   }
   function emptyHTML(text, upload) {
-    return '<div class="vid-empty"><i class="ti ti-movie"></i><div>' + esc(text) + '</div>' +
-      (upload ? '<button type="button" class="vid-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload a video</span></button>' : '') + '</div>';
+    return '<div class="k-empty vid-empty"><i class="ti ti-movie"></i><div>' + esc(text) + '</div>' +
+      (upload ? '<button type="button" class="k-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload a video</span></button>' : '') + '</div>';
   }
+  const LOADING = '<div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
 
   async function showList(v, opts) {
     leaveWatch();
@@ -149,12 +152,13 @@
     list = []; total = 0; more = false;
     const channelHead = v.kind === 'channel'
       ? '<div class="vid-channel">' + face(v.user, 'big') + '<div class="vid-channel-tx"><h2>' + esc(v.user) + '</h2><span id="vidSub"></span></div>' +
-        '<button type="button" class="vid-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div>'
+        '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div>'
       : '';
     page.innerHTML = (channelHead || headHTML(title, '')) +
-      (v.kind === 'home' ? '<div class="vid-shelf-wrap" id="vidShelf" hidden></div>' : '') +
-      '<div class="vid-grid" id="vidGrid"><div class="vid-loading">Loading…</div></div>';
+      (v.kind === 'home' ? '<div class="vid-shelf-wrap" id="vidShelf" hidden></div><div class="k-label vid-label" id="vidLatest" hidden>Latest</div>' : '') +
+      '<div class="vid-grid" id="vidGrid">' + LOADING + '</div>';
     if (panel()) panel().scrollTop = 0;
+    klabEnter(page);
     if (server === false) { $('vidGrid').innerHTML = emptyHTML('Videos need the latest klabnet-api.'); return; }
     if (v.kind === 'home') loadShelf(my);
     await loadMore(my, true);
@@ -168,7 +172,9 @@
       const el = $('vidShelf');
       if (!el || !j.videos?.length) return;
       el.hidden = false;
-      el.innerHTML = '<div class="music-sidebar-label vid-label">Continue watching</div><div class="vid-shelf">' + j.videos.map(x => cardHTML(x, { noFace: true })).join('') + '</div>';
+      el.innerHTML = '<div class="k-label vid-label">Continue watching</div><div class="vid-shelf">' + j.videos.map(x => cardHTML(x)).join('') + '</div>';
+      const latest = $('vidLatest');
+      if (latest) latest.hidden = false;
     } catch (e) { /* the grid says what's wrong */ }
   }
 
@@ -251,14 +257,14 @@
     if (!o.quiet) record({ kind: 'watch', id });
     const my = ++token;
     let v = o.fresh || cache.get(id);
-    page.innerHTML = '<div class="vid-watch"><div class="vid-watch-main"><button type="button" class="vid-btn small vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
-      '<div class="vp vp-loading"><div class="vid-loading">Loading…</div></div></div></div>';
+    page.innerHTML = '<div class="vid-watch"><div class="vid-watch-main"><button type="button" class="k-btn sm vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
+      '<div class="vp vp-loading">' + LOADING + '</div></div></div>';
     if (panel()) panel().scrollTop = 0;
     try {
       if (!o.fresh) v = await getJSON(API + '/' + id);
     } catch (e) {
       if (my !== token) return;
-      page.querySelector('.vp').innerHTML = '<div class="vid-empty"><i class="ti ti-movie-off"></i><div>' + (e.status === 404 ? 'That video’s gone.' : 'Couldn’t load that video.') + '</div></div>';
+      page.querySelector('.vp').innerHTML = '<div class="k-empty vid-empty"><i class="ti ti-movie-off"></i><div>' + (e.status === 404 ? 'That video’s gone.' : 'Couldn’t load that video.') + '</div></div>';
       return;
     }
     if (my !== token) return;
@@ -280,7 +286,7 @@
     page.innerHTML =
       '<div class="vid-watch">' +
         '<div class="vid-watch-main">' +
-          '<button type="button" class="vid-btn small vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
+          '<button type="button" class="k-btn sm vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
           '<div class="vp" id="vidPlayer" tabindex="0">' +
             (v.status === 'ready' ? '' :
               '<div class="vp-wait">' + (v.poster ? '<img src="' + esc(v.poster) + '" alt="" />' : '') +
@@ -294,20 +300,19 @@
               '<span><b>' + esc(v.username) + '</b><span>' + views(v.views) + ' · ' + ago(v.created) + '</span></span></button>' +
             '<div class="vid-acts">' +
               '<div class="vid-reacts" id="vidReacts">' + reactsHTML(v) + '</div>' +
-              '<button type="button" class="vid-btn" data-act="share"><i class="ti ti-share-2"></i><span>Share</span></button>' +
-              (canEdit(v) ? '<button type="button" class="vid-btn icon" data-act="edit" title="Edit"><i class="ti ti-pencil"></i></button>' +
-                '<button type="button" class="vid-btn icon danger" data-act="delete" title="Delete"><i class="ti ti-trash"></i></button>' : '') +
+              '<button type="button" class="k-btn" data-act="share"><i class="ti ti-share-2"></i><span>Share</span></button>' +
+              (canEdit(v) ? '<button type="button" class="k-icon" data-act="edit" title="Edit video" aria-label="Edit video"><i class="ti ti-pencil"></i></button>' +
+                '<button type="button" class="k-icon vid-del" data-act="delete" title="Delete video" aria-label="Delete video"><i class="ti ti-trash"></i></button>' : '') +
             '</div>' +
           '</div>' +
           (desc ? '<div class="vid-desc" id="vidDesc"><div class="vid-desc-tx">' + descHTML(desc) + '</div><button type="button" class="vid-more" data-act="more" hidden>Show more</button></div>' : '') +
           '<div class="vid-comments">' +
-            '<div class="music-sidebar-label vid-label" id="vidComCount">Comments</div>' +
-            '<form class="vid-com-form" id="vidComForm" autocomplete="off">' + face(me()) +
-              '<input type="text" id="vidComInput" class="vid-com-input" placeholder="Add a comment…" aria-label="Add a comment" maxlength="500" /></form>' +
-            '<div class="vid-com-list" id="vidComList"><div class="vid-loading">Loading…</div></div>' +
+            '<div class="k-label vid-label" id="vidComCount">Comments</div>' +
+            klabComments.formHTML({ formId: 'vidComForm', id: 'vidComInput' }) +
+            '<div class="k-com-list vid-com-list" id="vidComList"><div class="k-empty k-com-empty">Loading…</div></div>' +
           '</div>' +
         '</div>' +
-        '<aside class="vid-watch-side"><div class="music-sidebar-label vid-label">Up next</div><div class="vid-next" id="vidNext"></div></aside>' +
+        '<aside class="vid-watch-side"><div class="k-label vid-label">Up next</div><div class="vid-next" id="vidNext"></div></aside>' +
       '</div>';
     const d = $('vidDesc');
     if (d) requestAnimationFrame(() => { const tx = d.querySelector('.vid-desc-tx'); if (tx.scrollHeight > tx.clientHeight + 4) d.querySelector('.vid-more').hidden = false; });
@@ -345,6 +350,7 @@
     } catch (e) { showToast('Couldn’t react. Try again', 'ti-alert-triangle'); }
   }
 
+  let upNext = [];
   async function loadUpNext(v, my) {
     let pool = list.filter(x => x.id !== v.id && x.status === 'ready');
     if (pool.length < 8) {
@@ -360,7 +366,9 @@
     pool.sort((a, b) => (b.username === v.username) - (a.username === v.username) || b.id - a.id);
     const el = $('vidNext');
     if (!el) return;
-    el.innerHTML = pool.length ? pool.slice(0, 12).map(x => cardHTML(x, { row: true })).join('') : '<div class="vid-quiet">Nothing else yet.</div>';
+    upNext = pool.slice(0, 12);
+    el.innerHTML = pool.length ? upNext.map(x => cardHTML(x, { row: true })).join('') : '<div class="k-com-empty">Nothing else yet.</div>';
+    klabEnter(el);
   }
 
   // ── Comments (the Feed's replies) ──
@@ -370,20 +378,26 @@
       const j = await getJSON('/api/posts/' + v.id + '/replies', null, 8000);
       if (cur !== v) return;
       renderComments(v, j.replies || []);
-    } catch (e) { if (cur === v && el) el.innerHTML = '<div class="vid-quiet">Couldn’t load comments.</div>'; }
+    } catch (e) { if (cur === v && el) el.innerHTML = '<div class="k-com-empty">Couldn’t load comments.</div>'; }
   }
   function renderComments(v, replies) {
     v._replies = replies;
     const el = $('vidComList');
     if (!el) return;
     $('vidComCount').textContent = replies.length ? klabCount(replies.length, 'comment') : 'Comments';
-    el.innerHTML = replies.length ? replies.map(r =>
-      '<div class="vid-com">' + face(r.username) + '<div class="vid-com-tx"><div class="vid-com-head"><button type="button" class="vid-com-name" data-act="profile" data-user="' + esc(r.username) + '" style="color:' + profileColor(r.username) + '">' + esc(r.username) + '</button>' +
-        '<span>' + ago(r.created) + '</span>' +
-        (r.username === me() || admin() ? '<button type="button" class="vid-com-del" data-reply="' + r.id + '" title="Delete"><i class="ti ti-trash"></i></button>' : '') + '</div>' +
-        '<div class="vid-com-body">' + descHTML(r.text || '') + '</div></div></div>').join('')
-      : '<div class="vid-quiet">No comments yet. Say something.</div>';
-    setTimeout(() => refreshFaces(el), 1500);
+    el.innerHTML = klabComments.listHTML(replies, { postId: v.id, text: r => descHTML(r.text || '') }, 'No comments yet. Say something.');
+    setTimeout(() => klabComments.refreshFaces(page), 1500);
+  }
+  // At once, with Undo (the kit's way).
+  function deleteComment(v, replyId) {
+    const reply = (v._replies || []).find(r => String(r.id) === String(replyId));
+    if (!reply) return;
+    const row = $('vidComList')?.querySelector('.k-com[data-reply-id="' + reply.id + '"]');
+    klabComments.del({
+      postId: v.id, reply, row,
+      apply: () => { if (cur === v) renderComments(v, (v._replies || []).filter(r => r !== reply)); },
+      undo: () => { if (cur === v) renderComments(v, (v._replies || []).filter(r => r !== reply).concat(reply).sort((a, b) => a.id - b.id)); },
+    });
   }
   page.addEventListener('submit', async e => {
     if (e.target.id !== 'vidComForm') return;
@@ -394,6 +408,7 @@
     try {
       const reply = await getJSON('/api/posts/' + v.id + '/replies', json('POST', { text }), 8000);
       input.value = '';
+      klabComments.fresh(reply.id);
       if (cur === v) renderComments(v, (v._replies || []).concat(reply));
       SFX && SFX.play('star');
     } catch (err) { showToast('Couldn’t post that comment', 'ti-alert-triangle'); }
@@ -419,7 +434,11 @@
   function mountPlayer(v, start, autoplay) {
     const box = $('vidPlayer');
     box.innerHTML =
-      '<video playsinline preload="metadata"' + (v.poster ? ' poster="' + esc(v.poster) + '"' : '') + '></video>' +
+      '<video playsinline preload="metadata"></video>' +
+      // The poster over the video, faded out once the first frame is up
+      // (a <video>'s own poster just snaps to it).
+      (v.poster ? '<img class="vp-poster" src="' + esc(v.poster) + '" alt="" draggable="false" />' : '') +
+      '<div class="vp-end" hidden></div>' +
       '<button type="button" class="vp-big" data-vp="play" aria-label="Play" data-silent><i class="ti ti-player-play-filled"></i></button>' +
       '<div class="vp-spin" hidden><span class="vid-spin"></span></div>' +
       '<div class="vp-ctrl">' +
@@ -444,7 +463,9 @@
     player = box;
     video.volume = prefs.volume ?? 1;
     video.muted = !!prefs.muted;
-    video.playbackRate = 1;
+    // The speed you last picked, here (per device, klabnet_video).
+    video.playbackRate = SPEEDS.includes(prefs.speed) ? prefs.speed : 1;
+    video.defaultPlaybackRate = video.playbackRate;
     viewSent = false; played = 0; lastTick = 0; lastSave = 0;
     const src = v.hls;
     const native = !window.MediaSource && video.canPlayType('application/vnd.apple.mpegurl');
@@ -475,16 +496,24 @@
       }).catch(e => showToast('Couldn’t start the player: ' + e.message, 'ti-alert-triangle'));
     }
     for (const ev of ['play', 'pause', 'timeupdate', 'progress', 'volumechange', 'ratechange', 'durationchange']) video.addEventListener(ev, paint);
-    video.addEventListener('play', () => { box.classList.remove('paused', 'fresh'); quietMusic(); wake(); });
+    video.addEventListener('play', () => { box.classList.remove('paused', 'fresh', 'ended'); box.querySelector('.vp-end').hidden = true; quietMusic(); wake(); });
+    video.addEventListener('playing', () => box.classList.add('started'), { once: true });
     video.addEventListener('pause', () => { box.classList.add('paused'); saveProgress(); wake(); });
     video.addEventListener('waiting', () => { box.querySelector('.vp-spin').hidden = false; });
     for (const ev of ['playing', 'canplay', 'seeked']) video.addEventListener(ev, () => { box.querySelector('.vp-spin').hidden = true; });
     video.addEventListener('timeupdate', tick);
-    video.addEventListener('ended', () => { saveProgress(true); sendView(); box.classList.add('paused'); });
+    video.addEventListener('seeking', () => {
+      if (box.classList.contains('ended') && video.currentTime < (video.duration || 0) - 0.5) { box.classList.remove('ended'); box.querySelector('.vp-end').hidden = true; }
+    });
+    video.addEventListener('ended', () => { saveProgress(true); sendView(); box.classList.add('paused'); endCard(); });
     video.addEventListener('click', () => togglePlay());
     video.addEventListener('dblclick', () => toggleFull());
     box.addEventListener('pointermove', wake);
-    box.addEventListener('pointerleave', () => { if (!video.paused) box.classList.add('idle'); });
+    // The pointer leaving: the controls go a moment later (600ms), fading.
+    box.addEventListener('pointerleave', () => {
+      clearTimeout(idleT);
+      idleT = setTimeout(() => { if (video && !video.paused && !player?.querySelector('.vp-menu:not([hidden])')) player.classList.add('idle'); }, 600);
+    });
     const vol = box.querySelector('.vp-vol-range');
     vol.value = video.muted ? 0 : video.volume;
     vol.addEventListener('input', () => { video.volume = +vol.value; video.muted = +vol.value === 0; prefs.volume = video.volume; prefs.muted = video.muted; savePrefs(); });
@@ -574,6 +603,28 @@
     if (document.fullscreenElement) document.exitFullscreen?.();
     else (player.requestFullscreen || player.webkitRequestFullscreen)?.call(player);
   }
+  // The end: a calm card over the last frame. Replay, and the next video
+  // if there is one; nothing plays by itself.
+  function endCard() {
+    const box = player, el = box?.querySelector('.vp-end');
+    if (!el) return;
+    box.classList.add('ended');
+    const next = upNext.find(x => x.status === 'ready');
+    el.innerHTML = '<div class="vp-end-in">' +
+      '<button type="button" class="k-btn on-media" data-end="replay"><i class="ti ti-rotate-2"></i><span>Replay</span></button>' +
+      (next ? '<button type="button" class="vp-end-next" data-end="next" data-vid-next="' + next.id + '">' +
+        (next.posterSmall ? '<img src="' + esc(next.posterSmall) + '" alt="" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') +
+        '<span class="vp-end-tx"><small>Up next</small><b>' + esc(next.title || 'Untitled') + '</b><span>' + esc(next.username) + '</span></span></button>' : '') +
+    '</div>';
+    el.hidden = false;
+  }
+  page.addEventListener('click', e => {
+    const b = e.target.closest('[data-end]');
+    if (!b || !video) return;
+    e.stopPropagation();
+    if (b.dataset.end === 'replay') { seekTo(0); video.play().catch(() => {}); }
+    else openVideo(+b.dataset.vidNext);
+  }, true);
   document.addEventListener('fullscreenchange', () => {
     const on = !!document.fullscreenElement && document.fullscreenElement === player;
     player?.classList.toggle('full', on);
@@ -586,7 +637,7 @@
     if (!m.hidden && m.dataset.kind === kind) { m.hidden = true; return; }
     m.dataset.kind = kind;
     let items;
-    if (kind === 'speed') items = SPEEDS.map(s => ({ label: s === 1 ? 'Normal' : s + '×', on: video.playbackRate === s, go: () => { video.playbackRate = s; } }));
+    if (kind === 'speed') items = SPEEDS.map(s => ({ label: s === 1 ? 'Normal' : s + '×', on: video.playbackRate === s, go: () => { video.playbackRate = s; video.defaultPlaybackRate = s; prefs.speed = s; savePrefs(); } }));
     else {
       const lv = (hls?.levels || []).map((l, i) => ({ i, h: l.height })).sort((a, b) => b.h - a.h);
       items = [{ label: 'Auto', on: hls?.autoLevelEnabled, go: () => { hls.currentLevel = -1; paintQuality(); } }]
@@ -679,8 +730,12 @@
     if (document.querySelector('.chat-modal-backdrop.open, .chat-modal.open')) return;
     const focused = player && player.contains(el);
     const k = e.key;
+    // Space on a focused button or link outside the player presses that.
+    if (k === ' ' && !focused && el && el !== document.body && el.matches?.('button, a[href], [role="button"], [role="tab"], select, summary')) return;
     let done = true;
     if (k === ' ' || k === 'k' || k === 'K') togglePlay();
+    // A frame at a time while paused (assumes ~30fps; the exact rate isn't known).
+    else if ((k === ',' || k === '.') && video.paused) seekTo(video.currentTime + (k === '.' ? 1 : -1) / 30);
     else if (k === 'j' || k === 'J') seekTo(video.currentTime - 10);
     else if (k === 'l' || k === 'L') seekTo(video.currentTime + 10);
     else if (k === 'f' || k === 'F') toggleFull();
@@ -705,15 +760,10 @@
       else toggleReaction(pill.dataset.emoji);
       return;
     }
-    const del = e.target.closest('.vid-com-del');
-    if (del && cur) {
-      const v = cur;
-      try {
-        await getJSON('/api/posts/' + v.id + '/replies/' + del.dataset.reply, { method: 'DELETE' }, 8000);
-        if (cur === v) renderComments(v, (v._replies || []).filter(r => String(r.id) !== del.dataset.reply));
-      } catch (err) { showToast('Couldn’t delete that comment', 'ti-alert-triangle'); }
-      return;
-    }
+    const del = e.target.closest('.k-com-del');
+    if (del && cur) { deleteComment(cur, del.dataset.replyId); return; }
+    const who = e.target.closest('.k-com-name, .k-com-face[data-username]');
+    if (who && !who.closest('.k-com-form')) { window.openProfileView?.(who.dataset.username); return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const act = b.dataset.act;
@@ -725,6 +775,64 @@
     else if (act === 'edit' && cur) editDialog(cur);
     else if (act === 'delete' && cur) deleteVideo(cur);
     else if (act === 'more') { const d = $('vidDesc'); d.classList.toggle('open'); b.textContent = d.classList.contains('open') ? 'Show less' : 'Show more'; }
+  });
+
+  // ── Right-click: a card, or the watch page ──
+  const linkTo = (v, at) => location.origin + location.pathname + '#videos/' + v.id + (at ? '?t=' + Math.floor(at) : '');
+  function cardMenu(e, v, inContinue) {
+    klabMenu(e, [
+      { header: v.title || 'Untitled' },
+      { label: 'Open', icon: 'ti-player-play', disabled: v.status !== 'ready', action: () => openVideo(v.id) },
+      { label: 'Share…', icon: 'ti-share-2', action: () => shareDialog(v) },
+      { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(v), 'Link') },
+      '-',
+      { label: 'Go to channel', icon: 'ti-user', hidden: view.kind === 'channel' && view.user === v.username, action: () => showList({ kind: 'channel', user: v.username }) },
+      { label: 'Remove from Continue watching', icon: 'ti-x', hidden: !inContinue && !v.watched, action: () => forget(v) },
+      '-',
+      { label: 'Edit video', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
+      { label: 'Delete video', icon: 'ti-trash', danger: true, hidden: !canEdit(v), action: () => deleteVideo(v) },
+    ]);
+  }
+  // Out of Continue watching: where you stopped is set to the end, which
+  // the API takes as watched.
+  function forget(v) {
+    const was = v.watched;
+    v.watched = null;
+    page.querySelectorAll('.vid-shelf .vid-card[data-vid-id="' + v.id + '"]').forEach(c => c.remove());
+    page.querySelectorAll('.vid-card[data-vid-id="' + v.id + '"] .vid-prog').forEach(b => b.remove());
+    const shelf = $('vidShelf');
+    if (shelf && !shelf.querySelector('.vid-card')) { shelf.hidden = true; const l = $('vidLatest'); if (l) l.hidden = true; }
+    if (view.kind === 'continue') { list = list.filter(x => x.id !== v.id); page.querySelector('.vid-grid .vid-card[data-vid-id="' + v.id + '"]')?.remove(); }
+    fetch(API + '/' + v.id + '/progress', { ...json('PUT', { position: v.duration || 1e6 }), keepalive: true })
+      .then(r => { if (!r.ok) throw r; })
+      .catch(() => { v.watched = was; showToast('Couldn’t take it out', 'ti-alert-triangle'); });
+  }
+  page.addEventListener('contextmenu', e => {
+    const card = e.target.closest('.vid-card[data-vid-id]');
+    if (card) {
+      const v = cache.get(+card.dataset.vidId);
+      if (!v) return;
+      cardMenu(e, v, !!card.closest('.vid-shelf') || view.kind === 'continue');
+      return;
+    }
+    // The player and the video's own head: the video at hand.
+    if (!cur || !e.target.closest('.vid-watch-main') || e.target.closest('.k-com, .k-com-form, a, input, textarea')) return;
+    const v = cur, t = video ? video.currentTime || 0 : 0;
+    const onPlayer = !!e.target.closest('.vp');
+    klabMenu(e, [
+      { header: v.title || 'Untitled' },
+      { label: video && !video.paused ? 'Pause' : 'Play', icon: video && !video.paused ? 'ti-player-pause' : 'ti-player-play', hidden: !video || !onPlayer, action: () => togglePlay() },
+      { label: 'Picture in picture', icon: 'ti-picture-in-picture', hidden: !video || !onPlayer || !document.pictureInPictureEnabled, action: () => video.requestPictureInPicture().catch(() => {}) },
+      { label: 'Share…', icon: 'ti-share-2', action: () => shareDialog(v) },
+      { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(v), 'Link') },
+      { label: 'Copy link at ' + dur(t), icon: 'ti-clock', hidden: t < 2, action: () => klabCopy(linkTo(v, t), 'Link') },
+      '-',
+      { label: 'Go to channel', icon: 'ti-user', action: () => showList({ kind: 'channel', user: v.username }) },
+      { label: 'View profile', icon: 'ti-user-circle', action: () => window.openProfileView?.(v.username) },
+      '-',
+      { label: 'Edit video', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
+      { label: 'Delete video', icon: 'ti-trash', danger: true, hidden: !canEdit(v), action: () => deleteVideo(v) },
+    ]);
   });
 
   // The sidebar's rows.
@@ -762,14 +870,13 @@
         <input class="chat-modal-input" id="vidTitle" maxlength="100" autocomplete="off" />
         <label class="vid-field-label" for="vidDescIn">Description</label>
         <textarea class="chat-modal-input vid-desc-in" id="vidDescIn" rows="4" maxlength="5000" placeholder="Optional. Times like 1:32 become links."></textarea>
-        <div class="vid-bar" id="vidBar" hidden><b></b><span></span></div>
         <p class="emo-err" id="vidErr" hidden></p>
       </div>
       <div class="dlg-actions">
         <button class="k-btn" id="vidCancel">Cancel</button>
         <button class="k-btn primary" id="vidSend" disabled>Upload</button>
-      </div>`, () => xhr?.abort());
-    let picked = null, xhr = null;
+      </div>`, null);
+    let picked = null;
     const err = m => { $('vidErr').hidden = !m; $('vidErr').textContent = m || ''; };
     const pick = f => {
       if (!f) return;
@@ -790,45 +897,85 @@
     drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); pick(e.dataTransfer.files[0]); });
-    $('vidCancel').addEventListener('click', () => { xhr?.abort(); closeChatModal(); });
+    $('vidCancel').addEventListener('click', () => closeChatModal());
     $('vidSend').addEventListener('click', () => {
       if (!picked) return;
       const title = $('vidTitle').value.trim();
       if (!title) { err('It needs a title.'); $('vidTitle').focus(); return; }
-      const fd = new FormData();
-      fd.append('file', picked); fd.append('title', title); fd.append('description', $('vidDescIn').value.trim());
-      const btn = $('vidSend'), bar = $('vidBar');
-      btn.disabled = true; btn.textContent = 'Uploading…';
-      bar.hidden = false;
-      xhr = new XMLHttpRequest();
-      xhr.open('POST', API);
-      xhr.responseType = 'json';
-      xhr.upload.onprogress = e => {
-        if (!e.lengthComputable) return;
-        const f = e.loaded / e.total;
-        bar.firstChild.style.transform = 'scaleX(' + f.toFixed(3) + ')';
-        bar.lastChild.textContent = f < 1 ? Math.round(f * 100) + '%' : 'Saving…';
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          const v = xhr.response;
-          cache.set(v.id, v);
-          closeChatModal();
-          SFX && SFX.play('star');
-          showToast('Uploaded. It’ll be ready to watch in a few minutes', 'ti-movie');
-          if (!showing()) setActiveTab('videos');
-          showList({ kind: 'mine' });
-        } else {
-          if (xhr.status === 404 || xhr.status === 405) server = false;
-          err(klabCap(xhr.response?.error) || 'Couldn’t upload it (' + xhr.status + ')');
-          btn.disabled = false; btn.textContent = 'Upload'; bar.hidden = true;
-        }
-      };
-      xhr.onerror = () => { err('The upload didn’t get through.'); btn.disabled = false; btn.textContent = 'Upload'; bar.hidden = true; };
-      xhr.send(fd);
+      // It goes on in the background: the dialog closes into a row under
+      // Your videos, with its progress (and a toast saying so).
+      startUpload(picked, title, $('vidDescIn').value.trim());
+      closeChatModal();
     });
     if (file) pick(file);
   }
+  // ── Uploads in the background ──
+  // Each is a row under the sidebar's rows (title, a bar, ✕), so you can
+  // browse while it goes. Leaving the page mid-upload asks first.
+  const uploads = [];
+  let upsEl = null;
+  function paintUploads() {
+    if (!upsEl) {
+      upsEl = document.createElement('div');
+      upsEl.className = 'vid-ups';
+      upsEl.setAttribute('aria-live', 'polite');
+      nav.appendChild(upsEl);
+      upsEl.addEventListener('click', async e => {
+        const b = e.target.closest('[data-up-stop]');
+        if (!b) return;
+        const u = uploads.find(x => x.key === b.dataset.upStop);
+        if (!u) return;
+        if (!(await showConfirmDialog('Stop this upload?', '“' + u.title + '” won’t be uploaded.', 'Stop upload'))) return;
+        u.xhr.abort();
+      });
+    }
+    upsEl.hidden = !uploads.length;
+    upsEl.innerHTML = uploads.map(u => {
+      const pct = Math.round(u.f * 100);
+      return '<div class="vid-up-row" title="' + esc(u.title) + '"><i class="ti ti-upload"></i>' +
+        '<span class="vid-up-tx"><span class="vid-up-name">' + esc(u.title) + '</span>' +
+        '<span class="vid-up-bar"><b style="transform:scaleX(' + u.f.toFixed(3) + ')"></b></span>' +
+        '<span class="vid-up-pct">' + (u.f < 1 ? pct + '%' : 'Saving…') + '</span></span>' +
+        '<button type="button" class="k-icon sm" data-up-stop="' + u.key + '" title="Stop upload" aria-label="Stop upload"><i class="ti ti-x"></i></button></div>';
+    }).join('');
+  }
+  function startUpload(file, title, description) {
+    const fd = new FormData();
+    fd.append('file', file); fd.append('title', title); fd.append('description', description);
+    const xhr = new XMLHttpRequest();
+    const u = { key: Math.random().toString(36).slice(2), title, f: 0, xhr };
+    uploads.push(u);
+    paintUploads();
+    showToast('Uploading “' + title + '”. You can keep browsing', 'ti-upload');
+    const done = () => { uploads.splice(uploads.indexOf(u), 1); paintUploads(); };
+    let paintT = 0;
+    xhr.open('POST', API);
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = e => {
+      if (!e.lengthComputable) return;
+      u.f = e.loaded / e.total;
+      if (!paintT) paintT = setTimeout(() => { paintT = 0; paintUploads(); }, 200);
+    };
+    xhr.onload = () => {
+      done();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const v = xhr.response;
+        cache.set(v.id, v);
+        SFX && SFX.play('star');
+        showToast('“' + title + '” is up. It’ll be ready to watch in a few minutes', 'ti-movie', 6000, null, null,
+          { action: { label: 'Your videos', run: () => { if (!showing()) setActiveTab('videos'); showList({ kind: 'mine' }); } } });
+        if (showing() && ['mine', 'home'].includes(view.kind)) showList(view, { quiet: true });
+      } else {
+        if (xhr.status === 404 || xhr.status === 405) server = false;
+        showToast('Couldn’t upload “' + title + '”: ' + (klabCap(xhr.response?.error) || 'error ' + xhr.status), 'ti-alert-triangle');
+      }
+    };
+    xhr.onerror = () => { done(); showToast('The upload of “' + title + '” didn’t get through', 'ti-alert-triangle'); };
+    xhr.onabort = () => { done(); showToast('Upload stopped', 'ti-x'); };
+    xhr.send(fd);
+  }
+  addEventListener('beforeunload', e => { if (uploads.length) { e.preventDefault(); e.returnValue = ''; } });
+
   // A video dropped anywhere on the page.
   const shell = $('videosShell');
   shell?.addEventListener('dragover', e => { if ([...(e.dataTransfer?.items || [])].some(i => i.kind === 'file')) e.preventDefault(); });
@@ -863,7 +1010,13 @@
     $('vidThumbBtn').addEventListener('click', () => $('vidThumbFile').click());
     $('vidThumbFile').addEventListener('change', () => {
       thumb = $('vidThumbFile').files[0] || null;
-      if (thumb) { const im = $('vidThumbImg'); im.src = URL.createObjectURL(thumb); im.hidden = false; }
+      if (thumb) {
+        const im = $('vidThumbImg');
+        if (im.src.startsWith('blob:')) URL.revokeObjectURL(im.src);
+        im.src = URL.createObjectURL(thumb); im.hidden = false;
+        // Let go of it once it's drawn (the dialog closing would leak it).
+        im.addEventListener('load', () => { if (im.src.startsWith('blob:')) URL.revokeObjectURL(im.src); }, { once: true });
+      }
     });
     $('vidCancel').addEventListener('click', () => closeChatModal());
     $('vidSave').addEventListener('click', async () => {
@@ -893,13 +1046,15 @@
     });
   }
   async function deleteVideo(v) {
-    if (!(await showConfirmDialog('Delete “' + (v.title || 'this video') + '”?', 'Its comments go with it, for everyone. This can’t be undone.', 'Delete'))) return;
+    if (!(await showConfirmDialog('Delete this video?', '“' + (v.title || 'Untitled') + '” and its comments are gone for everyone.', 'Delete'))) return;
     try {
       await getJSON(API + '/' + v.id, { method: 'DELETE' }, 15000);
       cache.delete(v.id);
       list = list.filter(x => x.id !== v.id);
-      showToast('Deleted', 'ti-trash');
-      showList({ kind: 'mine' });
+      showToast('Video deleted', 'ti-trash');
+      // Back where you came from (its channel, a list); Your videos if there's nowhere.
+      if (cur?.id === v.id || view.kind === 'watch') { if (!window.klabNav?.back()) showList({ kind: 'mine' }); }
+      else showList(view, { quiet: true });
     } catch (e) { showToast('Couldn’t delete it: ' + e.message, 'ti-alert-triangle'); }
   }
 
@@ -909,7 +1064,7 @@
     const t = video ? Math.floor(video.currentTime || 0) : 0;
     const moment = t > 5 && t < (v.duration || 0) - 5 ? t : 0;
     openChatModal('Share video', `
-      ${moment ? '<label class="vid-check"><input type="checkbox" id="vidShareAt" checked><span>Start at ' + dur(moment) + '</span></label>' : ''}
+      ${moment ? '<label class="vid-check"><input type="checkbox" class="k-check" id="vidShareAt" checked><span>Start at ' + dur(moment) + '</span></label>' : ''}
       <div class="chat-modal-list vid-share-list">
         <button type="button" class="chat-modal-row" data-share="feed"><i class="ti ti-news"></i><div class="chat-modal-row-info"><div class="chat-modal-row-name">Post to the Feed</div></div></button>
         <button type="button" class="chat-modal-row" data-share="chat"><i class="ti ti-message-circle"></i><div class="chat-modal-row-info"><div class="chat-modal-row-name">Send in a chat</div></div></button>

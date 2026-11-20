@@ -8,7 +8,7 @@
 //  filtering and jumping never wait on the network.
 // ══════════════════════════════════════════
 window.klabBrowse = (function() {
-  const BROWSE_TABS = ['albums', 'songs'];
+  const BROWSE_TABS = ['albums', 'songs', 'artists'];
   const bar = document.getElementById('browseBar');
   const backdrop = document.getElementById('pickerBackdrop');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.fx === 'low';
@@ -17,7 +17,8 @@ window.klabBrowse = (function() {
   // Kept for the session, not saved: a filter left on from last week would
   // only look like missing music.
   const filters = {
-    albums: { q: '', decade: null, genre: null, kind: null, unplayed: false },
+    albums: { q: '', decade: null, genre: null, kind: null, fav: false, unplayed: false },
+    artists: { q: '', fav: false },
     songs:  { q: '', decade: null, genre: null, fav: false, lossless: false, unplayed: false },
   };
   const LOSSLESS = /^(flac|alac|wav|aiff?|ape|wv|dsf|dff)$/i;
@@ -26,8 +27,9 @@ window.klabBrowse = (function() {
   const decadeOf = x => x.year ? Math.floor(x.year / 10) * 10 : 0;
   const decadeLabel = d => d ? d + 's' : 'No year';
   const KINDS = [['full', 'Full-length', a => (a.songCount || 0) >= 7], ['short', 'EPs & singles', a => (a.songCount || 0) < 7]];
-  const itemsOf = tab => (tab === 'albums' ? _albumsCache : _songsCache) || [];
-  const noun = tab => tab === 'albums' ? 'album' : 'song';
+  const itemsOf = tab => (tab === 'albums' ? _albumsCache : tab === 'artists' ? artistsFlat() : _songsCache) || [];
+  const noun = tab => tab === 'albums' ? 'album' : tab === 'artists' ? 'artist' : 'song';
+  const isFav = (tab, x) => tab === 'albums' ? klabFavAlbums.has(x.id) : tab === 'artists' ? klabFavArtists.has(x.id) : isFavorite(x.id);
 
   function active(tab) {
     const f = filters[tab];
@@ -42,10 +44,10 @@ window.klabBrowse = (function() {
       if (f.genre != null && genreOf(x) !== f.genre) return false;
       if (kind && !kind(x)) return false;
       if (f.unplayed && x.playCount) return false;
-      if (f.fav && !isFavorite(x.id)) return false;
+      if (f.fav && !isFav(tab, x)) return false;
       if (f.lossless && !LOSSLESS.test(x.suffix || '')) return false;
       if (words.length) {
-        const hay = fold(tab === 'albums' ? `${x.name} ${x.artist}` : `${x.title} ${x.artist} ${x.album}`);
+        const hay = fold(tab === 'albums' ? `${x.name} ${x.artist}` : tab === 'artists' ? x.name : `${x.title} ${x.artist} ${x.album}`);
         if (!words.every(w => hay.includes(w))) return false;
       }
       return true;
@@ -57,6 +59,7 @@ window.klabBrowse = (function() {
     'title-asc': 'Title A–Z', 'title-desc': 'Title Z–A', 'name-asc': 'Name A–Z', 'name-desc': 'Name Z–A',
     'artist-asc': 'Artist A–Z', 'album-asc': 'Album A–Z', 'year-desc': 'Newest', 'year-asc': 'Oldest',
     'created-desc': 'Recently added', 'plays-desc': 'Most played', 'played-desc': 'Recently played', 'duration-desc': 'Longest',
+    'albums-desc': 'Most albums',
   };
   let barTab = null;
   function drawBar(tab) {
@@ -73,16 +76,18 @@ window.klabBrowse = (function() {
       barTab = tab;
     }
     const input = bar.querySelector('.browse-find input');
-    input.placeholder = tab === 'albums' ? 'Filter albums' : 'Filter songs';
+    input.placeholder = 'Filter ' + tab;
     if (input.value !== f.q) input.value = f.q;
     bar.querySelector('.browse-find-x').hidden = !f.q;
     bar.querySelector('.browse-chips').innerHTML =
       chip('sort', SORT_SHORT[getSort(tab)] || 'Sort', false, 'ti-arrows-sort') +
-      chip('decade', f.decade != null ? decadeLabel(f.decade) : 'Decade', f.decade != null) +
-      (hasGenres || f.genre != null ? chip('genre', f.genre ?? 'Genre', f.genre != null) : '') +
-      (tab === 'albums' ? chip('kind', kindLabel || 'Type', !!f.kind) : '') +
-      (tab === 'songs' ? toggle('fav', 'Favorites', f.fav) + toggle('lossless', 'Lossless', f.lossless) : '') +
-      toggle('unplayed', 'Never played', f.unplayed) +
+      (tab === 'artists' ? toggle('fav', 'Favorites', f.fav) : (
+        chip('decade', f.decade != null ? decadeLabel(f.decade) : 'Decade', f.decade != null) +
+        (hasGenres || f.genre != null ? chip('genre', f.genre ?? 'Genre', f.genre != null) : '') +
+        (tab === 'albums' ? chip('kind', kindLabel || 'Type', !!f.kind) : '') +
+        toggle('fav', 'Favorites', f.fav) +
+        (tab === 'songs' ? toggle('lossless', 'Lossless', f.lossless) : '') +
+        toggle('unplayed', 'Never played', f.unplayed))) +
       (active(tab) ? '<button type="button" class="browse-clear">Clear</button>' : '');
     bar.hidden = false;
   }
@@ -186,8 +191,8 @@ window.klabBrowse = (function() {
       if (tab === 'songs') pickerSongs = [];
       return;
     }
-    if (tab === 'albums') {
-      renderAlbumList(shown);
+    if (tab === 'albums' || tab === 'artists') {
+      if (tab === 'albums') renderAlbumList(shown); else renderArtistList(shown);
       const items = pickerList.querySelectorAll(':scope > .picker-item');
       geom = { top: i => items[i]?.offsetTop ?? 0, row: i => items[i] || null };
     } else renderSongs(shown);
@@ -248,7 +253,7 @@ window.klabBrowse = (function() {
   };
   function keyer(tab) {
     const s = getSort(tab);
-    if (/^(title|name)-/.test(s)) return x => letter(tab === 'albums' ? x.name : x.title);
+    if (/^(title|name)-/.test(s)) return x => letter(tab === 'songs' ? x.title : x.name);
     if (s === 'artist-asc') return x => letter(x.artist);
     if (s === 'album-asc') return x => letter(x.album);
     if (/^year-/.test(s)) return x => decadeOf(x);
@@ -559,5 +564,10 @@ window.klabBrowse = (function() {
     bar.innerHTML = '';
   }
 
-  return { render, leave, filtered };
+  // Open Albums or Artists with only your favourites showing (Favorites' "See all").
+  function showFavorites(tab) {
+    filters[tab] = { ...filters[tab], fav: true };
+    document.querySelector(`.music-nav .picker-tab[data-tab="${tab}"]`)?.click();
+  }
+  return { render, leave, filtered, showFavorites };
 })();

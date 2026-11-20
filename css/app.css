@@ -1078,44 +1078,6 @@
         transparent 100%);
     }
     .feed-post-replies:not(.has-replies) { margin-top: 6px; }
-    .feed-post-reply { display: flex; gap: 9px; margin-bottom: 10px; }
-    .feed-post-reply-avatar {
-      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-      background: var(--tile-bg-h); font-size: 12px; font-weight: 700; color: var(--text-dim);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .feed-post-reply-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .feed-post-reply-body { flex: 1; min-width: 0; }
-    .feed-post-reply-head { display: flex; align-items: baseline; gap: 6px; }
-    .feed-post-reply-name { font-size: 12px; font-weight: 700; }
-    .feed-post-reply-time { font-size: 9px; color: var(--text-dimmer); }
-    /* Same <span> -> <button> fix as .feed-post-delete above. */
-    .feed-post-reply-delete {
-      margin-left: auto; cursor: pointer; color: var(--text-dimmer); font-size: 11px;
-      background: none; border: none; font-family: inherit; padding: 0;
-    }
-    .feed-post-reply-delete:hover, .feed-post-reply-delete:focus-visible { color: var(--danger-color); }
-    .feed-post-reply-text { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .feed-post-reply-composer { display: flex; gap: 6px; margin-top: 6px; }
-    /* Same boxy + focus-glow language as .picker-search/.chat-composer
-       input, not a 14px pill on var(--glass-fill). */
-    .feed-post-reply-input {
-      flex: 1; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 8px;
-      padding: 7px 12px; font-size: 12px; color: var(--text); font-family: var(--font-ui); outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-    .feed-post-reply-input:focus {
-      border-color: var(--glass-border-h);
-    }
-    .feed-post-reply-input:focus-visible { outline: none; } /* see .chat-composer input's own comment on this exact fix */
-    .feed-post-reply-send {
-      flex-shrink: 0; width: 32px; height: 32px; border-radius: var(--radius-sm);
-      display: flex; align-items: center; justify-content: center;
-      font-size: var(--fs-14); color: rgba(var(--accent-rgb),1); cursor: pointer;
-      background: rgba(var(--accent-rgb),0.12); border: 1px solid rgba(var(--accent-rgb),0.3);
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .feed-post-reply-send:hover { background: rgba(var(--accent-rgb),0.22); }
     /* Mentions only: a square secondary button at the end of Feed's title
        row, filled while it's on (like the request type buttons). */
     .feed-mentions-btn {
@@ -1287,22 +1249,9 @@
        underneath showed straight through this floating toolbar. Same
        glass-fill + blur treatment the old emoji picker had, which
        already reads as solid despite being just as translucent a token. */
-    .chat-msg-actions {
-      position: absolute; top: -6px; right: 8px; display: none; gap: 2px;
-      background: var(--glass-fill); backdrop-filter: blur(20px);
-      border: 1px solid var(--tile-border); border-radius: 8px;
-      padding: 2px; box-shadow: 0 2px 8px var(--shadow-20); z-index: 2;
-    }
+    /* The look is the house hover toolbar (.k-toolbar, .k-icon). */
+    .chat-msg-actions { position: absolute; top: -6px; right: 8px; display: none; z-index: 2; }
     .chat-msg:hover .chat-msg-actions { display: flex; }
-    /* Sized up from 24px/13px — same "reaction icons read small everywhere"
-       fix as the feed's reaction pills. */
-    .chat-msg-action-btn {
-      width: 28px; height: 28px; border-radius: var(--radius-sm); border: none; background: none;
-      color: var(--text-dim); cursor: pointer; font-size: var(--fs-16);
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, color 0.15s;
-    }
-    .chat-msg-action-btn:hover { background: var(--tile-bg-h); color: var(--text); }
 
     /* Reactions — aggregated pills below the message body */
     .chat-msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
@@ -2136,16 +2085,6 @@
        button, so the keyboard reaches it, drawn as the other rows. */
     button.settings-row { width: 100%; box-sizing: border-box; font: inherit; letter-spacing: inherit; color: inherit; text-align: start; }
     button.settings-row :is(.settings-row-label, .settings-row-sub) { display: block; }
-    /* Background-color settings row button — shows the currently-effective
-       --bg as its own fill (see applyCustomBg()) so it doubles as a live
-       swatch, not just a generic icon button. */
-    .bg-color-btn {
-      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
-      border: 1px solid var(--tile-border); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-dimmer); font-size: var(--fs-13); transition: transform 0.1s;
-    }
-    .bg-color-btn:hover { transform: scale(1.08); color: var(--text); }
     /* Background-palette modal — same swatch-grid language as the profile
        editor's chat-color picker (.profile-modal-color-swatch), just under
        its own class since this one applies instantly on click rather than
@@ -3678,21 +3617,6 @@
     }
     .ph-side-close { background: none; border: none; color: var(--text-dimmer); cursor: pointer; font-size: var(--fs-16); padding: 2px; }
     .ph-side-close:hover { color: var(--text); }
-    .ph-replies { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-13); line-height: 1.4; }
-    .ph-reply { position: relative; padding-right: 20px; overflow-wrap: anywhere; }
-    .ph-reply-del {
-      position: absolute; right: 0; top: 0; background: none; border: none; color: var(--text-dimmer);
-      cursor: pointer; opacity: 0; transition: opacity .15s;
-    }
-    .ph-reply:hover .ph-reply-del, .ph-reply-del:focus-visible { opacity: 1; }
-    .ph-replies-empty { color: var(--text-dimmer); font-size: var(--fs-12); }
-    .ph-reply-form { margin-top: 10px; }
-    .ph-reply-form input {
-      width: 100%; height: 34px; border-radius: var(--radius-md); padding: 0 10px;
-      background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text);
-      font: 400 var(--fs-13) var(--font-ui); outline: none;
-    }
-    .ph-reply-form input:focus { border-color: var(--glass-border-h); }
     .ph-side-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
     .ph-original { font-size: var(--fs-12); color: var(--text-dim); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
     .ph-original:hover { color: var(--text); }
@@ -3758,7 +3682,7 @@
     .ph-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; position: relative; }
     .ph-field.wide { grid-column: span 2; }
     .ph-exif-grid .ph-field:nth-child(3) { grid-column: span 4; }
-    .ph-field > span { font-size: var(--fs-10); letter-spacing: .08em; text-transform: uppercase; color: var(--text-dimmer); }
+    .ph-field > span { font: 600 12.5px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dim); } /* a form's labels: sentence case */
     .ph-field input, .ph-compose-caption, .ph-song-search input, .ph-tags-box {
       width: 100%; border-radius: var(--radius-md); padding: 7px 9px;
       background: var(--glass-fill); border: 1px solid var(--glass-border); color: var(--text);
@@ -3810,15 +3734,9 @@
     }
     .ph-mini-btn:hover { border-color: var(--glass-border-h); }
     #phSongStart { width: 100%; accent-color: var(--text); }
-    .ph-compose-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-shrink: 0; }
+    .ph-compose-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; margin-top: 0; }
     .ph-compose-error { font-size: var(--fs-12); color: var(--danger-color); margin-right: auto; }
     .ph-compose-error[hidden] { display: none; }
-    .ph-compose-submit {
-      height: var(--control-h); padding: 0 20px; border-radius: var(--radius-lg);
-      background: var(--text); color: var(--bg); border: none; cursor: pointer;
-      font: 600 var(--fs-13) var(--font-ui);
-    }
-    .ph-compose-submit:disabled { opacity: .5; cursor: default; }
 
     /* No room beside the photo: it goes on top and the rails stack under it,
        compact. fitImg() leaves them the height they need. */
@@ -4345,13 +4263,10 @@
     #musicShell .music-nav.has-pill .picker-tabs { position: relative; z-index: 1; }
 
 
-    /* Artwork fades in as it loads instead of popping. */
-    #musicShell .picker-list-grid .picker-item-art { animation: fadeInSoft var(--m-slow) ease both; }
-    .mh-card-art img, .mh-cover img, .ph-thumb img { transition: opacity var(--m-slow) ease, transform .25s ease, filter .25s ease; }
-    .mh-card-art img:not(.loaded), .mh-cover img:not(.loaded), .ph-thumb img:not(.loaded) { opacity: 0; }
-    /* Album/artist page content arrives after its fetch; ease it in. */
-    #musicShell .ap-hero { animation: fadeInUp var(--m-slow) var(--m-ease) both; }
-    #musicShell .ap-body { animation: fadeInUp var(--m-slow) var(--m-ease) 60ms both; }
+    /* Artwork fades in as it loads instead of popping (Music's covers:
+       one .loaded rule in "REFRESH: MUSIC"). */
+    .mh-cover img, .ph-thumb img { transition: opacity var(--m-slow) ease, transform .25s ease, filter .25s ease; }
+    .mh-cover img:not(.loaded), .ph-thumb img:not(.loaded) { opacity: 0; }
     /* Photos: the photo that's leaving (a copy laid over the new one). */
     .ph-ghost { pointer-events: none; z-index: 2; }
 
@@ -4906,10 +4821,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     #feedList .feed-post-replies:not(.has-replies):not(.replying) { display: none; }
     #feedList .feed-post-replies { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--glass-border); gap: 8px; }
     #feedList .feed-post-replies.replying .feed-post-reply-composer { animation: fadeInUp var(--m-med) var(--m-ease) both; }
-    #feedList .feed-post-reply-input { border-radius: var(--radius-md); height: var(--control-h); padding: 0 14px; background: var(--glass-fill-h); border: 1px solid transparent; }
-    #feedList .feed-post-reply-input:focus { border-color: var(--glass-border-h); }
-    #feedList .feed-post-reply-send { width: 36px; height: 36px; border-radius: 8px; border: none; background: none; color: var(--text-dim); }
-    #feedList .feed-post-reply-send:hover { color: var(--text); background: var(--glass-fill-h); }
     #feedList .feed-post-delete { opacity: 0; transition: opacity var(--m-fast) ease; }
     #feedList .feed-post:hover .feed-post-delete, #feedList .feed-post-delete:focus-visible { opacity: 1; }
     @media (hover: none) { #feedList .feed-post-delete { opacity: 1; } }
@@ -4972,17 +4883,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        the end of one doesn't also fire the browser's swipe-back. */
     .mh-row, .mh-flow, .ph-shell, #musicShell .music-nav, .tab-nav { overscroll-behavior-x: contain; }
 
-    /* Photos: Timeline / What's new switch. */
-    .ph-order { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-lg); height: var(--control-h); }
-    .ph-order button {
-      display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: none; border-radius: 8px; cursor: pointer;
-      background: none; color: var(--text-dim); font: 500 var(--fs-13) var(--font-ui);
-      transition: background-color var(--m-fast) ease, color var(--m-fast) ease;
-    }
-    .ph-order button i { font-size: 16px; }
-    .ph-order button:hover { color: var(--text); }
-    .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); }
-    @media (max-width: 760px) and (pointer: coarse) { .ph-order button span { display: none; } }
 
     /* ══ NOTIFICATIONS — bigger, boxier, always a picture ══
        A card with a large square tile on the left: an album cover, the
@@ -5547,9 +5447,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        on the text baseline and hung ~4px low next to the icon buttons. */
     #chatGifBtn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; padding: 4px 5px; line-height: 1; }
     #feedGifBtn { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
-    #feedList .feed-post-reply-gif { flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: none; background: none; color: var(--text-dim);
-      display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    #feedList .feed-post-reply-gif:hover { color: var(--text); background: var(--glass-fill-h); }
 
     /* Opaque on purpose: no live blur behind a panel full of moving GIFs */
     .gif-picker { position: fixed; display: flex; flex-direction: column; overflow: hidden; } /* surface, z and motion: COMPONENTS */
@@ -6146,17 +6043,17 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     :where(button:not(:disabled), [role="button"], .ctx-item, .s-toggle, summary, label[for]) { cursor: pointer; }
 
     /* Faces that open a profile get the hand, like the names beside them. */
-    .feed-post-avatar[data-username], .feed-post-reply-avatar[data-username], .chat-msg-avatar[data-msg-avatar-for] { cursor: pointer; }
+    .feed-post-avatar[data-username], .k-com-face[data-username], .chat-msg-avatar[data-msg-avatar-for] { cursor: pointer; }
 
     /* Text that takes you somewhere (an artist, an album, someone's
        profile) reads as a link: the hand, and an underline on hover. */
     :is(.picker-link, .player-link, .fs-link, .ap-hero-artist-link,
-        .feed-post-name, .feed-post-reply-name, .feed-post-mention,
+        .feed-post-name, .k-com-name, .feed-post-mention,
         .chat-msg-sender, .chat-msg-reply-quote-name) {
       cursor: pointer; text-underline-offset: 3px; text-decoration-thickness: 1px;
     }
     :is(.picker-link, .player-link, .fs-link, .ap-hero-artist-link,
-        .feed-post-name, .feed-post-reply-name, .feed-post-mention,
+        .feed-post-name, .k-com-name, .feed-post-mention,
         .chat-msg-sender, .chat-msg-reply-quote-name):hover { text-decoration-line: underline; }
 
     .ctx-reacts { display: flex; gap: 2px; padding: 2px 2px 4px; }
@@ -6601,7 +6498,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     /* On a phone a long press is how you copy a message (there's no
        right-click menu there), so what people wrote stays selectable. */
     @media (pointer: coarse) {
-      .chat-msg-text, .feed-post-text, .feed-post-reply-text, .ph-reply-text, .ph-rail, .ph-side, .ph-side-info { -webkit-user-select: text; user-select: text; }
+      .chat-msg-text, .feed-post-text, .k-com-body, .ph-rail, .ph-side, .ph-side-info { -webkit-user-select: text; user-select: text; }
     }
 
     /* ══ Cover Flow: reflections, the playing glyph, the scrollbar, progress ══ */
@@ -6785,35 +6682,18 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
         font: 600 var(--fs-10) var(--font-ui); letter-spacing: .16em; text-transform: uppercase;
         color: var(--text-dimmer); padding: 0 12px 6px;
       }
-      .ph-sidebar .ph-order {
-        display: flex; flex-direction: column; gap: 2px; height: auto; padding: 0; border: 0; border-radius: 0;
-        background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
-      }
-      .ph-sidebar .ph-order button, .ph-sidebar .ph-btn:not(.ph-btn-post) {
+      .ph-sidebar .ph-btn:not(.ph-btn-post) {
         display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 12px; box-sizing: border-box;
         border-radius: 10px; border: 1px solid transparent; background: none; box-shadow: none;
         -webkit-backdrop-filter: none; backdrop-filter: none;
         font: 500 var(--fs-14) var(--font-ui); color: var(--text-dim); text-align: left; cursor: pointer;
         transition: background-color .15s, color .15s, border-color .15s;
       }
-      .ph-sidebar .ph-order button i, .ph-sidebar .ph-btn i { font-size: 18px; width: 20px; opacity: .85; flex: none; }
-      .ph-sidebar .ph-order button span, .ph-sidebar .ph-btn span { display: inline; flex: 1; min-width: 0; }
-      .ph-sidebar .ph-order button:hover:not([aria-pressed="true"]), .ph-sidebar .ph-btn:not(.ph-btn-post):hover { background: var(--glass-fill); color: var(--text); }
-      .ph-sidebar .ph-order button[aria-pressed="true"] { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
-      .ph-sidebar .ph-order button[aria-pressed="true"] i { opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb),0.45)); }
+      .ph-sidebar .ph-btn i { font-size: 18px; width: 20px; opacity: .85; flex: none; }
+      .ph-sidebar .ph-btn span { display: inline; flex: 1; min-width: 0; }
+      .ph-sidebar .ph-btn:not(.ph-btn-post):hover { background: var(--glass-fill); color: var(--text); }
       .ph-sidebar .ph-btn .s-toggle { margin-left: auto; }
       .ph-sidebar .ph-btn[aria-pressed="true"] { color: var(--text); }
-      /* Post: Music's "New playlist". */
-      .ph-sidebar .ph-btn-post {
-        display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: 34px; margin-top: 4px;
-        padding: 0 12px; border-radius: 10px; border: 1px dashed var(--glass-border); background: none; box-shadow: none;
-        -webkit-backdrop-filter: none; backdrop-filter: none;
-        font: 500 var(--fs-13) var(--font-ui); color: var(--text-dimmer);
-      }
-      .ph-sidebar .ph-btn-post i { font-size: 16px; width: 20px; }
-      .ph-sidebar .ph-btn-post span { text-align: left; }
-      .ph-sidebar .ph-btn-post span::after { content: ' photos'; }
-      .ph-sidebar .ph-btn-post:hover { color: var(--text); border-color: var(--glass-border-h); background: var(--glass-fill); }
       .ph-side-toggles { display: flex; flex-direction: column; gap: 2px; }
       .ph-shell.bare .ph-side-this { display: none; }
       .ph-shell.is-empty .ph-side-this { display: none; }
@@ -6846,9 +6726,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       .ph-sidebar .ph-likers { padding: 0; }
 
       /* ── The main column: Music's title, then one panel ── */
-      .ph-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 2px; flex: none; } /* + the shell's 12px gap: 14px, as under every page's title */
-      .ph-view-head h2 { margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text); white-space: nowrap; }
-      .ph-view-head > span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
+      .ph-view-head { display: flex; margin: 0; padding: 0; flex: none; } /* the house page head (.k-page-head); + the shell's 12px gap */
       /* No box round it (the owner, 2026-11-02: "a little unnecessary"):
          the photo and the filmstrip sit on the page. */
       .ph-panel { gap: 0; }
@@ -8077,17 +7955,15 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        Where the same kind of thing had drifted into several looks. */
     /* (Close buttons: COMPONENTS, "2. Icon buttons", a .k-icon.sm.) */
     /* Primary buttons share the dialogs' corner and padding. */
-    .ph-compose-submit { border-radius: var(--radius-md); padding: 0 16px; }
     /* Fields: a brighter hairline when you're in one, everywhere. */
     .chat-modal-input:focus { border-color: var(--glass-border-h); box-shadow: none; }
     .ph-field input:focus-visible, .ph-song-search input:focus-visible { outline: none; }
     /* A field's label is a label, not a section heading. */
-    .ph-field > span { font: 600 var(--fs-10)/1.2 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); }
     /* Sort reads like the other secondary buttons. */
     .picker-sort-btn { font: 600 var(--fs-13) var(--font-ui); letter-spacing: 0; background: var(--glass-fill-h); color: var(--text); }
     /* Small text on the site's own scale. */
     .player-time { font-size: var(--fs-11); letter-spacing: 0; font-variant-numeric: tabular-nums; }
-    .chat-msg-edited, .chat-msg-seen-more, .feed-post-reply-time, .s-slider-val { font-size: var(--fs-11); letter-spacing: 0; }
+    .chat-msg-edited, .chat-msg-seen-more, .k-com-time, .s-slider-val { font-size: var(--fs-11); letter-spacing: 0; }
     .feed-composer-error, .chat-connect-error { font-size: var(--fs-12); letter-spacing: 0; }
     /* Tags and chips are boxy too. */
     .fb-state { border-radius: var(--radius-sm); font: 600 var(--fs-11) var(--font-ui); letter-spacing: 0; text-transform: none; }
@@ -8267,33 +8143,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     body:has(#phShell.is-empty) :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-now { display: none; }
     .soc-sidebar > .ph-now { margin-top: 0; }
 
-    /* Photos' head: Timeline and What's new as one switch (a pill that
-       slides between them), then Slideshow, lit while it runs, and Post. */
-    @media (min-width: 901px), (pointer: fine) {
-      .ph-view-head { flex-wrap: wrap; row-gap: 8px; }
-      .ph-view-tools { margin-left: auto; align-self: center; display: flex; align-items: center; gap: 8px; }
-      .ph-view-tools .ph-order {
-        position: relative; box-sizing: border-box; padding: 3px; gap: 0; border-radius: var(--radius-md);
-        background: var(--glass-fill); border: 1px solid var(--glass-border); box-shadow: none;
-        -webkit-backdrop-filter: none; backdrop-filter: none;
-      }
-      .ph-view-tools .ph-order button { height: 100%; padding: 0 12px; border-radius: 7px; font-weight: 600; }
-      .ph-view-tools .ph-order button i { font-size: 15px; }
-      .ph-view-tools .ph-order.has-pill button[aria-pressed="true"] { background: none; }
-      .ph-view-tools .ph-order .motion-pill { border-radius: 7px; }
-      .ph-view-tools .ph-btn {
-        box-sizing: border-box; padding: 0 14px; gap: 7px; border-radius: var(--radius-md);
-        border: 1px solid var(--glass-border); background: var(--glass-fill-h); color: var(--text); box-shadow: none;
-        -webkit-backdrop-filter: none; backdrop-filter: none; font: 600 var(--fs-13)/1 var(--font-ui);
-        transition: background-color .15s, border-color .15s, color .15s;
-      }
-      .ph-view-tools .ph-btn i { font-size: 16px; }
-      .ph-view-tools .ph-btn:hover { border-color: var(--glass-border-h); }
-      .ph-view-tools .ph-btn[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: transparent; }
-      .ph-view-tools .ph-btn-post span { display: inline; }
-    }
-    /* Beside the photo on a narrow touch screen it keeps its own look. */
-    .ph-actions .ph-order .motion-pill { display: none; }
 
     /* Chat's group: who's online always (it's presence, not chat); the
        channels and messages once chat is signed in, "Connect chat" until. */
@@ -8588,8 +8437,8 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .chat-head-face img,
     .feed-post-avatar,
     .feed-post-avatar img,
-    .feed-post-reply-avatar,
-    .feed-post-reply-avatar img,
+    .k-com-face,
+    .k-com-face img,
     .mention-suggest-av,
     .mention-suggest-av img,
     .ph-avatar,
@@ -9046,40 +8895,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       body:not(.is-playing) #fsPlayer .fs-art { transform: none; }
     }
 
-    /* ── Social's home: the photo collage (js/25-social.js) ── */
-    .soc-collage {
-      position: relative; height: clamp(360px, 56vh, 660px); margin: 2px 0 8px;
-      contain: strict; border-radius: 14px; overflow: hidden;
-      --collage-ease: cubic-bezier(.45,0,.2,1);
-    }
-    .soc-collage[hidden] { display: none; }
-    .soc-tile {
-      position: absolute; left: 0; top: 0; padding: 0; border: 0; margin: 0; cursor: pointer; overflow: hidden;
-      border-radius: 4px; background: var(--glass-fill); transform-origin: center;
-      /* Fading and growing in, in a wave (--d). Not moving or resizing:
-         animating width and height redid the layout every frame for
-         every tile while the page filled in ("choppy"); it's still now. */
-      transition: opacity .7s ease var(--d, 0ms), scale .9s var(--collage-ease) var(--d, 0ms), border-radius .4s ease;
-    }
-    .soc-tile.off { opacity: 0; scale: .94; pointer-events: none; }
-    .soc-tile img {
-      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
-      opacity: 0; scale: 1.04; transition: opacity .5s ease, scale 1.2s cubic-bezier(.2,.8,.2,1);
-    }
-    .soc-tile.loaded img { opacity: 1; scale: 1; }
-    .soc-tile:hover img { scale: 1.035; }
-    .soc-tile:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
-    .soc-tile-cap {
-      position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 10px; text-align: left;
-      font: 500 var(--fs-12) var(--font-ui); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      background: linear-gradient(transparent, rgba(0,0,0,.6)); opacity: 0; transform: translateY(6px);
-      transition: opacity .25s ease, transform .3s ease;
-    }
-    .soc-tile-cap:empty { display: none; }
-    .soc-tile:hover .soc-tile-cap, .soc-tile:focus-visible .soc-tile-cap { opacity: 1; transform: none; }
-    @media (max-width: 760px) { .soc-collage { height: 420px; border-radius: 10px; } }
-    @media (prefers-reduced-motion: reduce) { .soc-tile, .soc-tile img { transition: none; } }
-    html[data-fx="low"] .soc-tile { transition-duration: .5s, .5s, .5s, .3s, .2s; }
 
     /* ── Music's Activity page (js/27-activity.js): who's listening now,
        with a bar that runs live, this week's numbers, and a card a
@@ -9961,8 +9776,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .pz-b:focus-visible .pz-face { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .8); }
     .pz-b.off :is(.pz-face, .pz-name) { opacity: .6; }
     .pz-name { margin-top: 5px; font: 500 var(--fs-11)/1.2 var(--font-ui); color: var(--text-dim); white-space: nowrap; }
-    .pz-set-note { position: absolute; left: 0; top: 0; z-index: 6; height: 30px; padding: 0 12px; border-radius: 8px; }
-    .pz-set-note[hidden], .pz-sky-empty[hidden] { display: none; }
+    .pz-sky-empty[hidden] { display: none; }
     .pz-sky-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-size: var(--fs-13); color: var(--text-dimmer); }
 
     /* Wide: the plaza on the left (the sky over the two lists), the
@@ -10117,30 +9931,8 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     /* The toolbar: over the post's top right, while you point at it or a
        key's inside it. Solid, not blurred (one shows at a time, but the
        Feed scrolls under it). */
-    #feedList .feed-post-actions {
-      position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 1px; padding: 2px;
-      background: var(--modal-bg); border: 1px solid var(--glass-border-h); border-radius: 8px;
-      box-shadow: 0 4px 14px rgba(0,0,0,.28);
-      opacity: 0; pointer-events: none; transition: opacity .12s ease;
-    }
-    #feedList .feed-post:hover > .feed-post-body > .feed-post-actions,
-    #feedList .feed-post-actions:focus-within { opacity: 1; pointer-events: auto; }
-    #feedList .feed-post-act {
-      width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none;
-      color: var(--text-dim); font-size: 15px; line-height: 1; cursor: pointer; transition: background-color .12s, color .12s;
-    }
-    #feedList .feed-post-act i { font-size: 16px; }
-    #feedList .feed-post-act:hover { background: var(--glass-fill-h); color: var(--text); }
-    #feedList .feed-post-act.feed-post-delete:hover { color: var(--danger-color); }
-    /* Phones can't point: the toolbar stays, just its buttons (no emoji). */
-    @media (max-width: 760px) and (pointer: coarse) {
-      #feedList .feed-post-actions { opacity: 1; pointer-events: auto; background: none; border-color: transparent; box-shadow: none; top: 4px; right: 0; }
-      #feedList .feed-post-act[data-emoji] { display: none; }
-    }
-    /* A reply's trash, only on the reply you're pointing at. */
-    #feedList .feed-post-reply-delete { opacity: 0; transition: opacity .12s ease; }
-    #feedList .feed-post-reply:hover .feed-post-reply-delete, #feedList .feed-post-reply-delete:focus-visible { opacity: 1; }
-    @media (hover: none) { #feedList .feed-post-reply-delete { opacity: .6; } }
+    /* (The look is the house hover toolbar, .k-toolbar; where it sits and
+       when it shows are in REFRESH: SOCIAL.) */
 
     /* ══ REACTIONS, ONE LOOK ══
        Feed's were round blobs, Chat's flat tabs, each with its own "mine".
@@ -10193,7 +9985,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .rd-power { border-radius: 10px; }
     .rd-chat-send { width: auto; aspect-ratio: 1; }
     /* Panels are 10px. */
-    .act-now, .act-person, .radio-item, .soc-collage, .radio-hub-art { border-radius: 10px; }
+    .act-now, .act-person, .radio-item, .radio-hub-art { border-radius: 10px; }
     /* (Radio's form buttons, the small secondary buttons and the labels: COMPONENTS.) */
     /* Counts in the sidebar are plain dim numbers (unread stays red). */
     .soc-label-count { padding: 0; background: none; color: var(--text-dimmer); font-weight: 500; border-radius: 0; }
@@ -10884,15 +10676,9 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
        a screen), its controls over a soft shade rather than a blur.
        ══════════════════════════════════════════════════════════════════ */
     .tab-panel[data-tab-panel="videos"] { max-width: none; margin: 0; }
-    .vid-page { padding: 0 4px var(--dock-room, 1.75rem); }
-    .vid-head { align-items: center !important; }
-    .vid-head-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-    /* (Music's head dims every span in it, the count's rule.) */
-    #videosShell .music-view-head .vid-btn span { font-size: inherit; color: inherit; }
-    .vid-label { padding: 0 2px 10px !important; }
-    .vid-loading, .vid-quiet { color: var(--text-dimmer); font-size: var(--fs-13); padding: 8px 2px; }
-    .vid-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 70px 20px; color: var(--text-dimmer); font-size: var(--fs-13); text-align: center; }
-    .vid-empty > i { font-size: 34px; opacity: .6; }
+    .vid-page { padding: 0 0 var(--dock-room, 1.75rem); }
+    .vid-label { display: block; padding: 0 0 10px; }
+    .vid-empty { grid-column: 1 / -1; padding: 70px 20px; }
     .vid-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; animation: vidSpin .9s linear infinite; flex: none; }
     @keyframes vidSpin { to { transform: rotate(360deg); } }
 
@@ -10944,9 +10730,10 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vid-card.row .vid-dur { font-size: 10px; }
 
     /* ── Home's Continue watching: one row that scrolls sideways ── */
-    .vid-shelf-wrap { margin-bottom: 28px; }
-    .vid-shelf { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 260px); gap: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-    .vid-shelf::-webkit-scrollbar { display: none; }
+    /* One row of the grid's own cards (the rest of the row's videos wait
+       on the next line, which isn't drawn). */
+    .vid-shelf-wrap { margin-bottom: 26px; }
+    .vid-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; column-gap: 18px; row-gap: 0; overflow: hidden; }
 
     /* ── A channel's head ── */
     .vid-channel { display: flex; align-items: center; gap: 16px; padding: 2px 0 22px; }
@@ -10997,21 +10784,6 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
 
     /* ── Comments ── */
     .vid-comments { margin-top: 26px; }
-    .vid-com-form { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-    .vid-com-input {
-      flex: 1; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--glass-border);
-      background: var(--glass-fill); color: var(--text); font: var(--fs-14) var(--font-ui); outline: none;
-    }
-    .vid-com-input:focus { border-color: var(--focus-line, var(--glass-border-h)); box-shadow: var(--focus-ring, none); }
-    .vid-com-list { display: flex; flex-direction: column; gap: 16px; }
-    .vid-com { display: flex; gap: 12px; }
-    .vid-com-tx { min-width: 0; flex: 1; }
-    .vid-com-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-12); color: var(--text-dimmer); }
-    .vid-com-name { padding: 0; border: none; background: none; font: 600 var(--fs-13) var(--font-ui); cursor: pointer; }
-    .vid-com-del { margin-left: auto; padding: 2px 4px; border: none; background: none; color: var(--text-dimmer); cursor: pointer; opacity: 0; }
-    .vid-com:hover .vid-com-del, .vid-com-del:focus-visible { opacity: 1; }
-    .vid-com-del:hover { color: #ff6961; }
-    .vid-com-body { margin-top: 2px; font-size: var(--fs-14); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 
     /* ── The player ── */
     .vp {
@@ -11019,6 +10791,8 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
       border-radius: 10px; overflow: hidden; background: #000; border: 1px solid var(--glass-border); outline: none;
       color: #fff; isolation: isolate;
     }
+    /* A screen, not a box drawn on the page: no dark rim in the light themes. */
+    [data-theme="light"] .vp { border-color: transparent; }
     .vp:focus-visible { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .6); }
     .vp video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
     .vp.full { max-height: none; border-radius: 0; border: none; aspect-ratio: auto; }
@@ -11045,9 +10819,9 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vp-ctrl {
       position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 34px 12px 8px;
       background: linear-gradient(transparent, rgba(0,0,0,.72));
-      transition: opacity .25s ease, transform .25s ease;
+      transition: opacity var(--m-med) ease, transform var(--m-med) var(--m-ease);
     }
-    .vp.idle .vp-ctrl, .vp.fresh .vp-ctrl { opacity: 0; transform: translateY(6px); pointer-events: none; }
+    .vp.idle .vp-ctrl, .vp.fresh .vp-ctrl { opacity: 0; transform: translateY(6px); pointer-events: none; transition-duration: 320ms; }
     .vp.idle .vp-big { opacity: 0; }
     .vp-row { display: flex; align-items: center; gap: 2px; }
     .vp-btn {
@@ -11098,17 +10872,12 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     .vid-drop span { font-size: var(--fs-12); color: var(--text-dimmer); }
     .vid-drop:hover, .vid-drop.over { border-color: rgba(var(--accent-rgb), .7); background: rgba(var(--accent-rgb), .08); }
     .vid-drop.has { border-style: solid; }
-    .vid-field-label { font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-dimmer); margin-top: 6px; }
+    .vid-field-label { display: block; margin: 8px 0 2px; font: 600 12.5px/1.3 var(--font-ui); color: var(--text-dim); text-transform: none; letter-spacing: 0; }
     .vid-desc-in { resize: vertical; min-height: 84px; font: var(--fs-14)/1.45 var(--font-ui); padding: 8px 10px; }
-    .vid-bar { position: relative; height: 22px; margin-top: 10px; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h); border: 1px solid var(--glass-border); }
-    .vid-bar[hidden] { display: none; }
-    .vid-bar b { position: absolute; inset: 0; background: rgba(var(--accent-rgb), .55); transform: scaleX(0); transform-origin: 0 50%; transition: transform .2s linear; }
-    .vid-bar span { position: relative; display: block; text-align: center; font: 600 var(--fs-11)/22px var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; }
     .vid-thumb-pick { display: flex; align-items: center; gap: 12px; }
     .vid-thumb-pick img { width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--glass-border); }
     .vid-thumb-pick img[hidden] { display: none; }
-    .vid-check { display: flex; align-items: center; gap: 8px; margin: 0 2px 12px; font-size: var(--fs-13); color: var(--text); cursor: pointer; }
-    .vid-check input { accent-color: rgb(var(--accent-rgb)); }
+    .vid-check { display: flex; align-items: center; gap: 9px; margin: 0 2px 12px; font-size: var(--fs-13); color: var(--text); cursor: pointer; }
     .vid-share-list .chat-modal-row { width: 100%; gap: 12px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
     .vid-share-list .chat-modal-row > i { font-size: 18px; color: var(--text-dim); }
 
@@ -11139,7 +10908,8 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     /* ── Phones ── */
     @media (max-width: 760px) and (pointer: coarse) {
       .vid-grid { grid-template-columns: 1fr; gap: 22px; }
-      .vid-head-tools .vid-btn span { display: none; }
+      .vid-head .k-page-actions .k-btn span { display: none; }
+      .vid-head .k-page-actions .k-btn { width: var(--h-md); padding: 0; }
       .vid-title { font-size: 18px; }
       .vid-acts { margin-left: 0; width: 100%; }
       .vp { max-height: none; border-radius: 8px; }
@@ -11148,3 +10918,594 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
     }
     html[data-fx="low"] .vid-card:hover .vid-thumb img { transform: none; }
     html[data-fx="low"] .vid-card:hover .vid-thumb { box-shadow: none; }
+
+/* ═══ REFRESH: MUSIC (2026-11-19) ═══ */
+/* Covers: one fade as each arrives (D4). Rows, cards, the album page,
+   the full player's Up next. */
+:is(#musicShell, #fsPlayer, #sideNav) img.loaded { animation: kFade var(--m-med) ease both; }
+
+/* ── The heart (js/05-favorites.js klabHeartHTML) ──
+   Red when on; a small spring the moment it goes on. */
+.k-heart.on, .k-heart.on:hover { color: var(--danger-color, var(--danger)); }
+.k-heart.pop i { animation: kHeartPop 220ms var(--m-spring) both; }
+@keyframes kHeartPop { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.k-heart:disabled { opacity: .45; cursor: default; }
+/* A heart that's on is just red: not the pressed box other toggles get. */
+.k-heart.k-icon[aria-pressed="true"]:not(:hover), .k-heart.k-icon.on:not(:hover) { background: none; box-shadow: none; border-color: transparent; }
+
+/* Counts beside a row's name and a label: plain, dim numbers. */
+.k-count { font-weight: 500; letter-spacing: 0; color: var(--text-dimmer); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.picker-section-label .k-count { text-transform: none; }
+.k-row-count:empty { display: none; }
+.k-bump { animation: kBump 180ms var(--m-spring); }
+@keyframes kBump { from { transform: scale(1.15); } to { transform: none; } }
+
+/* ── One song row (B2): ♥, Add to queue, ⋯, on hover; the heart stays when on ── */
+.song-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+.song-acts .k-icon { opacity: 0; transition: opacity var(--m-fast) ease, background-color var(--m-fast) ease, color var(--m-fast) ease; }
+:is(.picker-item, .ap-track):hover .song-acts .k-icon,
+.song-acts .k-icon:focus-visible, .song-acts .k-icon[aria-expanded="true"], .song-acts .k-heart.on { opacity: 1; }
+@media (hover: none) { .song-acts .k-icon { opacity: .8; } .song-acts [data-act="queue"] { display: none; } }
+#musicShell .ap-track .ap-track-play { display: none; }
+#musicShell .picker-item-actions:has(.song-acts) { gap: 0; }
+@container picker (max-width: 380px) { #pickerList .song-acts [data-act="queue"] { display: none; } }
+
+/* The song playing, wherever it's listed (A9): its name brightens and a
+   small level meter stands in front of its length. */
+.np-eq { display: none; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
+.np-eq i { width: 3px; height: 100%; border-radius: 1px; background: rgba(var(--accent-rgb), .95); transform-origin: bottom; transform: scaleY(.35); }
+:is(.picker-item.is-now, .ap-track.ap-now) .np-eq { display: inline-flex; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i { animation: kNpEq 900ms ease-in-out infinite alternate; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i:nth-child(2) { animation-duration: 700ms; animation-delay: -300ms; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i:nth-child(3) { animation-duration: 1100ms; animation-delay: -500ms; }
+@keyframes kNpEq { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+html.win-idle .np-eq i { animation-play-state: paused !important; }
+html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7) !important; }
+#musicShell .picker-item.is-now .picker-item-title,
+#musicShell .ap-track.ap-now .ap-track-title { color: var(--text); font-weight: 650; }
+#musicShell .ap-track.ap-now .ap-track-num { display: none; }
+#musicShell .ap-track .np-eq { width: 22px; justify-content: center; }
+
+/* ── One card (B3): ▶ bottom right, queue beside it, ♥ top right ──
+   Home's cards, the Albums and Artists grids, an artist's records, More
+   by, playlists, genre tiles. */
+.card-acts { position: absolute; inset: 0; pointer-events: none; }
+.card-acts > * { pointer-events: auto; position: absolute; }
+.k-card-play, .k-card-btn, .k-card-heart {
+  display: grid; place-items: center; cursor: pointer; padding: 0; font-size: 16px;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), background-color var(--m-fast) ease, color var(--m-fast) ease;
+}
+.k-card-play { right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: var(--r-md); border: none; background: var(--text); color: var(--bg); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.k-card-play:hover { opacity: .92; }
+.k-card-btn { right: 50px; bottom: 8px; width: 36px; height: 36px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-pop); color: var(--text); box-shadow: var(--elev-1); }
+.k-card-btn:hover { background: color-mix(in srgb, var(--surface-pop), var(--text) 8%); }
+.k-card-heart { top: 8px; right: 8px; width: 32px; height: 32px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-pop); color: var(--text); box-shadow: var(--elev-1); font-size: 15px; }
+.k-card-heart.on { opacity: 1; transform: none; }
+.k-card-play:active, .k-card-btn:active, .k-card-heart:active { transform: scale(.92); }
+:is(.mh-card, .ap-disc-card, #pickerList .picker-item, .genre-tile):hover .card-acts > *,
+.card-acts > :focus-visible { opacity: 1; transform: none; }
+@media (hover: none) { .card-acts > * { opacity: 1; transform: none; } .k-card-btn { display: none; } }
+/* In the Albums / Artists grid the buttons sit over the cover (a square the art's width). */
+#musicShell .picker-list.picker-list-grid > .picker-item > .card-acts { bottom: auto; aspect-ratio: 1; }
+/* In a search's list an album's buttons are the row's end, like a song's. */
+#musicShell #pickerList:not(.picker-list-grid) > .picker-item:not(.genre-tile) > .card-acts { position: static; display: flex; gap: 4px; align-items: center; flex: none; }
+#musicShell #pickerList:not(.picker-list-grid) > .picker-item:not(.genre-tile) > .card-acts > * { position: static; width: 28px; height: 28px; font-size: 14px; box-shadow: none; }
+#musicShell #pickerList:not(.picker-list-grid) > .picker-item:not(.genre-tile) > .card-acts > .k-card-play { order: 3; }
+/* Genre tiles: just ▶, bottom right. */
+#musicShell .genre-tile .card-acts .k-card-play { background: rgba(255,255,255,.94); color: #111; }
+/* Artists: round faces, names centred, ▶ and ♥ over the face. */
+.mh-card-art.round { border-radius: 50%; }
+.mh-card-art.round .artist-initials, .mh-card-art.round > .picker-item-art-ph { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; font-size: 34px; }
+.mh-artist .mh-card-t, .mh-artist .mh-card-a { text-align: center; }
+.mh-artist .k-card-play { right: 12%; bottom: 6%; }
+.mh-artist .k-card-heart { top: 6%; right: 12%; }
+#musicShell .picker-list.picker-list-grid > .artist-card .k-card-play { right: 12%; bottom: 6%; }
+#musicShell .picker-list.picker-list-grid > .artist-card .k-card-heart { top: 6%; right: 12%; }
+#musicShell .picker-list.picker-list-grid > .artist-card .picker-item-info { text-align: center; }
+/* Discography and "More by": the cover in a box the buttons sit on. */
+#musicShell .ap-disc-art { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: var(--glass-fill); box-shadow: 0 6px 18px var(--shadow-30); }
+#musicShell .ap-disc-art img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
+#musicShell .ap-disc-card:hover .ap-disc-art img { transform: none; }
+#musicShell .ap-disc-card-title { margin-top: 8px; }
+
+/* ── Album, artist and playlist pages ── */
+#musicShell .ap-actions { display: flex; align-items: center; gap: 10px; padding: 0 20px 6px; flex-wrap: wrap; }
+#musicShell .ap-actions .k-heart.on { color: var(--danger-color, var(--danger)); }
+#musicShell .ap-disc-label { display: flex; align-items: center; gap: 6px; }
+#musicShell .ap-disc-label i { font-size: 13px; }
+#musicShell .ap-sim-chip.off { opacity: .45; cursor: default; pointer-events: none; }
+#musicShell .ap-more-by:empty { display: none; }
+/* The genre page's back: the album page's, a square top left. */
+#musicShell .picker-back-btn { grid-column: 1 / -1; justify-self: start; margin-bottom: 4px; border: 1px solid var(--line); background: var(--fill-hover); color: var(--text); }
+
+/* ── Favorites, the hub ── */
+#pickerList.fav-hub { display: block; }
+#pickerList.fav-hub > .mh-section { margin-bottom: 10px; }
+.fav-songs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-top: 14px; flex-wrap: wrap; }
+.fav-songs-head .picker-section-label { padding-bottom: 8px; }
+.fav-songs-actions { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
+.fav-find { height: var(--h-sm); width: 200px; display: flex; align-items: center; gap: 7px; padding: 0 10px; }
+.fav-find i { font-size: 14px; color: var(--text-dimmer); }
+.fav-find input { flex: 1; min-width: 0; border: none; background: none; outline: none; color: var(--text); font: 500 13px var(--font-ui); }
+.fav-songs { display: flex; flex-direction: column; gap: 2px; }
+.fav-empty { padding: 48px 0; }
+
+/* ── The queue ── */
+.q-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.q-label .k-btn { text-transform: none; letter-spacing: 0; }
+#musicShell .picker-item.q-item { cursor: grab; }
+#musicShell .picker-item.q-item:active { cursor: grabbing; }
+.q-dragging { opacity: .4; }
+.q-drop-before { box-shadow: inset 0 2px 0 rgba(var(--accent-rgb), .9); }
+.q-drop-after { box-shadow: inset 0 -2px 0 rgba(var(--accent-rgb), .9); }
+
+/* ── The dock: shuffle and repeat say whether they're on (B8, A7) ── */
+.player-dock .dock-toggle, .fs-secondary-controls :is(#fsShuffle, #fsRepeat) { position: relative; transition: opacity var(--m-fast) ease, color var(--m-fast) ease; }
+.player-dock .dock-toggle[aria-pressed="true"] { opacity: 1; color: var(--text); }
+.player-dock .dock-toggle[aria-pressed="true"]::after, #fsPlayer :is(#fsShuffle, #fsRepeat)[aria-pressed="true"]::after {
+  content: ''; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor;
+}
+:is(#dockRepeat, #fsRepeat)[data-mode="one"]::before {
+  content: '1'; position: absolute; top: 2px; right: 1px; font: 700 8px/1 var(--font-ui); color: currentColor;
+}
+.player-dock #dockFav { opacity: .5; }
+.player-dock #dockFav.on { opacity: .95; }
+.dock-queue { position: relative; }
+.dock-q-n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; font: 700 9px/14px var(--font-ui); text-align: center; background: var(--text); color: var(--bg); pointer-events: none; }
+.dock-q-n:empty { display: none; }
+@container dock (max-width: 760px) { .player-dock .dock-queue { display: none; } }
+
+/* ── The full player ── */
+/* Lyrics are a tab beside the player on a desktop: the button is the phone's. */
+@media not ((max-width: 760px) and (pointer: coarse)) { #fsPlayer .fs-lyrics-btn { display: none; } }
+#fsPlayer.lyrics-open .fs-side-note { visibility: hidden; }
+.fs-upnext-list { overflow-y: auto; scrollbar-width: none; padding-bottom: 32px; }
+.fs-upnext-list::-webkit-scrollbar { display: none; }
+.fs-up-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0 6px; font: 600 10px/1.2 var(--font-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--fs-dimmer, rgba(255,255,255,.45)); flex: none; }
+.fs-up-label:first-child { padding-top: 2px; }
+.fs-up-label span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-up-clear { flex: none; border: none; background: none; padding: 2px 6px; border-radius: var(--r-sm); font: 500 12px var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--fs-dim, rgba(255,255,255,.7)); cursor: pointer; }
+.fs-up-clear:hover { color: #fff; background: rgba(255,255,255,.08); }
+.fs-upnext-row .fs-up-x { flex: none; opacity: 0; margin-left: -4px; }
+.fs-upnext-row:hover .fs-up-x, .fs-upnext-row .fs-up-x:focus-visible { opacity: 1; }
+.fs-up-empty { padding: 36px 8px; color: var(--fs-dim, rgba(255,255,255,.7)); }
+.fs-up-empty i { color: var(--fs-dimmer, rgba(255,255,255,.45)); }
+
+/* ── Music → Radio: the three columns' labels on one line (B10) ── */
+.rd-page .rd-label { display: flex; align-items: center; gap: 6px; min-height: 30px; padding-top: 0; padding-bottom: 6px; box-sizing: content-box; }
+.rd-page .rd-label .rd-pill { margin: -4px 0; }
+/* end REFRESH: MUSIC */
+
+/* ═══ REFRESH: SOCIAL, PHOTOS, VIDEOS (2026-11-19) ═══ */
+/* The social pages brought onto the house parts: one comment kit for
+   Feed, Photos and Videos (klabComments in js/12-feed.js), the hover
+   toolbars, Photos and Videos as twins, Social's home as shelves. */
+
+/* ── Comments: one kit ──
+   Videos' layout everywhere: a face, the name and the time, the text
+   under them; the trash only on the one you point at. A row is a one-row
+   grid so it folds away (grid-template-rows to 0fr) and grows in, never
+   animating height. */
+.k-com-list { display: flex; flex-direction: column; }
+.k-com {
+  display: grid; grid-template-rows: 1fr; opacity: 1;
+  transition: grid-template-rows var(--m-med) var(--m-ease), opacity var(--m-fast) ease;
+}
+.k-com.gone { grid-template-rows: 0fr; opacity: 0; transition-timing-function: var(--m-ease-exit); pointer-events: none; }
+@starting-style { .k-com.fresh { grid-template-rows: 0fr; opacity: 0; } }
+.k-com-in { min-height: 0; overflow: hidden; display: flex; gap: 10px; padding: 6px 0; }
+.k-com-face {
+  width: 28px; height: 28px; flex: none; display: grid; place-items: center; overflow: hidden;
+  border-radius: var(--av-radius, 8px); background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, var(--fill-hover));
+  font: 700 12px/1 var(--font-ui); color: var(--c, var(--text-dim));
+}
+.k-com-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.k-com-tx { flex: 1; min-width: 0; }
+.k-com-head { display: flex; align-items: baseline; gap: 8px; min-height: 18px; }
+.k-com-name { padding: 0; border: 0; background: none; font: 600 var(--fs-13) var(--font-ui); cursor: pointer; }
+.k-com-time { font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.k-com-del.k-icon { margin: -6px -4px -6px auto; align-self: center; width: 24px; height: 24px; font-size: 14px; opacity: 0; transition: opacity var(--m-fast) ease, background-color var(--m-fast) ease, color var(--m-fast) ease; }
+.k-com:hover .k-com-del, .k-com-del:focus-visible { opacity: 1; }
+.k-com-del.k-icon:hover { color: var(--danger); background: var(--danger-fill); }
+@media (hover: none) { .k-com-del.k-icon { opacity: .7; } }
+.k-com-body { margin-top: 1px; font: 400 var(--fs-14)/1.5 var(--font-ui); color: var(--text); overflow-wrap: anywhere; white-space: normal; }
+.k-com-body p { margin: 0; }
+.k-com-empty { padding: 6px 0; font: 400 var(--fs-13)/1.4 var(--font-ui); color: var(--text-dimmer); }
+/* The box: your face and a field. Enter posts, Esc clears. */
+.k-com-form { display: flex; align-items: center; gap: 10px; margin: 0; }
+.k-com-box { flex: 1; min-width: 0; height: var(--h-md); padding: 0 4px 0 12px; }
+.k-com-box .k-com-input { font-size: var(--fs-13); }
+.k-com-box .k-icon { width: 26px; height: 26px; flex: none; }
+.k-com-box .gif-glyph { font: 700 10px/1 var(--font-ui); letter-spacing: .04em; }
+
+/* Feed: replies under a post, the box when you hit Reply. */
+#feedList .feed-post-replies { display: flex; flex-direction: column; gap: 0; }
+#feedList .feed-post-replies .k-com-form { margin-top: 6px; }
+#feedList .feed-post-replies .k-com-face { width: 26px; height: 26px; }
+/* Videos: a bigger box, a little more air between comments. */
+.vid-comments .k-com-form { margin: 4px 0 12px; }
+.vid-comments .k-com-face { width: 32px; height: 32px; font-size: 13px; }
+.vid-comments .k-com-in { padding: 8px 0; gap: 12px; }
+.vid-comments .k-com-box { height: var(--h-lg); }
+/* Photos: the comments panel beside the photo. */
+#phSide .ph-replies { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; scrollbar-width: none; }
+#phSide .k-com-form { margin-top: 10px; }
+#phSide .k-com-body { font-size: var(--fs-13); }
+
+/* ── Hover toolbars: the house's (.k-toolbar) ──
+   Over a post's top right while you point at it or a key is inside it. */
+#feedList .feed-post-actions {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  opacity: 0; pointer-events: none;
+}
+#feedList .feed-post:hover > .feed-post-body > .feed-post-actions,
+#feedList .feed-post-actions:focus-within { opacity: 1; pointer-events: auto; }
+#feedList .feed-post-act .tmoji, #feedList .feed-post-act { font-size: 14px; line-height: 1; }
+#feedList .feed-post-act.feed-post-delete:hover { color: var(--danger); background: var(--danger-fill); }
+.chat-msg-actions.k-toolbar .chat-msg-star-btn.on { color: var(--text); }
+/* Phones can't point (C1): the post's buttons sit in its head row, at its
+   end, so they never cover the text; no emoji there. */
+@media (max-width: 760px) and (pointer: coarse) {
+  #feedList .feed-post-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  #feedList .feed-post-body > * { grid-column: 1 / -1; }
+  #feedList .feed-post-body > .feed-post-head { grid-column: 1; grid-row: 1; align-self: center; }
+  #feedList .feed-post-actions {
+    position: static; grid-column: 2; grid-row: 1; align-self: center; margin: -4px -4px -4px 0;
+    opacity: 1; pointer-events: auto; background: none; border-color: transparent; box-shadow: none;
+  }
+  #feedList .feed-post-act[data-emoji] { display: none; }
+}
+
+/* ── Feed: edited, the editor, a post folding away ── */
+#feedList .feed-post-edited { font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); cursor: default; }
+#feedList .feed-post-edited::before { content: '·'; margin-right: 6px; }
+#feedList .feed-post-editor { margin-top: 4px; display: flex; flex-direction: column; gap: 8px; }
+#feedList .feed-edit-text {
+  width: 100%; box-sizing: border-box; min-height: 68px; height: auto; padding: 9px 12px; resize: none;
+  font: 400 var(--fs-14)/1.5 var(--font-ui); color: var(--text);
+}
+#feedList .feed-edit-foot { display: flex; align-items: center; gap: 8px; }
+#feedList .feed-edit-hint { margin-right: auto; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+/* D6: your deleted post fades; the posts under it then glide up into
+   its place (foldAway in js/12-feed.js, transforms only). */
+#feedList > .feed-post.feed-post-going { opacity: 0; pointer-events: none; transition: opacity 160ms var(--m-ease-exit); }
+
+/* ── Photos and Videos as twins ──
+   The same head (.k-page-head: the title, the dim count on its baseline,
+   one secondary action), the same rows of views in the sidebar, the same
+   empty and loading lines (.k-empty). */
+#phSlideBtn[aria-pressed="true"] { background: var(--fill-hover); border-color: var(--line-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.ph-nav { margin-bottom: 4px; }
+.ph-empty.k-empty { padding: 60px 20px; }
+.ph-empty #phEmptyPost[hidden] { display: none; }
+/* The views as a segmented control, on a phone only (the rows otherwise). */
+#phOrder[hidden] { display: none; }
+#phOrder { height: auto; }
+#phOrder button { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; }
+#phOrder button i { font-size: 15px; }
+@media (max-width: 420px) { #phOrder button span { display: none; } }
+/* A photo's downloads. */
+.ph-side-foot .ph-original + .ph-original { margin-top: -2px; }
+
+/* Videos: the poster over the first frame, fading once it plays (D5). */
+.vp-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; pointer-events: none; transition: opacity var(--m-med) ease; }
+.vp.started .vp-poster { opacity: 0; }
+.vp-spin, .vp-big { z-index: 2; }
+/* The end: Replay and the next one, calm, nothing counting down. */
+.vp-end { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: rgba(0,0,0,.55); animation: kFade var(--m-med) var(--m-ease) both; }
+.vp-end[hidden] { display: none; }
+.vp.ended .vp-big, .vp.ended .vp-ctrl { opacity: 0; pointer-events: none; }
+.vp-end-in { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 16px; }
+.vp-end .k-btn { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.28); color: #fff; }
+.vp-end .k-btn:hover { background: rgba(255,255,255,.22); }
+.vp-end-next {
+  display: flex; align-items: center; gap: 12px; max-width: 360px; padding: 6px 14px 6px 6px; cursor: pointer; text-align: left;
+  border-radius: var(--r-lg); border: 1px solid rgba(255,255,255,.28); background: rgba(20,20,22,.7); color: #fff; font: inherit;
+  transition: border-color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.vp-end-next:hover { border-color: rgba(255,255,255,.55); background: rgba(30,30,34,.85); }
+.vp-end-next:active { transform: scale(.98); }
+.vp-end-next img, .vp-end-next .vid-thumb-ph { position: static; width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-sm); flex: none; }
+.vp-end-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vp-end-tx small { font: 500 var(--fs-12) var(--font-ui); color: rgba(255,255,255,.7); }
+.vp-end-tx b { font: 600 var(--fs-14)/1.3 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vp-end-tx span { font-size: var(--fs-12); color: rgba(255,255,255,.7); }
+/* The watch page's own buttons: delete reads as danger on hover only. */
+.vid-acts .vid-del:hover { color: var(--danger); background: var(--danger-fill); }
+/* Uploads going on in the background: rows under the sidebar's rows. */
+.vid-ups { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.vid-ups[hidden] { display: none; }
+.vid-up-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px 0 12px; border-radius: var(--r-lg); color: var(--text-dim); }
+.vid-up-row > i { font-size: 16px; width: 18px; flex: none; }
+.vid-up-tx { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.vid-up-name { font: 500 var(--fs-13) var(--font-ui); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vid-up-pct { font: 500 var(--fs-11) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.vid-up-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--fill-hover); overflow: hidden; }
+.vid-up-bar b { display: block; height: 100%; background: var(--text); transform-origin: 0 50%; transition: transform 200ms linear; }
+
+/* ── Social's home: shelves (E1) ──
+   Unread messages, the latest posts, a strip from Photos and a row of new
+   videos; each label with "See all" at its end, as on Music Home. */
+.soc-shelf-head { display: flex; align-items: baseline; gap: 12px; padding: 14px 4px 8px; margin-top: calc(0.5rem + 6px); }
+.soc-home-body > .soc-shelf-head:first-child, .soc-home-body > [hidden]:first-child + .soc-shelf-head { margin-top: 0; padding-top: 0; }
+.soc-shelf-head[hidden] { display: none; }
+.soc-see-all {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--text-dimmer); font: 500 var(--fs-12) var(--font-ui); cursor: pointer;
+  transition: color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.soc-see-all i { font-size: 14px; }
+.soc-see-all:hover { color: var(--text); background: var(--fill); }
+/* The posts are a glimpse now (the newest dozen), not the page's height. */
+@media (min-width: 761px), (pointer: fine) {
+  .soc-home-body .soc-posts { flex: none; }
+}
+/* From Photos: one row at a fixed height, each photo at its own shape. */
+.soc-strip { display: flex; gap: 4px; height: 180px; overflow: hidden; border-radius: var(--r-lg); }
+.soc-strip[hidden] { display: none; }
+.soc-tile {
+  position: relative; min-width: 0; height: 100%; padding: 0; border: 0; margin: 0; overflow: hidden; cursor: pointer;
+  border-radius: var(--r-xs); background: var(--fill);
+}
+.soc-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease; }
+.soc-tile.loaded img { opacity: 1; }
+.soc-tile:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.soc-tile-cap {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 8px; text-align: left;
+  font: 500 var(--fs-12) var(--font-ui); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(transparent, rgba(0,0,0,.6)); opacity: 0; transition: opacity var(--m-fast) ease;
+}
+.soc-tile-cap:empty { display: none; }
+.soc-tile:hover .soc-tile-cap, .soc-tile:focus-visible .soc-tile-cap { opacity: 1; }
+@media (max-width: 760px) and (pointer: coarse) { .soc-strip { height: 120px; } }
+.soc-videos[hidden] { display: none; }
+.soc-home-body .soc-home-empty { padding: 6px 4px; }
+
+/* ── Photos' chips: a like is a red heart, not the filled house chip ── */
+#phReacts { display: flex; gap: 6px; }
+#phReacts .k-chip { height: 28px; padding: 0 10px; gap: 6px; font-variant-numeric: tabular-nums; }
+#phReacts .k-chip i { font-size: 15px; }
+#phReacts .k-chip[aria-pressed="true"] { background: var(--fill); color: var(--text); border-color: var(--line-strong); }
+#phReacts .ph-like.mine i { color: #f43f5e; }
+#phReacts .ph-star.mine i { color: #facc15; }
+#phReacts .ph-like.pop i { animation: ph-pop .32s var(--m-ease); }
+@keyframes ph-pop { 40% { transform: scale(1.3); } }
+
+/* ── C4: your face at the sidebar's foot, on Light's (and Wood's) frame ── */
+[data-theme="light"] .side-me-av { background: var(--lt-frame-fill); color: var(--lt-frame-ink); box-shadow: none; }
+
+/* ── Profiles: the sheet hugs what's in it (to the window), and its
+   numbers' labels are words, not tracked caps ── */
+@media not ((max-width: 760px) and (pointer: coarse)) {
+  .pf { height: auto; min-height: min(480px, 100%); max-height: min(860px, 100%); }
+  .pf-scroll { flex: 0 1 auto; min-height: 0; }
+}
+.pf-stats span { font: 500 var(--fs-12)/1.2 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dimmer); }
+.pf-post[data-pf-post] { cursor: pointer; transition: border-color var(--m-fast) ease, background-color var(--m-fast) ease; }
+.pf-post[data-pf-post]:hover { border-color: var(--line-strong); background: var(--fill-hover); }
+.pf-post[data-pf-post]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── New messages / new posts ── */
+.chat-new-sep { display: flex; align-items: center; gap: 10px; margin: 10px 0 6px; color: var(--danger); font: 600 var(--fs-11)/1 var(--font-ui); }
+.chat-new-sep::before, .chat-new-sep::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--danger) 55%, transparent); }
+.chat-new-sep::before { flex: 0 0 12px; }
+.chat-new-chip-wrap, .feed-new-chip-wrap { position: sticky; z-index: 3; display: flex; justify-content: center; pointer-events: none; height: 0; overflow: visible; }
+.chat-new-chip-wrap { bottom: 44px; }
+.feed-new-chip-wrap { top: 10px; }
+.chat-new-chip, .feed-new-chip {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 10px;
+  border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-pop); color: var(--text);
+  font: 600 var(--fs-12) var(--font-ui); cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  transition: background-color var(--m-fast) ease, translate var(--m-med) var(--m-ease), opacity var(--m-med) ease;
+}
+.chat-new-chip { translate: 0 -100%; }
+.chat-new-chip:hover, .feed-new-chip:hover { background: var(--fill-hover); }
+.chat-new-chip i, .feed-new-chip i { font-size: 15px; }
+@starting-style { .chat-new-chip { opacity: 0; translate: 0 -60%; } .feed-new-chip { opacity: 0; translate: 0 -8px; } }
+
+/* ── Recap: Mark all seen at the head's end ── */
+.rc-head { align-items: center; }
+.rc-head .rc-seen { margin-left: auto; height: 26px; padding: 0 8px; gap: 5px; font-size: var(--fs-12); color: var(--text-dim); }
+.rc-head .rc-seen i { font-size: 14px; }
+
+/* Phone Photos: the action row fits (the four views as icons, Slideshow
+   and Post as icons too, the views first). */
+@media (max-width: 900px) and (pointer: coarse) {
+  #phSlideBtn > span, #phPostBtn > span, #phOrder button > span { display: none; }
+  #phSlideBtn, #phPostBtn { width: var(--h-md, 34px); padding: 0; justify-content: center; }
+  #phOrder button { padding: 0 10px; }
+}
+/* end REFRESH: SOCIAL */
+
+/* ═══ REFRESH: SHELL, SETTINGS, HOME (2026-11-19) ═══ */
+/* What the Shell/Settings/Home pass of the refresh added. Uses the house
+   parts (COMPONENTS); nothing here loops, nothing moves layout. */
+
+/* ── Go anywhere (js/32-terminal.js): the palette under the prompt ──
+   The menu's surface and way in; rows Music's 38px, an icon, the name
+   (the letters you typed in bold), and what kind of thing it is, dim on
+   the right. */
+.k-pal {
+  position: fixed; z-index: var(--z-pop); display: none; box-sizing: border-box;
+  max-height: min(452px, calc(100vh - 90px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  padding: 5px; border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface-pop); box-shadow: var(--elev-2); color: var(--text);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  transform-origin: top left; opacity: 0; transform: scale(.98);
+  transition: opacity 100ms var(--m-ease-exit), transform 100ms var(--m-ease-exit), display 100ms allow-discrete, overlay 100ms allow-discrete;
+  -webkit-user-select: none; user-select: none;
+}
+.k-pal::-webkit-scrollbar { display: none; }
+.k-pal.open {
+  display: block; opacity: 1; transform: none;
+  transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), display var(--m-fast) allow-discrete, overlay var(--m-fast) allow-discrete;
+}
+@starting-style { .k-pal.open { opacity: 0; transform: scale(.96) translateY(-4px); } }
+.k-pal-label { display: block; padding: 8px 11px 5px; }
+.k-pal-label:first-child { padding-top: 5px; }
+.k-pal-row {
+  display: flex; align-items: center; gap: 11px; height: var(--h-lg); padding: 0 11px; box-sizing: border-box;
+  border-radius: var(--r-sm); cursor: pointer; color: var(--text-dim);
+  font: 500 var(--fs-13)/1.2 var(--font-ui);
+}
+.k-pal-row > i { font-size: 16px; width: 18px; text-align: center; flex: none; color: var(--text-dimmer); }
+.k-pal-row.sel { background: var(--fill-hover); color: var(--text); }
+.k-pal-row.sel > i { color: var(--text); }
+.k-pal-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-pal-text b { font-weight: 700; color: var(--text); }
+.k-pal-sub { margin-left: 8px; font-weight: 400; color: var(--text-dimmer); }
+.k-pal-kind { flex: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+.k-pal-alt { flex: none; font: 500 11px var(--font-ui); color: var(--text-dimmer); display: none; }
+.k-pal-row.sel .k-pal-alt { display: inline; }
+.k-pal-key, .hdr-go kbd {
+  flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 5px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--fill);
+  font: 600 10.5px/1 var(--font-ui); color: var(--text-dimmer);
+}
+.k-pal-none { padding: 14px 12px; font: 400 var(--fs-13)/1.4 var(--font-ui); color: var(--text-dim); }
+.k-pal-none span { color: var(--text-dimmer); }
+/* While it's open the prompt's own caret steps aside for the input's. */
+html[data-theme="light"] .k-pal { background: #fff; }
+
+/* The title bar's "Go anywhere" box, on pages with nothing of their own
+   to search: quiet, the page's search box's size, opening the palette. */
+.hdr-go {
+  display: flex; align-items: center; gap: 8px; width: clamp(240px, 30vw, 440px); height: 30px; padding: 0 6px 0 11px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--fill); cursor: pointer;
+  font: 400 13px var(--font-ui); color: var(--text-dimmer); text-align: left;
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, color var(--m-fast) ease;
+}
+.hdr-go[hidden] { display: none; }
+.hdr-go > i { font-size: 14px; flex: none; }
+.hdr-go > span { flex: 1; }
+.hdr-go:hover { background: var(--fill-hover); border-color: var(--line-strong); color: var(--text-dim); }
+html.term-on .hdr-go { opacity: .5; }
+/* What the prompt says (ls, help) can run long: the title bar's middle steps aside while it shows. */
+html.term-said .hdr-pagenav { opacity: 0; pointer-events: none; transition: opacity var(--m-fast) ease; }
+.hdr-go:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--focus-line); }
+
+/* ── Settings: one sheet, sections you can jump to and search ── */
+#settingsBackdrop .settings-modal { width: min(600px, calc(100vw - 2rem)); height: min(720px, 86vh); max-height: 86vh; padding: 20px 0 0; }
+#settingsBackdrop .settings-header { margin: 0 0 12px; padding: 0 22px 0 26px; }
+.set-tools { display: flex; flex-direction: column; gap: 10px; padding: 0 24px 12px; border-bottom: 1px solid var(--line); flex: none; }
+.set-search { height: var(--h-md); }
+.set-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.set-chips .k-chip { height: var(--h-sm); padding: 0 11px; font-size: 12.5px; }
+.set-chips .k-chip.set-off { opacity: .4; }
+#settingsBackdrop .settings-body { padding: 14px 24px 24px; scroll-padding-top: 8px; }
+#settingsBackdrop .settings-section { margin: 0 0 22px; }
+#settingsBackdrop .settings-section.set-off, #settingsBackdrop .settings-row.set-off { display: none; }
+#settingsBackdrop .settings-row { min-height: 52px; padding-top: 9px; padding-bottom: 9px; border-radius: var(--r-sm); transition: background-color var(--m-slow) ease; }
+#settingsBackdrop .settings-row > div:first-child, #settingsBackdrop .settings-row > span:first-child { min-width: 0; }
+#settingsBackdrop .settings-row-label { font-weight: 500; color: var(--text); }
+#settingsBackdrop .settings-row-sub { line-height: 1.35; margin-top: 3px; }
+/* The search's first row under a hidden one keeps no hairline on top. */
+#settingsBackdrop .settings-row.set-off + .settings-row { border-top-color: transparent; }
+/* Found from the palette: lit for a moment. */
+#settingsBackdrop .settings-row.set-flash { background: rgba(var(--accent-rgb), .14); transition: none; }
+.set-tag {
+  display: inline-flex; align-items: center; height: 17px; padding: 0 6px; margin-left: 6px; vertical-align: 1px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-xs);
+  font: 600 10px/1 var(--font-ui); letter-spacing: .02em; color: var(--text-dimmer);
+}
+/* You, at the top. */
+.set-me { display: flex; align-items: center; gap: 12px; padding: 4px 4px 2px; }
+.set-me-av {
+  flex: none; width: 44px; height: 44px; overflow: hidden; display: grid; place-items: center;
+  border-radius: var(--av-radius, 10px); font: 700 18px/1 var(--font-ui);
+  background: color-mix(in srgb, var(--c, var(--text-dim)) 28%, var(--bg)); color: color-mix(in srgb, var(--c, var(--text)) 75%, var(--text));
+}
+.set-me-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.set-me-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.set-me-name { font: 700 16px/1.2 var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-me-sub { display: flex; align-items: center; gap: 6px; font: 400 var(--fs-12)/1.2 var(--font-ui); color: var(--text-dimmer); }
+.set-me-sub::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--st-on); flex: none; }
+.set-me-sub[data-status="away"]::before { background: var(--st-away); }
+.set-me-sub[data-status="dnd"]::before { background: var(--st-dnd); }
+.set-me-sub[data-status="invisible"]::before { background: none; box-shadow: inset 0 0 0 2px var(--text-dimmer); }
+.set-me .k-btn i { font-size: 14px; }
+#settingsBackdrop .set-me .settings-link { width: auto; flex: none; }
+/* The background colours, in their row: under the words when it's narrow. */
+#bgColorRow { flex-wrap: wrap; row-gap: 10px; }
+#bgColorRow > div:first-child { flex: 1 1 180px; }
+#bgSwatches { margin: 0; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+#bgSwatches .bg-palette-swatch { width: 22px; height: 22px; padding: 0; border-width: 2px; appearance: none; -webkit-appearance: none; }
+#bgSwatches .bg-palette-swatch.selected::after { font-size: 10px; }
+#bgSwatches .bg-palette-swatch:disabled { cursor: default; }
+#bgColorRow.is-off #bgSwatches { opacity: .35; }
+#bgColorRow.is-off .bg-palette-swatch:hover { transform: none; }
+.settings-modal .s-slider-wrap { width: 190px; max-width: none; }
+.settings-modal .s-slider-wrap .slider-wrap { flex: 1; width: auto !important; }
+.settings-modal .s-slider-val { font: 500 var(--fs-12) var(--font-ui); letter-spacing: 0; width: 36px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+#settingsBackdrop .settings-link .key-hint-key { flex: none; }
+/* Reset, on its own at the end. */
+#settingsBackdrop .set-danger { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+#settingsBackdrop .set-danger .settings-row { border-top: 0; }
+#settingsBackdrop .set-danger .settings-row-label { color: var(--danger); }
+.set-none { padding: 30px 10px; }
+.set-none[hidden] { display: none; }
+@media (max-width: 760px) and (pointer: coarse) {
+  #settingsBackdrop .settings-modal { height: auto; max-height: 92vh; }
+  .set-me .k-btn span, .set-me .settings-link { display: none; }
+}
+
+/* ── Keyboard shortcuts: two columns on a wide window, no scrolling ── */
+.key-hints-modal.add-app-modal { width: min(860px, calc(100vw - 2rem)); max-height: 90vh; gap: 12px; }
+.key-hints-body { overflow-y: auto; scrollbar-width: none; min-height: 0; }
+.key-hints-body::-webkit-scrollbar { display: none; }
+@media (min-width: 900px) {
+  .key-hints-body { columns: 2; column-gap: 32px; overflow: visible; }
+}
+.key-hints-group { break-inside: avoid; margin: 0 0 14px; }
+.key-hints-group-label { display: flex; align-items: center; gap: 8px; }
+.key-hints-here { padding: 2px 6px; border-radius: var(--r-xs); background: var(--fill-hover); font: 600 10px/1 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dim); }
+.key-hints-row { min-height: 29px; padding: 3px 2px; font-size: var(--fs-13); border-bottom-color: var(--line); }
+.key-hints-row > span:first-child { min-width: 0; }
+.key-hints-keys { gap: 3px; }
+.key-hints-sep { padding: 0 3px; font-size: 11.5px; color: var(--text-dimmer); white-space: nowrap; }
+.key-hint-key { min-width: 20px; height: 20px; padding: 0 5px; border-color: var(--line-strong); background: var(--fill); box-shadow: 0 1px 0 var(--line); border-radius: var(--r-xs); }
+.key-hints-note { margin: 0; text-align: left; }
+
+/* ── Status: the coloured dot as a menu row's icon, and a check at the right ── */
+.ctx-item > i.k-st-dot::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--st-on); vertical-align: middle; }
+.ctx-item > i.k-st-dot.st-away::before { background: var(--st-away); }
+.ctx-item > i.k-st-dot.st-dnd::before { background: var(--st-dnd); }
+.ctx-item > i.k-st-dot.st-off::before { background: none; box-shadow: inset 0 0 0 2px var(--text-dimmer); }
+.ctx-item > .ctx-check { margin-left: auto; padding-left: 10px; font-size: 15px; color: var(--text); flex: none; width: auto; }
+.ctx-item > .ctx-hint + .ctx-check { margin-left: 0; }
+/* The recap's count pops once as it comes up (it's shown afresh when new
+   things arrive). */
+.recap-count:not([hidden]) { animation: kCountPop 220ms var(--m-spring) both; }
+@keyframes kCountPop { from { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } to { transform: none; } }
+
+/* ── Home ── */
+/* Your face carries a faint "Set a note…" when you have none; anyone else
+   here without a note is just their face. */
+.pz-note.ghost {
+  background: transparent; color: var(--text-dim); box-shadow: none; font-weight: 500;
+  outline: 1.5px dashed color-mix(in srgb, var(--text) 30%, transparent); outline-offset: -1.5px;
+}
+.pz-note.ghost::after { display: none; }
+.pz-b:hover .pz-note.ghost { color: var(--text); outline-color: color-mix(in srgb, var(--text) 55%, transparent); }
+.pz-b.bare { padding-top: 2px; }
+/* Not split (a narrow page): a shorter sky. */
+.hp:not(.hp-split) .pz-sky { height: 240px; }
+/* The changelog's entries open and close smoothly where the browser can. */
+.hp-commits details { interpolate-size: allow-keywords; }
+.hp-commits details::details-content {
+  height: 0; overflow: clip; opacity: 0;
+  transition: height var(--m-med) var(--m-ease), opacity var(--m-med) ease, content-visibility var(--m-med) allow-discrete;
+}
+.hp-commits details[open]::details-content { height: auto; opacity: 1; }
+
+/* ── The sidebar's foot: one compact row size (32px, 13px) ── */
+html[data-nav] #sideNav .side-nav-foot :is(.side-nav-item, #dockPeek) { height: 32px; font-size: var(--fs-13); }
+html[data-nav] #sideNav .side-nav-foot :is(.side-nav-item, #dockPeek) > i { font-size: 16px; }
+/* Your face there in Light: your colour on the frame (it was white on
+   white), and the status dot ringed in the frame's colour. (The Social
+   pass may also touch .side-me-av: this is the Shell pass's.) */
+.side-me-av { background: color-mix(in srgb, var(--me-color, var(--text-dim)) 30%, var(--bg)); color: color-mix(in srgb, var(--me-color, var(--text)) 75%, var(--text)); }
+html[data-theme="light"]:not(.sky) .side-nav .side-me-av { background: color-mix(in srgb, var(--me-color, #fff) 45%, var(--lt-frame-color, #333)); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+html[data-theme="light"]:not(.sky) .side-nav .side-me-av::after { box-shadow: 0 0 0 2.5px var(--lt-frame-color, var(--bg)); }
+/* end REFRESH: SHELL */

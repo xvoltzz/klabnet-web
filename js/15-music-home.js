@@ -380,20 +380,63 @@
     row.append(...cards);
     return sec;
   }
+  // ── One card ──
+  // Cover, name, a line under it. Over the cover on hover: ▶ (primary)
+  // bottom right, Add to queue beside it, ♥ top right (and it stays while
+  // it's on). The same recipe as the Albums grid, an artist's records and
+  // genre tiles (css "REFRESH: MUSIC").
+  function cardActs(kind, id, { queue = true } = {}) {
+    return `<div class="card-acts">${kind ? klabHeartHTML(kind, id, 'k-card-heart') : ''}` +
+      (queue ? '<button type="button" class="k-card-btn" data-card-queue title="Add to queue" aria-label="Add to queue"><i class="ti ti-playlist-add"></i></button>' : '') +
+      '<button type="button" class="k-card-play" data-card-play title="Play" aria-label="Play"><i class="ti ti-player-play-filled"></i></button></div>';
+  }
   function albumCard(a) {
     const card = document.createElement('div');
     card.className = 'mh-card';
     card._album = a; // right-click menu (09-music-extras.js)
     card.innerHTML =
       `<div class="mh-card-art"><img src="${esc(art(a.coverArt || a.id, klabArtSize(200)))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
-      `<button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>` +
+      cardActs('album', a.id) + `</div>` +
       `<div class="mh-card-t">${esc(a.name || a.title || '')}</div><div class="mh-card-a">${esc(a.artist || '')}</div>`;
-    card.addEventListener('click', e => {
-      if (e.target.closest('.mh-card-play')) { playAlbum(a.id); return; }
+    card.addEventListener('click', async e => {
+      if (e.target.closest('[data-card-play]')) { playAlbum(a.id); return; }
+      if (e.target.closest('[data-card-queue]')) {
+        try { queueSongs(await albumSongs(a.id), { label: `"${a.name || a.title || 'Album'}"`, art: toastArt(a.coverArt || a.id) }); }
+        catch (err) { showToast('Couldn’t queue that album', 'ti-alert-triangle'); }
+        return;
+      }
       openAlbum(a);
     });
     return card;
   }
+  // An artist: their picture in a circle (Navidrome's "ar-<id>" cover, or
+  // their initials when there isn't one).
+  function artistCard(a) {
+    const card = document.createElement('div');
+    card.className = 'mh-card mh-artist';
+    card._artist = a;
+    const cover = a.coverArt || ('ar-' + a.id);
+    card.innerHTML =
+      `<div class="mh-card-art round"><img src="${esc(art(cover, klabArtSize(200)))}" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add('loaded')" />` +
+      cardActs('artist', a.id, { queue: false }) + `</div>` +
+      `<div class="mh-card-t">${esc(a.name || '')}</div><div class="mh-card-a">${a.albumCount ? klabCount(a.albumCount, 'album') : 'Artist'}</div>`;
+    const img = card.querySelector('img');
+    img.onerror = () => { img.outerHTML = artistPlaceholderHTML(a.name); };
+    card.addEventListener('click', e => {
+      if (e.target.closest('[data-card-play]')) { window.klabPlayArtist?.(a); SFX && SFX.play('click'); return; }
+      window.openArtistPage?.(a.id, a.name);
+    });
+    return card;
+  }
+  // For Favorites (js/05-favorites.js) and anything else that wants Home's rows.
+  window.klabMusicCards = {
+    row: (title, cards, note, count) => {
+      const sec = cardRow(title, cards, note);
+      if (count) sec.querySelector('.picker-section-label').insertAdjacentHTML('beforeend', ` <span class="k-count">${count.toLocaleString()}</span>`);
+      return sec;
+    },
+    album: albumCard, artist: artistCard, acts: cardActs,
+  };
   const albumRow = (title, albums, note) => cardRow(title, albums.map(albumCard), note);
 
   // Albums from your own play history, most recent first.
@@ -990,13 +1033,23 @@
     const cur = playerState.currentSong;
     const before = _heard.slice(-NP_BEFORE).map(song => ({ song, kind: 'played' }));
     const after = queue.map((song, k) => ({ song, kind: 'queue', k }));
-    if (!_shuffleOn) {
-      const pl = playerState.playlist || [];
-      for (let i = playerState.playlistIndex + 1; i < pl.length && after.length < NP_AFTER; i++) after.push({ song: pl[i], kind: 'next', i });
-    }
-    const items = [...before, ...(cur ? [{ song: cur, kind: 'now' }] : []), ...after.slice(0, NP_AFTER)];
+    // The rest in the order it'll really play (shuffled or not; round
+    // again with repeat all: window.klabUpcoming, js/05-favorites.js).
+    const pl = playerState.playlist || [];
+    for (const i of klabUpcoming(NP_AFTER)) after.push({ song: pl[i], kind: 'next', i });
+    const items = [...before, ...(cur ? [{ song: cur, kind: 'now' }] : []), ...after.slice(0, NP_AFTER + queue.length)];
     return { items, center: cur ? before.length : 0, queued: queue.length, later: after.length - queue.length };
   }
+  // What the songs after the queue are from: the album, the playlist, or
+  // just "the list".
+  function npSource() {
+    const pl = playerState.playlist || [];
+    if (pl._plId) { const p = window.klabPlaylists?.mine().concat(window.klabPlaylists.featured()).find(x => x.id === pl._plId); if (p) return p.name; }
+    const albums = new Set(pl.slice(0, 60).map(s => s.albumId).filter(Boolean));
+    if (albums.size === 1 && pl[0]?.album) return pl[0].album;
+    return '';
+  }
+  window.klabNpSource = npSource;
   // ── Kept live ──
   playerState.audio.addEventListener('loadstart', () => fsUpRender());
   // The queue and shuffle change what's next.
@@ -1004,34 +1057,66 @@
   updateQueueBadge = function() { _npQueueBadge(); fsUpRender(); };
   const _npShuffle = syncShuffleBtns;
   syncShuffleBtns = function() { _npShuffle(); fsUpRender(); };
+  window.klabUpNextRender = () => fsUpRender();
 
   // ── The full player's "Up next" ──
-  // What's coming after the one playing, as a list the way Music lists
-  // songs. Drawn only while the player is open.
+  // What's coming after the one playing: your queue first (under its own
+  // label, each with ✕ on hover), then what's next from the album or list.
+  // Drawn only while the player is open.
   const fsEl = document.getElementById('fsPlayer');
   const fsUp = document.getElementById('fsUpNext');
   const fsUpList = document.getElementById('fsUpNextList');
   const fsUpNote = document.getElementById('fsUpNextNote');
+  function fsRow(it) {
+    const s = it.song;
+    const row = document.createElement('div');
+    row.className = 'fs-upnext-row';
+    row.tabIndex = 0;
+    row.setAttribute('role', 'button');
+    row.innerHTML =
+      (s.coverArt ? `<img src="${esc(art(s.coverArt, 96))}" alt="" decoding="async" draggable="false" onload="this.classList.add('loaded')">` : '<span class="ph"><i class="ti ti-music"></i></span>') +
+      `<span class="m"><span class="t">${esc(s.title || 'Unknown')}</span><span class="a">${esc(s.artist || '')}</span></span>` +
+      `<span class="d">${s.duration ? formatTime(s.duration) : ''}</span>` +
+      (it.kind === 'queue' ? '<button type="button" class="k-icon sm on-media fs-up-x" title="Remove from queue" aria-label="Remove from queue"><i class="ti ti-x"></i></button>' : '');
+    row.addEventListener('click', e => {
+      if (e.target.closest('.fs-up-x')) {
+        e.stopPropagation();
+        klabUnqueue(s);
+        return;
+      }
+      npJump(it);
+    });
+    row.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); npJump(it); } });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); showSongCtx(e.clientX, e.clientY, s); });
+    return row;
+  }
   function fsUpRender() {
     if (!fsUp || !fsEl.classList.contains('open')) return;
-    const { items, center, queued } = npItems();
-    const next = items.slice(center + (playerState.currentSong ? 1 : 0)).slice(0, 14);
-    fsUp.hidden = !next.length;
-    fsUpNote.textContent = [queued ? `${queued} queued` : '', _shuffleOn ? 'shuffle is on' : ''].filter(Boolean).join(' · ');
+    const { items, center } = npItems();
+    const next = items.slice(center + (playerState.currentSong ? 1 : 0));
+    const queued = next.filter(it => it.kind === 'queue').slice(0, 50), rest = next.filter(it => it.kind === 'next').slice(0, 14);
+    fsUp.hidden = false;
+    fsUpNote.textContent = [_shuffleOn ? 'Shuffle' : '', _repeatOn ? 'Repeat one' : _repeatAll ? 'Repeat all' : ''].filter(Boolean).join(' · ');
     fsUpList.textContent = '';
-    for (const it of next) {
-      const s = it.song;
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'fs-upnext-row';
-      row.innerHTML =
-        (s.coverArt ? `<img src="${esc(art(s.coverArt, 96))}" alt="" decoding="async" draggable="false">` : '<span class="ph"><i class="ti ti-music"></i></span>') +
-        `<span class="m"><span class="t">${esc(s.title || 'Unknown')}</span><span class="a">${esc(s.artist || '')}</span></span>` +
-        (it.kind === 'queue' ? '<span class="q">Queued</span>' : '') +
-        `<span class="d">${s.duration ? formatTime(s.duration) : ''}</span>`;
-      row.addEventListener('click', () => npJump(it));
-      row.addEventListener('contextmenu', e => { e.preventDefault(); showSongCtx(e.clientX, e.clientY, s); });
-      fsUpList.appendChild(row);
+    const label = (text, extra) => {
+      const l = document.createElement('div');
+      l.className = 'fs-up-label';
+      l.innerHTML = `<span>${esc(text)}</span>${extra || ''}`;
+      fsUpList.appendChild(l);
+      return l;
+    };
+    if (queued.length) {
+      const l = label(`Queued · ${queue.length.toLocaleString()}`, '<button type="button" class="fs-up-clear">Clear</button>');
+      l.querySelector('.fs-up-clear').addEventListener('click', () => klabClearQueue());
+      queued.forEach(it => fsUpList.appendChild(fsRow(it)));
+    }
+    if (rest.length) {
+      const from = npSource();
+      label(from ? `Next from ${from}` : 'Next');
+      rest.forEach(it => fsUpList.appendChild(fsRow(it)));
+    }
+    if (!queued.length && !rest.length) {
+      fsUpList.innerHTML = `<div class="k-empty fs-up-empty"><i class="ti ti-playlist"></i><div>${playerState.currentSong ? 'Nothing up next. Add songs to the queue and they’ll show here.' : 'Nothing playing.'}</div></div>`;
     }
   }
   const _npOpenFS = openFS;

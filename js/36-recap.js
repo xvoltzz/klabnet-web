@@ -75,7 +75,7 @@
     return '<span class="rc-face">' + (src ? '<img src="' + esc(src) + '" alt="" />' : '<b style="--c:' + c + '">' + esc((u || '?')[0].toUpperCase()) + '</b>') + '</span>';
   }
   function row({ act, data: d = '', u, icon, html, sub, at, fresh }) {
-    return '<button type="button" class="rc-row' + (fresh ? ' fresh' : '') + '" data-act="' + act + '" data-d="' + esc(String(d)) + '">' +
+    return '<button type="button" class="rc-row' + (fresh ? ' fresh' : '') + '" data-act="' + act + '" data-d="' + esc(String(d)) + '"' + (u ? ' data-u="' + esc(u) + '"' : '') + '>' +
       (u ? face(u) : '<span class="rc-ico"><i class="ti ' + icon + '"></i></span>') +
       '<span class="rc-text"><span class="rc-line">' + html + '</span>' + (sub ? '<span class="rc-sub">' + sub + '</span>' : '') + '</span>' +
       (at ? '<span class="rc-time">' + esc(ago(at)) + '</span>' : '') + '</button>';
@@ -97,7 +97,7 @@
       else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : i.video ? esc('to “' + (i.on || 'your video') + '”') : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
       else continue;
-      out.push({ at, html: row({ act: i.video ? 'video' : i.kind === 'tag' || i.photo ? 'photos' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
+      out.push({ at, html: row({ act: i.video ? 'video' : i.kind === 'tag' || i.photo ? 'photo' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
     }
     return out.sort((a, b) => b.at - a.at).map(r => r.html).join('');
   }
@@ -133,6 +133,7 @@
     else if (act === 'post') window.klabFeedFocus?.(d);
     else if (act === 'feed') setActiveTab('feed');
     else if (act === 'photos') setActiveTab('photos');
+    else if (act === 'photo') { if (d && window.klabOpenPhoto) window.klabOpenPhoto(+d); else setActiveTab('photos'); }
     else if (act === 'videos') setActiveTab('videos');
     else if (act === 'video') window.klabOpenVideo?.(+d);
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
@@ -145,14 +146,28 @@
     panel.className = 'rc-panel';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Recap');
-    panel.innerHTML = '<div class="rc-head"><span class="rc-title">Recap</span><span class="rc-since"></span></div><div class="rc-body"></div>';
+    panel.innerHTML = '<div class="rc-head"><span class="rc-title">Recap</span><span class="rc-since"></span>' +
+      '<button type="button" class="k-btn sm ghost rc-seen" title="Mark everything here as seen"><i class="ti ti-checks"></i>Mark all seen</button></div><div class="rc-body"></div>';
     document.body.appendChild(panel);
     popLayer = klabLayers.push(panel, { kind: 'popover', close: () => close() });
     place();
     btn.setAttribute('aria-expanded', 'true');
     btn.classList.add('active');
     paint();
-    panel.addEventListener('click', e => { const r = e.target.closest('.rc-row'); if (r) go(r.dataset.act, r.dataset.d); });
+    panel.addEventListener('click', e => {
+      if (e.target.closest('.rc-seen')) { markSeen(); panel.querySelectorAll('.rc-row.fresh').forEach(r => r.classList.remove('fresh')); return; }
+      const r = e.target.closest('.rc-row'); if (r) go(r.dataset.act, r.dataset.d);
+    });
+    panel.addEventListener('contextmenu', e => {
+      const r = e.target.closest('.rc-row');
+      if (!r) return;
+      klabMenu(e, [
+        { label: 'Open', icon: 'ti-chevron-right', action: () => go(r.dataset.act, r.dataset.d) },
+        { label: 'View profile', icon: 'ti-user-circle', hidden: !r.dataset.u, action: () => { close(); openProfileView(r.dataset.u); } },
+        '-',
+        { label: 'Mark all seen', icon: 'ti-checks', action: () => { markSeen(); panel?.querySelectorAll('.rc-row.fresh').forEach(x => x.classList.remove('fresh')); } },
+      ]);
+    });
     load().then(() => {
       // Seen once it's been looked at; the marks stay until it closes.
       seen = now();
@@ -162,6 +177,12 @@
       document.addEventListener('pointerdown', outside, true);
     });
     requestAnimationFrame(() => panel?.classList.add('open'));
+  }
+  // Everything up to now counts as seen (messages stay unread in Chat).
+  function markSeen() {
+    seen = now();
+    try { localStorage.setItem(SEEN_KEY, String(Math.floor(seen))); } catch (e) {}
+    paintCount();
   }
   function place() {
     const r = btn.getBoundingClientRect();

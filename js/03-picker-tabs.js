@@ -69,7 +69,7 @@ async function loadArtists() {
       _artistsAt = Date.now();
     }
     if (pickerTab !== 'artists' || t !== _pickerLoadToken) return;
-    renderArtistList(_artistsCache);
+    klabBrowse.render('artists'); // find box, sort, favorites and the A–Z rail (js/26-browse.js)
   } catch(e) { if (pickerTab === 'artists' && t === _pickerLoadToken) pickerList.innerHTML = '<div class="picker-empty">Couldn’t load this</div>'; }
 }
 
@@ -85,7 +85,7 @@ function renderAlbumList(albums, appendMode) {
     pickerList.innerHTML = '';
     const hdr = document.createElement('div');
     hdr.className = 'picker-section-label';
-    hdr.textContent = 'Albums (' + albums.length + ')';
+    hdr.textContent = 'Albums (' + albums.length + ')'; // hidden: the count goes beside the title
     pickerList.appendChild(hdr);
   }
 
@@ -107,7 +107,8 @@ function renderAlbumList(albums, appendMode) {
     const artImg = new Image();
     artImg.className = 'picker-item-art';
     artImg.decoding = 'async';
-    artImg.onload = () => ph.replaceWith(artImg);
+    artImg.alt = '';
+    artImg.onload = () => { artImg.classList.add('loaded'); ph.replaceWith(artImg); };
     // Fetched as it nears the screen: the whole library at once was ~500
     // cover requests in one burst, queued ahead of the music itself.
     item._loadArt = () => { artImg.src = artUrl(); };
@@ -121,30 +122,14 @@ function renderAlbumList(albums, appendMode) {
         (album.year ? ' · ' + esc(album.year) : '') +
         ' · ' + klabCount(album.songCount || 0, 'track') + '</div>';
 
-    const acts = document.createElement('div');
-    acts.className = 'picker-item-actions';
+    // The card recipe (css "REFRESH: MUSIC"): ♥ top right, queue and ▶
+    // bottom right over the cover; a row's end in a search's list.
+    const actsTpl = document.createElement('template');
+    actsTpl.innerHTML = window.klabMusicCards.acts('album', album.id);
+    item.append(ph, info, actsTpl.content);
 
-    const badge = document.createElement('span');
-    badge.className = 'type-badge album'; badge.textContent = 'album';
-
-    const playBtn = document.createElement('button');
-    playBtn.className = 'picker-action'; playBtn.title = 'Play';
-    playBtn.innerHTML = '<i class="ti ti-player-play"></i>';
-
-    const queueBtn = document.createElement('button');
-    queueBtn.className = 'picker-action'; queueBtn.title = 'Queue';
-    queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i>';
-
-    const starTpl = document.createElement('template');
-    starTpl.innerHTML = klabStars.button('album', album.id, 'picker-action');
-    acts.append(badge, starTpl.content, playBtn, queueBtn);
-    item.append(ph, info, acts);
-
-    const fetchTracks = async () => {
-      const r = await fetchTimeout(ND_URL + '/rest/getAlbum?id=' + encodeURIComponent(album.id) + '&' + subsonicParams(), {}, 8000);
-      const d = await r.json();
-      return d['subsonic-response']?.album?.song || [];
-    };
+    const fetchTracks = () => albumSongs(album.id);
+    const playBtn = item.querySelector('[data-card-play]'), queueBtn = item.querySelector('[data-card-queue]');
 
     playBtn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -153,21 +138,19 @@ function renderAlbumList(albums, appendMode) {
       try { t = await fetchTracks(); } catch (err) { showToast('Couldn’t play "' + album.name + '"', 'ti-alert-triangle'); return; }
       if (!t.length || klabPickMark() !== mark) return;
       // The album becomes what's playing; songs you queued stay queued.
-      playerState.playlist = t; playerState.playlistIndex = 0;
-      await playSong(t[0]);
-      showToast('Playing "' + album.name + '"', toastArt(album.coverArt || album.id));
+      playSongList(t);
+      SFX && SFX.play('click');
     });
 
     queueBtn.addEventListener('click', async e => {
       e.stopPropagation();
       let t;
       try { t = await fetchTracks(); } catch (err) { showToast('Couldn’t queue "' + album.name + '"', 'ti-alert-triangle'); return; }
-      queue.push(...t); updateQueueBadge();
-      showToast('Queued ' + klabCount(t.length, 'track'), toastArt(album.coverArt || album.id));
+      queueSongs(t, { label: `"${album.name}"`, art: toastArt(album.coverArt || album.id) });
     });
 
     item.addEventListener('click', e => {
-      if (e.target.closest('.picker-action')) return;
+      if (e.target.closest('.card-acts button')) return;
       loadAlbumView(album.id, album.name, () => loadPickerTab('albums'));
     });
 
@@ -280,89 +263,212 @@ function artistPlaceholderHTML(name) {
   return `<div class="picker-item-art-ph artist artist-initials" style="--h:${h % 360}">${esc(initials)}</div>`;
 }
 
-function renderArtistList(indexes) {
+// All the artists, flat (getArtists hands them out by letter).
+function artistsFlat() {
+  return (_artistsCache || []).flatMap(idx => idx.artist || []);
+}
+// Artists: a grid of faces, in the order the bar sorts them, with the
+// A–Z rail (js/26-browse.js). Each picture is Navidrome's own "ar-<id>"
+// cover (one request, not the two a lookup took), initials if it has none.
+function renderArtistList(artists) {
   pickerList.innerHTML = '';
-  if (!indexes.length) { pickerList.innerHTML = '<div class="picker-empty">No artists found</div>'; return; }
-  indexes.forEach(idx => {
-    if (!idx.artist?.length) return;
-    const label = document.createElement('div');
-    label.className = 'picker-section-label';
-    label.textContent = idx.name;
-    pickerList.appendChild(label);
-    idx.artist.forEach(artist => {
-      const item = document.createElement('div');
-      item.className = 'picker-item';
-      item._artist = artist;
-      item.innerHTML = `
-        ${artistPlaceholderHTML(artist.name)}
-        <div class="picker-item-info">
-          <div class="picker-item-title">${esc(artist.name)||'Unknown'}</div>
-          <div class="picker-item-artist">${klabCount(artist.albumCount || 0, 'album')}</div>
-        </div>
-        <div class="picker-item-actions">
-          <button class="picker-action" title="Browse"><i class="ti ti-chevron-right"></i></button>
-        </div>`;
-      const browse = () => loadArtistView(artist);
-      item.querySelector('[title="Browse"]').addEventListener('click', e => { e.stopPropagation(); browse(); });
-      item.addEventListener('click', browse);
-      pickerList.appendChild(item);
-      queueArtistThumbHydration(item, artist.id);
+  if (!artists.length) { pickerList.innerHTML = '<div class="picker-empty">No artists found.</div>'; return; }
+  const hdr = document.createElement('div');
+  hdr.className = 'picker-section-label';
+  hdr.textContent = 'Artists (' + artists.length + ')'; // hidden: the count goes beside the title
+  const frag = document.createDocumentFragment();
+  frag.appendChild(hdr);
+  artists.forEach(artist => {
+    const item = document.createElement('div');
+    item.className = 'picker-item artist-card';
+    item._artist = artist;
+    item.innerHTML = `
+      ${artistPlaceholderHTML(artist.name)}
+      <div class="picker-item-info">
+        <div class="picker-item-title">${esc(artist.name) || 'Unknown'}</div>
+        <div class="picker-item-artist">${klabCount(artist.albumCount || 0, 'album')}</div>
+      </div>
+      ${window.klabMusicCards.acts('artist', artist.id, { queue: false })}`;
+    const ph = item.querySelector('.picker-item-art-ph');
+    item._loadArt = () => {
+      const img = new Image();
+      img.className = 'picker-item-art artist';
+      img.alt = '';
+      img.decoding = 'async';
+      img.onload = () => { if (!ph.isConnected || img.naturalWidth < 2) return; img.classList.add('loaded'); ph.replaceWith(img); };
+      img.src = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.coverArt || 'ar-' + artist.id)}&size=${klabArtSize(Math.max(ph.offsetWidth, 160))}&${subsonicParams()}`;
+    };
+    if (_albumArtIO) _albumArtIO.observe(item); else item._loadArt();
+    item.querySelector('[data-card-play]').addEventListener('click', e => {
+      e.stopPropagation();
+      window.klabPlayArtist?.(artist);
+      SFX && SFX.play('click');
     });
+    item.addEventListener('click', e => { if (!e.target.closest('.card-acts button')) loadArtistView(artist); });
+    frag.appendChild(item);
   });
+  pickerList.appendChild(frag);
 }
 
 async function loadArtistView(artist) {
   goToMusicDetail(() => window.openArtistPage(artist.id, artist.name));
 }
 
+// ══════════════════════════════════════════
+//  QUEUE — what's playing, what you queued (drag to reorder, ✕ to take
+//  one out) and what comes next from the album or list.
+// ══════════════════════════════════════════
 const QUEUE_SHOWN = 200;
-function renderQueueList() {
-  updateQueueBadge();
-  if (!queue.length) { pickerList.innerHTML = '<div class="picker-empty">The queue is empty. Add albums or songs</div>'; return; }
-  pickerList.innerHTML = '';
-  const clearRow = document.createElement('div');
-  clearRow.className = 'mr-actions'; // a page's own action sits under its title, like Requests'
-  const clearBtn = document.createElement('button');
-  clearBtn.type = 'button';
-  clearBtn.className = 'ap-btn-queue'; // a secondary button like any other (it was a tiny red all-caps pill)
-  clearBtn.innerHTML = '<i class="ti ti-trash"></i> Clear queue';
-  clearBtn.addEventListener('click', () => { queue = []; updateQueueBadge(); renderQueueList(); SFX.play('click'); });
-  clearRow.appendChild(clearBtn);
-  pickerList.appendChild(clearRow);
-  // The first 200: "Queue all" on a long playlist made thousands of rows,
-  // all rebuilt on every track change while this was open.
-  queue.slice(0, QUEUE_SHOWN).forEach(song => {
-    // size=80 — same list-mode-row sizing fix as renderSongItem() above.
-    const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}`;
-    const item = document.createElement('div');
-    item.className = 'picker-item';
-    item.innerHTML = `
-      <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
-      <div class="picker-item-info" style="min-width:0;flex:1;">
-        <div class="picker-item-title">${esc(song.title)||'Unknown'}</div>
-        <div class="picker-item-artist">${esc(song.artist||'')} · ${esc(song.album||'')}</div>
-      </div>
-      <div class="picker-item-actions" style="flex-shrink:0;display:flex;align-items:center;gap:2px;">
-        <span class="type-badge song" style="flex-shrink:0;">song</span>
-        <button class="picker-action" title="Remove" style="flex-shrink:0;"><i class="ti ti-x"></i></button>
-      </div>`;
-    item.querySelector('[title="Remove"]').addEventListener('click', e => {
-      e.stopPropagation();
-      const at = queue.indexOf(song); if (at >= 0) queue.splice(at, 1);
-      updateQueueBadge(); renderQueueList();
-    });
-    item.addEventListener('click', async () => {
-      const at = queue.indexOf(song); if (at < 0) { renderQueueList(); return; }
-      const s = queue.splice(at, 1)[0];
-      // Redrawn, or the song just taken off the queue stayed listed in it.
-      updateQueueBadge(); renderQueueList(); await playSong(s);
-    });
-    pickerList.appendChild(item);
+function _queueChanged() { updateQueueBadge(); if (pickerTab === 'queue') renderQueueList(true); }
+// Taken out at once, with Undo.
+function klabClearQueue() {
+  if (!queue.length) return;
+  let saved = [];
+  klabUndo('Queue cleared', {
+    icon: 'ti-playlist',
+    apply: () => { saved = queue.slice(); queue = []; _queueChanged(); },
+    undo: () => { queue = saved.concat(queue); _queueChanged(); },
   });
-  if (queue.length > QUEUE_SHOWN) {
-    const more = document.createElement('div');
-    more.className = 'picker-empty';
-    more.textContent = 'and ' + (queue.length - QUEUE_SHOWN).toLocaleString() + ' more';
-    pickerList.appendChild(more);
-  }
+  SFX && SFX.play('click');
 }
+function klabUnqueue(song) {
+  const at = queue.indexOf(song);
+  if (at < 0) return;
+  klabUndo(`"${song.title || 'Song'}" taken out of the queue`, {
+    icon: 'ti-playlist',
+    apply: () => { queue.splice(at, 1); _queueChanged(); },
+    undo: () => { queue.splice(Math.min(at, queue.length), 0, song); _queueChanged(); },
+  });
+}
+function _fmtTotal(sec) {
+  sec = Math.round(sec);
+  return sec >= 3600 ? `${Math.floor(sec / 3600)} hr ${Math.floor(sec % 3600 / 60)} min` : `${Math.max(1, Math.round(sec / 60))} min`;
+}
+function renderQueueList(keepScroll) {
+  if (queue.some(s => !s)) queue = queue.filter(Boolean);
+  updateQueueBadge();
+  const top = pickerList.scrollTop;
+  const cur = playerState.currentSong;
+  const upcoming = klabUpcoming(50);
+  const pl = playerState.playlist || [];
+  if (!queue.length && !cur) {
+    pickerList.innerHTML = '<div class="k-empty"><i class="ti ti-playlist"></i><div>Nothing’s queued. Use Add to queue on a song or album.</div></div>';
+    document.getElementById('musicViewSub').textContent = '';
+    return;
+  }
+  pickerList.innerHTML = '';
+  const label = (text, count, extra) => {
+    const l = document.createElement('div');
+    l.className = 'picker-section-label q-label';
+    l.innerHTML = `<span>${esc(text)}${count ? ` <span class="k-count">${esc(count)}</span>` : ''}</span>${extra || ''}`;
+    pickerList.appendChild(l);
+    return l;
+  };
+  const row = (song, list) => {
+    const box = document.createDocumentFragment();
+    renderSongItem(song, box);
+    const el = box.firstElementChild;
+    if (list) el._list = list;
+    pickerList.appendChild(el);
+    return el;
+  };
+  if (cur) {
+    label('Now playing');
+    const el = row(cur, null);
+    el.classList.add('q-now');
+    el._playNow = true;
+  }
+  if (queue.length) {
+    const total = queue.reduce((n, s) => n + (s.duration || 0), 0);
+    const l = label('Queued', `${queue.length.toLocaleString()}${total ? ' · ' + _fmtTotal(total) : ''}`,
+      '<button type="button" class="k-btn sm ghost q-clear"><i class="ti ti-trash"></i>Clear</button>');
+    l.querySelector('.q-clear').addEventListener('click', klabClearQueue);
+    queue.slice(0, QUEUE_SHOWN).forEach((song, k) => {
+      const box = document.createDocumentFragment();
+      renderSongItem(song, box);
+      const el = box.firstElementChild;
+      el.classList.add('q-item');
+      el.draggable = true;
+      el._queueAt = k;
+      el._remove = () => klabUnqueue(song);
+      el.querySelector('.song-acts').outerHTML = klabSongActsHTML(song, { remove: true });
+      pickerList.appendChild(el);
+    });
+    if (queue.length > QUEUE_SHOWN) {
+      const more = document.createElement('div');
+      more.className = 'picker-empty';
+      more.textContent = 'and ' + (queue.length - QUEUE_SHOWN).toLocaleString() + ' more';
+      pickerList.appendChild(more);
+    }
+  }
+  if (upcoming.length) {
+    const from = window.klabNpSource?.();
+    label(from ? `Next from ${from}` : 'Next', _shuffleOn ? 'shuffled' : '');
+    upcoming.forEach(i => { const el = row(pl[i], pl); el._plIndex = i; el.classList.add('q-next'); });
+  }
+  const total = queue.reduce((n, s) => n + (s.duration || 0), 0) + upcoming.reduce((n, i) => n + (pl[i]?.duration || 0), 0);
+  document.getElementById('musicViewSub').textContent = queue.length || upcoming.length ? `${klabCount(queue.length + upcoming.length, 'song')}${total ? ' · ' + _fmtTotal(total) : ''}` : '';
+  refreshApNowHighlight();
+  if (keepScroll) pickerList.scrollTop = top;
+}
+// Pressing a row: a queued song plays now (those before it stay queued),
+// one from the list plays from there, the one playing pauses or plays.
+// (Before #pickerList's own song-row handler, which plays from pickerSongs.)
+pickerList.addEventListener('click', e => {
+  if (pickerTab !== 'queue') return;
+  const row = e.target.closest('.picker-item');
+  if (!row || !row._song || e.target.closest('.song-acts, .picker-link')) return;
+  e.stopImmediatePropagation();
+  if (row._playNow) { togglePlay(); return; }
+  if (row.classList.contains('q-item')) {
+    const at = queue.indexOf(row._song);
+    if (at >= 0) queue.splice(at, 1);
+    updateQueueBadge();
+    playSong(row._song).then(() => { if (pickerTab === 'queue') renderQueueList(true); });
+    return;
+  }
+  if (row._plIndex != null) {
+    playerState.playlistIndex = row._plIndex;
+    playSong(row._song).then(() => { if (pickerTab === 'queue') renderQueueList(true); });
+  }
+}, true);
+// Dragging a queued song up or down the queue.
+(function() {
+  let from = null;
+  const clearMarks = () => pickerList.querySelectorAll('.q-drop-before, .q-drop-after').forEach(r => r.classList.remove('q-drop-before', 'q-drop-after'));
+  pickerList.addEventListener('dragstart', e => {
+    const row = e.target.closest?.('.q-item');
+    if (!row || pickerTab !== 'queue') return;
+    from = row._queueAt;
+    row.classList.add('q-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', row._song.title || ''); } catch (err) {}
+  });
+  pickerList.addEventListener('dragover', e => {
+    if (from == null) return;
+    const row = e.target.closest?.('.q-item');
+    if (!row) return;
+    e.preventDefault();
+    const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+    clearMarks();
+    row.classList.add(after ? 'q-drop-after' : 'q-drop-before');
+  });
+  pickerList.addEventListener('drop', e => {
+    if (from == null) return;
+    const row = e.target.closest?.('.q-item');
+    e.preventDefault();
+    if (row) {
+      const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+      let to = row._queueAt + (after ? 1 : 0);
+      const [song] = queue.splice(from, 1);
+      if (to > from) to--;
+      queue.splice(to, 0, song);
+      _queueChanged();
+      SFX && SFX.play('click');
+    }
+    from = null; clearMarks();
+  });
+  pickerList.addEventListener('dragend', () => { from = null; clearMarks(); pickerList.querySelector('.q-dragging')?.classList.remove('q-dragging'); });
+})();
+// The queue view follows the song changing.
+playerState.audio.addEventListener('loadstart', () => { if (pickerTab === 'queue') renderQueueList(true); });

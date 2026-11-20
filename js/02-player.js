@@ -103,6 +103,10 @@ function refreshApNowHighlight() {
   document.querySelectorAll('.ap-track').forEach(row => {
     row.classList.toggle('ap-now', nowId != null && row.dataset.songId === String(nowId));
   });
+  // And in Music's lists: the song playing is marked wherever it's listed.
+  document.querySelectorAll('#pickerList .picker-item').forEach(row => {
+    if (row._song) row.classList.toggle('is-now', nowId != null && row._song.id === nowId);
+  });
 }
 
 // ── TRACK QUALITY ──
@@ -359,6 +363,9 @@ async function togglePlay() {
     if (!playerState.currentSong) {
       const songs = await loadRandomSongs();
       if (songs.length) await playSong(songs[0]);
+    } else if (!playerState.audio.getAttribute('src') && !window.klabSession?.mirror) {
+      // Brought back from last time (klabRestorePlayer): shown, not loaded.
+      await playSong(playerState.currentSong);
     } else {
       try {
         await playerState.audio.play();
@@ -381,17 +388,26 @@ async function nextSong() {
   // Advance playlist index
   const nextIndex = playerState.playlistIndex + 1;
   if (!playerState.playlist.length || nextIndex >= playerState.playlist.length) {
-    // End of playlist — load a fresh batch seamlessly
-    const fresh = await loadRandomSongs();
-    if (fresh.length) {
-      playerState.playlist = fresh;
+    // Repeat all: round the list again.
+    if (_repeatAll && playerState.playlist.length) {
       playerState.playlistIndex = 0;
-      await playSong(fresh[0]);
+      await playSong(playerState.playlist[0]);
+      return;
     }
-    return;
+    return klabEndOfList();
   }
   playerState.playlistIndex = nextIndex;
   await playSong(playerState.playlist[nextIndex]);
+}
+// The end of what was playing, repeat off: a fresh batch of random songs,
+// so the music doesn't just stop.
+async function klabEndOfList() {
+  const fresh = await loadRandomSongs();
+  if (fresh.length) {
+    playerState.playlist = fresh;
+    playerState.playlistIndex = 0;
+    await playSong(fresh[0]);
+  }
 }
 
 async function prevSong() {
@@ -824,21 +840,21 @@ async function loadPickerTab(tab) {
       if (foundArtists.length) {
         const artLbl = document.createElement('div');
         artLbl.className = 'picker-section-label';
-        artLbl.textContent = `Artists (${foundArtists.length})`;
+        artLbl.innerHTML = `Artists <span class="k-count">${foundArtists.length}</span>`;
         pickerList.appendChild(artLbl);
         renderArtistSearchResults(foundArtists);
       }
       if (foundAlbums.length) {
         const albLbl = document.createElement('div');
         albLbl.className = 'picker-section-label';
-        albLbl.textContent = `Albums (${foundAlbums.length})`;
+        albLbl.innerHTML = `Albums <span class="k-count">${foundAlbums.length}</span>`;
         pickerList.appendChild(albLbl);
         renderAlbumList(foundAlbums, true); // true = append mode
       }
       if (foundSongs.length) {
         const sngLbl = document.createElement('div');
         sngLbl.className = 'picker-section-label';
-        sngLbl.textContent = `Songs (${foundSongs.length})`;
+        sngLbl.innerHTML = `Songs <span class="k-count">${foundSongs.length}</span>`;
         pickerList.appendChild(sngLbl);
         pickerSongs = foundSongs;
         renderSongItems(foundSongs, pickerList);
@@ -868,38 +884,21 @@ function renderSongItem(song, container) {
   ensureSongRowDelegation();
   const loginSong = getLoginSong();
   const isLogin = loginSong && loginSong.id === song.id;
-  const isFav = isFavorite(song.id);
+  const isNow = playerState.currentSong?.id === song.id;
   // size=80 (~2x the 36px list-mode row art) — was 150, oversized for the
   // song picker's always-list-mode rows (songs never render in grid mode).
   const artUrl  = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(song.coverArt)}&size=80&${subsonicParams()}`;
   const item = document.createElement('div');
-  item.className = 'picker-item' + (isLogin ? ' is-login-song' : '');
+  item.className = 'picker-item' + (isLogin ? ' is-login-song' : '') + (isNow ? ' is-now' : '');
   item.innerHTML = `
-    <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" style="opacity:0;transition:opacity 0.3s" onload="this.style.opacity=1" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
+    <img class="picker-item-art" src="${artUrl}" alt="" loading="lazy" onload="this.classList.add('loaded')" onerror="klabArtFallback(this,'picker-item-art-ph','ti-music')" />
     <div class="picker-item-info">
       <div class="picker-item-title">${esc(song.title) || 'Unknown'}</div>
       <div class="picker-item-artist"><span class="picker-link" data-go-artist="${esc(song.artistId||'')}" data-artist-name="${esc(song.artist||'')}">${esc(song.artist) || 'Unknown artist'}</span>${song.album ? ' · <span class="picker-link" data-go-album="'+esc(song.albumId)+'" data-album-name="'+esc(song.album)+'">'+esc(song.album)+'</span>' : ''}</div>
     </div>
+    <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
     ${song.duration ? `<span class="picker-item-dur">${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, '0')}</span>` : ''}
-    <div class="picker-item-actions">
-      <span class="type-badge song">song</span>
-      ${klabStars.button('song', song.id, 'picker-action')}
-      <button class="picker-action ${isFav ? 'fav-active' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}" data-fav>
-        <i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'}"></i>
-      </button>
-      <button class="picker-action ${isLogin ? 'login-active' : ''}" title="${isLogin ? 'Clear login song' : 'Set as login song'}" data-login>
-        <i class="ti ti-door-enter"></i>
-      </button>
-      <button class="picker-action" title="Add to queue" data-queue>
-        <i class="ti ti-playlist-add"></i>
-      </button>
-      <button class="picker-action" title="Add to playlist" data-add-pl="${encodeURIComponent(JSON.stringify({id:song.id,title:song.title,artist:song.artist,album:song.album,coverArt:song.coverArt}))}">
-        <i class="ti ti-playlist"></i>
-      </button>
-      <button class="picker-action" title="Play now" data-play>
-        <i class="ti ti-player-play"></i>
-      </button>
-    </div>
+    <div class="picker-item-actions">${klabSongActsHTML(song)}</div>
   `;
   // The song itself, not a serialized copy — the delegated handlers below
   // read it back off the row. This is also what distinguishes a song row
@@ -909,6 +908,39 @@ function renderSongItem(song, container) {
   item.dataset.star = 'song:' + song.id;
   container.appendChild(item);
 }
+
+// ── One set of actions on every song row ──
+// ♥, Add to queue and ⋯ (the song's menu: Play next, Add to playlist, the
+// login song, downloads…), shown on hover (the heart stays when it's on).
+// Pressing the row plays it. Used by Music's lists, the album and artist
+// pages and the queue (js/13-tail.js, js/03-picker-tabs.js); the row
+// carries ._song (and ._list, the list it plays from, where that isn't
+// Music's own pickerSongs).
+function klabSongActsHTML(song, { remove } = {}) {
+  return `<div class="song-acts">${klabHeartHTML('song', song.id, 'k-icon sm')}` +
+    (remove ? `<button type="button" class="k-icon sm" data-act="remove" title="Remove from queue" aria-label="Remove from queue"><i class="ti ti-x"></i></button>`
+      : `<button type="button" class="k-icon sm" data-act="queue" title="Add to queue" aria-label="Add to queue"><i class="ti ti-playlist-add"></i></button>`) +
+    `<button type="button" class="k-icon sm" data-act="more" title="More" aria-label="More" aria-haspopup="menu"><i class="ti ti-dots"></i></button></div>`;
+}
+function _songHost(el) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) if (n._song) return n;
+  return null;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('.song-acts [data-act]');
+  if (!b) return;
+  // Before the row hears it (the row plays).
+  e.stopPropagation();
+  const host = _songHost(b);
+  const song = host?._song;
+  if (!song) return;
+  const act = b.dataset.act;
+  if (act === 'queue') addToQueue(song);
+  else if (act === 'more') {
+    const list = host._list || (host.closest('#pickerList') ? pickerSongs : null);
+    klabSongMenuAt(b, song, list);
+  } else if (act === 'remove') host._remove?.();
+}, true);
 
 // ── Song row event delegation ──────────────────────────
 // Every row used to carry seven of its own listeners (link nav, favourite,
@@ -950,37 +982,8 @@ function ensureSongRowDelegation() {
       return;
     }
 
-    const fav = e.target.closest('[data-fav]');
-    if (fav) {
-      e.stopPropagation();
-      if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
-      // Repaint just this heart rather than the whole list.
-      const nowFav = isFavorite(song.id);
-      fav.querySelector('i').className = 'ti ' + (nowFav ? 'ti-heart-filled' : 'ti-heart');
-      fav.className = 'picker-action' + (nowFav ? ' fav-active' : '');
-      fav.title = nowFav ? 'Remove from favorites' : 'Add to favorites';
-      updateFavBadge();
-      SFX.play('star');
-      return;
-    }
-
-    const login = e.target.closest('[data-login]');
-    if (login) {
-      e.stopPropagation();
-      // Read current state rather than a flag captured at render time, so
-      // this is still right after another row changed the login song.
-      const cur = getLoginSong();
-      if (cur && cur.id === song.id) clearLoginSong(); else setLoginSong(song);
-      syncLoginSongRows();
-      return;
-    }
-
-    const queue = e.target.closest('[data-queue]');
-    if (queue) { e.stopPropagation(); addToQueue(song); return; }
-
-    // [data-add-pl] has its own delegated listener (ensurePlDelegate) — bail
-    // WITHOUT stopping propagation so the click still reaches it.
-    if (e.target.closest('[data-add-pl]')) return;
+    // The row's own buttons (js: klabSongActsHTML) are handled before this.
+    if (e.target.closest('.song-acts')) return;
 
     const play = e.target.closest('[data-play]');
     if (play) e.stopPropagation();
@@ -1030,6 +1033,9 @@ function renderPickerList(songs, label) {
 document.querySelectorAll('.picker-tab[data-tab]').forEach(tab => {
   tab.addEventListener('click', () => {
     window.closeApPanel?.(); // else the still-open album/artist page just kept covering the browse view
+    // Leaving a search for a section: the box empties (it kept the words
+    // over a view they had nothing to do with).
+    if (pickerSearchEl.value) { pickerSearchEl.value = ''; pickerQuery = ''; clearTimeout(pickerDebounce); }
     document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     loadPickerTab(tab.dataset.tab);
@@ -1649,14 +1655,108 @@ if (playerState.audio) {
 // ══════════════════════════════════════════
 let queue = [];
 function updateQueueBadge() {
+  const n = queue.length ? queue.length.toLocaleString() : '';
   const el = document.getElementById('queueCount');
-  if (el) el.textContent = queue.length ? `(${queue.length})` : '';
+  if (el) el.textContent = n;
+  const d = document.getElementById('dockQueueN');
+  if (d) d.textContent = n;
+  klabSavePlayerSoon();
 }
-function addToQueue(song) {
-  queue.push(song);
+// Something just went into the queue: its count gives a little bump.
+function klabQueueBump() {
+  if (!(window.klabMotionOk?.() ?? true)) return;
+  for (const id of ['dockQueue', 'queueCount']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.classList.remove('k-bump'); void el.offsetWidth; el.classList.add('k-bump');
+  }
+}
+// Every "Add to queue" and "Play next" goes through these two: the count,
+// the Queue view, the sound and one toast for however many songs.
+function queueSongs(songs, { next = false, label, art } = {}) {
+  songs = (songs || []).filter(Boolean);
+  if (!songs.length) return;
+  if (next) queue.unshift(...songs); else queue.push(...songs);
   updateQueueBadge();
-  // A song's menu works from anywhere (the dock, the full player), so the
-  // Queue view can be open underneath.
   if (pickerTab === 'queue') renderQueueList();
-  showToast(`"${song.title}" added to queue`, toastArt(song.coverArt));
+  SFX && SFX.play('queue');
+  klabQueueBump();
+  const what = label || (songs.length === 1 ? `"${songs[0].title}"` : klabCount(songs.length, 'song'));
+  showToast(next ? `${what} plays next` : `${what} added to the queue`, art || (songs.length === 1 && songs[0].coverArt ? toastArt(songs[0].coverArt) : 'ti-playlist-add'));
 }
+function addToQueue(song) { queueSongs([song]); }
+function playNext(songs, opts) { queueSongs(Array.isArray(songs) ? songs : [songs], { ...opts, next: true }); }
+
+// ══════════════════════════════════════════
+//  WHAT WAS PLAYING, KEPT — the song, where it was, the list it played
+//  from and the queue, saved as they change (localStorage klabnet_player)
+//  and brought back paused at the next start, unless something else is
+//  playing by then (a login song, or another of your devices: then
+//  js/23-session.js shows that instead).
+// ══════════════════════════════════════════
+const PLAYER_SAVE_KEY = 'klabnet_player';
+let _playerSaveT = 0, _playerRestored = false, _resumeAt = null;
+function klabSavePlayer() {
+  clearTimeout(_playerSaveT); _playerSaveT = 0;
+  // A remote stands in for another device's player: not this one's to keep.
+  if (!_playerRestored || window.klabSession?.mirror) return;
+  const song = playerState.currentSong;
+  if (!song) return;
+  const slim = x => (typeof slimSong === 'function' ? slimSong(x) : x);
+  const pl = playerState.playlist || [];
+  // Up to 500 either side of where it's at.
+  const from = Math.max(0, playerState.playlistIndex - 250);
+  const data = {
+    song: slim(song),
+    pos: Math.floor(playerState.audio.currentTime || 0),
+    queue: queue.slice(0, 500).map(slim),
+    playlist: pl.slice(from, from + 500).map(slim),
+    index: Math.max(0, playerState.playlistIndex - from),
+    shuffle: !!_shuffleOn, repeatAll: !!_repeatAll, repeatOne: !!_repeatOn,
+    at: Date.now(),
+  };
+  try { localStorage.setItem(PLAYER_SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+function klabSavePlayerSoon() {
+  if (!_playerSaveT) _playerSaveT = setTimeout(klabSavePlayer, 1000);
+}
+for (const t of ['loadstart', 'pause', 'seeked']) playerState.audio.addEventListener(t, klabSavePlayerSoon);
+{ let last = 0; playerState.audio.addEventListener('timeupdate', () => { const n = Date.now(); if (n - last > 10000) { last = n; klabSavePlayerSoon(); } }); }
+addEventListener('pagehide', klabSavePlayer);
+document.addEventListener('visibilitychange', () => { if (document.hidden) klabSavePlayer(); });
+// Where it was, once the song is loaded again (Play after a restart).
+playerState.audio.addEventListener('loadedmetadata', () => {
+  const r = _resumeAt;
+  if (!r) return;
+  _resumeAt = null;
+  if (playerState.currentSong?.id !== r.id || window.klabSession?.mirror) return;
+  const a = playerState.audio;
+  if (a.currentTime < 1 && r.pos > 1 && r.pos < (a.duration || Infinity) - 2) a.currentTime = r.pos;
+});
+async function klabRestorePlayer() {
+  try { await window.klabSession?.ready; } catch (e) {}
+  // Whatever's showing by now (a login song, another device's music, a
+  // song already picked) wins.
+  const go = !playerState.currentSong && !window.klabSession?.mirror;
+  let d = null;
+  if (go) { try { d = JSON.parse(localStorage.getItem(PLAYER_SAVE_KEY)); } catch (e) {} }
+  if (d?.song?.id) {
+    playerState.playlist = Array.isArray(d.playlist) && d.playlist.length ? d.playlist : [d.song];
+    const i = playerState.playlist.findIndex(x => x.id === d.song.id);
+    playerState.playlistIndex = i >= 0 ? i : Math.min(d.index || 0, playerState.playlist.length - 1);
+    if (Array.isArray(d.queue) && !queue.length) queue = d.queue;
+    if (d.shuffle && !_shuffleOn) { _shuffleOn = true; syncShuffleBtns(); }
+    _repeatAll = !!d.repeatAll; _repeatOn = !!d.repeatOne; playerState.audio.loop = _repeatOn;
+    syncRepeatBtns();
+    playerState.currentSong = d.song;
+    if (d.pos > 1) _resumeAt = { id: d.song.id, pos: d.pos };
+    updatePlayerUI(d.song);
+    updateFSUI?.(d.song);
+    updateDockFavBtn?.();
+    // The dock's bar shows where it stopped.
+    if (d.pos && d.song.duration && typeof progSlider !== 'undefined') progSlider.setPct(Math.min(1, d.pos / d.song.duration));
+    updateQueueBadge();
+  }
+  _playerRestored = true;
+}
+document.addEventListener('DOMContentLoaded', () => { klabRestorePlayer(); });

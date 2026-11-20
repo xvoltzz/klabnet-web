@@ -53,10 +53,33 @@
       }
       const ph = e.target.closest('[data-pf-photo]');
       if (ph) { close(); window.klabOpenPhoto?.(+ph.dataset.post, ph.dataset.pfPhoto); return; }
+      // A post opens in the Feed (not from its links or pictures).
+      const post = !e.target.closest('a, button, img, .md-spoiler') && e.target.closest('[data-pf-post]');
+      if (post) { close(); window.klabFeedFocus?.(+post.dataset.pfPost); return; }
       const act = e.target.closest('[data-pf-act]')?.dataset.pfAct;
       if (act === 'message') { close(); messageUser(who); }
       else if (act === 'edit') { close(); openProfileModal(); }
       else if (act === 'note') { close(); window.klabEditNote?.(); }
+    });
+    el.addEventListener('keydown', e => {
+      const post = e.key === 'Enter' && e.target.matches?.('[data-pf-post]') && e.target;
+      if (post) { close(); window.klabFeedFocus?.(+post.dataset.pfPost); }
+    });
+    // Right-click: a post, a photo.
+    el.addEventListener('contextmenu', e => {
+      const post = e.target.closest('[data-pf-post]'), ph = e.target.closest('[data-pf-photo]');
+      if (post) {
+        const p = [...(data?.posts || []), ...(data?.gold || [])].find(x => x.id === +post.dataset.pfPost);
+        klabMenu(e, [
+          { label: 'Open in Feed', icon: 'ti-news', action: () => { close(); window.klabFeedFocus?.(+post.dataset.pfPost); } },
+          { label: 'Copy text', icon: 'ti-copy', hidden: !p?.text, action: () => klabCopy(p.text, 'Post') },
+        ]);
+      } else if (ph) {
+        klabMenu(e, [
+          { label: 'Open in Photos', icon: 'ti-photo', action: () => { close(); window.klabOpenPhoto?.(+ph.dataset.post, ph.dataset.pfPhoto); } },
+          { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(photoFile(ph.dataset.pfPhoto, 'medium')) },
+        ]);
+      }
     });
     // Escape and mouse Back close it when it's the top layer (js/00-util.js).
     klabLayers.watch(el, { kind: 'sheet', dim: true, close: () => close() });
@@ -116,7 +139,12 @@
       const j = r.ok ? await r.json() : { error: r.status === 404 || r.status === 405 ? (r.status === 404 ? 'none' : 'old') : 'fail' };
       if (mine !== seq) return;
       data = j;
-      if (!j.error && !j.posts?.length && (j.listening?.songs?.length || j.photos?.length)) pane = j.photos?.length ? 'photos' : 'listening';
+      // Nothing posted: open on what they do have (videos first: someone
+      // with only videos opened onto an empty Posts).
+      if (!j.error && !j.posts?.length) {
+        pane = j.counts?.videos ? 'videos' : j.photos?.length ? 'photos' : j.listening?.recent?.length || j.listening?.songs?.length ? 'listening' : 'posts';
+        if (pane === 'videos') loadVideos();
+      }
     } catch { if (mine === seq) data = { error: 'fail' }; }
     if (mine === seq) paint();
   }
@@ -157,7 +185,8 @@
       [c.photos, c.photos === 1 ? 'photo' : 'photos'],
       ...(c.videos ? [[c.videos, c.videos === 1 ? 'video' : 'videos']] : []),
       [c.stars, c.stars === 1 ? 'star' : 'stars'],
-      [c.listened ? hours(c.listened) : '0 h', 'listened'],
+      // Nothing listened to: no "0 h".
+      ...(c.listened >= 60 ? [[hours(c.listened), 'listened']] : []),
     ];
     if (since && !isNaN(since)) items.push([since.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), 'here since']);
     return '<div class="pf-stats">' + items.map(([v, k]) => `<div><b>${typeof v === 'number' ? v.toLocaleString() : esc(v)}</b><span>${k}</span></div>`).join('') + '</div>';
@@ -173,7 +202,7 @@
         ${s.start > 0 ? `<span class="song-at"><i class="ti ti-clock"></i>${formatTime(s.start)}</span>` : ''}<i class="ti ti-player-play pf-song-play"></i></button>` : '';
     const reacts = Object.entries(p.reactions || {}).map(([k, v]) => `<span class="pf-react${v.mine ? ' mine' : ''}">${klabReactHTML(k)} ${v.count}</span>`).join('');
     const meta = [ago(p.created), p.reply_count ? klabCount(p.reply_count, 'reply', 'replies') : '', gold && p.kind === 'photo' ? 'Photo' : ''].filter(Boolean).join(' · ');
-    return `<article class="pf-post${gold ? ' gold' : ''}">
+    return `<article class="pf-post${gold ? ' gold' : ''}"${p.kind === 'photo' ? '' : ` data-pf-post="${p.id}" tabindex="0" role="link"`}>
       ${text ? `<div class="pf-post-text md">${text}</div>` : ''}
       ${img ? `<img class="pf-post-img" src="${esc(img)}" alt="" loading="lazy">` : ''}
       ${song}

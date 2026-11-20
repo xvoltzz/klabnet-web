@@ -170,7 +170,7 @@
   <meta name="apple-mobile-web-app-title" content="klabnet" />
   <link rel="apple-touch-icon" href="klab.png" />
   <!-- Tabler icons, subset to the ones used (scripts/build-icons.py): 26KB instead of 841KB. -->
-  <link rel="stylesheet" href="css/icons.css?v=v2026.11.19.5" />
+  <link rel="stylesheet" href="css/icons.css?v=v2026.11.19.6" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- Navidrome lives on its own subdomain — off-LAN this DNS+TLS handshake
@@ -182,7 +182,7 @@
        700-italic (.motd is bold+italic but only 400-italic was loaded
        before, forcing the browser to synthesize/fake-bold it). -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=v2026.11.19.5" />
+  <link rel="stylesheet" href="css/app.css?v=v2026.11.19.6" />
 </head>
 <body>
 
@@ -285,12 +285,12 @@ window.KLAB_BOOT = (function() {
       <button class="fs-btn fs-btn-sm" id="fsShuffle" title="Shuffle" aria-pressed="false"><i class="ti ti-arrows-shuffle"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsFav" title="Favorite" aria-pressed="false"><i class="ti ti-heart" id="fsFavIcon"></i></button>
       <button class="fs-btn fs-btn-sm klab-star" id="fsStar" title="Star" aria-pressed="false"><i class="ti ti-star"></i><span class="klab-star-n"></span></button>
-      <button class="fs-btn fs-btn-sm" id="fsLyrics" title="Lyrics" aria-pressed="false"><i class="ti ti-microphone-2"></i></button>
+      <button class="fs-btn fs-btn-sm fs-lyrics-btn" id="fsLyrics" title="Lyrics" aria-pressed="false"><i class="ti ti-microphone-2"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsShare" title="Share to feed"><i class="ti ti-share-2"></i></button>
       <span class="fs-spacer"></span>
-      <button class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat" aria-pressed="false"><i class="ti ti-repeat"></i></button>
+      <button type="button" class="fs-btn fs-btn-sm" id="fsRepeat" title="Repeat: off" aria-pressed="false" data-mode="off"><i class="ti ti-repeat"></i></button>
       <button class="fs-btn fs-btn-sm" id="fsDevices" title="Devices" aria-label="Devices" aria-haspopup="menu" hidden><i class="ti ti-devices"></i></button>
-      <button class="fs-btn fs-btn-sm" id="fsQueue" title="Open Music" onclick="closeFS();openPicker()"><i class="ti ti-music-search"></i></button>
+      <button type="button" class="fs-btn fs-btn-sm" id="fsGoAlbum" title="Go to album" aria-label="Go to album"><i class="ti ti-disc"></i></button>
     </div>
     <div class="fs-controls">
       <button class="fs-btn" id="fsPrev" title="Previous" aria-label="Previous"><i class="ti ti-player-skip-back-filled"></i></button>
@@ -451,9 +451,10 @@ window.KLAB_BOOT = (function() {
       <div class="music-sidebar-group">
         <div class="music-sidebar-label">Your library</div>
         <div class="picker-tabs">
+          <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span class="k-row-count" id="favCount"></span></button>
           <button class="picker-tab" data-tab="recent"><i class="ti ti-history"></i><span>Recently played</span></button>
-          <button class="picker-tab" data-tab="favorites"><i class="ti ti-heart"></i><span>Favorites</span> <span id="favCount"></span></button>
-          <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span id="queueCount"></span></button>
+          <button class="picker-tab" data-tab="queue"><i class="ti ti-list"></i><span>Queue</span> <span class="k-row-count" id="queueCount"></span></button>
+          <button class="picker-tab" data-tab="playlists"><i class="ti ti-playlist"></i><span>Playlists</span></button>
         </div>
         <div class="music-playlist-nav" id="musicPlaylistNav">
           <!-- Individual rows injected by renderPlaylistNav() -->
@@ -467,8 +468,7 @@ window.KLAB_BOOT = (function() {
           <button class="picker-tab" data-tab="albums"><i class="ti ti-disc"></i><span>Albums</span></button>
           <button class="picker-tab" data-tab="artists"><i class="ti ti-microphone-2"></i><span>Artists</span></button>
           <button class="picker-tab" data-tab="genres"><i class="ti ti-tags"></i><span>Genres</span></button>
-          <button class="picker-tab" data-tab="playlists"><i class="ti ti-playlist"></i><span>Playlists</span></button>
-          <button class="picker-tab" data-tab="requests"><i class="ti ti-music-plus"></i><span>Requests</span> <span id="requestsCount"></span></button>
+          <button class="picker-tab" data-tab="requests"><i class="ti ti-music-plus"></i><span>Requests</span> <span class="k-row-count" id="requestsCount"></span></button>
         </div>
       </div>
       </div>
@@ -717,6 +717,13 @@ window.KLAB_BOOT = (function() {
              in here on a wide window, and back beside the photo on a phone.
              Photos only. -->
         <div class="ph-sidebar soc-group soc-ph-only" id="phSidebar" aria-label="Photos">
+          <!-- Its views, as rows like Videos' (js/14-photos.js setView). -->
+          <div class="picker-tabs soc-nav ph-nav" id="phNav">
+            <button class="picker-tab active" data-phview="timeline"><i class="ti ti-timeline"></i><span>Timeline</span></button>
+            <button class="picker-tab" data-phview="new"><i class="ti ti-sparkles"></i><span>What's new</span></button>
+            <button class="picker-tab" data-phview="mine"><i class="ti ti-user"></i><span>Your photos</span></button>
+            <button class="picker-tab" data-phview="with"><i class="ti ti-users"></i><span>With you</span></button>
+          </div>
           <div class="ph-side-group ph-side-this soc-ph-only">
             <div class="ph-side-label">This photo</div>
             <div class="ph-side-info" id="phSideInfo"></div>
@@ -739,7 +746,7 @@ window.KLAB_BOOT = (function() {
   <div class="ph-shell" id="phShell">
     <div class="ph-main">
     <!-- The order switch, Slideshow and Post sit at the head's end on a wide window (js/14-photos.js). -->
-    <div class="ph-view-head"><h2 id="phViewTitle">Photos</h2><span id="phViewSub"></span><div class="ph-view-tools" id="phViewTools"></div></div>
+    <div class="k-page-head ph-view-head"><h2 class="k-page-title" id="phViewTitle">Photos</h2><span class="k-page-count" id="phViewSub"></span><div class="k-page-actions ph-view-tools" id="phViewTools"></div></div>
     <div class="ph-panel">
     <div class="ph-stage" id="phStage">
       <!-- The photo with its placard on the left (who, when, caption, tags)
@@ -778,28 +785,33 @@ window.KLAB_BOOT = (function() {
         </aside>
       </div>
       <div class="ph-actions">
-        <div class="ph-order ph-glass" id="phOrder" role="group" aria-label="Order">
-          <button type="button" data-order="shot" aria-pressed="true" title="By when the photos were taken"><i class="ti ti-timeline"></i><span>Timeline</span></button>
-          <button type="button" data-order="posted" aria-pressed="false" title="Newest uploads first"><i class="ti ti-sparkles"></i><span>What's new</span></button>
+        <!-- The views again, for a phone (the sidebar's rows on a computer). -->
+        <div class="k-seg ph-order" id="phOrder" role="group" aria-label="Show">
+          <button type="button" data-phview="timeline" aria-pressed="true" title="Timeline"><i class="ti ti-timeline"></i><span>Timeline</span></button>
+          <button type="button" data-phview="new" aria-pressed="false" title="What's new"><i class="ti ti-sparkles"></i><span>New</span></button>
+          <button type="button" data-phview="mine" aria-pressed="false" title="Your photos"><i class="ti ti-user"></i><span>Yours</span></button>
+          <button type="button" data-phview="with" aria-pressed="false" title="With you"><i class="ti ti-users"></i><span>With you</span></button>
         </div>
         <button type="button" class="ph-btn" id="phInfoBtn" aria-pressed="true"></button>
         <button type="button" class="ph-btn" id="phSoundBtn" aria-pressed="true"></button>
-        <button type="button" class="ph-btn" id="phSlideBtn" title="Slideshow (S)" aria-pressed="false"><i class="ti ti-slideshow"></i><span>Slideshow</span></button>
-        <button type="button" class="ph-btn ph-btn-post" id="phPostBtn" title="Post photos"><i class="ti ti-plus"></i><span>Post</span></button>
+        <button type="button" class="k-btn" id="phSlideBtn" title="Slideshow (⇧S)" aria-pressed="false"><i class="ti ti-slideshow"></i><span>Slideshow</span></button>
+        <button type="button" class="k-btn" id="phPostBtn" title="Post photos"><i class="ti ti-upload"></i><span>Post</span></button>
       </div>
-      <div class="ph-empty" id="phEmpty" hidden>
+      <div class="ph-empty k-empty" id="phEmpty" hidden>
         <i class="ti ti-photo"></i>
         <div id="phEmptyText">Loading photos…</div>
-        <button type="button" class="ph-btn ph-btn-post" id="phEmptyPost"><i class="ti ti-plus"></i><span>Post photos</span></button>
+        <button type="button" class="k-btn" id="phEmptyPost"><i class="ti ti-upload"></i><span>Post photos</span></button>
       </div>
       <aside class="ph-side" id="phSide">
         <div class="ph-side-head"><span>Comments</span><button type="button" class="ph-side-close" id="phSideClose" title="Close (c)"><i class="ti ti-x"></i></button></div>
         <div class="ph-replies" id="phReplies"></div>
-        <form class="ph-reply-form" id="phReplyForm" autocomplete="off">
-          <input type="text" id="phReplyInput" placeholder="Add a comment…" aria-label="Add a comment" maxlength="500" />
+        <form class="k-com-form ph-reply-form" id="phReplyForm" autocomplete="off">
+          <span class="k-com-face me" data-username=""></span>
+          <label class="k-field-box k-com-box"><input type="text" class="k-com-input" id="phReplyInput" placeholder="Add a comment…" aria-label="Add a comment" maxlength="500" enterkeyhint="send" /></label>
         </form>
         <div class="ph-side-foot">
           <a class="ph-original" id="phOriginal" target="_blank" rel="noopener"><i class="ti ti-arrows-maximize"></i> Full resolution · <span id="phOriginalSize"></span></a>
+          <a class="ph-original" id="phDownload" download><i class="ti ti-download"></i> Download original</a>
         </div>
       </aside>
     </div>
@@ -851,11 +863,12 @@ window.KLAB_BOOT = (function() {
             <div class="player-artist" id="playerArtist" style="display:none"></div>
           </div>
           <div class="player-controls">
-            <button class="ctrl-btn dock-extra" id="dockShuffle" title="Shuffle"><i class="ti ti-arrows-shuffle"></i></button>
+            <button type="button" class="ctrl-btn dock-extra dock-toggle" id="dockShuffle" title="Shuffle: off" aria-label="Shuffle: off" aria-pressed="false"><i class="ti ti-arrows-shuffle"></i></button>
             <button class="ctrl-btn" id="btnPrev" title="Previous"><i class="ti ti-player-skip-back"></i></button>
             <button class="ctrl-btn play-btn" id="btnPlay" title="Play" aria-label="Play"><i class="ti ti-player-play" id="playIcon"></i></button>
             <button class="ctrl-btn" id="btnNext" title="Next"><i class="ti ti-player-skip-forward"></i></button>
-            <button class="ctrl-btn dock-extra" id="dockFav" title="Favorite"><i class="ti ti-heart" id="dockFavIcon"></i></button>
+            <button type="button" class="ctrl-btn dock-extra dock-toggle" id="dockRepeat" title="Repeat: off" aria-label="Repeat: off" aria-pressed="false" data-mode="off"><i class="ti ti-repeat"></i></button>
+            <button type="button" class="ctrl-btn dock-extra" id="dockFav" title="Add to favorites" aria-pressed="false"><i class="ti ti-heart" id="dockFavIcon"></i></button>
             <button class="ctrl-btn dock-extra klab-star" id="dockStar" title="Star"><i class="ti ti-star"></i><span class="klab-star-n"></span></button>
             <button class="ctrl-btn dock-extra" id="dockShare" title="Share to feed"><i class="ti ti-share-2"></i></button>
           </div>
@@ -874,6 +887,7 @@ window.KLAB_BOOT = (function() {
       <div class="player-secondary">
         <!-- Your other devices (js/23-session.js): shown once there is one. -->
         <button type="button" class="ctrl-btn dock-radio" id="dockRadio" title="Switch to the radio (hold Q for the wheel)" aria-label="Radio" aria-pressed="false"><i class="ti ti-radio"></i></button>
+        <button type="button" class="ctrl-btn dock-queue" id="dockQueue" title="Up next" aria-label="Up next"><i class="ti ti-playlist"></i><span class="dock-q-n" id="dockQueueN"></span></button>
         <button type="button" class="ctrl-btn dock-devices" id="dockDevices" title="Devices" aria-label="Devices" aria-haspopup="menu" hidden><i class="ti ti-devices"></i><span id="dockDevicesName"></span></button>
         <div class="player-vol">
           <button type="button" class="ctrl-btn" aria-label="Mute" aria-pressed="false" title="Mute"><i class="ti ti-volume" id="volIcon"></i></button>
@@ -938,9 +952,10 @@ window.KLAB_BOOT = (function() {
         </div>
       </div>
     </div>
-    <div class="ph-compose-foot">
+    <div class="ph-compose-foot dlg-actions">
       <span class="ph-compose-error" id="phComposeError" hidden></span>
-      <button type="button" class="ph-compose-submit" id="phComposeSubmit" disabled>Post</button>
+      <button type="button" class="k-btn" id="phComposeCancel">Cancel</button>
+      <button type="button" class="k-btn primary" id="phComposeSubmit" disabled>Post</button>
     </div>
   </div>
 </div>
@@ -959,81 +974,58 @@ window.KLAB_BOOT = (function() {
         <div class="ph-tag-suggest" id="phEditTagSuggest"></div>
       </div>
     </div>
-    <div class="ph-compose-foot">
+    <div class="ph-compose-foot dlg-actions">
       <span class="ph-compose-error" id="phEditError" hidden></span>
-      <button type="button" class="ph-compose-submit" id="phEditSave">Save</button>
+      <button type="button" class="k-btn" id="phEditCancel">Cancel</button>
+      <button type="button" class="k-btn primary" id="phEditSave">Save</button>
     </div>
   </div>
 </div>
 
-<!-- KEYBOARD SHORTCUTS HINTS — own dedicated backdrop (not the shared
-     chatModal shell) so its own Escape/open-state handling never has to
-     guess whether some OTHER modal is the one currently open. -->
+<!-- KEYBOARD SHORTCUTS: drawn from KLAB_KEYS (js/01-shell.js), the page
+     you're on first. Its own backdrop, a layer of its own. -->
 <div class="add-app-backdrop" id="keyHintsBackdrop">
-  <div class="add-app-modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="width:min(560px, calc(100vw - 2rem));">
+  <div class="add-app-modal key-hints-modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="add-app-title">
       <span>Keyboard shortcuts</span>
-      <button class="add-app-close" id="keyHintsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
+      <button class="add-app-close k-icon sm" id="keyHintsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
-    <div class="key-hints-body">
-      <div class="key-hints-group">
-        <div class="key-hints-group-label">Navigation</div>
-        <div class="key-hints-row"><span>Next / previous page</span><span class="key-hints-keys"><kbd class="key-hint-key">Tab</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">⇧ Tab</kbd></span></div>
-        <div class="key-hints-row"><span>Jump to a page</span><span class="key-hints-keys"><kbd class="key-hint-key">1</kbd><span style="opacity:.5;">–</span><kbd class="key-hint-key">3</kbd></span></div>
-        <div class="key-hints-row"><span>Go to Home / Social / Feed / Chat / Photos / Music</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">h/s/f/c/p/m</kbd></span></div>
-        <div class="key-hints-row"><span>Scroll down / up</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd></span></div>
-        <div class="key-hints-row"><span>Jump to top / bottom</span><span class="key-hints-keys"><kbd class="key-hint-key">g</kbd><kbd class="key-hint-key">g</kbd><span style="opacity:.5;">/</span><kbd class="key-hint-key">G</kbd></span></div>
-        <div class="key-hints-row"><span>Next / previous row in the sidebar</span><span class="key-hints-keys"><kbd class="key-hint-key">s</kbd><kbd class="key-hint-key">w</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">↓</kbd><kbd class="key-hint-key">↑</kbd></span></div>
-        <div class="key-hints-row"><span>Hide / show the sidebar</span><span class="key-hints-keys"><kbd class="key-hint-key">b</kbd></span></div>
-        <div class="key-hints-row"><span>Previous / next section of the page</span><span class="key-hints-keys"><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
-        <div class="key-hints-row"><span>Type in the prompt (cd music, ls, help)</span><span class="key-hints-keys"><kbd class="key-hint-key">d</kbd></span></div>
-        <div class="key-hints-row"><span>Search (anywhere; vim's /)</span><span class="key-hints-keys"><kbd class="key-hint-key">/</kbd></span></div>
-      </div>
-      <div class="key-hints-group">
-        <div class="key-hints-group-label">Playback</div>
-        <div class="key-hints-row"><span>Play / pause</span><span class="key-hints-keys"><kbd class="key-hint-key">Space</kbd></span></div>
-        <div class="key-hints-row"><span>Next / previous track</span><span class="key-hints-keys"><kbd class="key-hint-key">n</kbd><kbd class="key-hint-key">p</kbd></span></div>
-        <div class="key-hints-row"><span>Mute</span><span class="key-hints-keys"><kbd class="key-hint-key">m</kbd></span></div>
-      </div>
-      <div class="key-hints-group">
-        <div class="key-hints-group-label">Photos tab</div>
-        <div class="key-hints-row"><span>Previous / next photo</span><span class="key-hints-keys"><kbd class="key-hint-key">h</kbd><kbd class="key-hint-key">l</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">←</kbd><kbd class="key-hint-key">→</kbd></span></div>
-        <div class="key-hints-row"><span>Older / newer post</span><span class="key-hints-keys"><kbd class="key-hint-key">j</kbd><kbd class="key-hint-key">k</kbd><span style="opacity:.5;">or</span><kbd class="key-hint-key">↓</kbd><kbd class="key-hint-key">↑</kbd></span></div>
-        <div class="key-hints-row"><span>Comments</span><span class="key-hints-keys"><kbd class="key-hint-key">c</kbd></span></div>
-        <div class="key-hints-row"><span>Photo info</span><span class="key-hints-keys"><kbd class="key-hint-key">i</kbd></span></div>
-        <div class="key-hints-row"><span>Slideshow</span><span class="key-hints-keys"><kbd class="key-hint-key">⇧ S</kbd></span></div>
-        <div class="key-hints-row"><span>Back to the newest</span><span class="key-hints-keys"><kbd class="key-hint-key">G</kbd></span></div>
-      </div>
-      <div class="key-hints-group">
-        <div class="key-hints-group-label">Voice</div>
-        <div class="key-hints-row"><span>Mute / unmute</span><span class="key-hints-keys"><kbd class="key-hint-key">Ctrl</kbd><kbd class="key-hint-key">⇧</kbd><kbd class="key-hint-key">M</kbd></span></div>
-        <div class="key-hints-row"><span>Deafen / undeafen</span><span class="key-hints-keys"><kbd class="key-hint-key">Ctrl</kbd><kbd class="key-hint-key">⇧</kbd><kbd class="key-hint-key">D</kbd></span></div>
-      </div>
-      <div class="key-hints-group">
-        <div class="key-hints-group-label">General</div>
-        <div class="key-hints-row"><span>Toggle this panel</span><span class="key-hints-keys"><kbd class="key-hint-key">?</kbd></span></div>
-        <div class="key-hints-row"><span>Close panels &amp; dialogs</span><span class="key-hints-keys"><kbd class="key-hint-key">Esc</kbd></span></div>
-      </div>
-      <div class="key-hints-note">Shortcuts are ignored while typing in a text field.</div>
-    </div>
+    <div class="key-hints-body" id="keyHintsBody"></div>
+    <div class="key-hints-note">Ignored while you're typing in a text field.</div>
   </div>
 </div>
 
-<!-- SETTINGS MODAL -->
+<!-- SETTINGS (js/07-tabnav.js). One sheet: who you are on top, a search
+     and a row of chips that scroll to each section, then the sections;
+     Reset last, on its own. Every id here is someone's handle (07-tabnav,
+     22-voice, 01-shell): keep them when moving rows about. -->
 <div class="settings-backdrop" id="settingsBackdrop">
   <div class="settings-modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="settings-header">
       <span class="settings-title">Settings</span>
-      <button class="settings-close" id="settingsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
+      <button class="settings-close k-icon sm" id="settingsClose" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>
     </div>
-    <div class="settings-body">
+    <div class="set-tools">
+      <label class="k-field-box set-search"><i class="ti ti-search"></i><input type="text" id="settingsSearch" placeholder="Search settings" aria-label="Search settings" autocomplete="off" spellcheck="false" /></label>
+      <nav class="set-chips" id="settingsChips" aria-label="Sections"></nav>
+    </div>
+    <div class="settings-body" id="settingsBody">
 
-      <!-- Appearance -->
-      <div class="settings-section">
+      <!-- You -->
+      <div class="settings-section set-account" id="setAccount" data-sec="account" data-title="Account">
+        <div class="set-me">
+          <span class="set-me-av" id="settingsAv" aria-hidden="true"></span>
+          <span class="set-me-text"><span class="set-me-name" id="settingsUser">—</span><span class="set-me-sub" id="settingsUserSub"></span></span>
+          <button type="button" class="k-btn sm" id="settingsProfileBtn"><i class="ti ti-user"></i>Profile</button>
+          <button type="button" class="k-btn sm settings-link" data-press="accountBtn" title="auth.klab.gg: password, sessions">Account<i class="ti ti-external-link"></i></button>
+        </div>
+      </div>
+
+      <div class="settings-section" id="setAppearance" data-sec="appearance" data-title="Appearance">
         <span class="settings-section-label">Appearance</span>
         <div class="settings-row" id="themeRow">
           <div><div class="settings-row-label">Theme</div></div>
-          <div class="app-seg" id="themeSeg" role="group" aria-label="Theme">
+          <div class="app-seg k-seg" id="themeSeg" role="group" aria-label="Theme">
             <button type="button" data-v="dark">Dark</button><button type="button" data-v="light">Light</button>
           </div>
         </div>
@@ -1043,37 +1035,36 @@ window.KLAB_BOOT = (function() {
             <button type="button" class="bg-palette-swatch scene-sw" data-v="" title="None"></button><button type="button" class="bg-palette-swatch scene-sw" data-v="sky" title="Sky"></button><button type="button" class="bg-palette-swatch scene-sw" data-v="wood" title="Wood"></button><button type="button" class="bg-palette-swatch scene-sw" data-v="ocean" title="Ocean"></button>
           </div>
         </div>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Background color</div><div class="settings-row-sub">Pick a shade for light &amp; dark mode</div></div>
-          <button class="bg-color-btn" id="bgColorBtn" title="Change background color"><i class="ti ti-palette"></i></button>
+        <div class="settings-row set-stack" id="bgColorRow" data-keywords="colour shade background">
+          <div><div class="settings-row-label">Background color</div><div class="settings-row-sub" id="bgColorSub">For the dark theme</div></div>
+          <div class="bg-palette-row" id="bgSwatches" role="group" aria-label="Background color"></div>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="fast slow blur gpu effects animations">
           <div><div class="settings-row-label">Performance mode</div><div class="settings-row-sub" id="lowFxSub">No blurred backgrounds, frosted glass or looping animations</div></div>
-          <button type="button" class="s-toggle" id="lowFxToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="lowFxToggle" role="switch" aria-checked="false"></button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="amoled pure black dark">
           <div><div class="settings-row-label">OLED black</div><div class="settings-row-sub">Pure black and solid, with no color or see-through glass behind the page</div></div>
-          <button type="button" class="s-toggle" id="oledToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="oledToggle" role="switch" aria-checked="false"></button>
         </div>
         <div class="settings-row" id="glassRow" hidden>
           <div><div class="settings-row-label">Window glass</div><div class="settings-row-sub">The sidebar, title bar and window edge: frosted, or a little glossier</div></div>
-          <div class="app-seg" id="glassStyle" role="group" aria-label="Window glass">
+          <div class="app-seg k-seg" id="glassStyle" role="group" aria-label="Window glass">
             <button type="button" data-v="frost">Frosted</button><button type="button" data-v="aero">Glossy</button>
           </div>
         </div>
       </div>
 
-      <!-- Audio -->
-      <div class="settings-section">
-        <span class="settings-section-label">Audio</span>
-        <div class="settings-row">
+      <div class="settings-section" id="setSound" data-sec="sound" data-title="Sound">
+        <span class="settings-section-label">Sound</span>
+        <div class="settings-row" data-keywords="sfx clicks audio">
           <div><div class="settings-row-label">Sound effects</div><div class="settings-row-sub">Clicks, sends and other little sounds</div></div>
-          <button type="button" class="s-toggle on" id="sfxToggle" role="switch" aria-checked="true"></button>
+          <button type="button" class="s-toggle k-switch on" id="sfxToggle" role="switch" aria-checked="true"></button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="sfx loud quiet audio">
           <div><div class="settings-row-label">Sound effects volume</div></div>
           <div class="s-slider-wrap">
-            <div class="slider-wrap" id="sfxVolumeSlider" aria-label="Sound effects volume" style="width:76px;">
+            <div class="slider-wrap" id="sfxVolumeSlider" aria-label="Sound effects volume">
               <div class="slider-track"></div>
               <div class="slider-fill" id="sfxVolumeFill" style="width:70%"></div>
               <div class="slider-dot" id="sfxVolumeDot" style="left:70%"></div>
@@ -1081,130 +1072,129 @@ window.KLAB_BOOT = (function() {
             <span class="s-slider-val" id="sfxVolumeVal">70%</span>
           </div>
         </div>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Notification sounds</div><div class="settings-row-sub">Toast and alert sounds</div></div>
-          <button type="button" class="s-toggle on" id="notifSoundToggle" role="switch" aria-checked="true"></button>
+      </div>
+
+      <div class="settings-section" id="setNotif" data-sec="notifications" data-title="Notifications">
+        <span class="settings-section-label">Notifications</span>
+        <div class="settings-row" id="dndRow" data-keywords="dnd quiet status mute busy">
+          <div><div class="settings-row-label">Do not disturb</div><div class="settings-row-sub" id="dndSub">No pop-ups or sounds for messages and mentions</div></div>
+          <button type="button" class="k-btn sm" id="dndBtn" aria-haspopup="menu">Turn on</button>
         </div>
-        <div class="settings-row" id="desktopNotifRow">
+        <div class="settings-row" data-keywords="sound alert toast">
+          <div><div class="settings-row-label">Notification sounds</div><div class="settings-row-sub">Toast and alert sounds</div></div>
+          <button type="button" class="s-toggle k-switch on" id="notifSoundToggle" role="switch" aria-checked="true"></button>
+        </div>
+        <div class="settings-row" id="desktopNotifRow" data-keywords="push os system">
           <div><div class="settings-row-label">Desktop notifications</div><div class="settings-row-sub" id="desktopNotifSub">DMs, mentions and replies while klabnet's in the background</div></div>
-          <button type="button" class="s-toggle" id="desktopNotifToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="desktopNotifToggle" role="switch" aria-checked="false"></button>
+        </div>
+        <div class="settings-row" id="awayRow" hidden data-keywords="idle status">
+          <div><div class="settings-row-label">Away status</div><div class="settings-row-sub" id="awaySub">Shows you as away after 5 minutes without using your computer, or when it's locked</div></div>
+          <button type="button" class="s-toggle k-switch" id="awayToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
       <!-- Voice (js/22-voice.js): only once the API says voice is set up. -->
-      <div class="settings-section" id="voiceSettings" hidden>
+      <div class="settings-section" id="voiceSettings" data-sec="voice" data-title="Voice" hidden>
         <span class="settings-section-label">Voice</span>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="mic input">
           <div><div class="settings-row-label">Microphone</div><div class="settings-row-sub" id="vcInputSub">What you talk into</div></div>
           <select class="vc-select" id="vcInput" aria-label="Microphone"></select>
         </div>
-        <div class="settings-row" id="vcOutputRow" hidden>
+        <div class="settings-row" id="vcOutputRow" hidden data-keywords="output headphones">
           <div><div class="settings-row-label">Speakers</div><div class="settings-row-sub">Where you hear everyone</div></div>
           <select class="vc-select" id="vcOutput" aria-label="Speakers"></select>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="ptt push to talk open mic">
           <div><div class="settings-row-label">Talk</div><div class="settings-row-sub" id="vcModeSub">Your microphone is on while you're in a channel</div></div>
-          <div class="app-seg" id="vcMode" role="group" aria-label="Talk">
+          <div class="app-seg k-seg" id="vcMode" role="group" aria-label="Talk">
             <button type="button" data-v="open">Open mic</button><button type="button" data-v="ptt">Push to talk</button>
           </div>
         </div>
-        <div class="settings-row" id="vcPttRow" hidden>
+        <div class="settings-row" id="vcPttRow" hidden data-keywords="ptt key bind">
           <div><div class="settings-row-label">Push-to-talk key</div><div class="settings-row-sub">Hold it to talk, while klabnet is the window you're in</div></div>
-          <button type="button" class="app-btn" id="vcPttKey">Set a key</button>
+          <button type="button" class="k-btn sm" id="vcPttKey">Set a key</button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="noise background">
           <div><div class="settings-row-label">Noise suppression</div><div class="settings-row-sub">Takes out fans, keyboards and hum</div></div>
-          <button type="button" class="s-toggle" id="vcNoiseToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="vcNoiseToggle" role="switch" aria-checked="false"></button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="echo">
           <div><div class="settings-row-label">Echo cancellation</div><div class="settings-row-sub">Keeps your speakers out of your microphone</div></div>
-          <button type="button" class="s-toggle" id="vcEchoToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="vcEchoToggle" role="switch" aria-checked="false"></button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="gain agc loudness">
           <div><div class="settings-row-label">Automatic volume</div><div class="settings-row-sub">Evens out how loud your microphone is</div></div>
-          <button type="button" class="s-toggle" id="vcGainToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="vcGainToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
-      <!-- Player -->
-      <div class="settings-section">
-        <span class="settings-section-label">Player</span>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Login song</div><div class="settings-row-sub">Play a song on page load</div></div>
-          <button type="button" class="s-toggle on" id="loginSongToggle" role="switch" aria-checked="true"></button>
+      <div class="settings-section" id="setGeneral" data-sec="general" data-title="General">
+        <span class="settings-section-label">General</span>
+        <div class="settings-row" data-keywords="music playback startup intro">
+          <div><div class="settings-row-label">Login song</div><div class="settings-row-sub">Play a song when klabnet opens</div></div>
+          <button type="button" class="s-toggle k-switch on" id="loginSongToggle" role="switch" aria-checked="true"></button>
+        </div>
+        <!-- Still being built: off until you turn it on. -->
+        <div class="settings-row" data-keywords="experimental gif animated chat posts">
+          <div><div class="settings-row-label">GIFs <span class="set-tag">Experimental</span></div><div class="settings-row-sub">A GIF button in posts, replies and chat. GIFs people send show either way</div></div>
+          <button type="button" class="s-toggle k-switch" id="gifsToggle" role="switch" aria-checked="false"></button>
         </div>
       </div>
 
-      <!-- Experimental: things still being built, off until you turn them on. -->
-      <div class="settings-section">
-        <span class="settings-section-label">Experimental features</span>
-        <div class="settings-row">
-          <div><div class="settings-row-label">GIFs</div><div class="settings-row-sub">A GIF button in posts, replies and chat. GIFs people send show either way</div></div>
-          <button type="button" class="s-toggle" id="gifsToggle" role="switch" aria-checked="false"></button>
-        </div>
-      </div>
-
-      <!-- App: only inside klabnet for Windows (js/07-tabnav.js). -->
-      <div class="settings-section" id="appSettings" hidden>
+      <!-- App: only inside the desktop apps (js/07-tabnav.js). -->
+      <div class="settings-section" id="appSettings" data-sec="app" data-title="App" hidden>
         <span class="settings-section-label">App</span>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="update version">
           <div><div class="settings-row-label" id="appNameLabel">klabnet for Windows</div><div class="settings-row-sub" id="appVersionSub">…</div></div>
-          <button type="button" class="app-btn" id="appUpdateBtn">Check for updates</button>
+          <button type="button" class="app-btn k-btn sm" id="appUpdateBtn">Check for updates</button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" data-keywords="startup boot autostart">
           <div><div class="settings-row-label" id="appLoginLabel">Start with Windows</div><div class="settings-row-sub" id="appLoginSub">Opens quietly in the tray when you sign in</div></div>
-          <button type="button" class="s-toggle" id="appLoginToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="appLoginToggle" role="switch" aria-checked="false"></button>
         </div>
-        <div class="settings-row" id="appTrayRow">
+        <div class="settings-row" id="appTrayRow" data-keywords="tray background close">
           <div><div class="settings-row-label">Close to tray</div><div class="settings-row-sub">Closing the window keeps klabnet (and your music) running</div></div>
-          <button type="button" class="s-toggle" id="appTrayToggle" role="switch" aria-checked="false"></button>
+          <button type="button" class="s-toggle k-switch" id="appTrayToggle" role="switch" aria-checked="false"></button>
         </div>
-        <div class="settings-row" id="appMaterialRow" hidden>
+        <div class="settings-row" id="appMaterialRow" hidden data-keywords="mica acrylic blur vibrancy">
           <div><div class="settings-row-label">Window material</div><div class="settings-row-sub" id="appMaterialSub">What Windows 11 puts behind klabnet</div></div>
-          <div class="app-seg" id="appMaterial" role="group" aria-label="Window material">
+          <div class="app-seg k-seg" id="appMaterial" role="group" aria-label="Window material">
             <button type="button" data-v="mica">Mica</button><button type="button" data-v="acrylic">Acrylic</button><button type="button" data-v="none">Solid</button>
           </div>
         </div>
         <!-- klabnet for Linux (the native app) with blur: like a terminal's background opacity. -->
-        <div class="settings-row" id="appTintRow" hidden>
+        <div class="settings-row" id="appTintRow" hidden data-keywords="glass tint opacity">
           <div><div class="settings-row-label">Glass</div><div class="settings-row-sub">How much klabnet covers the blurred desktop</div></div>
           <div class="app-tint"><input type="range" id="appTint" min="0" max="60" step="1" aria-label="Glass tint" /><span id="appTintVal"></span></div>
         </div>
       </div>
 
-      <!-- Account -->
-      <div class="settings-section">
-        <span class="settings-section-label">Account</span>
-        <div class="settings-row">
-          <div><div class="settings-row-label">Logged in as</div><div class="settings-row-sub" id="settingsUser">—</div></div>
-        </div>
-        <div class="settings-row" id="awayRow" hidden>
-          <div><div class="settings-row-label">Away status</div><div class="settings-row-sub" id="awaySub">Shows you as away after 5 minutes without using your computer, or when it's locked</div></div>
-          <button type="button" class="s-toggle" id="awayToggle" role="switch" aria-checked="false"></button>
-        </div>
-        <!-- What the title bar's ⋯ menu held (it and the theme button left the
-             title bar, 2026-10-31); each presses the menu's own item. -->
-        <button type="button" class="settings-row settings-link" data-press="accountBtn">
-          <span><span class="settings-row-label">Account</span><span class="settings-row-sub">auth.klab.gg: password, sessions</span></span><i class="ti ti-external-link"></i>
+      <!-- What the title bar's ⋯ menu held; each presses the menu's own item. -->
+      <div class="settings-section" id="setAbout" data-sec="about" data-title="About">
+        <span class="settings-section-label">About</span>
+        <button type="button" class="settings-row settings-link" data-press="keyHintsBtn" data-keywords="keys hotkeys">
+          <span><span class="settings-row-label">Keyboard shortcuts</span></span><kbd class="key-hint-key">?</kbd>
         </button>
-        <button type="button" class="settings-row settings-link" data-press="keyHintsBtn">
-          <span><span class="settings-row-label">Keyboard shortcuts</span></span><i class="ti ti-keyboard"></i>
+        <button type="button" class="settings-row settings-link" data-press="feedbackBtn" data-keywords="bug idea report">
+          <span><span class="settings-row-label">Feedback</span><span class="settings-row-sub">Report a bug or suggest an idea</span></span><i class="ti ti-message-dots"></i>
         </button>
-        <button type="button" class="settings-row settings-link" data-press="feedbackBtn">
-          <span><span class="settings-row-label">Feedback</span></span><i class="ti ti-message-dots"></i>
-        </button>
-        <button type="button" class="settings-row settings-link" data-press="getAppBtn" id="settingsGetApp" hidden>
+        <button type="button" class="settings-row settings-link" data-press="getAppBtn" id="settingsGetApp" hidden data-keywords="download desktop windows mac linux">
           <span><span class="settings-row-label">Get the desktop app</span><span class="settings-row-sub">For Windows, macOS and Linux</span></span><i class="ti ti-download"></i>
         </button>
-        <button type="button" class="settings-row settings-link" data-press="repoBtn">
+        <button type="button" class="settings-row settings-link" data-press="repoBtn" data-keywords="code git gitea">
           <span><span class="settings-row-label">Source</span><span class="settings-row-sub">git.klab.gg</span></span><i class="ti ti-git-branch"></i>
-        </button>
-        <button type="button" class="settings-row" id="clearPrefsRow">
-          <span><span class="settings-row-label" style="color:var(--danger-color);">Reset all preferences</span><span class="settings-row-sub">Clears local storage and server prefs</span></span>
-          <i class="ti ti-trash" style="color:var(--danger-color);font-size:14px;"></i>
         </button>
       </div>
 
+      <div class="settings-section set-danger" id="setReset" data-title="Reset">
+        <div class="settings-row" data-keywords="clear wipe defaults">
+          <div><div class="settings-row-label">Reset all preferences</div><div class="settings-row-sub">Clears what klabnet keeps on this device and your synced prefs, then reloads</div></div>
+          <button type="button" class="k-btn sm danger" id="clearPrefsRow">Reset…</button>
+        </div>
+      </div>
+
+      <div class="k-empty set-none" id="settingsNone" hidden></div>
     </div>
   </div>
 </div>
@@ -1229,50 +1219,50 @@ window.KLAB_BOOT = (function() {
      the service worker's stale-while-revalidate — so without a changing URL
      a deploy served fresh HTML against stale code, which looks like the new
      markup with the old behaviour wired to it. BUMP THIS ON EVERY DEPLOY. -->
-<script>const KLABNET_VERSION = 'v2026.11.19.5';</script>
-<script defer src="js/00-util.js?v=v2026.11.19.5"></script>
-<script defer src="js/01-shell.js?v=v2026.11.19.5"></script>
-<script defer src="js/02-player.js?v=v2026.11.19.5"></script>
-<script defer src="js/03-picker-tabs.js?v=v2026.11.19.5"></script>
-<script defer src="js/04-sfx.js?v=v2026.11.19.5"></script>
-<script defer src="js/05-favorites.js?v=v2026.11.19.5"></script>
-<script defer src="js/06-prefs.js?v=v2026.11.19.5"></script>
-<script defer src="js/07-tabnav.js?v=v2026.11.19.5"></script>
-<script defer src="js/08-chat.js?v=v2026.11.19.5"></script>
-<script defer src="js/09-music-extras.js?v=v2026.11.19.5"></script>
-<script defer src="js/09b-playlists.js?v=v2026.11.19.5"></script>
-<script defer src="js/10-lyrics.js?v=v2026.11.19.5"></script>
-<script defer src="js/11-presence.js?v=v2026.11.19.5"></script>
-<script defer src="js/vendor/marked.min.js?v=v2026.11.19.5"></script>
-<script defer src="js/vendor/purify.min.js?v=v2026.11.19.5"></script>
-<script defer src="js/11b-markdown.js?v=v2026.11.19.5"></script>
-<script defer src="js/11c-gifs.js?v=v2026.11.19.5"></script>
-<script defer src="js/12-feed.js?v=v2026.11.19.5"></script>
-<script defer src="js/13-tail.js?v=v2026.11.19.5"></script>
-<script defer src="js/14-photos.js?v=v2026.11.19.5"></script>
-<script defer src="js/15-music-home.js?v=v2026.11.19.5"></script>
-<script defer src="js/16-motion.js?v=v2026.11.19.5"></script>
-<script defer src="js/17-history.js?v=v2026.11.19.5"></script>
-<script defer src="js/18-home.js?v=v2026.11.19.5"></script>
-<script defer src="js/19-slideshow.js?v=v2026.11.19.5"></script>
-<script defer src="js/20-mentions.js?v=v2026.11.19.5"></script>
-<script defer src="js/21-stars.js?v=v2026.11.19.5"></script>
-<script defer src="js/22-voice.js?v=v2026.11.19.5"></script>
-<script defer src="js/23-session.js?v=v2026.11.19.5"></script>
-<script defer src="js/24-flair.js?v=v2026.11.19.5"></script>
-<script defer src="js/25-social.js?v=v2026.11.19.5"></script>
-<script defer src="js/26-browse.js?v=v2026.11.19.5"></script>
-<script defer src="js/27-activity.js?v=v2026.11.19.5"></script>
-<script defer src="js/28-radio.js?v=v2026.11.19.5"></script>
-<script defer src="js/31-feed-rail.js?v=v2026.11.19.5"></script>
-<script defer src="js/32-terminal.js?v=v2026.11.19.5"></script>
-<script defer src="js/33-plaza.js?v=v2026.11.19.5"></script>
-<script defer src="js/34-emoji.js?v=v2026.11.19.5"></script>
-<script defer src="js/35-profile.js?v=v2026.11.19.5"></script>
-<script defer src="js/36-recap.js?v=v2026.11.19.5"></script>
-<script defer src="js/37-ocean.js?v=v2026.11.19.5"></script>
-<script defer src="js/38-sky-fx.js?v=v2026.11.19.5"></script>
-<script defer src="js/39-videos.js?v=v2026.11.19.5"></script>
+<script>const KLABNET_VERSION = 'v2026.11.19.6';</script>
+<script defer src="js/00-util.js?v=v2026.11.19.6"></script>
+<script defer src="js/01-shell.js?v=v2026.11.19.6"></script>
+<script defer src="js/02-player.js?v=v2026.11.19.6"></script>
+<script defer src="js/03-picker-tabs.js?v=v2026.11.19.6"></script>
+<script defer src="js/04-sfx.js?v=v2026.11.19.6"></script>
+<script defer src="js/05-favorites.js?v=v2026.11.19.6"></script>
+<script defer src="js/06-prefs.js?v=v2026.11.19.6"></script>
+<script defer src="js/07-tabnav.js?v=v2026.11.19.6"></script>
+<script defer src="js/08-chat.js?v=v2026.11.19.6"></script>
+<script defer src="js/09-music-extras.js?v=v2026.11.19.6"></script>
+<script defer src="js/09b-playlists.js?v=v2026.11.19.6"></script>
+<script defer src="js/10-lyrics.js?v=v2026.11.19.6"></script>
+<script defer src="js/11-presence.js?v=v2026.11.19.6"></script>
+<script defer src="js/vendor/marked.min.js?v=v2026.11.19.6"></script>
+<script defer src="js/vendor/purify.min.js?v=v2026.11.19.6"></script>
+<script defer src="js/11b-markdown.js?v=v2026.11.19.6"></script>
+<script defer src="js/11c-gifs.js?v=v2026.11.19.6"></script>
+<script defer src="js/12-feed.js?v=v2026.11.19.6"></script>
+<script defer src="js/13-tail.js?v=v2026.11.19.6"></script>
+<script defer src="js/14-photos.js?v=v2026.11.19.6"></script>
+<script defer src="js/15-music-home.js?v=v2026.11.19.6"></script>
+<script defer src="js/16-motion.js?v=v2026.11.19.6"></script>
+<script defer src="js/17-history.js?v=v2026.11.19.6"></script>
+<script defer src="js/18-home.js?v=v2026.11.19.6"></script>
+<script defer src="js/19-slideshow.js?v=v2026.11.19.6"></script>
+<script defer src="js/20-mentions.js?v=v2026.11.19.6"></script>
+<script defer src="js/21-stars.js?v=v2026.11.19.6"></script>
+<script defer src="js/22-voice.js?v=v2026.11.19.6"></script>
+<script defer src="js/23-session.js?v=v2026.11.19.6"></script>
+<script defer src="js/24-flair.js?v=v2026.11.19.6"></script>
+<script defer src="js/25-social.js?v=v2026.11.19.6"></script>
+<script defer src="js/26-browse.js?v=v2026.11.19.6"></script>
+<script defer src="js/27-activity.js?v=v2026.11.19.6"></script>
+<script defer src="js/28-radio.js?v=v2026.11.19.6"></script>
+<script defer src="js/31-feed-rail.js?v=v2026.11.19.6"></script>
+<script defer src="js/32-terminal.js?v=v2026.11.19.6"></script>
+<script defer src="js/33-plaza.js?v=v2026.11.19.6"></script>
+<script defer src="js/34-emoji.js?v=v2026.11.19.6"></script>
+<script defer src="js/35-profile.js?v=v2026.11.19.6"></script>
+<script defer src="js/36-recap.js?v=v2026.11.19.6"></script>
+<script defer src="js/37-ocean.js?v=v2026.11.19.6"></script>
+<script defer src="js/38-sky-fx.js?v=v2026.11.19.6"></script>
+<script defer src="js/39-videos.js?v=v2026.11.19.6"></script>
 
 </body>
 </html>

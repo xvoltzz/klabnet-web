@@ -6,7 +6,7 @@
 //  list that decides which @names get coloured.
 // ══════════════════════════════════════════
 (function() {
-  const FIELDS = '#feedComposerText, .feed-post-reply-input, #phComposeCaption, #phEditCaption, #phReplyInput';
+  const FIELDS = '#feedComposerText, .feed-post-reply-input, .feed-edit-text, .k-com-input, #phComposeCaption, #phEditCaption, #phReplyInput, #vidComInput, #vidDescIn';
   const MAX = 6;
   const box = document.createElement('div');
   box.className = 'mention-suggest';

@@ -410,17 +410,22 @@ function sampleImageColor(imgUrl) {
     row.className = 'ap-track' + (isNow ? ' ap-now' : '');
     row.dataset.songId = song.id;
     row.dataset.star = 'song:' + song.id;
+    row._song = song;
+    row._list = songs;
     row.innerHTML = `
       <span class="ap-track-num">${idx + 1}</span>
-      ${artUrl ? `<img class="ap-track-art" src="${artUrl}" loading="lazy" onerror="this.style.display='none'" />` : ''}
+      <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${artUrl ? `<img class="ap-track-art" src="${artUrl}" alt="" loading="lazy" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />` : ''}
       <div class="ap-track-info">
         <div class="ap-track-title">${esc(song.title)}</div>
         ${song.artist ? `<div class="ap-track-sub">${esc(song.artist)}</div>` : ''}
       </div>
       ${song.duration ? `<span class="ap-track-dur">${fmtDur(song.duration)}</span>` : ''}
-      ${klabStars.button('song', song.id, 'ap-track-star')}
-      <button class="ap-track-play" title="Play" aria-label="Play"><i class="ti ti-player-play"></i></button>`;
-    row.addEventListener('click', () => {
+      ${klabSongActsHTML(song)}`;
+    row.addEventListener('click', e => {
+      if (e.target.closest('.song-acts')) return;
+      // The one playing: pause or carry on, rather than start it over.
+      if (playerState?.currentSong?.id === song.id && playerState.playlist === songs) { togglePlay(); return; }
       playerState.playlist = songs;
       playerState.playlistIndex = idx;
       playSong(song);
@@ -435,6 +440,72 @@ function sampleImageColor(imgUrl) {
       showSongCtx(e.clientX, e.clientY, song, songs);
     });
     return row;
+  }
+
+  // An album among an artist's records (theirs, or "More by" under an
+  // album): the card recipe, ▶ and queue and ♥ over the cover.
+  function discCard(album, artistName, artistId) {
+    const a = { ...album, name: album.name || album.title, artist: album.artist || artistName, artistId: album.artistId || artistId };
+    const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(a.coverArt || a.id)}&size=${klabArtSize(190)}&${subsonicParams()}`;
+    const card = document.createElement('div');
+    card.className = 'ap-disc-card';
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    card._album = a;
+    card.innerHTML = `<div class="ap-disc-art"><img src="${artUrl}" loading="lazy" alt="" onload="this.classList.add('loaded')" />${window.klabMusicCards.acts('album', a.id)}</div>` +
+      `<div class="ap-disc-card-title">${esc(a.name || '')}</div><div class="ap-disc-card-year">${esc(a.year || '')}</div>`;
+    card.addEventListener('keydown', e => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.repeat && !e.isComposing && e.target === card) {
+        e.preventDefault(); e.stopPropagation(); card.click();
+      }
+    });
+    card.addEventListener('click', async e => {
+      if (e.target.closest('[data-card-play]')) {
+        const mark = klabPickMark();
+        try { const s = await albumSongs(a.id); if (s.length && klabPickMark() === mark) { playSongList(s); SFX && SFX.play('click'); } }
+        catch (err) { showToast('Couldn’t play that album', 'ti-alert-triangle'); }
+        return;
+      }
+      if (e.target.closest('[data-card-queue]')) {
+        try { queueSongs(await albumSongs(a.id), { label: `"${a.name}"`, art: toastArt(a.coverArt || a.id) }); }
+        catch (err) { showToast('Couldn’t queue that album', 'ti-alert-triangle'); }
+        return;
+      }
+      window.openAlbumPage(a.id, a.name);
+    });
+    return card;
+  }
+
+  // Play, Shuffle, ♥ and ⋯ under an album's or artist's hero, the house's
+  // big buttons (k-btn .lg). Play becomes Pause while it's playing from here.
+  function heroActions({ playing, play, shuffle, heart, menu }) {
+    const actions = document.createElement('div');
+    actions.className = 'ap-actions';
+    actions.innerHTML =
+      '<button type="button" class="k-btn lg primary" data-ap="play"><i class="ti ti-player-play-filled"></i><span>Play</span></button>' +
+      '<button type="button" class="k-btn lg" data-ap="shuffle"><i class="ti ti-arrows-shuffle"></i><span>Shuffle</span></button>' +
+      heart +
+      '<button type="button" class="k-btn lg icon" data-ap="more" title="More" aria-label="More" aria-haspopup="menu"><i class="ti ti-dots"></i></button>';
+    const playBtn = actions.querySelector('[data-ap="play"]');
+    actions.querySelector('.k-heart')?.classList.add('k-btn', 'lg', 'icon');
+    const sync = () => {
+      const on = !!playing?.() && !playerState.audio.paused;
+      playBtn.querySelector('i').className = 'ti ' + (on ? 'ti-player-pause-filled' : 'ti-player-play-filled');
+      playBtn.querySelector('span').textContent = on ? 'Pause' : 'Play';
+    };
+    playBtn.addEventListener('click', () => {
+      SFX && SFX.play('click');
+      if (playing?.()) { playerState.audio.paused ? playerState.audio.play().catch(() => {}) : playerState.audio.pause(); return; }
+      play();
+    });
+    actions.querySelector('[data-ap="shuffle"]').addEventListener('click', () => { SFX && SFX.play('click'); shuffle(); });
+    actions.querySelector('[data-ap="more"]').addEventListener('click', e => klabMenu.at(e.currentTarget, menu(), { align: 'start' }));
+    // One listener set per open page; each removes itself once this
+    // page's button has left the DOM.
+    const onAudio = () => { if (!playBtn.isConnected) { for (const t of ['play', 'pause', 'loadstart']) playerState.audio.removeEventListener(t, onAudio); return; } sync(); };
+    for (const t of ['play', 'pause', 'loadstart']) playerState.audio.addEventListener(t, onAudio);
+    sync();
+    return actions;
   }
 
   // ── The sidebar row for what's open ──
@@ -470,6 +541,9 @@ function sampleImageColor(imgUrl) {
         setNavRow(navRow);
         loading();
         const myLoadToken = ++_apLoadToken;
+        // The page arrives (once it's drawn, not its loading line).
+        new MutationObserver((m, o) => { if (myLoadToken !== _apLoadToken || !scroll.querySelector('.ap-loading')) { o.disconnect(); if (myLoadToken === _apLoadToken) klabEnter(scroll); } })
+          .observe(scroll, { childList: true });
         await render({
           scroll, buildTrack, setBg,
           alive: () => myLoadToken === _apLoadToken,
@@ -550,8 +624,24 @@ function sampleImageColor(imgUrl) {
           </div>`;
         frag.appendChild(hero);
 
+        hero._artist = { id: artistId, name: artistName, coverArt: artist?.coverArt, albumCount: artist?.album?.length };
         const body = document.createElement('div');
         body.className = 'ap-body';
+
+        // Play (everything they have, newest record first), Shuffle, ♥, ⋯
+        const artistObj = hero._artist;
+        if (artist?.album?.length) {
+          const fromHere = () => playerState.playlist?._artistId === artistId && !!playerState.currentSong;
+          const actions = heroActions({
+            playing: fromHere,
+            play: () => window.klabPlayArtist(artistObj),
+            shuffle: () => window.klabPlayArtist(artistObj, { shuffle: true }),
+            heart: klabHeartHTML('artist', artistId),
+            menu: () => artistMenuItems(artistObj, { page: true }),
+          });
+          actions.querySelector('.k-heart')._fav = artistObj;
+          frag.appendChild(actions);
+        }
 
         // Bio
         if (info?.biography) {
@@ -576,45 +666,30 @@ function sampleImageColor(imgUrl) {
           const sorted = [...artist.album].sort((a,b) => (b.year||0)-(a.year||0));
           const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'Discography';
           const grid = document.createElement('div'); grid.className = 'ap-disc-grid';
-          sorted.forEach(album => {
-            const artUrl = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(album.coverArt)}&size=${klabArtSize(190)}&${subsonicParams()}`;
-            const card = document.createElement('div'); card.className = 'ap-disc-card';
-            card.setAttribute('role', 'button');
-            card.tabIndex = 0;
-            card.addEventListener('keydown', e => {
-              if ((e.key === 'Enter' || e.key === ' ') && !e.repeat && !e.isComposing) {
-                e.preventDefault(); e.stopPropagation(); card.click();
-              }
-            });
-            card._album = { ...album, artist: album.artist || artistName, artistId: album.artistId || artistId };
-            card.innerHTML = `<img src="${artUrl}" loading="lazy" alt="" /><div class="ap-disc-card-title">${esc(album.name||album.title)}</div><div class="ap-disc-card-year">${album.year||''}</div>`;
-            card.addEventListener('click', () => window.openAlbumPage(album.id, album.name||album.title));
-            grid.appendChild(card);
-          });
+          sorted.forEach(album => grid.appendChild(discCard(album, artistName, artistId)));
           body.append(lbl, grid);
         }
 
         // Similar artists
         if (info?.similarArtist?.length) {
-          const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'Similar Artists';
+          const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'Similar artists';
           const chips = document.createElement('div'); chips.className = 'ap-similar';
+          // Only the ones in the library open: Last.fm names the rest, and
+          // they used to open an empty page.
           info.similarArtist.slice(0,14).forEach(sim => {
             const chip = document.createElement('span'); chip.className = 'ap-sim-chip'; chip.textContent = sim.name;
+            if (!sim.id) {
+              chip.classList.add('off');
+              chip.title = 'Not in the library';
+              chips.appendChild(chip);
+              return;
+            }
             chip.setAttribute('role', 'button');
             chip.tabIndex = 0;
             chip.addEventListener('keydown', e => {
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); }
             });
-            chip.addEventListener('click', async () => {
-              // Search catalog for this artist
-              try {
-                const r = await fetchTimeout(`${ND_URL}/rest/search3?query=${encodeURIComponent(sim.name)}&artistCount=1&albumCount=0&songCount=0&${subsonicParams()}`, {}, 8000);
-                const d = await r.json();
-                const found = d['subsonic-response']?.searchResult3?.artist?.[0];
-                if (found) window.openArtistPage(found.id, found.name);
-                else window.openArtistPage(sim.id || '', sim.name); // try with Last.fm id as fallback
-              } catch(e) {}
-            });
+            chip.addEventListener('click', () => window.openArtistPage(sim.id, sim.name));
             chips.appendChild(chip);
           });
           body.append(lbl, chips);
@@ -624,6 +699,7 @@ function sampleImageColor(imgUrl) {
         scroll.innerHTML = '';
         scroll.appendChild(frag);
         scroll.scrollTop = 0;
+        klabEnter(scroll);
 
       } catch(e) {
         if (myLoadToken !== _apLoadToken) return;
@@ -685,7 +761,7 @@ function sampleImageColor(imgUrl) {
             <span class="ap-hero-kicker">Album</span>
             <div class="ap-hero-name">${esc(album.name||album.title)}</div>
             <div class="ap-hero-artist-link" data-artist-id="${esc(album.artistId)}" data-artist-name="${esc(album.artist)}">${esc(album.artist)}</div>
-            <div class="ap-hero-sub">${[album.year, `${songs.length} track${songs.length!==1?'s':''}`, durStr].filter(Boolean).join(' · ')}</div>
+            <div class="ap-hero-sub">${[album.year, album.genre || album.genres?.[0]?.name, `${songs.length} track${songs.length!==1?'s':''}`, durStr].filter(Boolean).map(esc).join(' · ')}</div>
           </div>`;
         frag.appendChild(hero);
         // Then the cover at high resolution (klabHiResArt, kept on our own
@@ -705,74 +781,38 @@ function sampleImageColor(imgUrl) {
         const body = document.createElement('div');
         body.className = 'ap-body';
 
-        // Actions
-        const actions = document.createElement('div'); actions.className = 'ap-actions';
-        const playBtn  = document.createElement('button'); playBtn.className = 'ap-btn-play';
-        playBtn.innerHTML = '<i class="ti ti-player-play"></i> Play';
-        // Reuses the same global shuffle the dock/fullscreen-player shuffle
-        // buttons already use (_shuffleOn + syncShuffleBtns()), not a
-        // separate one-off shuffle just for this button — stays in sync
-        // with those icons and with how "next track" behaves afterward.
-        const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'ap-btn-queue';
-        shuffleBtn.innerHTML = '<i class="ti ti-arrows-shuffle"></i> Shuffle';
-        const queueBtn = document.createElement('button'); queueBtn.className = 'ap-btn-queue';
-        queueBtn.innerHTML = '<i class="ti ti-playlist-add"></i> Queue all';
-        // While a song from this album is what's playing, the button is
-        // Pause (and Play resumes it) instead of restarting the album.
+        hero._album = { ...album, name: album.name || album.title };
+        // Play, Shuffle, ♥ and ⋯ (Play next, Add to queue, Add to
+        // playlist, Go to artist, View cover, Download).
         // Not named albumId: that's openAlbumPage's own parameter, and a
         // const of the same name here put every earlier use of it in this
         // block (the album fetch) in the temporal dead zone.
         const thisAlbumId = album.id;
-        const fromThisAlbum = () => !!playerState.currentSong && playerState.currentSong.albumId === thisAlbumId;
-        const syncPlayBtn = () => {
-          const playing = fromThisAlbum() && !playerState.audio.paused;
-          playBtn.innerHTML = playing ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play';
-        };
-        playBtn.addEventListener('click', () => {
-          if (!songs.length) return;
-          SFX && SFX.play('click');
-          if (fromThisAlbum()) { playerState.audio.paused ? playerState.audio.play().catch(() => {}) : playerState.audio.pause(); return; }
-          playerState.playlist = songs; playerState.playlistIndex = 0;
-          playSong(songs[0]);
+        const actions = heroActions({
+          playing: () => !!playerState.currentSong && playerState.currentSong.albumId === thisAlbumId,
+          play: () => { if (songs.length) playSongList(songs); },
+          shuffle: () => { if (songs.length) playSongList(songs, { shuffle: true }); },
+          heart: klabHeartHTML('album', thisAlbumId),
+          menu: () => albumMenuItems(hero._album, { page: true }),
         });
-        // One listener set per open page; each removes itself once this
-        // page's button has left the DOM.
-        const onAudio = () => { if (!playBtn.isConnected) { for (const t of ['play', 'pause', 'loadstart']) playerState.audio.removeEventListener(t, onAudio); return; } syncPlayBtn(); };
-        for (const t of ['play', 'pause', 'loadstart']) playerState.audio.addEventListener(t, onAudio);
-        syncPlayBtn();
-        shuffleBtn.addEventListener('click', () => {
-          if (!songs.length) return;
-          playerState.playlist = songs;
-          _shuffleOn = true; syncShuffleBtns();
-          const i = Math.floor(Math.random() * songs.length);
-          playerState.playlistIndex = i;
-          playSong(songs[i]); SFX && SFX.play('click');
-        });
-        queueBtn.addEventListener('click', () => {
-          if (!songs.length) return;
-          // One toast for the album, not one (and a queue redraw) per track.
-          queue.push(...songs);
-          updateQueueBadge();
-          if (pickerTab === 'queue') renderQueueList();
-          SFX && SFX.play('queue');
-          showToast('Queued ' + klabCount(songs.length, 'track'), toastArt(album.coverArt || album.id));
-        });
-        // Original quality only, as a ZIP straight from Navidrome — see
-        // downloadAlbumZip. Per-track MP3 lives in the song context menu.
-        const dlBtn = document.createElement('button'); dlBtn.className = 'ap-btn-queue';
-        dlBtn.innerHTML = '<i class="ti ti-download"></i> Download';
-        dlBtn.title = 'Download this album as a ZIP (original quality)';
-        dlBtn.addEventListener('click', () => {
-          downloadAlbumZip(albumId, album.name || album.title);
-          SFX && SFX.play('click');
-        });
-        actions.append(playBtn, shuffleBtn, queueBtn, dlBtn);
-        body.appendChild(actions);
+        actions.querySelector('.k-heart')._fav = hero._album;
+        frag.appendChild(actions);
 
-        // Tracks
+        // Tracks, under a heading per disc when there's more than one
+        // (each disc's tracks start at 1 again).
+        const discs = new Set(songs.map(s => s.discNumber || 1));
+        const multi = discs.size > 1;
         const tracksLabel = document.createElement('div'); tracksLabel.className = 'ap-sec-label'; tracksLabel.textContent = 'Tracks';
-        body.appendChild(tracksLabel);
+        if (!multi) body.appendChild(tracksLabel);
+        let disc = null;
         songs.forEach((s,i) => {
+          if (multi && (s.discNumber || 1) !== disc) {
+            disc = s.discNumber || 1;
+            const d = document.createElement('div');
+            d.className = 'ap-sec-label ap-disc-label';
+            d.innerHTML = `<i class="ti ti-disc"></i> Disc ${disc}`;
+            body.appendChild(d);
+          }
           // For albums, override track num with actual track number
           const row = buildTrack(s, i, songs, false);
           row.querySelector('.ap-track-num').textContent = s.track || i+1;
@@ -795,10 +835,28 @@ function sampleImageColor(imgUrl) {
           wirebio(bioEl, btn);
         }
 
+        // More by the same artist: their other records, under the tracks.
+        const more = document.createElement('div');
+        more.className = 'ap-more-by';
+        body.appendChild(more);
+        if (album.artistId) {
+          fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(album.artistId)}&${subsonicParams()}`, {}, 8000)
+            .then(r => r.json()).then(d => {
+              const others = (d['subsonic-response']?.artist?.album || []).filter(a => a.id !== album.id)
+                .sort((a, b) => (b.year || 0) - (a.year || 0)).slice(0, 12);
+              if (!others.length || !more.isConnected || myLoadToken !== _apLoadToken) return;
+              const lbl = document.createElement('div'); lbl.className = 'ap-sec-label'; lbl.textContent = 'More by ' + (album.artist || 'this artist');
+              const grid = document.createElement('div'); grid.className = 'ap-disc-grid';
+              others.forEach(a => grid.appendChild(discCard(a, album.artist, album.artistId)));
+              more.append(lbl, grid);
+            }).catch(() => {});
+        }
+
         frag.appendChild(body);
         scroll.innerHTML = '';
         scroll.appendChild(frag);
         scroll.scrollTop = 0;
+        klabEnter(scroll);
 
         // Wire artist link
         scroll.querySelector('.ap-hero-artist-link')?.addEventListener('click', e => {

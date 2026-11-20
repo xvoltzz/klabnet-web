@@ -8,7 +8,8 @@
 //      they are; offline, when they were last here). A row opens the
 //      profile.
 //    · The sky: everyone with a note, as their face under the note's
-//      bubble, drifting and bouncing off the walls and each other like a
+//      bubble, and whoever's online without one as just their face (yours
+//      with a faint "Set a note…" to press), drifting and bouncing off the walls and each other like a
 //      screensaver. A bubble stops under the pointer; pressing it opens
 //      the profile (yours sets your note). It moves only while Home is up,
 //      the tab's visible and the window has focus (html.win-idle); still
@@ -24,8 +25,7 @@
   const me = () => window.KLAB_USER?.username;
 
   host.innerHTML =
-    '<div class="pz-sky" id="pzSky"><button class="app-btn pz-set-note" id="pzSetNote" type="button" hidden><i class="ti ti-pencil"></i>Set a note</button>' +
-      '<p class="pz-sky-empty" id="pzSkyEmpty" hidden>No one has a note up.</p></div>' +
+    '<div class="pz-sky" id="pzSky"><p class="pz-sky-empty" id="pzSkyEmpty" hidden>No one\'s around.</p></div>' +
     '<div class="pz-people">' +
       '<div class="picker-section-label">Online <span class="pz-count" id="pzOnN"></span></div><div class="pz-list" id="pzOn"></div>' +
       '<div class="picker-section-label">Offline <span class="pz-count" id="pzOffN"></span></div><div class="pz-list" id="pzOff"></div>' +
@@ -116,9 +116,12 @@
   // ── The sky ──
   const bubbles = new Map(); // username -> { el, x, y, vx, vy, w, h, html }
   let W = 0, H = 0;
+  // A note's bubble over the face; yours, with none, a faint "Set a
+  // note…" to press; anyone else online without one, just the face.
   function bubbleHTML(u, s) {
-    return '<div class="pz-note"><span>' + esc(s.note) + '</span></div>' + face(u, s, 'pz-face') +
-      '<div class="pz-name">' + esc(s.mine ? 'you' : u) + '</div>';
+    const note = s.note ? '<div class="pz-note"><span>' + esc(s.note) + '</span></div>'
+      : s.mine ? '<div class="pz-note ghost"><span>Set a note…</span></div>' : '';
+    return note + face(u, s, 'pz-face') + '<div class="pz-name">' + esc(s.mine ? 'you' : u) + '</div>';
   }
   function hash(str) {
     let h = 2166136261;
@@ -126,7 +129,9 @@
     return h >>> 0;
   }
   function paintSky(names, states) {
-    const noted = names.filter(u => states.get(u).note);
+    // Everyone with a note, and whoever's here without one (the sky was an
+    // empty 360px when nobody had a note up).
+    const noted = names.filter(u => { const s = states.get(u); return s.note || s.on; });
     for (const [u, b] of bubbles) if (!noted.includes(u)) { b.el.remove(); bubbles.delete(u); }
     measureSky();
     noted.forEach((u, i) => {
@@ -146,7 +151,8 @@
       }
       b.el.classList.toggle('off', !s.on);
       b.el.classList.toggle('me', s.mine);
-      b.el.setAttribute('aria-label', u + ': ' + s.note);
+      b.el.classList.toggle('bare', !s.note && !s.mine);
+      b.el.setAttribute('aria-label', s.note ? u + ': ' + s.note : s.mine ? 'Set a note' : u);
       const html = bubbleHTML(u, s);
       if (html !== b.html) { b.html = html; b.el.innerHTML = html; b.w = b.el.offsetWidth; b.h = b.el.offsetHeight; }
     });
@@ -164,8 +170,6 @@
       b.y = (cy + j(9) / rows) * H - b.h / 2;
       clamp(b);
     });
-    const mine = states.get(me());
-    $('pzSetNote').hidden = !mine || !!mine.note;
     $('pzSkyEmpty').hidden = bubbles.size > 0;
     draw();
     wake();
@@ -245,7 +249,6 @@
     else if (typeof openProfileView === 'function') openProfileView(u);
   }
   sky.addEventListener('click', e => {
-    if (e.target.closest('#pzSetNote')) { window.klabEditNote?.(); return; }
     const el = e.target.closest('.pz-b');
     if (el) press(el);
   });

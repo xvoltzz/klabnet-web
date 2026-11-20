@@ -1,4 +1,126 @@
 // ══════════════════════════════════════════
+//  ONE COMMENT KIT (refresh 2026-11-19). Feed replies, a photo's comments
+//  and a video's comments are the same thing (a post's /replies), so they
+//  look and work the same everywhere: a face, the name, the time, the
+//  text, and a trash on hover for your own (or any, for an admin). The box
+//  under them is a face and a field: Enter posts, Esc clears (then
+//  leaves), @names and :emoji: suggest as you type (js/20-mentions.js,
+//  js/34-emoji.js match .k-com-input). A comment you add grows in; one you
+//  delete folds away at once with "Comment deleted · Undo", and the
+//  DELETE goes when the toast does (klabUndo). Rows are a one-row grid so
+//  folding animates grid-template-rows, never height.
+//  window.klabComments: rowHTML, listHTML, formHTML, fresh(id), gone(id),
+//  isGone(id), remove(row) and del({...}).
+// ══════════════════════════════════════════
+(function () {
+  const me = () => window.KLAB_USER?.username || '';
+  const admin = () => !!window.KLAB_USER?.is_admin;
+  const freshIds = new Set();   // just posted here: they grow in once
+  const goneIds = new Set();    // deleted, waiting out their Undo
+  const when = s => {
+    if (!s) return 0;
+    const str = String(s);
+    return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(' ', 'T') + 'Z').getTime() || 0;
+  };
+  function faceHTML(u, cls) {
+    const url = window.klabResolveUserAvatar?.(u);
+    return '<span class="k-com-face' + (cls ? ' ' + cls : '') + '" data-username="' + esc(u || '') + '" style="--c:' + (typeof profileColor === 'function' ? profileColor(u) : '') + '">' +
+      (url ? '<img src="' + esc(url) + '" alt="" />' : esc((u || '?')[0].toUpperCase())) + '</span>';
+  }
+  const plain = t => {
+    const seg = x => (window.klabMentionsHTML ? klabMentionsHTML(x) : esc(x));
+    return (typeof linkifyHTML === 'function' ? linkifyHTML(t || '', seg) : seg(t || '')).replace(/\n/g, '<br>');
+  };
+  function rowHTML(r, o) {
+    o = o || {};
+    const t = when(r.created);
+    const del = o.canDelete ? o.canDelete(r) : (r.username === me() || admin());
+    const isFresh = freshIds.delete(String(r.id));
+    return '<div class="k-com' + (isFresh ? ' fresh' : '') + '" data-reply-id="' + r.id + '"' + (o.postId != null ? ' data-post-id="' + o.postId + '"' : '') + '><div class="k-com-in">' +
+      faceHTML(r.username) +
+      '<div class="k-com-tx">' +
+        '<div class="k-com-head">' +
+          '<button type="button" class="k-com-name" data-username="' + esc(r.username) + '" style="color:' + profileColor(r.username) + '" data-silent>' + esc(r.username) + '</button>' +
+          '<span class="k-com-time" data-created="' + esc(r.created || '') + '"' + (t ? ' title="' + esc(new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) + '"' : '') + '>' + (t ? klabRelativeTime(t) : '') + '</span>' +
+          (del ? '<button type="button" class="k-icon sm k-com-del" data-reply-id="' + r.id + '"' + (o.postId != null ? ' data-post-id="' + o.postId + '"' : '') + ' title="Delete comment" aria-label="Delete comment"><i class="ti ti-trash"></i></button>' : '') +
+        '</div>' +
+        '<div class="k-com-body">' + (o.text ? o.text(r) : plain(r.text)) + '</div>' +
+      '</div></div></div>';
+  }
+  function listHTML(replies, o, empty) {
+    const shown = (replies || []).filter(r => !goneIds.has(String(r.id)));
+    return shown.length ? shown.map(r => rowHTML(r, o)).join('')
+      : (empty == null ? '' : '<div class="k-com-empty">' + esc(empty) + '</div>');
+  }
+  // o: { id, postId, placeholder, value, cls, extra (HTML inside the box, after the field) }
+  function formHTML(o) {
+    o = o || {};
+    return '<form class="k-com-form' + (o.cls ? ' ' + o.cls : '') + '"' + (o.formId ? ' id="' + o.formId + '"' : '') + (o.postId != null ? ' data-post-id="' + o.postId + '"' : '') + ' autocomplete="off">' +
+      faceHTML(me(), 'me') +
+      '<label class="k-field-box k-com-box">' +
+        '<input type="text" class="k-com-input' + (o.inputCls ? ' ' + o.inputCls : '') + '"' + (o.id ? ' id="' + o.id + '"' : '') + (o.postId != null ? ' data-post-id="' + o.postId + '"' : '') +
+          ' placeholder="' + esc(o.placeholder || 'Add a comment…') + '" aria-label="' + esc(o.placeholder || 'Add a comment').replace(/…$/, '') + '" maxlength="500" enterkeyhint="send"' + (o.value ? ' value="' + esc(o.value) + '"' : '') + ' />' +
+        (o.extra || '') +
+      '</label></form>';
+  }
+  // Folds a row away (opacity and its grid row to 0fr); resolves once it's gone.
+  function remove(row) {
+    return new Promise(res => {
+      if (!row || !row.isConnected) return res();
+      if (!(window.klabMotionOk?.() ?? true)) { row.remove(); return res(); }
+      row.classList.add('gone');
+      let done = false;
+      const end = () => { if (done) return; done = true; row.remove(); res(); };
+      row.addEventListener('transitionend', e => { if (e.target === row && e.propertyName === 'grid-template-rows') end(); });
+      setTimeout(end, 320);
+    });
+  }
+  // A delete with Undo. o: { postId, reply, row, apply(), undo(), label }
+  // apply/undo update the owner's own list and counts.
+  function del(o) {
+    const id = String(o.reply.id);
+    goneIds.add(id);
+    let applied = false;
+    return klabUndo(o.label || 'Comment deleted', {
+      apply: () => { remove(o.row).then(() => { if (goneIds.has(id)) { applied = true; o.apply?.(); } }); },
+      undo: () => {
+        goneIds.delete(id);
+        if (o.row && o.row.isConnected) o.row.classList.remove('gone');
+        if (applied) o.undo?.();
+      },
+      commit: async () => {
+        const r = await fetch('/api/posts/' + o.postId + '/replies/' + o.reply.id, { method: 'DELETE', keepalive: true });
+        goneIds.delete(id);
+        if (!r.ok && r.status !== 404) { throw new Error('status ' + r.status); }
+        o.done?.();
+      },
+      failed: 'Couldn’t delete that comment',
+    });
+  }
+  // Esc clears the box first, then leaves it.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !e.target.matches?.('.k-com-input') || e.defaultPrevented) return;
+    // A suggestion list open over it closes first (its own Esc).
+    if (document.querySelector('.mention-suggest:not([hidden]), .emo-suggest:not([hidden])')) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.target.value) { e.target.value = ''; e.target.dispatchEvent(new Event('input', { bubbles: true })); }
+    else e.target.blur();
+  }, true);
+  // Faces whose picture arrived after they were drawn.
+  function refreshFaces(root) {
+    (root || document).querySelectorAll('.k-com-face[data-username]:not(:has(img))').forEach(el => {
+      const url = window.klabResolveUserAvatar?.(el.dataset.username);
+      if (url) el.innerHTML = '<img src="' + esc(url) + '" alt="" />';
+    });
+  }
+  window.klabComments = {
+    rowHTML, listHTML, formHTML, faceHTML, remove, del, refreshFaces,
+    fresh: id => freshIds.add(String(id)),
+    isGone: id => goneIds.has(String(id)),
+  };
+})();
+
+// ══════════════════════════════════════════
 //  FEED — Home tab. Text/image posts, klabnet-api /api/posts. Images never
 //  touch klabnet-api: the browser uploads straight to Matrix's content repo
 //  via uploadContent() (same flow the profile-avatar picker already uses,
@@ -79,6 +201,10 @@
   // carries the state from before, and merging it would undo what you did.
   const _locallyDeleted = new Set();      // postIds you deleted this session
   const _localEditAt = new Map();         // postId -> performance.now() of your last change to it
+  // Your own posts open for editing (postId -> the text in the editor), so
+  // a rebuild of the post (a poll, a reaction) keeps the editor and what's
+  // in it.
+  const _editing = new Map();
 
   // Its own list, separate from the header's MOTD_PHRASES — same crude/
   // unhinged energy on purpose, just original lines rather than reusing
@@ -120,6 +246,10 @@
       // day, in every open klabnet. Checks back once a second instead.
       if (document.hidden || !textEl.offsetParent || textEl.value) { setTimeout(tick, 1000); return; }
       const phrase = FEED_PLACEHOLDER_PHRASES[phraseIdx];
+      // Reduced motion, Performance mode or a window in the background: the
+      // phrase, still, with no cursor (the typing is a loop like any other).
+      const still = (typeof klabMotionOk === 'function' && !klabMotionOk()) || document.documentElement.classList.contains('win-idle');
+      if (still) { textEl.placeholder = phrase; charIdx = phrase.length + 1; setTimeout(tick, 2000); return; }
       if (charIdx <= phrase.length) {
         textEl.placeholder = phrase.slice(0, charIdx) + (charIdx < phrase.length ? '_' : '');
         charIdx++;
@@ -382,23 +512,27 @@
     return klabRelativeTime(d.getTime());
   }
 
+  // A time in full, for tooltips: "Nov 19, 2026, 3:42 PM".
+  function fullTime(apiTime) {
+    const d = new Date(String(apiTime || '').replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(apiTime || '') ? '' : 'Z'));
+    return isNaN(d) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  }
+  // Your post, open for editing in place: the same text, the same markdown
+  // when it's saved. Esc cancels, Ctrl/⌘+Enter saves.
+  function editorHTML(post) {
+    return '<div class="feed-post-editor" data-post-id="' + post.id + '">' +
+      '<textarea class="k-field feed-edit-text" data-post-id="' + post.id + '" maxlength="' + FEED_MAX_CHARS + '" aria-label="Edit post" spellcheck="true">' + esc(_editing.get(post.id) ?? post.text ?? '') + '</textarea>' +
+      '<div class="feed-edit-foot"><span class="feed-edit-hint">Esc to cancel · ' + (/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl') + '+Enter to save</span>' +
+        '<button type="button" class="k-btn sm" data-edit-cancel="' + post.id + '">Cancel</button>' +
+        '<button type="button" class="k-btn sm primary" data-edit-save="' + post.id + '">Save</button></div>' +
+    '</div>';
+  }
+
+  // One comment, the kit's way (klabComments, above).
   function feedReplyHTML(post, reply) {
     const me = window.KLAB_USER?.username;
-    const canDelete = reply.username === me || window.KLAB_USER?.is_admin;
     ensureFeedAvatar(reply.username);
-    const avatarUrl = _feedAvatarCache.get(reply.username);
-    const avatarInner = avatarUrl ? '<img src="' + esc(avatarUrl) + '" alt="" />' : esc((reply.username || '?')[0].toUpperCase());
-    return '<div class="feed-post-reply">' +
-      '<div class="feed-post-reply-avatar" data-username="' + esc(reply.username) + '">' + avatarInner + '</div>' +
-      '<div class="feed-post-reply-body">' +
-        '<div class="feed-post-reply-head">' +
-          '<span class="feed-post-reply-name" data-username="' + esc(reply.username) + '" style="color:' + profileColor(reply.username) + '">' + esc(reply.username) + '</span>' +
-          '<span class="feed-post-reply-time" data-created="' + esc(reply.created) + '">' + fmtFeedTime(reply.created) + '</span>' +
-          (canDelete ? '<button type="button" class="feed-post-reply-delete" data-post-id="' + post.id + '" data-reply-id="' + reply.id + '" title="Delete reply" aria-label="Delete reply"><i class="ti ti-trash"></i></button>' : '') +
-        '</div>' +
-        '<div class="feed-post-reply-text">' + replyTextHTML(reply.text, me) + '</div>' +
-      '</div>' +
-    '</div>';
+    return klabComments.rowHTML(reply, { postId: post.id, text: r => replyTextHTML(r.text, me) });
   }
 
   // Always shown now (no more expand/collapse click) — ensureFeedRepliesResolved()
@@ -409,12 +543,9 @@
     // The reply box only shows once a post has replies or you hit Reply,
     // instead of an empty input under every post.
     return '<div class="feed-post-replies' + (replies.length ? ' has-replies' : '') + (_openReplyBoxes.has(post.id) || draft ? ' replying' : '') + '" data-post-id="' + post.id + '">' +
-      replies.map(r => feedReplyHTML(post, r)).join('') +
-      '<div class="feed-post-reply-composer">' +
-        '<input type="text" class="feed-post-reply-input" data-post-id="' + post.id + '" placeholder="Reply…" maxlength="500"' + (draft ? ' value="' + esc(draft) + '"' : '') + ' />' +
-        '<button type="button" class="feed-post-reply-gif" data-post-id="' + post.id + '" title="GIF"><span class="gif-glyph">GIF</span></button>' +
-        '<button type="button" class="feed-post-reply-send" data-post-id="' + post.id + '" title="Send reply"><i class="ti ti-send-2"></i></button>' +
-      '</div>' +
+      replies.filter(r => !klabComments.isGone(r.id)).map(r => feedReplyHTML(post, r)).join('') +
+      klabComments.formHTML({ postId: post.id, placeholder: 'Reply…', value: draft, cls: 'feed-post-reply-composer', inputCls: 'feed-post-reply-input',
+        extra: '<button type="button" class="k-icon sm feed-post-reply-gif" data-post-id="' + post.id + '" title="GIF" aria-label="GIF"><span class="gif-glyph">GIF</span></button>' }) +
     '</div>';
   }
 
@@ -512,19 +643,21 @@
       '<div class="feed-post-body">' +
         '<div class="feed-post-head">' +
           '<span class="feed-post-name" data-username="' + esc(post.username) + '">' + esc(post.username) + '</span>' +
-          '<span class="feed-post-time" data-created="' + esc(post.created) + '">' + fmtFeedTime(post.created) + '</span>' +
+          '<span class="feed-post-time" data-created="' + esc(post.created) + '" title="' + esc(fullTime(post.created)) + '">' + fmtFeedTime(post.created) + '</span>' +
+          (post.edited ? '<span class="feed-post-edited" title="Edited ' + esc(fullTime(post.edited)) + '">edited</span>' : '') +
         '</div>' +
         // Its actions, over its top right while you point at it, as on a
         // chat message (Slack's way): the quick reactions, reply, delete.
         // They used to sit under every post all the time, with the quick
         // reactions spilling out of a button in a row of bare emoji.
-        '<div class="feed-post-actions">' +
-          KLAB_QUICK_REACTS.map(e => '<button type="button" class="feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + klabReactHTML(e) + '</button>').join('') +
-          '<button type="button" class="feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions"><i class="ti ti-mood-plus"></i></button>' +
-          '<button type="button" class="feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
-          (canDelete ? '<button type="button" class="feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
+        '<div class="feed-post-actions k-toolbar" role="toolbar" aria-label="Post actions">' +
+          KLAB_QUICK_REACTS.map(e => '<button type="button" class="k-icon feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + klabReactHTML(e) + '</button>').join('') +
+          '<button type="button" class="k-icon feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions" aria-label="More reactions"><i class="ti ti-mood-plus"></i></button>' +
+          '<button type="button" class="k-icon feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply" aria-label="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
+          (post.username === me ? '<button type="button" class="k-icon feed-post-act feed-post-edit" data-post-id="' + post.id + '" title="Edit post" aria-label="Edit post"><i class="ti ti-pencil"></i></button>' : '') +
+          (canDelete ? '<button type="button" class="k-icon feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
-        (post.text ? postTextHTML(post, me) : '') +
+        (_editing.has(post.id) ? editorHTML(post) : post.text ? postTextHTML(post, me) : '') +
         imageHTML +
         embedHTML +
         songHTML +
@@ -563,7 +696,7 @@
           ':' + (_feedAvatarCache.get(p.username) || '') +
           ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') +
           ':' + (p.video ? p.video.id + '.' + (p.video.status || '') + '.' + (p.video.poster || '') : '') +
-          ':' + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') +
+          ':' + (_openReplyBoxes.has(p.id) ? 'r' : '') + (_expandedPosts.has(p.id) ? 'x' : '') + (_editing.has(p.id) ? 'e' : '') + ':' + (p.edited || '') +
           ':' + (replies
             ? replies.map(r => r.id + '@' + (_feedAvatarCache.get(r.username) || '')).join('+')
             : '-') +
@@ -578,6 +711,7 @@
     return p.id + ':' + (me || '') + (window.KLAB_USER?.is_admin ? 'A' : '') +
       ':' + profileColor(p.username) + ':' + (_feedAvatarCache.get(p.username) || '') +
       ':' + (p.image_mxc ? (_feedImageCache.get(p.image_mxc) || '') : '') + ':' + (_expandedPosts.has(p.id) ? 'x' : '') +
+      ':' + (_editing.has(p.id) ? 'e' : '') + (p.edited || '') +
       ((p.text || '').includes('@') ? ':' + _peopleVer : '');
   }
   // Takes the per-post keys already worked out, so each render builds them once.
@@ -590,7 +724,7 @@
   // a timer and whenever the feed comes back into view.
   function refreshFeedTimes() {
     if (document.hidden || !listEl.offsetParent) return;
-    listEl.querySelectorAll('.feed-post-time[data-created], .feed-post-reply-time[data-created]').forEach(el => {
+    listEl.querySelectorAll('.feed-post-time[data-created], .k-com-time[data-created]').forEach(el => {
       const t = fmtFeedTime(el.dataset.created);
       if (el.textContent !== t) el.textContent = t;
     });
@@ -917,8 +1051,17 @@
       // Home polls on its own clock, so it can know about a post the feed
       // hasn't fetched yet.
       if (!find()) { await fetchFeed(); renderFeed(); }
+      // An older post (a recap row, a profile): page back for it, a few
+      // pages at most, while the post is older than what's loaded.
+      for (let i = 0; i < 6 && !find() && _feedHasMore && _feedPosts.length &&
+           Number(postId) < _feedPosts[_feedPosts.length - 1].id; i++) {
+        while (_feedPending) await new Promise(r => setTimeout(r, 120));
+        const before = _feedPosts.length;
+        await loadOlderPosts();
+        if (_feedPosts.length === before) break;
+      }
       const el = find();
-      if (!el) return;
+      if (!el) { showToast('That post is too far back, or gone', 'ti-news'); return; }
       el.scrollIntoView({ block: 'center', behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
       el.classList.remove('feed-post-flash'); void el.offsetWidth; el.classList.add('feed-post-flash');
     });
@@ -986,6 +1129,7 @@
       // the user had already paged in via "Load older", snapping the list
       // back to just the newest 50 out from under them.
       const byId = new Map(_feedPosts.map(p => [p.id, p]));
+      const newestBefore = _feedPosts.length ? _feedPosts[0].id : null;
       // Someone else's deleted post: anything inside the range this page
       // covers that the server no longer returns is gone (all of it, when
       // the page is the whole feed).
@@ -1016,6 +1160,13 @@
         byId.set(p.id, p);
       });
       _feedPosts = [...byId.values()].sort((a, b) => b.id - a.id);
+      // Other people's new posts while you're down the Feed reading: a
+      // "New posts" chip up top, rather than the list moving under you.
+      if (newestBefore != null) {
+        const me = window.KLAB_USER?.username;
+        const fresh = _feedPosts.filter(p => p.id > newestBefore && p.username !== me).length;
+        if (fresh) newPostsChip(fresh);
+      }
       // _feedHasMore is otherwise owned by loadOlderPosts() once pagination
       // has started — only the first good load (or a restart after a gap)
       // should derive it from this top-page fetch.
@@ -1023,7 +1174,7 @@
       _feedLoadedOk = true;
       _feedRetryMs = 0;
       clearTimeout(_feedRetryTimer);
-      const signature = _feedPosts.map(p => `${p.id}:${p.reply_count || 0}:${JSON.stringify(p.reactions || {})}`).join('|');
+      const signature = _feedPosts.map(p => `${p.id}:${p.reply_count || 0}:${p.edited || ''}:${JSON.stringify(p.reactions || {})}`).join('|');
       // Most 30s polls come back with nothing actually new — skip the full
       // list rebuild when this fetch changed nothing. Every other trigger
       // (posting, reacting, replying, deleting, avatar/image resolving)
@@ -1342,17 +1493,139 @@
     }
   }
 
+  // Your own post goes at once, folding out of the list, with Undo; the
+  // DELETE goes when the toast does. An admin deleting someone else's is
+  // asked first (no Undo for other people's words).
   async function deletePost(id) {
-    if (!(await showConfirmDialog('Delete this post?', 'It’s gone for everyone, with its replies.', 'Delete'))) return;
-    try {
-      const r = await fetchTimeout('/api/posts/' + id, { method: 'DELETE' }, 8000);
-      if (r.ok) {
+    const post = _feedPosts.find(p => p.id === id);
+    if (!post) return;
+    const mine = post.username === window.KLAB_USER?.username;
+    if (!mine && !(await showConfirmDialog('Delete ' + post.username + '’s post?', 'It’s gone for everyone, with its replies.', 'Delete'))) return;
+    const el = listEl.querySelector(':scope > .feed-post[data-post-id="' + id + '"]');
+    let applied = false;
+    const take = () => {
+      _locallyDeleted.add(id);
+      _feedPosts = _feedPosts.filter(p => p.id !== id);
+      applied = true;
+      renderFeed();
+    };
+    klabUndo('Post deleted', {
+      apply: () => {
         _locallyDeleted.add(id);
-        _feedPosts = _feedPosts.filter(p => p.id !== id);
-        renderFeed();
+        if (el && el.isConnected && (window.klabMotionOk?.() ?? true)) foldAway(el, () => { if (_locallyDeleted.has(id)) take(); });
+        else take();
         SFX && SFX.play('click');
-      }
-    } catch (e) {}
+      },
+      undo: () => {
+        _locallyDeleted.delete(id);
+        el?.classList.remove('feed-post-going');
+        if (applied) {
+          _feedPosts = _feedPosts.filter(p => p.id !== id).concat(post).sort((a, b) => b.id - a.id);
+          _localEditAt.set(id, performance.now());
+          renderFeed();
+        }
+      },
+      commit: async () => {
+        const r = await fetch('/api/posts/' + id, { method: 'DELETE', keepalive: true });
+        if (!r.ok && r.status !== 404) throw new Error('status ' + r.status);
+      },
+      failed: 'Couldn’t delete that post',
+    });
+  }
+
+  // ── "New posts" (refresh 2026-11-19) ──
+  let _newAbove = 0, _chipWrap = null;
+  const feedPane = () => listEl.closest('.tab-panel');
+  function newPostsChip(n) {
+    const pane = feedPane();
+    if (!pane || pane.scrollTop < 400 || !document.body.classList.contains('tab-feed-active')) return;
+    _newAbove += n;
+    if (!_chipWrap) {
+      _chipWrap = document.createElement('div');
+      _chipWrap.className = 'feed-new-chip-wrap';
+      _chipWrap.innerHTML = '<button type="button" class="feed-new-chip" data-silent><i class="ti ti-arrow-up"></i><span></span></button>';
+      _chipWrap.firstChild.addEventListener('click', () => {
+        feedPane()?.scrollTo({ top: 0, behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
+        dropChip();
+      });
+      pane.addEventListener('scroll', () => { if (_newAbove && pane.scrollTop < 120) dropChip(); }, { passive: true });
+    }
+    _chipWrap.querySelector('span').textContent = klabCount(_newAbove, 'new post');
+    if (!_chipWrap.isConnected) listEl.before(_chipWrap);
+  }
+  function dropChip() { _newAbove = 0; _chipWrap?.remove(); }
+
+  // A post leaving: it fades (160ms), then goes, and the posts under it
+  // glide up into its place (FLIP: transforms only, nothing re-laid out
+  // frame by frame).
+  function foldAway(el, done) {
+    el.classList.add('feed-post-going');
+    setTimeout(() => {
+      const after = [];
+      for (let n = el.nextElementSibling; n && after.length < 16; n = n.nextElementSibling) after.push(n);
+      const before = after.map(x => x.getBoundingClientRect().top);
+      done();
+      const moved = [];
+      after.forEach((x, i) => {
+        if (!x.isConnected) return;
+        const d = before[i] - x.getBoundingClientRect().top;
+        if (Math.abs(d) < 1) return;
+        x.style.transition = 'none';
+        x.style.transform = 'translateY(' + d + 'px)';
+        moved.push(x);
+      });
+      if (!moved.length) return;
+      void listEl.offsetHeight;
+      moved.forEach(x => {
+        x.style.transition = 'transform 280ms cubic-bezier(.2,.8,.2,1)';
+        x.style.transform = '';
+        setTimeout(() => { x.style.transition = ''; }, 300);
+      });
+    }, 160);
+  }
+
+  // ── Editing your own post (PATCH /api/posts/{id} {text}) ──
+  function editPost(id) {
+    const post = _feedPosts.find(p => p.id === id);
+    if (!post || post.username !== window.KLAB_USER?.username) return;
+    _editing.set(id, post.text || '');
+    renderFeed();
+    const ta = listEl.querySelector('.feed-edit-text[data-post-id="' + id + '"]');
+    if (ta) { growEditor(ta); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
+  function growEditor(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 480) + 'px'; }
+  function cancelEdit(id) {
+    _editing.delete(id);
+    // The typing guard won't rebuild a post with focus in its editor.
+    if (document.activeElement?.closest?.('.feed-post-editor')) document.activeElement.blur();
+    renderFeed();
+  }
+  async function saveEdit(id) {
+    const post = _feedPosts.find(p => p.id === id);
+    const ta = listEl.querySelector('.feed-edit-text[data-post-id="' + id + '"]');
+    if (!post || !ta) return;
+    const text = ta.value.trim();
+    if (text === (post.text || '').trim()) return cancelEdit(id);
+    if (!text && !post.image_mxc && !post.song && !post.video) { showToast('A post needs something in it', 'ti-alert-triangle'); return; }
+    if (text.length > FEED_MAX_CHARS) { showToast('Too long by ' + (text.length - FEED_MAX_CHARS).toLocaleString() + ' characters', 'ti-alert-triangle'); return; }
+    const btn = listEl.querySelector('[data-edit-save="' + id + '"]');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetchTimeout('/api/posts/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }, 10000);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(klabCap(j.error) || (r.status === 404 || r.status === 405 ? 'Editing needs the latest klabnet-api' : 'Couldn’t save that'));
+      const cur = _feedPosts.find(p => p.id === id);
+      if (cur) Object.assign(cur, j && j.id ? j : { text, edited: new Date().toISOString() });
+      _localEditAt.set(id, performance.now());
+      _editing.delete(id);
+      _expandedPosts.add(id);
+      ta.blur();
+      renderFeed();
+      SFX && SFX.play('click');
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      showToast(e.message || 'Couldn’t save that', 'ti-alert-triangle');
+    }
   }
 
   // Shared by the file-picker button and Ctrl/Cmd+V paste below — picking
@@ -1555,6 +1828,7 @@
       // theirs stayed hidden until the next poll. Fetch the whole list.
       const behind = !!post && list.length !== (post.reply_count || 0);
       list.push(reply);
+      klabComments.fresh(reply.id);
       _repliesCache.set(postId, list);
       if (post) post.reply_count = (post.reply_count || 0) + 1;
       if (behind) _repliesStale.add(postId);
@@ -1576,21 +1850,25 @@
     } catch (e) { restore(); }
   }
 
-  async function deleteFeedReply(postId, replyId) {
-    // Fired immediately with zero confirmation before — deletePost() just
-    // above already confirms; a reply is the same class of destructive,
-    // hard-to-undo action.
-    if (!(await showConfirmDialog('Delete this reply?', 'It’s gone for everyone.', 'Delete'))) return;
-    try {
-      const r = await fetchTimeout(`/api/posts/${postId}/replies/${replyId}`, { method: 'DELETE' }, 8000);
-      if (!r.ok) return;
-      const list = (_repliesCache.get(postId) || []).filter(rp => rp.id !== replyId);
-      _repliesCache.set(postId, list);
+  // At once, with Undo: the DELETE goes when the toast does (klabUndo).
+  function deleteFeedReply(postId, replyId) {
+    const list = _repliesCache.get(postId) || [];
+    const reply = list.find(rp => rp.id === replyId);
+    if (!reply) return;
+    const row = listEl.querySelector('.feed-post-replies[data-post-id="' + postId + '"] .k-com[data-reply-id="' + replyId + '"]');
+    const adjust = d => {
       const post = _feedPosts.find(p => p.id === postId);
-      if (post) post.reply_count = Math.max(0, (post.reply_count || 0) - 1);
+      if (post) post.reply_count = Math.max(0, (post.reply_count || 0) + d);
       _localEditAt.set(postId, performance.now());
-      renderFeed();
-    } catch (e) {}
+    };
+    klabComments.del({
+      postId, reply, row, label: 'Reply deleted',
+      apply: () => { _repliesCache.set(postId, (_repliesCache.get(postId) || []).filter(rp => rp.id !== replyId)); adjust(-1); renderFeed(); },
+      undo: () => {
+        const cur = (_repliesCache.get(postId) || []).filter(rp => rp.id !== replyId).concat(reply).sort((a, b) => a.id - b.id);
+        _repliesCache.set(postId, cur); adjust(1); renderFeed();
+      },
+    });
   }
 
   // A reaction you add floats up off the button.
@@ -1612,10 +1890,16 @@
 
   loadMoreEl.addEventListener('click', loadOlderPosts);
   listEl.addEventListener('click', (e) => {
-    const nameClick = e.target.closest('.feed-post-name, .feed-post-reply-name, .feed-post-mention, .feed-post-avatar, .feed-post-reply-avatar');
+    const nameClick = e.target.closest('.feed-post-name, .k-com-name, .feed-post-mention, .feed-post-avatar, .k-com-face');
     if (nameClick?.dataset.username) { openProfileView(nameClick.dataset.username); return; }
     const del = e.target.closest('.feed-post-delete');
     if (del) { deletePost(Number(del.dataset.postId)); return; }
+    const edit = e.target.closest('.feed-post-edit');
+    if (edit) { editPost(Number(edit.dataset.postId)); return; }
+    const eCancel = e.target.closest('[data-edit-cancel]');
+    if (eCancel) { cancelEdit(Number(eCancel.dataset.editCancel)); return; }
+    const eSave = e.target.closest('[data-edit-save]');
+    if (eSave) { saveEdit(Number(eSave.dataset.editSave)); return; }
     const pill = e.target.closest('.feed-post-reaction-pill, .feed-post-star');
     if (pill) { if (!pill.classList.contains('mine')) floatEmoji(pill, pill.dataset.emoji); toggleFeedReaction(Number(pill.dataset.postId), pill.dataset.emoji); return; }
     const replyOpen = e.target.closest('.feed-post-reply-open');
@@ -1654,14 +1938,7 @@
       });
       return;
     }
-    const replySend = e.target.closest('.feed-post-reply-send');
-    if (replySend) {
-      const postId = Number(replySend.dataset.postId);
-      const input = replyInputFor(postId);
-      if (input) submitFeedReply(postId, input);
-      return;
-    }
-    const replyDelete = e.target.closest('.feed-post-reply-delete');
+    const replyDelete = e.target.closest('.k-com-del');
     if (replyDelete) { deleteFeedReply(Number(replyDelete.dataset.postId), Number(replyDelete.dataset.replyId)); return; }
     const more = e.target.closest('.feed-post-more');
     if (more) {
@@ -1724,11 +2001,11 @@
     const post = postEl && _feedPosts.find(p => p.id === Number(postEl.dataset.postId));
     if (!post) return;
     const me = window.KLAB_USER?.username;
-    const replyEl = e.target.closest('.feed-post-reply');
+    const replyEl = e.target.closest('.k-com');
     if (replyEl) {
-      const who = replyEl.querySelector('.feed-post-reply-name')?.dataset.username;
-      const del = replyEl.querySelector('.feed-post-reply-delete');
-      const text = replyEl.querySelector('.feed-post-reply-text')?.innerText.trim();
+      const who = replyEl.querySelector('.k-com-name')?.dataset.username;
+      const del = replyEl.querySelector('.k-com-del');
+      const text = replyEl.querySelector('.k-com-body')?.innerText.trim();
       klabMenu(e, [
         { header: who || 'Reply' },
         { label: 'Reply', icon: 'ti-arrow-back-up', action: () => openReplyBox(post.id, who !== me ? who : null) },
@@ -1737,7 +2014,7 @@
         { label: 'View profile', icon: 'ti-user-circle', hidden: !who, action: () => openProfileView(who) },
         { label: 'Message', icon: 'ti-message-2-plus', hidden: !who || who === me, action: () => messageUser(who) },
         '-',
-        { label: 'Delete reply', icon: 'ti-trash', warn: true, hidden: !del, action: () => deleteFeedReply(post.id, Number(del.dataset.replyId)) },
+        { label: 'Delete reply', icon: 'ti-trash', danger: true, hidden: !del, action: () => deleteFeedReply(post.id, Number(del.dataset.replyId)) },
       ]);
       return;
     }
@@ -1752,7 +2029,8 @@
         if (btn) floatEmoji(btn, emoji);
         toggleFeedReaction(post.id, emoji);
       } },
-      { label: 'Reply', icon: 'ti-message-circle', action: () => openReplyBox(post.id) },
+      { label: 'Reply', icon: 'ti-arrow-back-up', action: () => openReplyBox(post.id) },
+      { label: 'Edit post', icon: 'ti-pencil', hidden: !mine, action: () => editPost(post.id) },
       { label: 'Copy text', icon: 'ti-copy', hidden: !post.text, action: () => klabCopy(post.text, 'Post') },
       '-',
       { label: 'Open image', icon: 'ti-photo', hidden: !img, action: () => openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt }) },
@@ -1764,13 +2042,30 @@
       { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(post.username) },
       { label: 'Message', icon: 'ti-message-2-plus', hidden: mine, action: () => messageUser(post.username) },
       '-',
-      { label: 'Delete post', icon: 'ti-trash', warn: true, hidden: !postEl.querySelector('.feed-post-delete'), action: () => deletePost(post.id) },
+      { label: 'Delete post', icon: 'ti-trash', danger: true, hidden: !postEl.querySelector('.feed-post-delete'), action: () => deletePost(post.id) },
     ]);
   });
+  // The post editor: Esc cancels, Ctrl/⌘+Enter saves; it grows as you type.
   listEl.addEventListener('keydown', (e) => {
-    const input = e.target.closest('.feed-post-reply-input');
-    // Not mid-IME: that Enter picks a candidate (same check as chat's composer).
-    if (input && e.key === 'Enter' && !e.isComposing) submitFeedReply(Number(input.dataset.postId), input);
+    const ta = e.target.closest?.('.feed-edit-text');
+    if (!ta || e.isComposing) return;
+    const id = Number(ta.dataset.postId);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelEdit(id); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEdit(id); }
+  });
+  listEl.addEventListener('input', (e) => {
+    const ta = e.target.closest?.('.feed-edit-text');
+    if (!ta) return;
+    _editing.set(Number(ta.dataset.postId), ta.value);
+    growEditor(ta);
+  });
+  // Enter in a reply box submits its form (an IME's Enter doesn't).
+  listEl.addEventListener('submit', (e) => {
+    const form = e.target.closest('.feed-post-reply-composer');
+    if (!form) return;
+    e.preventDefault();
+    const input = form.querySelector('.feed-post-reply-input');
+    if (input) submitFeedReply(Number(input.dataset.postId), input);
   });
   listEl.addEventListener('input', (e) => {
     const input = e.target.closest('.feed-post-reply-input');

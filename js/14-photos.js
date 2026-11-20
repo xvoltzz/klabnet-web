@@ -59,6 +59,16 @@
   // is "What's New" (by upload). Not remembered: the tab always opens on
   // the timeline.
   let order = 'shot';
+  // Which photos (the sidebar's rows, setView): the timeline, what's new,
+  // yours, or the ones you're tagged in. The last two are the timeline
+  // filtered here (the API has no filter), topped up a page at a time.
+  let view = 'timeline';
+  const VIEW_TITLE = { timeline: 'Photos', new: 'What’s new', mine: 'Your photos', with: 'With you' };
+  const filtered = () => view === 'mine' || view === 'with';
+  const inView = post => view === 'mine' ? (post.username || '').toLowerCase() === me()
+    : view === 'with' ? (post.tags || []).some(t => String(t).toLowerCase() === me()) : true;
+  const shownPosts = () => filtered() ? posts.filter(inView) : posts;
+  const loadedPhotos = () => posts.reduce((n, p) => n + p.photos.length, 0);
   // How many photos there are in all, from the API's first page (null
   // from an API that doesn't say: then it's what's loaded, and a "+").
   let total = null;
@@ -77,21 +87,27 @@
   // ── Data ──
   function rebuildItems() {
     items = [];
-    for (let pi = posts.length - 1; pi >= 0; pi--) {
-      const post = posts[pi];
+    const list = shownPosts();
+    for (let pi = list.length - 1; pi >= 0; pi--) {
+      const post = list[pi];
       post.photos.forEach((ph, k) => items.push({ post, k, ph }));
     }
     renderViewHead();
   }
+  // A filtered view with few photos so far reads on into older pages.
+  function topUp() {
+    if (filtered() && hasOlder && items.length < 60 && !loadingOlder) setTimeout(fetchOlder, 0);
+  }
   // The big title over the photo, the way Music titles its views.
   function renderViewHead() {
-    $('phViewTitle').textContent = 'Photos';
-    const n = Math.max(total ?? 0, items.length);
-    $('phViewSub').textContent = n ? `${n.toLocaleString()}${total == null && hasOlder ? '+' : ''} photo${n === 1 ? '' : 's'}` : '';
+    $('phViewTitle').textContent = VIEW_TITLE[view];
+    const n = filtered() ? items.length : Math.max(total ?? 0, items.length);
+    const more = filtered() ? hasOlder : total == null && hasOlder;
+    $('phViewSub').textContent = n ? `${n.toLocaleString()}${more ? '+' : ''} photo${n === 1 && !more ? '' : 's'}` : '';
   }
   // The first photo of the newest post: where the tab opens, and what G/End
   // go back to. (The newest post's later photos sit to its right.)
-  const newestPostStart = () => items.findIndex(it => it.post === posts[0]);
+  const newestPostStart = () => items.findIndex(it => it.post === shownPosts()[0]);
   const selectedPhotoId = () => (sel >= 0 && items[sel]) ? items[sel].ph.id : null;
   const structureKey = list => list.map(p => p.id + ':' + p.photos.map(ph => ph.id).join(',')).join('|');
 
@@ -135,6 +151,7 @@
       loadedOnce = true;
       applyPosts(merged, { keepSelection: true });
       renderViewHead();
+      topUp();
       // One try: a photo that isn't in the newest page shouldn't grab the
       // selection minutes later when older pages happen to load.
       if (pendingFocus) { focusPhoto(pendingFocus.postId, pendingFocus.photoId); pendingFocus = null; }
@@ -167,7 +184,7 @@
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       if (g !== gen) return;
-      hasOlder = older.length === PAGE || (older.length > 0 && total != null && items.length + older.reduce((n, p) => n + p.photos.length, 0) < total);
+      hasOlder = older.length === PAGE || (older.length > 0 && total != null && loadedPhotos() + older.reduce((n, p) => n + p.photos.length, 0) < total);
       if (older.length) {
         const last = older[older.length - 1];
         cursor = { sort_at: last.sort_at, id: last.id };
@@ -177,9 +194,10 @@
         const next = posts.filter(p => !ids.has(p.id)).concat(older)
           .sort((a, b) => before(a, b) ? 1 : before(b, a) ? -1 : 0);
         applyPosts(next, { keepSelection: true });
-      }
+      } else if (!items.length) showEmpty();
+      renderViewHead();
     } catch (e) { /* the next scrub to the left edge retries */ }
-    finally { clearTimeout(deadline); if (g === gen) loadingOlder = false; }
+    finally { clearTimeout(deadline); if (g === gen) { loadingOlder = false; topUp(); } }
   }
 
   // Swap in a new post list. The strip only rebuilds when the set of
@@ -191,7 +209,7 @@
     const keepX = keepId ? centers[sel] : 0;
     // Not with the comments open: a new post arriving took the photo away
     // mid-sentence, and the comment went on the new one.
-    const wasAtNewest = sel >= 0 && items[sel]?.post === posts[0] && items[sel].k === 0 && !shell.classList.contains('side-open');
+    const wasAtNewest = sel >= 0 && items[sel]?.post === shownPosts()[0] && items[sel].k === 0 && !shell.classList.contains('side-open');
     posts = next;
     if (!focusPostId && structureKey(posts) === prevKey && items.length) {
       rebuildItems();
@@ -251,14 +269,30 @@
     setActiveTab('photos');
     if (focusPhoto(postId, photoId)) return;
     pendingFocus = { postId, photoId };
-    if (order !== 'posted') setOrder('posted'); else fetchLatest();
+    if (view !== 'new') setView('new'); else fetchLatest();
   };
 
   // ── Timeline / What's New ──
-  function setOrder(next) {
-    if (next === order) return;
-    order = next;
-    document.querySelectorAll('#phOrder button').forEach(b => b.setAttribute('aria-pressed', b.dataset.order === order));
+  function setView(next) {
+    if (!VIEW_TITLE[next]) return;
+    document.querySelectorAll('#phOrder button[data-phview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.phview === next));
+    document.querySelectorAll('#phNav .picker-tab[data-phview]').forEach(b => b.classList.toggle('active', b.dataset.phview === next));
+    if (next === view) return;
+    const nextOrder = next === 'new' ? 'posted' : 'shot';
+    view = next;
+    // The same pages under another filter: just draw them again.
+    if (nextOrder === order && loadedOnce) {
+      SFX && SFX.play('click');
+      sel = -1; strip.textContent = ''; thumbEls = []; centers = [];
+      const keep = posts; posts = [];
+      applyPosts(keep, {});
+      if (!items.length) showEmpty();
+      renderViewHead();
+      topUp();
+      klabEnter($('phStage'));
+      return;
+    }
+    order = nextOrder;
     renderViewHead();
     posts = []; items = []; sel = -1; hasOlder = true; loadedOnce = false;
     cursor = null; gen++; loadingOlder = false;
@@ -267,14 +301,25 @@
     fetchLatest();
   }
   document.getElementById('phOrder')?.addEventListener('click', e => {
-    const b = e.target.closest('button[data-order]');
-    if (b) setOrder(b.dataset.order);
+    const b = e.target.closest('button[data-phview]');
+    if (b) setView(b.dataset.phview);
+  });
+  document.getElementById('phNav')?.addEventListener('click', e => {
+    const b = e.target.closest('.picker-tab[data-phview]');
+    if (!b) return;
+    if (!isActive()) setActiveTab('photos');
+    setView(b.dataset.phview);
+    if (document.activeElement === b) b.blur();
   });
 
   // ── Empty / error state ──
   function showEmpty(msg) {
     $('phEmpty').hidden = false;
-    $('phEmptyText').textContent = msg || 'No photos yet. Post the first one.';
+    $('phEmptyText').textContent = msg || (filtered() && hasOlder ? 'Looking…'
+      : view === 'mine' ? 'You haven’t posted any photos yet.'
+      : view === 'with' ? 'Nobody’s tagged you in a photo yet.'
+      : 'No photos yet. Post the first one.');
+    $('phEmptyPost').hidden = view === 'with';
     shell.classList.add('is-empty');
     stopClip();
   }
@@ -437,12 +482,15 @@
     if (narrowMq.matches) {
       if (railL.parentElement === frame) return;
       actions.append(b('phOrder'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      b('phOrder').hidden = false;
       railR.insertBefore(b('phSong'), b('phReacts'));
       frame.insertBefore(railL, mainImg);
       frame.insertBefore(railR, mainImg.nextSibling);
     } else {
       if (railL.parentElement === $('phSideInfo')) return;
-      $('phViewTools').append(b('phOrder'), b('phSlideBtn'), b('phPostBtn'));
+      // The views are the sidebar's rows here; the head has the one action.
+      b('phOrder').hidden = true;
+      $('phViewTools').append(b('phSlideBtn'), b('phPostBtn'));
       $('phSideToggles').append(b('phInfoBtn'));
       $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);
@@ -599,6 +647,9 @@
     if ($('phGear')._html !== s.gear) { $('phGear').innerHTML = s.gear; $('phGear')._html = s.gear; }
     if ($('phSpecRow')._html !== s.specs) { $('phSpecRow').innerHTML = s.specs; $('phSpecRow')._html = s.specs; }
     $('phOriginal').href = fileUrl(ph.id, 'original');
+    // Download original: the same file, saved (named for the post).
+    $('phDownload').href = fileUrl(ph.id, 'original');
+    $('phDownload').download = `klabnet-photo-${post.id}${post.photos.length > 1 ? '-' + (k + 1) : ''}.jpg`;
     $('phOriginalSize').textContent = `${ph.w} × ${ph.h}`;
     if (mode === 'photo') { fitImg(); return; }
 
@@ -659,12 +710,13 @@
     const star = post.reactions?.[KLAB_STAR] || { count: 0, mine: false };
     stage.classList.toggle('gold', KLAB_STARS && star.count >= KLAB_GOLD_AT);
     $('phReacts').innerHTML =
-      `<button type="button" class="ph-like${liked ? ' mine' : ''}${pop ? ' pop' : ''}" data-like="1" title="${liked ? 'Unlike' : 'Like'}" aria-pressed="${liked}">` +
-        `<i class="ti ${liked ? 'ti-heart-filled' : 'ti-heart'}"></i>${n ? `<span>${n}</span>` : ''}</button>` +
-      `<button type="button" class="ph-star${star.mine ? ' mine' : ''}" data-star-react="1" title="${star.mine ? 'Unstar' : 'Star'}" aria-pressed="${!!star.mine}">` +
+      // Chips with their counts (the house's), not bare icons.
+      `<button type="button" class="k-chip ph-like${liked ? ' mine' : ''}${pop ? ' pop' : ''}" data-like="1" title="${liked ? 'Unlike' : 'Like'}" aria-label="${liked ? 'Unlike' : 'Like'}, ${n}" aria-pressed="${liked}">` +
+        `<i class="ti ${liked ? 'ti-heart-filled' : 'ti-heart'}"></i><span>${n}</span></button>` +
+      `<button type="button" class="k-chip ph-star${star.mine ? ' mine' : ''}" data-star-react="1" title="${star.mine ? 'Unstar' : 'Star'}" aria-pressed="${!!star.mine}">` +
         `<i class="ti ${star.mine ? 'ti-star-filled' : 'ti-star'}"></i>${star.count ? `<span>${star.count}</span>` : ''}</button>` +
-      `<button type="button" class="ph-cmt" data-comments="1" title="Comments (c)" aria-pressed="${shell.classList.contains('side-open')}">` +
-        `<i class="ti ti-message-circle"></i>${post.reply_count ? `<span>${post.reply_count}</span>` : ''}</button>`;
+      `<button type="button" class="k-chip ph-cmt" data-comments="1" title="Comments (c)" aria-label="Comments, ${post.reply_count || 0}" aria-pressed="${shell.classList.contains('side-open')}">` +
+        `<i class="ti ti-message-circle"></i><span>${post.reply_count || 0}</span></button>`;
     const who = post.likers || [];
     const shown = who.slice(0, 3).map(nameHTML);
     const rest = who.length - shown.length;
@@ -908,7 +960,7 @@
     const list = $('phReplies');
     if (list.dataset.postId === String(post.id)) return;
     list.dataset.postId = String(post.id);
-    list.innerHTML = '<div class="ph-replies-empty">Loading…</div>';
+    list.innerHTML = '<div class="k-com-empty">Loading…</div>';
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}/replies`, {}, 8000);
       if (!r.ok) throw new Error();
@@ -918,7 +970,7 @@
     } catch (e) {
       // Only if it's still this post's list: another post's may be loading.
       if (list.dataset.postId === String(post.id)) {
-        list.innerHTML = '<div class="ph-replies-empty">Couldn’t load comments</div>';
+        list.innerHTML = '<div class="k-com-empty">Couldn’t load comments.</div>';
         list.dataset.postId = '';
       }
     }
@@ -931,12 +983,12 @@
     const list = $('phReplies');
     list._repliesFor = post.id;
     list._count = replies.length;
-    list.innerHTML = replies.length ? replies.map(rep =>
-      `<div class="ph-reply">${nameHTML(rep.username)} <span class="ph-reply-text">${window.klabMentionsHTML ? klabMentionsHTML(rep.text) : esc(rep.text)}</span>` +
-        ((rep.username === me() || window.KLAB_USER?.is_admin)
-          ? `<button type="button" class="ph-reply-del" data-reply-id="${rep.id}" title="Delete"><i class="ti ti-x"></i></button>` : '') +
-      `</div>`).join('') : '<div class="ph-replies-empty">No comments yet.</div>';
+    // The kit's comments (js/12-feed.js klabComments), as on Feed and Videos.
+    list.innerHTML = klabComments.listHTML(replies, { postId: post.id }, 'No comments yet. Say something.');
     list._replies = replies;
+    const face = $('phReplyForm').querySelector('.k-com-face.me');
+    if (face && face.dataset.username !== me()) face.outerHTML = klabComments.faceHTML(me(), 'me');
+    setTimeout(() => klabComments.refreshFaces(list), 1500);
   }
 
   // The people list arrived: redraw the mentions in what's showing.
@@ -964,25 +1016,28 @@
       const cur = current(post);
       cur.reply_count = (cur.reply_count || 0) + 1;
       localEditAt.set(post.id, performance.now());
+      klabComments.fresh(reply.id);
       if (showingReplies(post)) renderReplies(post, shownReplies(post).concat(reply));
       renderPost('refresh');
     } catch (err) { showToast('Couldn’t post that comment', 'ti-alert-triangle'); }
     finally { input.disabled = false; input.focus(); }
   });
 
-  $('phReplies').addEventListener('click', async e => {
-    const del = e.target.closest('.ph-reply-del');
+  // A comment of yours goes at once, with Undo (the kit's way).
+  $('phReplies').addEventListener('click', e => {
+    const who = e.target.closest('.k-com-name, .k-com-face[data-username]');
+    if (who) { window.openProfileView?.(who.dataset.username); return; }
+    const del = e.target.closest('.k-com-del');
     if (!del || sel < 0) return;
     const post = items[sel].post;
-    try {
-      const r = await fetchTimeout(`/api/posts/${post.id}/replies/${del.dataset.replyId}`, { method: 'DELETE' }, 8000);
-      if (!r.ok) throw new Error();
-      const cur = current(post);
-      cur.reply_count = Math.max(0, (cur.reply_count || 1) - 1);
-      localEditAt.set(post.id, performance.now());
-      if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => String(x.id) !== del.dataset.replyId));
-      renderPost('refresh');
-    } catch (err) { showToast('Couldn’t delete that comment', 'ti-alert-triangle'); }
+    const reply = shownReplies(post).find(x => String(x.id) === del.dataset.replyId);
+    if (!reply) return;
+    const count = d => { const cur = current(post); cur.reply_count = Math.max(0, (cur.reply_count || 0) + d); localEditAt.set(post.id, performance.now()); };
+    klabComments.del({
+      postId: post.id, reply, row: del.closest('.k-com'),
+      apply: () => { count(-1); if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => x !== reply)); renderPost('refresh'); },
+      undo: () => { count(1); if (showingReplies(post)) renderReplies(post, shownReplies(post).filter(x => x !== reply).concat(reply).sort((a, b) => a.id - b.id)); renderPost('refresh'); },
+    });
   });
 
   // Names open the profile popover, same as the feed and chat.
@@ -1034,6 +1089,7 @@
   });
   const closeEdit = () => { editBackdrop.classList.remove('open'); editing = null; };
   $('phEditClose').addEventListener('click', closeEdit);
+  $('phEditCancel').addEventListener('click', closeEdit);
   editBackdrop.addEventListener('click', e => { if (e.target === editBackdrop && klabPressedOn(editBackdrop)) closeEdit(); });
   klabLayers.watch(editBackdrop, { kind: 'dialog', dim: true, close: closeEdit });
   trapFocusWithin(editBackdrop.querySelector('.add-app-modal'), () => editBackdrop.classList.contains('open'));
@@ -1093,6 +1149,7 @@
       { label: infoOn ? 'Hide photo info' : 'Show photo info', icon: 'ti-info-circle', hidden: i !== sel, action: () => setInfo(!infoOn) },
       '-',
       { label: 'Open original', icon: 'ti-external-link', action: () => window.open(original, '_blank', 'noopener') },
+      { label: 'Download original', icon: 'ti-download', action: () => { const a = document.createElement('a'); a.href = original; a.download = `klabnet-photo-${post.id}.jpg`; document.body.appendChild(a); a.click(); a.remove(); } },
       { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(fileUrl(ph.id, sizeFor(ph))) },
       { label: 'Copy image link', icon: 'ti-link', action: () => klabCopy(new URL(original, location.href).href, 'Link') },
       '-',
@@ -1102,7 +1159,7 @@
       { label: 'Message', icon: 'ti-message-2-plus', hidden: post.username === me(), action: () => messageUser(post.username) },
       '-',
       { label: 'Edit post', icon: 'ti-pencil', hidden: !own, action: onStage(() => $('phEditBtn').click()) },
-      { label: 'Delete post', icon: 'ti-trash', warn: true, hidden: !own, action: onStage(() => $('phDelete').click()) },
+      { label: 'Delete post', icon: 'ti-trash', danger: true, hidden: !own, action: onStage(() => $('phDelete').click()) },
     ]);
   }
   stage.addEventListener('contextmenu', e => {
@@ -1407,6 +1464,7 @@
   $('phPostBtn').addEventListener('click', () => openComposer());
   $('phEmptyPost').addEventListener('click', () => openComposer());
   $('phComposeClose').addEventListener('click', closeComposer);
+  $('phComposeCancel').addEventListener('click', closeComposer);
   backdrop.addEventListener('click', e => { if (e.target === backdrop && klabPressedOn(backdrop)) closeComposer(); });
   klabLayers.watch(backdrop, { kind: 'dialog', dim: true, close: closeComposer });
   trapFocusWithin(backdrop.querySelector('.add-app-modal'), () => backdrop.classList.contains('open'));

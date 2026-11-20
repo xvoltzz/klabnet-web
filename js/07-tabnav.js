@@ -194,8 +194,8 @@ window.addEventListener('load', () => {
 
 function openSettings() {
   // Sync UI to current settings
-  const su = document.getElementById('settingsUser');
-  if (su) su.textContent = window.KLAB_USER?.username || '—';
+  syncSettingsMe();
+  syncDndRow();
 
   const toggleMap = {
     sfxToggle:        'sfxEnabled',
@@ -227,8 +227,140 @@ function openSettings() {
   backdrop.classList.add('open');
   backdrop.querySelector('.settings-modal')?.focus({ preventScroll: true });
   SFX && SFX.play('sheet');
+  // Opened fresh: no search left over, at the top.
+  const q = document.getElementById('settingsSearch');
+  if (q && q.value) { q.value = ''; filterSettings(''); }
+  const body = document.getElementById('settingsBody');
+  if (body) body.scrollTop = 0;
+  buildSettingsChips();
 }
 let _settingsReturnFocus = null;
+
+// ── Settings: you, the chips, the search ──
+// You, at the top: your face, your name in your colour, your status.
+function syncSettingsMe() {
+  const user = window.KLAB_USER?.username || '';
+  const name = document.getElementById('settingsUser'), av = document.getElementById('settingsAv'), sub = document.getElementById('settingsUserSub');
+  if (name) { name.textContent = user || '—'; try { name.style.color = user ? profileColor(user) : ''; } catch (e) {} }
+  if (av) {
+    const url = user && window.klabResolveUserAvatar?.(user);
+    av.innerHTML = url ? '<img src="' + esc(url) + '" alt="" />' : esc((user || '?')[0].toUpperCase());
+    try { av.style.setProperty('--c', user ? profileColor(user) : 'var(--text-dim)'); } catch (e) {}
+  }
+  if (sub) {
+    const st = typeof klabStatus === 'function' ? klabStatus() : '', until = st && klabStatusUntil?.();
+    sub.dataset.status = st;
+    sub.textContent = (KLAB_STATUSES?.[st]?.label || 'Online') + (until ? ' until ' + klabStatusTime(until) : '') + (window.KLAB_USER?.is_admin ? ' · admin' : '');
+  }
+}
+document.getElementById('settingsProfileBtn')?.addEventListener('click', () => {
+  const u = window.KLAB_USER?.username;
+  if (!u || u === 'anonymous') return;
+  closeSettings();
+  openProfileView?.(u);
+});
+// Do not disturb: for how long, from the same menu as your name's.
+function syncDndRow() {
+  const btn = document.getElementById('dndBtn'), sub = document.getElementById('dndSub');
+  if (!btn || typeof klabStatus !== 'function') return;
+  const on = klabStatus() === 'dnd', until = klabStatusUntil();
+  btn.textContent = on ? 'Turn off' : 'Turn on…';
+  btn.setAttribute('aria-haspopup', on ? 'false' : 'menu');
+  if (sub) sub.textContent = on ? (until ? 'On until ' + klabStatusTime(until) : 'On until you turn it off') : 'No pop-ups or sounds for messages and mentions';
+}
+document.getElementById('dndBtn')?.addEventListener('click', e => {
+  SFX && SFX.play('click');
+  if (klabStatus() === 'dnd') setKlabStatus('');
+  else klabDndMenu(e.currentTarget);
+});
+window.addEventListener('klab:status', () => { syncDndRow(); syncSettingsMe(); });
+
+// The chips: one per section that's showing; pressing one scrolls there,
+// and the one you're reading is lit as you scroll.
+const _settingsSections = () => [...document.querySelectorAll('#settingsBody .settings-section[data-sec]:not(.set-account)')].filter(s => !s.hidden);
+function buildSettingsChips() {
+  const bar = document.getElementById('settingsChips');
+  if (!bar) return;
+  bar.replaceChildren(..._settingsSections().map(sec => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'k-chip sm';
+    b.dataset.go = sec.id;
+    b.textContent = sec.dataset.title;
+    return b;
+  }));
+  spySettings();
+}
+document.getElementById('settingsChips')?.addEventListener('click', e => {
+  const b = e.target.closest('[data-go]');
+  const sec = b && document.getElementById(b.dataset.go);
+  const body = document.getElementById('settingsBody');
+  if (!sec || !body) return;
+  SFX && SFX.play('click');
+  _spyHold = b.dataset.go;
+  clearTimeout(_spyHoldT); _spyHoldT = setTimeout(() => { _spyHold = null; spySettings(); }, 700);
+  body.scrollTo({ top: sec.offsetTop - body.offsetTop - 4, behavior: klabMotionOk?.() ? 'smooth' : 'auto' });
+  spySettings();
+});
+let _spyHold = null, _spyHoldT = 0;
+function spySettings() {
+  const body = document.getElementById('settingsBody');
+  if (!body) return;
+  let at = _spyHold;
+  if (!at) {
+    const secs = _settingsSections().filter(s => !s.classList.contains('set-off'));
+    const y = body.scrollTop + 40;
+    at = secs[0]?.id;
+    for (const sec of secs) if (sec.offsetTop - body.offsetTop <= y) at = sec.id;
+    // At the very end, the last one, however short.
+    if (body.scrollHeight > body.clientHeight + 2 && body.scrollTop + body.clientHeight >= body.scrollHeight - 2 && secs.length) at = secs[secs.length - 1].id;
+  }
+  document.querySelectorAll('#settingsChips [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === at));
+}
+document.getElementById('settingsBody')?.addEventListener('scroll', () => requestAnimationFrame(spySettings), { passive: true });
+
+// The search: rows whose words (label, line under it, its section, a few
+// extra words) hold every word typed; a section with none goes.
+const _fold = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function filterSettings(q) {
+  const words = _fold(q).split(/\s+/).filter(Boolean);
+  let shown = 0;
+  document.querySelectorAll('#settingsBody .settings-section').forEach(sec => {
+    if (sec.classList.contains('set-account')) { sec.classList.toggle('set-off', words.length > 0); return; }
+    let any = false;
+    sec.querySelectorAll('.settings-row').forEach(row => {
+      const hay = _fold([row.querySelector('.settings-row-label')?.textContent, row.querySelector('.settings-row-sub')?.textContent, sec.dataset.title, row.dataset.keywords].join(' '));
+      const ok = !words.length || words.every(w => hay.includes(w));
+      row.classList.toggle('set-off', !ok);
+      if (ok && !row.hidden) any = true;
+    });
+    sec.classList.toggle('set-off', !any);
+    if (any && !sec.hidden) shown++;
+  });
+  const none = document.getElementById('settingsNone');
+  if (none) { none.hidden = !!shown; none.textContent = 'Nothing in Settings matches \u201c' + q.trim() + '\u201d.'; }
+  document.querySelectorAll('#settingsChips [data-go]').forEach(b => b.classList.toggle('set-off', !!document.getElementById(b.dataset.go)?.classList.contains('set-off')));
+  spySettings();
+}
+document.getElementById('settingsSearch')?.addEventListener('input', e => filterSettings(e.target.value));
+document.getElementById('settingsSearch')?.addEventListener('keydown', e => {
+  // Escape clears what's typed first; with nothing typed it's the sheet's.
+  if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); e.target.value = ''; filterSettings(''); }
+});
+// The palette (js/32-terminal.js) can bring one row up: Settings opens
+// there, the row lit for a moment.
+window.klabShowSetting = function(row) {
+  if (!row) return;
+  openSettings();
+  const body = document.getElementById('settingsBody');
+  requestAnimationFrame(() => {
+    if (body) body.scrollTo({ top: Math.max(0, row.offsetTop - body.offsetTop - body.clientHeight / 3), behavior: 'auto' });
+    row.classList.remove('set-flash'); void row.offsetWidth; row.classList.add('set-flash');
+    setTimeout(() => row.classList.remove('set-flash'), 1600);
+    const ctl = row.querySelector('button, select, input');
+    ctl?.focus({ preventScroll: true });
+  });
+};
 
 function closeSettings() {
   const backdrop = document.getElementById('settingsBackdrop');
@@ -388,6 +520,7 @@ function syncThemeRow() {
   });
   const sub = document.getElementById('sceneSub');
   if (sub) sub.textContent = SCENES[scene];
+  if (window._klabBgReady) renderBgSwatches();
   const get = document.getElementById('getAppBtn'), row = document.getElementById('settingsGetApp');
   if (row) row.hidden = !get || get.hidden;
 }
@@ -496,7 +629,10 @@ document.getElementById('clearPrefsRow').addEventListener('click', async () => {
     if (pl) pl.textContent = document.body.classList.contains('player-hidden') ? 'Show player' : 'Hide player';
     const dark = document.documentElement.getAttribute('data-theme') !== 'light';
     const th = document.getElementById('menuTheme');
-    if (th) { th.querySelector('i').className = 'ti ' + (dark ? 'ti-sun' : 'ti-moon'); th.querySelector('span').textContent = dark ? 'Light theme' : 'Dark theme'; }
+    // With a scene on, this leaves it for the plain theme it was showing's
+    // opposite; say which scene goes.
+    const scene = currentTheme in SCENES && currentTheme ? currentTheme[0].toUpperCase() + currentTheme.slice(1) : '';
+    if (th) { th.querySelector('i').className = 'ti ' + (dark ? 'ti-sun' : 'ti-moon'); th.querySelector('span').textContent = (dark ? 'Light theme' : 'Dark theme') + (scene ? ' (leaves ' + scene + ')' : ''); }
   }
 
   btn.addEventListener('click', e => {
@@ -525,7 +661,14 @@ document.getElementById('settingsBackdrop').addEventListener('click', e => {
 });
 // Escape and mouse Back close it when it's the top layer: a dialog opened
 // from here (the background colours, "Reset?") goes first.
-klabLayers.watch(document.getElementById('settingsBackdrop'), { kind: 'sheet', dim: true, close: () => closeSettings() });
+klabLayers.watch(document.getElementById('settingsBackdrop'), { kind: 'sheet', dim: true, close: () => closeSettings(),
+  // Something typed in the search: Escape clears that first.
+  onEscape: () => {
+    const q = document.getElementById('settingsSearch');
+    if (!q?.value) return;
+    q.value = ''; filterSettings(''); q.focus();
+    return false;
+  } });
 trapFocusWithin(
   document.querySelector('#settingsBackdrop .settings-modal'),
   () => document.getElementById('settingsBackdrop').classList.contains('open')
@@ -585,11 +728,16 @@ trapFocusWithin(
     nav.style.setProperty('--dock-w', (n * 58 + (n - 1) * 2 + 12 + 2) + 'px');
   };
   sizeDock();
+  // The circle shows the page you're on: kept current on every change of
+  // page, not only when it shrinks (it showed nothing after a change while small).
+  const setAi = () => nav.style.setProperty('--ai', String(Math.max(0, buttons().findIndex(b => b.classList.contains('active')))));
+  new MutationObserver(setAi).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  setAi();
   let sticking = false;
   // fromScroll: you scrolled to cause this, so don't drag the chat back down.
   function setMini(on, fromScroll) {
     if (on === document.body.classList.contains('dock-mini')) { if (!on) armIdle(); return; }
-    if (on) nav.style.setProperty('--ai', String(Math.max(0, buttons().findIndex(b => b.classList.contains('active')))));
+    if (on) setAi();
     // The page's bottom space follows the dock, so Chat's timeline grows
     // and shrinks with it. Reading the newest messages, stay on them.
     const tl = document.getElementById('chatTimeline');
@@ -1352,6 +1500,17 @@ async function offerAppUpdate(current) {
   const find = document.createElement('div');
   find.className = 'hdr-find';
   bar.appendChild(find);
+  // On a page with nothing of its own to search (Home, Social's home, the
+  // Feed, Photos): a quiet box that opens Go anywhere (js/32-terminal.js).
+  const goBox = document.createElement('button');
+  goBox.type = 'button';
+  goBox.className = 'hdr-go';
+  goBox.hidden = true;
+  goBox.title = 'Go anywhere';
+  goBox.innerHTML = '<i class="ti ti-search"></i><span>Go anywhere</span><kbd>' + (typeof KLAB_MOD !== 'undefined' ? KLAB_MOD : 'Ctrl') + ' K</kbd>';
+  goBox.addEventListener('mousedown', e => { e.preventDefault(); window.klabTerminal?.open(); });
+  goBox.addEventListener('click', () => window.klabTerminal?.open());
+  bar.appendChild(goBox);
   header.appendChild(bar);
   find.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
@@ -1382,7 +1541,8 @@ async function offerAppUpdate(current) {
         else if (!up && p.search.parentElement === find) p.search._home.after(p.search);
       }
     });
-    bar.hidden = !find.firstElementChild;
+    goBox.hidden = !tree || !!find.firstElementChild;
+    bar.hidden = !find.firstElementChild && goBox.hidden;
     root.classList.toggle('nav-tree', tree);
     // (The CSS that hides what's left of the page sidebars keys on this.)
     root.classList.toggle('hdr-pagenav-on', tree);
@@ -1390,7 +1550,7 @@ async function offerAppUpdate(current) {
     // when something moved (another page's rows unfolded, the search box
     // came or went), not on every step between one page's sections, which
     // woke every resize listener in the app per press.
-    const shape = tree + '|' + (cur ? cur.pages[0] : '') + '|' + (find.firstElementChild?.className || '');
+    const shape = tree + '|' + (cur ? cur.pages[0] : '') + '|' + (find.firstElementChild?.className || '') + '|' + goBox.hidden;
     if (shape !== was) requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     was = shape;
   }

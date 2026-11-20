@@ -50,139 +50,132 @@
   const shotFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
   const label = text => { const el = document.createElement('div'); el.className = 'picker-section-label'; el.textContent = text; return el; };
 
-  // New photos: a collage, not Cover Flow (the owner: "more photography
-  // oriented… it moves in weird and funky ways and all the photos are just
-  // together"). The newest uploads packed edge to edge into one block, in
-  // rows at their own shapes. Every few seconds the next photo takes the
-  // big spot (left, then right) and everything reflows around it, a wave
-  // across the block, with photos from further back coming in and out.
-  // Hovering stops it; a photo opens on a click. Still with reduced motion.
+  // A shelf's head, Music Home's way: the label, and "See all" at its end.
+  function shelfHead(text, go) {
+    const el = document.createElement('div');
+    el.className = 'soc-shelf-head';
+    el.innerHTML = '<span class="k-label"></span><button type="button" class="soc-see-all">See all<i class="ti ti-chevron-right"></i></button>';
+    el.firstChild.textContent = text;
+    el.lastChild.addEventListener('click', () => { SFX?.play('nav'); go(); });
+    return el;
+  }
+
+  // From Photos: one row of the newest uploads at their own shapes, as
+  // many as fit the width, the row a fixed height (it was a collage that
+  // stretched a few photos to fill half the window). Still; a photo opens
+  // in Photos.
   const photos = (() => {
     const el = document.createElement('div');
-    el.className = 'soc-collage';
+    el.className = 'soc-strip';
     el.setAttribute('role', 'list');
     el.setAttribute('aria-label', 'New photos');
     el.hidden = true;
     const empty = document.createElement('div');
-    empty.className = 'soc-home-empty';
+    empty.className = 'k-com-empty soc-home-empty';
     empty.textContent = 'No photos yet.';
     empty.hidden = true;
-
-    const GAP = 4;
-    let items = [], order = [], keys = '', loadedAt = 0, step = 0, drawn = false;
-    const tiles = new Map(); // photo id -> its tile
-    const aspect = it => Math.max(0.5, Math.min(2.2, it.ph.w && it.ph.h ? it.ph.w / it.ph.h : 1.5));
-
-    function tileFor(it) {
-      let t = tiles.get(it.ph.id);
-      if (t) return t;
-      t = document.createElement('button');
-      t.type = 'button';
-      t.className = 'soc-tile off';
-      t.setAttribute('role', 'listitem');
-      const who = [it.post.username, it.post.shot_at ? shotFmt.format(new Date(apiTime(it.post.shot_at))) : ''].filter(Boolean).join(' · ');
-      t.setAttribute('aria-label', (it.post.text || 'Photo') + (who ? ', ' + who : ''));
-      t.innerHTML = '<img alt="" decoding="async" draggable="false"><span class="soc-tile-cap"></span>';
-      t.querySelector('.soc-tile-cap').textContent = who;
-      const img = t.firstChild;
-      img.onload = () => t.classList.add('loaded');
-      img.src = photoFile(it.ph.id, 'thumb');
-      t._it = it;
-      t.addEventListener('click', () => window.klabOpenPhoto?.(it.post.id, it.ph.id));
-      el.appendChild(t);
-      tiles.set(it.ph.id, t);
-      return t;
+    let items = [], keys = '', loadedAt = 0;
+    const aspect = it => Math.max(0.6, Math.min(2, it.ph.w && it.ph.h ? it.ph.w / it.ph.h : 1.5));
+    function fill() {
+      const W = el.clientWidth, H = parseFloat(getComputedStyle(el).height) || 180;
+      if (!W) return;
+      // As many as fill the row (the last may be cropped a little).
+      let sum = 0, n = 0;
+      for (const it of items) { if (n && (sum + aspect(it)) * H > W * 1.08) break; sum += aspect(it); n++; }
+      const want = items.slice(0, Math.max(1, n));
+      const k = want.map(it => it.ph.id).join();
+      if (el._k === k) return;
+      el._k = k;
+      el.innerHTML = want.map(it => {
+        const who = [it.post.username, it.post.shot_at ? shotFmt.format(new Date(apiTime(it.post.shot_at))) : ''].filter(Boolean).join(' · ');
+        return '<button type="button" class="soc-tile" role="listitem" data-post="' + it.post.id + '" data-photo="' + esc(it.ph.id) + '" data-user="' + esc(it.post.username) + '"' +
+          ' style="flex:' + aspect(it).toFixed(3) + ' 1 0" aria-label="' + esc((it.post.text || 'Photo') + (who ? ', ' + who : '')) + '" data-silent>' +
+          '<img alt="" decoding="async" loading="lazy" draggable="false" src="' + esc(photoFile(it.ph.id, 'thumb')) + '" onload="this.parentNode.classList.add(\'loaded\')">' +
+          '<span class="soc-tile-cap">' + esc(who) + '</span></button>';
+      }).join('');
     }
-
-    // Where each photo goes: maybe a big one down one side, then rows that
-    // each fill the width exactly at the photos' own shapes, stretched or
-    // squeezed a little so the rows fill the height too.
-    function pack(W, H, list) {
-      const out = [];
-      let x0 = 0, width = W, rest = list;
-      const hero = list.length > 5 && W > 520 && step % 3 !== 2;
-      if (hero) {
-        const hw = Math.round(Math.min(W * 0.5, Math.max(W * 0.3, H * Math.min(1.4, aspect(list[0])))));
-        const left = step % 2 === 0;
-        out.push({ it: list[0], x: left ? 0 : W - hw, y: 0, w: hw, h: H });
-        x0 = left ? hw + GAP : 0; width = W - hw - GAP; rest = list.slice(1);
-      }
-      const nRows = H > 480 ? 3 : 2;
-      const r = (H - GAP * (nRows - 1)) / nRows;
-      const rows = [];
-      let cur = [], sum = 0;
-      for (const it of rest) {
-        cur.push(it); sum += aspect(it);
-        if (sum * r + GAP * (cur.length - 1) >= width) { rows.push(cur); cur = []; sum = 0; if (rows.length === nRows) break; }
-      }
-      if (!rows.length && cur.length) rows.push(cur);
-      const natural = rows.map(row => (width - GAP * (row.length - 1)) / row.reduce((n, it) => n + aspect(it), 0));
-      const k = (H - GAP * (rows.length - 1)) / natural.reduce((a, b) => a + b, 0);
-      let y = 0;
-      rows.forEach((row, i) => {
-        const h = i === rows.length - 1 ? H - y : Math.round(natural[i] * k);
-        let x = x0;
-        row.forEach((it, j) => {
-          const w = j === row.length - 1 ? x0 + width - x : Math.round(aspect(it) * natural[i]);
-          out.push({ it, x, y, w, h });
-          x += w + GAP;
-        });
-        y += h + GAP;
-      });
-      return out;
-    }
-
-    function layout() {
-      const W = el.clientWidth, H = el.clientHeight;
-      if (!W || !H || !order.length) return;
-      const placed = pack(W, H, order);
-      const on = new Set();
-      placed.forEach((p, i) => {
-        const t = tileFor(p.it);
-        on.add(t);
-        const coming = t.classList.contains('off');
-        // A wave across the block: left to right, top to bottom.
-        t.style.setProperty('--d', Math.round((p.x / W) * 160 + (p.y / H) * 80) + 'ms');
-        if (coming) requestAnimationFrame(() => t.classList.remove('off'));
-        t.style.transform = `translate(${p.x}px, ${p.y}px)`;
-        t.style.width = p.w + 'px'; t.style.height = p.h + 'px';
-        // Big enough to need it: the sharper file.
-        if (p.w * (devicePixelRatio || 1) > 520 && !t._big) { t._big = true; const pre = new Image(); pre.onload = () => { t.firstChild.src = pre.src; }; pre.src = photoFile(p.it.ph.id, 'medium'); }
-      });
-      tiles.forEach(t => { if (!on.has(t)) t.classList.add('off'); });
-      drawn = true;
-    }
-
-    // It stays still (the owner): no shuffling with ←/→, no drifting on
-    // its own. schedule() and stop() stay as the page's hooks.
-    const schedule = () => {};
-    new ResizeObserver(() => { if (drawn) layout(); }).observe(el);
-
+    new ResizeObserver(() => { if (items.length) fill(); }).observe(el);
+    el.addEventListener('click', e => {
+      const t = e.target.closest('.soc-tile');
+      if (t) { SFX?.play('nav'); window.klabOpenPhoto?.(+t.dataset.post, t.dataset.photo); }
+    });
+    el.addEventListener('contextmenu', e => {
+      const t = e.target.closest('.soc-tile');
+      if (!t) return;
+      klabMenu(e, [
+        { header: t.dataset.user },
+        { label: 'Open in Photos', icon: 'ti-photo', action: () => window.klabOpenPhoto?.(+t.dataset.post, t.dataset.photo) },
+        { label: 'Copy image', icon: 'ti-copy', action: () => klabCopyImage(photoFile(t.dataset.photo, 'medium')) },
+        '-',
+        { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(t.dataset.user) },
+      ]);
+    });
     async function load() {
-      if (Date.now() - loadedAt < REFRESH_MS) { layout(); schedule(); return; }
+      if (Date.now() - loadedAt < REFRESH_MS) { fill(); return; }
       try {
-        const r = await fetchTimeout('/api/posts/photos?order=posted&limit=16', {}, 8000);
+        const r = await fetchTimeout('/api/posts/photos?order=posted&limit=12', {}, 8000);
         if (!r.ok) throw new Error('status ' + r.status);
         const got = [];
-        ((await r.json()).posts || []).forEach(post => (post.photos || []).forEach(ph => { if (got.length < 30) got.push({ post, ph }); }));
+        ((await r.json()).posts || []).forEach(post => (post.photos || []).forEach(ph => { if (got.length < 20) got.push({ post, ph }); }));
         loadedAt = Date.now();
         empty.hidden = !!got.length;
         el.hidden = !got.length;
         if (!got.length) { keys = ''; empty.textContent = 'No photos yet.'; return; }
         const k = got.map(it => it.ph.id).join();
-        // The same photos: carry on from where it was.
-        if (k !== keys) {
-          keys = k;
-          items = got;
-          const ids = new Set(got.map(it => it.ph.id));
-          tiles.forEach((t, id) => { if (!ids.has(id)) { t.remove(); tiles.delete(id); } });
-          order = got.slice();
-          step = 0;
-        }
-        requestAnimationFrame(() => { layout(); schedule(); });
+        if (k !== keys) { keys = k; items = got; el._k = ''; }
+        requestAnimationFrame(fill);
       } catch (e) { if (!keys) { el.hidden = true; empty.textContent = 'Couldn’t load photos just now.'; empty.hidden = false; } }
     }
-    return { el, empty, load, stop: () => {}, schedule };
+    return { el, empty, load, stop: () => {} };
+  })();
+
+  // New videos: one row of Videos' own cards.
+  const videos = (() => {
+    const el = document.createElement('div');
+    el.className = 'vid-shelf soc-videos';
+    el.hidden = true;
+    const empty = document.createElement('div');
+    empty.className = 'k-com-empty soc-home-empty';
+    empty.hidden = true;
+    let loadedAt = 0, key = '', vids = [];
+    el.addEventListener('click', e => {
+      const c = e.target.closest('.vid-card[data-vid-id]');
+      if (c) { SFX?.play('nav'); window.klabOpenVideo?.(+c.dataset.vidId); }
+    });
+    el.addEventListener('contextmenu', e => {
+      const c = e.target.closest('.vid-card[data-vid-id]');
+      const v = c && vids.find(x => x.id === +c.dataset.vidId);
+      if (!v) return;
+      klabMenu(e, [
+        { header: v.title || 'Untitled' },
+        { label: 'Open', icon: 'ti-player-play', disabled: v.status !== 'ready', action: () => window.klabOpenVideo?.(v.id) },
+        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(location.origin + location.pathname + '#videos/' + v.id, 'Link') },
+        '-',
+        { label: 'Go to channel', icon: 'ti-user', action: () => window.klabOpenChannel?.(v.username) },
+        { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(v.username) },
+      ]);
+    });
+    async function load() {
+      if (Date.now() - loadedAt < REFRESH_MS) return;
+      try {
+        const r = await fetchTimeout('/api/posts/videos?limit=8&sort=new', {}, 8000);
+        if (r.status === 404 || r.status === 405) { el.hidden = empty.hidden = true; head.hidden = true; return; }
+        if (!r.ok) throw new Error('status ' + r.status);
+        vids = ((await r.json()).videos || []);
+        loadedAt = Date.now();
+        head.hidden = false;
+        const k = vids.map(v => v.id + ':' + v.status + ':' + v.views).join();
+        if (k === key) return;
+        key = k;
+        el.hidden = !vids.length;
+        empty.hidden = !!vids.length;
+        empty.textContent = 'No videos yet.';
+        el.innerHTML = vids.map(v => window.klabVideoCardHTML ? klabVideoCardHTML(v) : '').join('');
+      } catch (e) { if (!key) { el.hidden = true; empty.textContent = 'Couldn’t load videos just now.'; empty.hidden = false; } }
+    }
+    const head = shelfHead('New videos', () => setActiveTab('videos'));
+    head.hidden = true;
+    return { el, empty, head, load };
   })();
 
   // Latest posts: Feed's own, as it has them (no fetch of its own).
@@ -225,7 +218,8 @@
     const wall = document.createElement('div');
     wall.className = 'soc-wall';
     sec.appendChild(wall);
-    const COL_W = 300, WALL_MAX = 50;
+    // A glimpse, not the Feed: the newest dozen, then "See all".
+    const COL_W = 300, WALL_MAX = 12;
     // Placed a few rows at a time as you scroll down (their pictures load
     // as they're placed); a card once placed stays in its column. All of
     // them are placed again only when the number of columns changes, or
@@ -289,6 +283,20 @@
     sec.addEventListener('click', e => {
       const card = e.target.closest('.soc-post');
       if (card) window.klabFeedFocus?.(+card.dataset.post);
+    });
+    sec.addEventListener('contextmenu', e => {
+      const card = e.target.closest('.soc-post');
+      const p = card && (window.klabFeedPosts?.(WALL_MAX) || []).find(x => x.id === +card.dataset.post);
+      if (!p) return;
+      const me = window.KLAB_USER?.username;
+      klabMenu(e, [
+        { header: p.username },
+        { label: 'Open in Feed', icon: 'ti-news', action: () => window.klabFeedFocus?.(p.id) },
+        { label: 'Copy text', icon: 'ti-copy', hidden: !p.text, action: () => klabCopy(p.text, 'Post') },
+        '-',
+        { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(p.username) },
+        { label: 'Message', icon: 'ti-message-2-plus', hidden: p.username === me, action: () => messageUser(p.username) },
+      ]);
     });
     // Markdown, links and mentions read as their text here: a card is a glimpse.
     const plain = t => String(t || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_~`>#|=]+/g, '').trim();
@@ -416,9 +424,12 @@
   })();
   window.klabChatUnreadChanged = () => { if (active) unread.render(); };
 
+  // Unread messages, then the latest posts, then a strip of photos and a
+  // row of videos, each with "See all" (it was a collage of photos first).
   body.append(unread.head, unread.el);
-  if (photos) body.append(label('New photos'), photos.el, photos.empty);
-  body.append(label('Latest posts'), posts.el);
+  body.append(shelfHead('Latest posts', () => setActiveTab('feed')), posts.el);
+  body.append(shelfHead('From Photos', () => setActiveTab('photos')), photos.el, photos.empty);
+  body.append(videos.head, videos.el, videos.empty);
 
   function paintSub() {
     const n = window.KLAB_ONLINE_USERNAMES?.size || 0;
@@ -429,6 +440,7 @@
     if (!active || document.hidden) return;
     unread.render();
     photos?.load();
+    videos.load();
     posts.load();
     paintSub();
   }

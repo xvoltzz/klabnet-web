@@ -459,43 +459,112 @@ function applyCustomBg() {
     if (hex) rs.setProperty('--bg', hex);
     else rs.removeProperty('--bg'); // falls back to the theme's own default
   }
-  const btn = document.getElementById('bgColorBtn');
-  if (btn) btn.style.background = hex || getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  if (window._klabBgReady) renderBgSwatches();
 }
 applyCustomBg();
 
-function openBgColorModal() {
-  const paletteRowHTML = (palette, theme) => palette.map(p => {
-    const selected = getCustomBg(theme) === p.hex;
-    const swatchBg = p.hex || (theme === 'dark' ? '#000000' : '#d9d6cf');
-    return `<div class="bg-palette-swatch${selected ? ' selected' : ''}" data-bg-theme="${theme}" data-bg-hex="${esc(p.hex)}" style="background:${swatchBg}" title="${esc(p.label)}"></div>`;
+window._klabBgReady = true; // (applyTheme runs before the palettes above exist)
+// Settings → Appearance → Background color: the swatches for the theme
+// that's showing, right in the row (they used to be a second dialog over
+// Settings). A scene paints its own page, so the row steps aside then.
+function renderBgSwatches() {
+  const row = document.getElementById('bgSwatches');
+  if (!row) return;
+  const scene = currentTheme === 'sky' || currentTheme === 'wood' || currentTheme === 'ocean';
+  const theme = currentTheme === 'light' ? 'light' : 'dark';
+  const sub = document.getElementById('bgColorSub');
+  if (sub) sub.textContent = scene ? 'The scene picks its own; turn it off to choose one' : theme === 'dark' ? 'For the dark theme' : 'For the light theme';
+  document.getElementById('bgColorRow')?.classList.toggle('is-off', scene);
+  const now = getCustomBg(theme);
+  row.innerHTML = (theme === 'dark' ? BG_PALETTE_DARK : BG_PALETTE_LIGHT).map(p => {
+    const fill = p.hex || (theme === 'dark' ? '#000000' : '#d9d6cf');
+    return `<button type="button" class="bg-palette-swatch${now === p.hex ? ' selected' : ''}" data-bg-hex="${esc(p.hex)}" style="background:${fill}" title="${esc(p.label)}" aria-label="${esc(p.label)}" aria-pressed="${now === p.hex}"${scene ? ' disabled' : ''}></button>`;
   }).join('');
-  openChatModal('Background color', `
-    <div class="bg-palette-group">
-      <div class="settings-row-label">Dark mode</div>
-      <div class="bg-palette-row" data-bg-group="dark">${paletteRowHTML(BG_PALETTE_DARK, 'dark')}</div>
-    </div>
-    <div class="bg-palette-group">
-      <div class="settings-row-label">Light mode</div>
-      <div class="bg-palette-row" data-bg-group="light">${paletteRowHTML(BG_PALETTE_LIGHT, 'light')}</div>
-    </div>
-  `);
-  // Bound to each freshly-rendered swatch (recreated by chatModalBody's
-  // innerHTML replace above every time this opens) rather than delegated
-  // on the persistent #chatModalBody shell itself — that shell never gets
-  // torn down between opens, so a delegated listener there would stack a
-  // new copy on every single open of this modal.
-  document.querySelectorAll('.bg-palette-swatch').forEach(swatch => {
-    swatch.addEventListener('click', () => {
-      const theme = swatch.dataset.bgTheme;
-      setCustomBg(theme, swatch.dataset.bgHex);
-      swatch.closest('.bg-palette-row').querySelectorAll('.bg-palette-swatch').forEach(s => s.classList.remove('selected'));
-      swatch.classList.add('selected');
-      SFX && SFX.play('click');
-    });
-  });
 }
-document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModal);
+document.getElementById('bgSwatches')?.addEventListener('click', e => {
+  const sw = e.target.closest('.bg-palette-swatch');
+  if (!sw || sw.disabled) return;
+  SFX && SFX.play('click');
+  setCustomBg(currentTheme === 'light' ? 'light' : 'dark', sw.dataset.bgHex);
+  renderBgSwatches();
+});
+
+// ══════════════════════════════════════════
+//  THE KEYS, written down once. The shortcuts sheet (?) is drawn from this,
+//  the page you're on first; the handlers below and in the files named
+//  are what do them. A row: [what it does, ...keys], where a key is a
+//  <kbd> and "~or" (anything after a ~) is a word between them. Change a
+//  key here when you change it there.
+// ══════════════════════════════════════════
+const KLAB_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+const KLAB_MOD = KLAB_MAC ? '⌘' : 'Ctrl';
+const KLAB_KEYS = [
+  { group: 'Getting around', rows: [
+    ['Go anywhere', KLAB_MOD + ' K', '~or', ':', '~or', 'd'],
+    ['Next / previous page', 'Tab', '~/', '⇧ Tab'],
+    ['Jump to a page', '1', '~–', '5'],
+    ['Go to a page by its letter', 'g', '~then', 'h s f c m p v'],
+    ['Previous / next section', '←', '→'],
+    ['Up / down the sidebar', '↑', '↓', '~or', 'w', 's'],
+    ['Hide / show the sidebar', 'b'],
+    ['Search', '/'],
+    ['Scroll down / up', 'j', 'k'],
+    ['Top / bottom', 'g g', '~/', 'G'],
+  ] },
+  // js/10-lyrics.js, js/02-player.js and the Music pass's player keys.
+  { group: 'Music', page: ['music'], rows: [
+    ['Play / pause', 'Space'],
+    ['Next / previous song', 'n', 'p'],
+    ['Back / ahead 10 seconds', ',', '.'],
+    ['Volume down / up', '-', '='],
+    ['Mute', 'm'],
+    ['Favorite the song', 'l'],
+    ['Full player', 'f'],
+  ] },
+  // js/39-videos.js: on a video's page.
+  { group: 'Videos', page: ['videos'], rows: [
+    ['Play / pause', 'k', '~or', 'Space'],
+    ['Back / ahead 10 seconds', 'j', 'l'],
+    ['Back / ahead 5 seconds', '←', '→', '~player focused'],
+    ['Jump to 0–90%', '0', '~–', '9', '~player focused'],
+    ['A frame back / ahead, paused', ',', '.'],
+    ['Full screen', 'f'],
+    ['Mute', 'm'],
+  ] },
+  // js/14-photos.js and js/19-slideshow.js.
+  { group: 'Photos', page: ['photos'], rows: [
+    ['Previous / next photo', 'h', 'l', '~or', '←', '→'],
+    ['Older / newer post', 'j', 'k', '~or', '↓', '↑'],
+    ['Comments', 'c'],
+    ['Photo info', 'i'],
+    ['Slideshow', '⇧ S'],
+    ['Back to the newest', 'G'],
+  ] },
+  // js/22-voice.js, anywhere while you're in a channel.
+  { group: 'Voice', rows: [
+    ['Mute / unmute', 'Ctrl ⇧ M'],
+    ['Deafen / undeafen', 'Ctrl ⇧ D'],
+  ] },
+  { group: 'General', rows: [
+    ['This list', '?'],
+    ['Close what\'s on top', 'Esc'],
+  ] },
+];
+function renderKeyHints() {
+  const body = document.getElementById('keyHintsBody');
+  if (!body) return;
+  const tab = document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
+  // The page you're on first, then the rest as written.
+  const groups = [...KLAB_KEYS].sort((a, b) => (b.page?.includes(tab) ? 1 : 0) - (a.page?.includes(tab) ? 1 : 0));
+  body.innerHTML = groups.map(g =>
+    '<section class="key-hints-group' + (g.page?.includes(tab) ? ' here' : '') + '">' +
+      '<div class="key-hints-group-label">' + esc(g.group) + (g.page?.includes(tab) ? '<span class="key-hints-here">This page</span>' : '') + '</div>' +
+      g.rows.map(([label, ...keys]) => '<div class="key-hints-row"><span>' + esc(label) + '</span><span class="key-hints-keys">' +
+        keys.map(k => k[0] === '~' && k.length > 1 ? '<span class="key-hints-sep">' + esc(k.slice(1)) + '</span>'
+          : k.split(' ').map(c => '<kbd class="key-hint-key">' + esc(c) + '</kbd>').join('')).join('') +
+      '</span></div>').join('') +
+    '</section>').join('');
+}
 
 // ══════════════════════════════════════════
 //  KEYBOARD SHORTCUTS — vim-flavored global bindings + a discoverable "?"
@@ -548,7 +617,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     const bd = document.getElementById('keyHintsBackdrop');
     if (!bd) return;
     const opening = !bd.classList.contains('open');
-    if (opening) keyHintsReturn = document.activeElement;
+    if (opening) { keyHintsReturn = document.activeElement; renderKeyHints(); }
     bd.classList.toggle('open', opening);
     SFX && SFX.play(opening ? 'sheet' : 'sheet_close');
     if (opening) bd.querySelector('.add-app-modal')?.focus({ preventScroll: true });
@@ -649,6 +718,19 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
     flipPage(e.shiftKey ? -1 : 1);
   });
 
+  // Ctrl+K (⌘K on a Mac): go anywhere (js/32-terminal.js), from anywhere,
+  // even a search box. Not from a composer, whose editor may use it, nor
+  // when something underneath already did.
+  document.addEventListener('keydown', e => {
+    if (e.defaultPrevented || e.altKey || e.shiftKey || !(KLAB_MAC ? e.metaKey : e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+    if (klabLayers.modal() && !klabLayers.any('terminal')) return;
+    e.preventDefault();
+    if (klabLayers.any('terminal')) window.klabTerminal?.close?.();
+    else window.klabTerminal?.open();
+  });
+
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // never fight a browser/OS shortcut
     if (e.key === 'Escape') return; // the layer stack's (js/00-util.js)
@@ -683,7 +765,7 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         awaitingGTimer = setTimeout(() => { awaitingG = false; }, 700);
         break;
       // The prompt takes typing (js/32-terminal.js): cd music, ls, help.
-      case 'd': e.preventDefault(); window.klabTerminal?.open(); break;
+      case 'd': case ':': e.preventDefault(); window.klabTerminal?.open(); break;
       case 'j': e.preventDefault(); scrollPane(90); break;
       case 'k': e.preventDefault(); scrollPane(-90); break;
       case 'G': e.preventDefault(); scrollPaneToEdge(false); break;
@@ -714,10 +796,12 @@ document.getElementById('bgColorBtn')?.addEventListener('click', openBgColorModa
         // Only rows you can see and that are a section: "Connect chat" is a
         // .picker-tab too (→ on Chat re-ran the connect, or opened sign-in).
         const row = [...document.querySelectorAll('html.nav-tree #sideNav .nav-sub.open .picker-tab')]
-          .filter(b => b.offsetParent && b.matches('[data-tab], [data-soc], [data-mc]'));
+          .filter(b => b.offsetParent && b.matches('[data-tab], [data-soc], [data-vid]'));
         if (!row.length) break;
         e.preventDefault();
-        const at = row.findIndex(b => b.classList.contains('active'));
+        let at = row.findIndex(b => b.classList.contains('active'));
+        // Videos' front page is Popular under its hidden Home row.
+        if (at < 0 && document.querySelector('#sideNav .nav-sub.open .picker-tab[data-vid="home"].active')) at = row.findIndex(b => b.dataset.vid === 'popular');
         const to = at < 0 ? (dir > 0 ? 0 : row.length - 1) : at + dir;
         if (to < 0 || to >= row.length) break;
         row[to].click();

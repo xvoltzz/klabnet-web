@@ -387,32 +387,29 @@ async function plRenderPage(ctx, id) {
     // again (or refetched) has new ones, and its button said Play and
     // started the playlist over.
     const fromHere = () => playerState.playlist?._plId === pl.id && !!playerState.currentSong && songs.some(s => s.id === playerState.currentSong.id);
-    const playBtn = btn('ap-btn-play', '', '', () => {
+    const playBtn = btn('k-btn lg primary', '', '', () => {
       if (!songs.length) return;
       if (fromHere()) { playerState.audio.paused ? playerState.audio.play().catch(() => {}) : playerState.audio.pause(); return; }
       songs._plId = pl.id;
       playSongList(songs);
     });
-    const syncPlay = () => { playBtn.innerHTML = fromHere() && !playerState.audio.paused ? '<i class="ti ti-player-pause"></i> Pause' : '<i class="ti ti-player-play"></i> Play'; };
+    const syncPlay = () => { playBtn.innerHTML = fromHere() && !playerState.audio.paused ? '<i class="ti ti-player-pause-filled"></i> Pause' : '<i class="ti ti-player-play-filled"></i> Play'; };
     const onAudio = () => { if (!playBtn.isConnected) { for (const t of ['play', 'pause', 'loadstart']) playerState.audio.removeEventListener(t, onAudio); return; } syncPlay(); };
     for (const t of ['play', 'pause', 'loadstart']) playerState.audio.addEventListener(t, onAudio);
     syncPlay();
-    btn('ap-btn-queue', '<i class="ti ti-arrows-shuffle"></i> Shuffle', '', () => { songs._plId = pl.id; playSongList(songs, { shuffle: true }); });
-    btn('ap-btn-queue', '<i class="ti ti-playlist-add"></i> Queue all', '', () => plQueue(songs));
+    btn('k-btn lg', '<i class="ti ti-arrows-shuffle"></i> Shuffle', '', () => { songs._plId = pl.id; playSongList(songs, { shuffle: true }); });
     if (pl.can_edit) {
-      btn('ap-btn-queue', '<i class="ti ti-pencil"></i> Edit', pl.local ? 'Rename' : 'Name, cover, description, color', edit);
-      if (!pl.local) btn('ap-btn-queue' + (pl.featured ? ' pl-on' : ''), `<i class="ti ti-world"></i> ${pl.featured ? 'Featured' : 'Feature'}`,
+      btn('k-btn lg', '<i class="ti ti-pencil"></i> Edit', pl.local ? 'Rename' : 'Name, cover, description, color', edit);
+      if (!pl.local) btn('k-btn lg' + (pl.featured ? ' pl-on' : ''), `<i class="ti ti-world"></i> ${pl.featured ? 'Featured' : 'Feature'}`,
         pl.featured ? 'Everyone can see this. Click to make it private again.' : 'Show it to everyone, on Home and in Browse',
         () => plSetFeatured(pl, !pl.featured));
     }
     if (!pl.mine) { // an admin can edit anyone's, and save it like anyone else
-      btn('ap-btn-queue' + (pl.saved ? ' pl-on' : ''), pl.saved ? '<i class="ti ti-check"></i> Saved' : '<i class="ti ti-plus"></i> Save',
+      btn('k-btn lg' + (pl.saved ? ' pl-on' : ''), pl.saved ? '<i class="ti ti-check"></i> Saved' : '<i class="ti ti-plus"></i> Save',
         pl.saved ? 'In your sidebar. Click to take it out.' : 'Keep it in your sidebar', () => plSetSaved(pl, !pl.saved));
     }
-    btn('ap-btn-queue pl-more', '<i class="ti ti-dots"></i>', 'More', (e, b) => {
-      const r = b.getBoundingClientRect();
-      klabPlaylistMenu({ clientX: r.left, clientY: r.bottom + 6, target: b, preventDefault() {} }, pl);
-    });
+    const more = btn('k-btn lg icon pl-more', '<i class="ti ti-dots"></i>', 'More', (e, b) => klabMenu.at(b, playlistMenuItems(pl), { align: 'start' }));
+    more.setAttribute('aria-label', 'More'); more.setAttribute('aria-haspopup', 'menu');
 
     const parts = [hero, actions];
     if (pl.description) {
@@ -575,7 +572,7 @@ async function plRenderPage(ctx, id) {
             <div class="ap-track-title">${esc(song.title)}</div>
             <div class="ap-track-sub">${esc([song.artist, song.album].filter(Boolean).join(' · '))}</div>
           </div>
-          <button type="button" class="ap-btn-queue pl-find-add"></button>`;
+          <button type="button" class="k-btn sm pl-find-add"></button>`;
         const add = row.querySelector('.pl-find-add');
         const paint = () => { add.innerHTML = has() ? '<i class="ti ti-check"></i> Added' : '<i class="ti ti-plus"></i> Add'; add.disabled = has(); };
         paint();
@@ -632,12 +629,7 @@ async function plRenderPage(ctx, id) {
   window.addEventListener('klab:playlists', onList);
 }
 
-function plQueue(songs) {
-  if (!songs.length) return;
-  queue.push(...songs); updateQueueBadge(); SFX && SFX.play('queue');
-  if (pickerTab === 'queue') renderQueueList();
-  showToast('Queued ' + klabCount(songs.length, 'track'), 'ti-playlist-add');
-}
+function plQueue(songs) { queueSongs(songs); }
 async function plSetFeatured(p, on) {
   try {
     const r = await plEdit(p.id, { featured: on });
@@ -889,18 +881,20 @@ function ensurePlDelegate() {
 }
 
 // ── Right-click (the sidebar, a card, a tile) and the page's ⋯ ──
-function klabPlaylistMenu(e, p) {
+function klabPlaylistMenu(e, p) { klabMenu(e, playlistMenuItems(p)); }
+function playlistMenuItems(p) {
   p = plById(p.id) || p; // the row may be older than the last change
   const withSongs = fn => async () => {
     try { const songs = (await plGet(p.id)).songs; songs._plId = p.id; fn(songs); }
     catch (err) { showToast(err.message, 'ti-alert-triangle'); }
   };
   const n = p.count, canEdit = p.mine || (p.can_edit && !p.local);
-  klabMenu(e, [
+  return [
     { header: p.name },
     { label: 'Play', icon: 'ti-player-play', hidden: !n, action: withSongs(s => playSongList(s)) },
     { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: !n, action: withSongs(s => playSongList(s, { shuffle: true })) },
-    { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: withSongs(plQueue) },
+    { label: 'Play next', icon: 'ti-player-skip-forward', hidden: !n, action: withSongs(s => playNext(s, { label: `"${p.name}"` })) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', hidden: !n, action: withSongs(s => queueSongs(s, { label: `"${p.name}"` })) },
     '-',
     { label: 'Open', icon: 'ti-playlist', action: () => window.openPlaylistPage(p.id, p.name) },
     { label: p.local ? 'Rename' : 'Edit details', icon: 'ti-pencil', hidden: !canEdit, action: () => openPlaylistEditor(p) },
@@ -912,7 +906,7 @@ function klabPlaylistMenu(e, p) {
     }) },
     '-',
     { label: 'Delete playlist', icon: 'ti-trash', warn: true, hidden: !canEdit, action: () => plConfirmDelete(p) },
-  ]);
+  ];
 }
 
 // ══════════════════════════════════════════
@@ -936,11 +930,12 @@ function plCard(p) {
   card.className = 'mh-card';
   card._playlist = p;
   card.innerHTML =
-    '<div class="mh-card-art"><button type="button" class="mh-card-play" title="Play"><i class="ti ti-player-play-filled"></i></button></div>' +
+    `<div class="mh-card-art">${window.klabMusicCards?.acts(null, null) || ''}</div>` +
     `<div class="mh-card-t">${esc(p.name)}</div><div class="mh-card-a">${esc(plOwner(p))} · ${klabCount(p.count, 'song')}</div>`;
   card.querySelector('.mh-card-art').prepend(plArt(p, '', 148));
-  card.addEventListener('click', e => {
-    if (e.target.closest('.mh-card-play')) { plPlay(p); return; }
+  card.addEventListener('click', async e => {
+    if (e.target.closest('[data-card-play]')) { plPlay(p); return; }
+    if (e.target.closest('[data-card-queue]')) { try { queueSongs((await plGet(p.id)).songs, { label: `"${p.name}"` }); } catch (err) { showToast(err.message, 'ti-alert-triangle'); } return; }
     window.openPlaylistPage(p.id, p.name);
   });
   return card;
@@ -955,10 +950,11 @@ function plTile(p) {
       <div class="picker-item-title">${esc(p.name)}</div>
       <div class="picker-item-artist">${esc(plOwner(p))} · ${klabCount(p.count, 'song')}</div>
     </div>
-    <div class="picker-item-actions"><button class="picker-action" title="Play" type="button"><i class="ti ti-player-play"></i></button></div>`;
+    ${window.klabMusicCards?.acts(null, null) || ''}`;
   item.prepend(plArt(p, 'picker-item-art', 160));
-  item.addEventListener('click', e => {
-    if (e.target.closest('.picker-action')) { e.stopPropagation(); plPlay(p); return; }
+  item.addEventListener('click', async e => {
+    if (e.target.closest('[data-card-play]')) { e.stopPropagation(); plPlay(p); return; }
+    if (e.target.closest('[data-card-queue]')) { e.stopPropagation(); try { queueSongs((await plGet(p.id)).songs, { label: `"${p.name}"` }); } catch (err) { showToast(err.message, 'ti-alert-triangle'); } return; }
     window.openPlaylistPage(p.id, p.name);
   });
   return item;

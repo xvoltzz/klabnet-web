@@ -8,6 +8,8 @@ let _prefsSaveTimer = null;
 const PREF_KEYS = {
   login_song:    'klabnet_login_song',
   favorites:     'klabnet_favorites',
+  fav_albums:    'klabnet_fav_albums',
+  fav_artists:   'klabnet_fav_artists',
   play_history:  'klabnet_play_history',
   theme:         'klabnet_theme',
   playlists:     'klabnet_playlists',
@@ -111,7 +113,7 @@ window.addEventListener('focus', checkSession);
 // favorites, and every song played made it think it had changes.)
 const PREF_BASE_KEY = 'klabnet_prefs_base';
 const PREF_STRINGS  = new Set(['theme', 'bg_dark', 'bg_light', 'status']);
-const PREF_DEFAULTS = { login_song: null, favorites: [], play_history: [], theme: 'dark', playlists: [], bg_dark: '', bg_light: '', status: '' };
+const PREF_DEFAULTS = { login_song: null, favorites: [], fav_albums: [], fav_artists: [], play_history: [], theme: 'dark', playlists: [], bg_dark: '', bg_light: '', status: '' };
 const PREF_NAMES    = Object.keys(PREF_KEYS);
 
 function localPref(name) {
@@ -135,6 +137,7 @@ function afterPrefsWritten() {
   // These writes went straight to localStorage, behind the memoized
   // getFavorites()/getLoginSong() readers' backs.
   if (typeof invalidateFavCache === 'function') invalidateFavCache();
+  window.klabFavAlbums?.invalidate(); window.klabFavArtists?.invalidate();
   if (typeof invalidateLoginSongCache === 'function') invalidateLoginSongCache();
   if (typeof updateFavBadge === 'function') updateFavBadge();
   if (typeof applyCustomBg === 'function') applyCustomBg();
@@ -286,6 +289,8 @@ const _origRemFav = typeof removeFavorite !== 'undefined' ? removeFavorite : nul
 if (_origRemFav) {
   removeFavorite = function(id) { _origRemFav(id); scheduleSave(); };
 }
+// Favourite albums and artists (js/05-favorites.js) say so with an event.
+window.addEventListener('klab:favs', e => { if (e.detail?.local) scheduleSave(); });
 
 // Upload on hide (tab switched, app minimized, phone locked); pull what
 // changed elsewhere on return, if we were away long enough for it to matter.
@@ -486,19 +491,45 @@ const KLAB_STATUSES = {
   dnd: { label: 'Do not disturb', dot: 'dnd' },
   invisible: { label: 'Invisible', dot: 'off' },
 };
-function klabStatus() {
-  try { const s = localStorage.getItem('klabnet_status') || ''; return s in KLAB_STATUSES ? s : ''; } catch (e) { return ''; }
+// Do not disturb can be for a while ("for an hour", "until tomorrow"): the
+// pref is then 'dnd@<ms>' (the API keeps prefs to a fixed list of keys, so
+// the time rides in the same string). Past it, the status is online again:
+// klabStatus() says so at once, and the check below clears the pref.
+function _statusRaw() {
+  try { return localStorage.getItem('klabnet_status') || ''; } catch (e) { return ''; }
 }
-function setKlabStatus(s) {
-  try { localStorage.setItem('klabnet_status', s in KLAB_STATUSES ? s : ''); } catch (e) {}
+function klabStatusUntil() {
+  const m = /^(\w+)@(\d+)$/.exec(_statusRaw());
+  return m ? +m[2] : 0;
+}
+function klabStatus() {
+  const raw = _statusRaw(), [s, until] = raw.split('@');
+  if (until && Date.now() >= +until) return '';
+  return s in KLAB_STATUSES ? s : '';
+}
+function setKlabStatus(s, until) {
+  s = s in KLAB_STATUSES ? s : '';
+  try { localStorage.setItem('klabnet_status', s && until ? s + '@' + Math.round(until) : s); } catch (e) {}
   typeof scheduleSave === 'function' && scheduleSave();
   statusChanged();
   window.klabPresenceBeat?.();
 }
+let _statusTimer = 0;
 function statusChanged() {
   document.documentElement.classList.toggle('status-dnd', klabStatus() === 'dnd');
+  // Wake when a timed status runs out (and look again now and then: a
+  // sleeping laptop's timers run late, and another device may change it).
+  clearTimeout(_statusTimer);
+  const until = klabStatusUntil();
+  if (until) _statusTimer = setTimeout(checkStatusExpiry, Math.min(Math.max(0, until - Date.now()) + 50, 60000));
   window.dispatchEvent(new Event('klab:status'));
 }
+function checkStatusExpiry() {
+  const until = klabStatusUntil();
+  if (until && Date.now() >= until) setKlabStatus('');
+  else if (until) statusChanged();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkStatusExpiry(); });
 statusChanged();
 
 // ── Desktop notifications ──

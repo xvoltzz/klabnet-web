@@ -126,10 +126,42 @@ document.addEventListener('keydown', e => {
   // owner: the keyboard's media keys are for that; ←/→ are the site's.)
   } else if (e.code === 'KeyM') {
     document.getElementById('volIcon')?.closest('button')?.click();
-  } else if (e.code === 'KeyF' && document.getElementById('fsPlayer')?.classList.contains('open')) {
-    closeFS();
+  } else if (e.shiftKey || e.defaultPrevented || e.target.closest?.('video, .vid-player, [data-vid-player]')) {
+    // The video player's own keys (f, l, ,/.) while it has the focus.
+  } else if (e.code === 'KeyF') {
+    // The full player, open and closed.
+    if (document.getElementById('fsPlayer')?.classList.contains('open')) closeFS(); else if (playerState.currentSong) openFS();
+  } else if (e.code === 'KeyL') {
+    // Favourite (or not) the song playing.
+    const song = playerState.currentSong;
+    if (!song) return;
+    const on = klabToggleFav('song', song);
+    updateFavBadge();
+    for (const id of ['dockFav', 'fsFav']) { const b = document.getElementById(id); if (b) _paintHeart(b, true); }
+    showToast(on ? `"${song.title}" added to favorites` : `"${song.title}" taken out of favorites`, on ? 'ti-heart-filled' : 'ti-heart');
+  } else if (e.key === ',' || e.key === '.') {
+    // Ten seconds back or on.
+    const a = playerState.audio;
+    if (!playerState.currentSong || !a.duration) return;
+    e.preventDefault();
+    a.currentTime = Math.max(0, Math.min(a.duration - 1, a.currentTime + (e.key === '.' ? 10 : -10)));
+  } else if (e.key === '-' || e.key === '=' || e.key === '+') {
+    // Volume, in steps of 5%.
+    e.preventDefault();
+    klabNudgeVolume(e.key === '-' ? -0.05 : 0.05);
   }
 });
+// Volume up or down by `step`, kept like a drag on the slider is.
+function klabNudgeVolume(step) {
+  const pct = Math.max(0, Math.min(1, (window.klabSession?.remote ? playerState.audio.volume : playerState.volume) + step));
+  clearInterval(_loginFadeInterval);
+  playerState.volume = pct;
+  playerState.audio.volume = pct;
+  if (pct > 0) playerState.audio.muted = false;
+  try { localStorage.setItem(VOLUME_KEY, pct.toFixed(3)); } catch (err) {}
+  volSlider.setPct(pct);
+  fsVolSlider.setPct(pct);
+}
 // The full player is a layer: Escape and mouse Back close it when nothing's over it.
 klabLayers.watch(document.getElementById('fsPlayer'), { kind: 'player', close: () => closeFS() });
 
@@ -530,6 +562,12 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // flow (defined much later in the script) offer whatever lyric line is
   // actually on screen right now as a quotable excerpt, without duplicating
   // this module's own sync-tracking state.
+  // The dock's queue button: the full player, on Up next.
+  window.klabOpenUpNext = () => {
+    if (!document.getElementById('fsPlayer')?.classList.contains('open')) openFS();
+    if (_lyricsOpen) toggleLyrics();
+    requestAnimationFrame(syncTabs);
+  };
   window._klabLyrics = {
     toggle: toggleLyrics,
     load: loadLyrics,

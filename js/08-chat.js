@@ -1175,6 +1175,76 @@ function chatStampLabel(d) {
   const diff = Math.round((today - day) / 864e5);
   return diff === 0 ? 'Today at ' + time : diff === 1 ? 'Yesterday at ' + time : d.toLocaleDateString() + ' ' + time;
 }
+// ── New messages (refresh 2026-11-19) ──
+// Opening a conversation that had something new: a "New messages" line
+// above the first message you hadn't read, kept while you're in it. And
+// scrolled up reading when new ones arrive: a "↓ 2 new" chip over the
+// composer that takes you down (it goes once you're there).
+let _newSince = null;    // { roomId, afterId } — the last message read when you opened it
+let _newBelow = 0;       // arrived below while you were scrolled up
+function newSinceFor(room, all) {
+  const client = MatrixChat.client, me = client?.getUserId();
+  if (!me) return null;
+  // The server's receipt, not the one this page makes up the moment it
+  // sends its own (opening the room can do that before this runs).
+  let upTo = null;
+  try { upTo = room.getEventReadUpTo(me, true); } catch (e) {}
+  if (!upTo) return null;
+  const i = all.findIndex(ev => ev.getId() === upTo);
+  // The read one is the newest, or too far back to be loaded: no line.
+  if (i < 0 || i === all.length - 1) return null;
+  const next = all.slice(i + 1).find(ev => ev.getSender() !== me);
+  return next ? { roomId: room.roomId, firstId: next.getId() } : null;
+}
+function paintNewMarks(el, room, events, { roomChanged, appendFrom, wasNearBottom }) {
+  // The line.
+  let sep = el.querySelector('.chat-new-sep');
+  const want = _newSince && _newSince.roomId === room.roomId ? el.querySelector(`.chat-msg[data-event-id="${CSS.escape(_newSince.firstId)}"]`) : null;
+  if (!want) { sep?.remove(); sep = null; }
+  else if (!sep || sep.nextElementSibling !== want) {
+    sep?.remove();
+    sep = document.createElement('div');
+    sep.className = 'chat-new-sep';
+    sep.setAttribute('role', 'separator');
+    sep.innerHTML = '<span>New messages</span>';
+    // Before the day line too, when the first new one starts a day.
+    const before = want.previousElementSibling?.classList.contains('chat-date-sep') ? want.previousElementSibling : want;
+    before.before(sep);
+  }
+  // The chip.
+  if (roomChanged) _newBelow = 0;
+  const me = MatrixChat.client?.getUserId();
+  if (!roomChanged && appendFrom && !wasNearBottom) {
+    _newBelow += events.slice(appendFrom).filter(ev => ev.getSender() !== me).length;
+  }
+  if (wasNearBottom) _newBelow = 0;
+  paintNewChip(el);
+  return sep;
+}
+function paintNewChip(el) {
+  el = el || document.getElementById('chatTimeline');
+  if (!el) return;
+  let wrap = el.querySelector(':scope > .chat-new-chip-wrap');
+  if (!_newBelow) { wrap?.remove(); return; }
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'chat-new-chip-wrap';
+    wrap.innerHTML = '<button type="button" class="chat-new-chip" data-silent><i class="ti ti-chevron-down"></i><span></span></button>';
+    wrap.firstChild.addEventListener('click', () => {
+      _newBelow = 0;
+      el.scrollTo({ top: el.scrollHeight, behavior: window.klabMotionOk?.() ? 'smooth' : 'auto' });
+      wrap.remove();
+    });
+  }
+  wrap.querySelector('span').textContent = _newBelow + ' new';
+  if (el.lastElementChild !== wrap) el.appendChild(wrap);
+}
+// Down at the bottom by scrolling: the chip has done its job.
+document.getElementById('chatTimeline')?.addEventListener('scroll', e => {
+  const el = e.currentTarget;
+  if (_newBelow && el.scrollHeight - el.scrollTop - el.clientHeight < 40) { _newBelow = 0; paintNewChip(el); }
+}, { passive: true });
+
 function renderTimeline() {
   const el    = document.getElementById('chatTimeline');
   const input = document.getElementById('chatComposerInput');
@@ -1255,6 +1325,9 @@ function renderTimeline() {
     return ev.getRelation()?.rel_type !== 'm.replace';
   });
   const events = chatWindow(room, allEvents, roomChanged, el);
+  // Opening a conversation with something new in it: where you'd read up
+  // to, before this render marks it read (the "New messages" line).
+  if (roomChanged) _newSince = newSinceFor(room, allEvents);
 
   const reactions = computeReactions(room);
 
@@ -1417,13 +1490,14 @@ function renderTimeline() {
 
     if (!ev.isRedacted()) {
       const actions = document.createElement('div');
-      actions.className = 'chat-msg-actions';
+      actions.className = 'chat-msg-actions k-toolbar';
+      actions.setAttribute('role', 'toolbar');
       const starredByMe = !!reactions.get(ev.getId())?.get(KLAB_STAR)?.mine;
       actions.innerHTML = KLAB_QUICK_REACTS.map(e =>
-        `<button type="button" class="chat-msg-action-btn" data-action="react" data-emoji="${e}" title="${e}">${klabReactHTML(e)}</button>`
-      ).join('') + `<button type="button" class="chat-msg-action-btn chat-msg-star-btn${starredByMe ? ' on' : ''}" data-action="react" data-emoji="${KLAB_STAR}" title="${starredByMe ? 'Unstar' : 'Star'}"><i class="ti ${starredByMe ? 'ti-star-filled' : 'ti-star'}"></i></button>` +
-        `<button type="button" class="chat-msg-action-btn" data-action="more" title="More reactions"><i class="ti ti-mood-plus"></i></button>` +
-        `<button type="button" class="chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
+        `<button type="button" class="k-icon chat-msg-action-btn" data-action="react" data-emoji="${e}" title="${e}">${klabReactHTML(e)}</button>`
+      ).join('') + `<button type="button" class="k-icon chat-msg-action-btn chat-msg-star-btn${starredByMe ? ' on' : ''}" data-action="react" data-emoji="${KLAB_STAR}" title="${starredByMe ? 'Unstar' : 'Star'}"><i class="ti ${starredByMe ? 'ti-star-filled' : 'ti-star'}"></i></button>` +
+        `<button type="button" class="k-icon chat-msg-action-btn" data-action="more" title="More reactions"><i class="ti ti-mood-plus"></i></button>` +
+        `<button type="button" class="k-icon chat-msg-action-btn" data-action="reply" title="Reply"><i class="ti ti-arrow-back-up"></i></button>`;
       row.appendChild(actions);
     }
 
@@ -1559,12 +1633,17 @@ function renderTimeline() {
   }
 
   updateSeenLine(room, events);
+  const newSep = paintNewMarks(el, room, events, { roomChanged, appendFrom, wasNearBottom });
 
   // Compensates for any height change (a newly-arrived message added below
   // your view, grouping shifting slightly, etc.) instead of just
   // reassigning the old absolute scrollTop, which would drift if the
   // content above your viewport changed size at all.
-  if (wasNearBottom) {
+  if (roomChanged && newSep && el.scrollHeight - newSep.offsetTop > el.clientHeight) {
+    // More new than fits: open at the line, not the bottom, so you read
+    // from where you left off.
+    el.scrollTop = Math.max(0, newSep.offsetTop - 48);
+  } else if (wasNearBottom) {
     el.scrollTop = el.scrollHeight;
     // Catches layout that settles a frame late — a font swap, an image or
     // avatar with no reserved size finishing its load, anything not fully

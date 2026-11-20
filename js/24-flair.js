@@ -134,6 +134,27 @@
   window.klabDancer = { summon: i => visit(i), leave: () => leave() };
 })();
 
+// When a timed status ends: "4:05 PM", or "Tue 8:00 AM" past today.
+function klabStatusTime(ms) {
+  const d = new Date(ms), today = new Date().toDateString() === d.toDateString();
+  const t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return today ? t : d.toLocaleDateString([], { weekday: 'short' }) + ' ' + t;
+}
+// Do not disturb, for how long: from the status menu, Settings and the palette.
+function klabDndMenu(anchor) {
+  const now = klabStatus() === 'dnd', until = klabStatusUntil();
+  const morning = new Date(); morning.setDate(morning.getDate() + 1); morning.setHours(8, 0, 0, 0);
+  const set = t => { setKlabStatus('dnd', t); showToast?.('Do not disturb' + (t ? ' until ' + klabStatusTime(t) : ' is on'), 'ti-bell-off'); };
+  klabMenu.at(anchor, [
+    { header: 'Do not disturb' },
+    { label: 'For 1 hour', icon: 'ti-clock', hint: klabStatusTime(Date.now() + 36e5), action: () => set(Date.now() + 36e5) },
+    { label: 'Until tomorrow', icon: 'ti-sun', hint: klabStatusTime(+morning), action: () => set(+morning) },
+    { label: 'Until I turn it off', icon: 'ti-bell-off', action: () => set(0) },
+    now ? '-' : null,
+    now ? { label: 'Turn off' + (until ? ' now' : ''), icon: 'ti-bell', action: () => setKlabStatus('') } : null,
+  ].filter(Boolean), { align: 'start' });
+}
+
 (function() {
   // ── You ──
   const foot = document.querySelector('#sideNav .side-nav-foot');
@@ -145,21 +166,26 @@
   me.innerHTML = '<span class="side-me-av"></span><span class="side-me-text"><span class="side-me-name"></span><span class="side-me-sub"></span></span>';
   foot.appendChild(me);
   const av = me.querySelector('.side-me-av'), nameEl = me.querySelector('.side-me-name'), sub = me.querySelector('.side-me-sub');
-  // Your status (js/06-prefs.js klabStatus), then your profile.
-  const STATUS_ICON = { '': 'ti-point', away: 'ti-moon', dnd: 'ti-bell-off', invisible: 'ti-eye-off' };
-  me.addEventListener('click', () => {
-    SFX && SFX.play('click');
-    const user = window.KLAB_USER?.username, now = klabStatus();
-    klabMenu.at(me, [
+  // Your status (js/06-prefs.js klabStatus), then your profile. Each row
+  // has its colour's dot, and the one you're on a check at the right. Do
+  // not disturb asks for how long (a second menu in the same place).
+  const DOT = { '': 'st-on', away: 'st-away', dnd: 'st-dnd', invisible: 'st-off' };
+  const check = on => on ? (row => row.insertAdjacentHTML('beforeend', '<i class="ti ti-check ctx-check" aria-hidden="true"></i>')) : null;
+  window.klabStatusMenu = function(anchor) {
+    const user = window.KLAB_USER?.username, now = klabStatus(), until = klabStatusUntil();
+    klabMenu.at(anchor, [
       { section: 'Status' },
       ...Object.entries(KLAB_STATUSES).map(([k, v]) => ({
-        label: v.label, icon: k === now ? 'ti-check' : STATUS_ICON[k],
-        action: () => { setKlabStatus(k); paint(); },
+        label: k === 'dnd' ? v.label + '…' : v.label, icon: 'k-st-dot ' + DOT[k],
+        hint: k === now && until ? 'Until ' + klabStatusTime(until) : '',
+        ref: check(k === now),
+        action: () => k === 'dnd' ? setTimeout(() => klabDndMenu(anchor)) : (setKlabStatus(k), paint()),
       })),
       '-',
       { label: 'Your profile', icon: 'ti-user', action: () => user && typeof openProfileView === 'function' && openProfileView(user) },
     ], { align: 'start' });
-  });
+  };
+  me.addEventListener('click', () => { SFX && SFX.play('click'); window.klabStatusMenu(me); });
   window.addEventListener('klab:status', () => paint());
 
   let lastAv;
@@ -177,7 +203,8 @@
     // Your note, not the song: the player is right underneath.
     const st = klabStatus();
     me.dataset.status = st;
-    sub.textContent = st ? KLAB_STATUSES[st].label : window.klabMyNote?.() || 'Online';
+    const until = st && klabStatusUntil();
+    sub.textContent = st ? KLAB_STATUSES[st].label + (until ? ' · until ' + klabStatusTime(until) : '') : window.klabMyNote?.() || 'Online';
   }
   // Your picture and note arrive on their own time.
   let tries = 0;

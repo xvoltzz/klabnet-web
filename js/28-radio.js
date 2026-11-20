@@ -355,7 +355,7 @@
         (s ? art(s, 'radio-slot-art') + (s.listeners?.length ? '<span class="radio-slot-n">' + s.listeners.length + '</span>' : '')
            : '<span class="radio-slot-art radio-off-art"><i class="ti ti-x"></i></span>') + '</button>';
     }).join('');
-    if (!stations.length) hub.innerHTML = '<div class="radio-hub-name">No stations yet</div><div class="radio-hub-sub">Make one: Your stations, below</div>';
+    if (!stations.length) hub.innerHTML = '<div class="radio-hub-name">No stations yet</div><div class="radio-hub-sub">Make one with Your stations</div>';
     paintHub();
   }
   function select(i) {
@@ -782,13 +782,13 @@
           '<div class="rd-hint">Turn the dial in the player bar · ← → fine-tune · Page Up / Down for the next station · hold Q for the wheel</div>' +
           '<div class="rd-body">' +
             '<div class="rd-col rd-col-list"><div class="picker-section-label rd-label">Stations<span class="rd-gap"></span>' +
-              '<button type="button" class="rd-pill" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit</button>' +
-              '<button type="button" class="rd-pill" data-act="manage"><i class="ti ti-upload"></i>Your stations</button></div>' +
+              '<button type="button" class="rd-pill k-btn sm ghost" data-act="edit" hidden><i class="ti ti-pencil"></i>Edit</button>' +
+              '<button type="button" class="rd-pill k-btn sm ghost" data-act="manage"><i class="ti ti-upload"></i>Your stations</button></div>' +
               '<div class="rd-list"></div></div>' +
             '<div class="rd-col rd-col-on"></div>' +
             '<div class="rd-col rd-chat">' +
               '<div class="picker-section-label rd-label">Chat<span class="rd-chat-where"></span></div>' +
-              '<div class="rd-chat-box"><div class="rd-chat-log" aria-live="polite"></div>' +
+              '<div class="rd-chat-box"><div class="rd-chat-log" aria-live="polite"><div class="rd-quiet rd-chat-empty">Pick a station to chat with whoever’s on it.</div></div>' +
               '<form class="rd-chat-form" autocomplete="off"><input class="rd-chat-input" maxlength="500" enterkeyhint="send" placeholder="Pick a station" />' +
                 '<button type="submit" class="rd-chat-send" title="Send" aria-label="Send"><i class="ti ti-send-2"></i></button></form></div>' +
             '</div>' +
@@ -844,7 +844,7 @@
       const edit = el.querySelector('[data-act="edit"]');
       edit.hidden = !d?.canEdit;
       if (d) edit.dataset.id = d.id;
-      if (!stations.length) { box.innerHTML = '<div class="picker-empty">No stations yet. Make one: Your stations, above.</div>'; return; }
+      if (!stations.length) { box.innerHTML = '<div class="picker-empty">No stations yet. Make one with Your stations.</div>'; return; }
       const key = stations.map(s => s.id + s.name + s.color + s.cover + trackAt(s, posOf(s)).cur + listenersOf(s).join() + onAir(s)).join() + '|' + d?.id;
       if (box.dataset.key === key) return;
       box.dataset.key = key;
@@ -863,7 +863,7 @@
     // tracklist: the only song shown is the one on now (the display).
     function paintOn() {
       const col = el.querySelector('.rd-col-on'), d = shown();
-      if (!d) { col.innerHTML = ''; col.dataset.key = ''; return; }
+      if (!d) { col.innerHTML = '<div class="picker-section-label rd-label">Tuned in</div><div class="rd-quiet">Tune to a station to see who’s listening.</div>'; col.dataset.key = ''; return; }
       const who = listenersOf(d);
       const key = d.id + '|' + who.join() + '|' + d.description;
       if (col.dataset.key === key) return;
@@ -910,7 +910,7 @@
       input.placeholder = d ? 'Say something on ' + d.name : 'Pick a station';
       input.disabled = !d || chat.off;
       if (chat.off) { log.innerHTML = '<div class="rd-quiet rd-chat-empty">Radio chat needs the latest klabnet-api</div>'; return; }
-      if (!chat.msgs.length) { log.innerHTML = '<div class="rd-quiet rd-chat-empty">' + (reset ? '' : 'Nothing said on ' + esc(d?.name || 'this station') + ' yet. Start it off.') + '</div>'; return; }
+      if (!chat.msgs.length) { log.innerHTML = '<div class="rd-quiet rd-chat-empty">' + (!d ? 'Pick a station to chat with whoever’s on it.' : reset ? 'Loading…' : 'Nothing said on ' + esc(d.name) + ' yet. Start it off.') + '</div>'; return; }
       const stick = reset || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
       let prev = null;
       log.innerHTML = chat.msgs.map(m => {
@@ -1166,4 +1166,27 @@
     // What's on, for presence's beat (js/11-presence.js).
     station: () => { const s = byId(tuned); return s && power && level >= 0.5 ? { id: s.id, name: s.name, frequency: s.frequency, track: trackAt(s, posOf(s)).cur } : null; },
     now: () => tuned, offset: () => offset, position: id => { const s = byId(id); return s ? posOf(s) : null; }, audio };
+})();
+
+// ══════════════════════════════════════════
+//  VIEWS ARRIVING — a Music view eases in once when it's swapped in from
+//  the sidebar (once its content is drawn, not its "Loading…" line);
+//  never on a poll or a redraw of what's there.
+// ══════════════════════════════════════════
+(function() {
+  let armed = 0;
+  const mo = new MutationObserver(() => {
+    if (!armed) return;
+    if (Date.now() > armed || pickerList.querySelector(':scope > .picker-item, :scope > section, :scope > .k-empty, :scope > .fav-songs-head, :scope > .vsongs, :scope > .mh-section, :scope > div:not(.picker-empty)')) {
+      const go = Date.now() <= armed;
+      armed = 0;
+      if (go) klabEnter(pickerList);
+    }
+  });
+  mo.observe(pickerList, { childList: true });
+  const _prev = loadPickerTab;
+  loadPickerTab = async function(tab) {
+    if (tab !== pickerTab || !pickerList.firstElementChild) armed = Date.now() + 4000;
+    return _prev.apply(this, arguments);
+  };
 })();

@@ -205,7 +205,7 @@
     if (_shuffleOn !== now.shuffle) { _shuffleOn = now.shuffle; syncShuffleBtns(); }
     if (_repeatOn !== now.repeat) {
       _repeatOn = now.repeat;
-      document.getElementById('fsRepeat')?.setAttribute('aria-pressed', _repeatOn);
+      syncRepeatBtns();
     }
     if (remote()) {
       let changed = shown.muted !== now.muted;
@@ -541,7 +541,7 @@
         if ('repeat' in c) {
           _repeatOn = c.repeat;
           A.loop = c.repeat;
-          document.getElementById('fsRepeat')?.setAttribute('aria-pressed', _repeatOn);
+          syncRepeatBtns();
         }
         break;
     }
@@ -589,7 +589,7 @@
   };
   // Shuffle and repeat are plain variables their buttons flip. These run
   // after those handlers (this file loads last).
-  for (const id of ['fsShuffle', 'dockShuffle', 'fsRepeat']) {
+  for (const id of ['fsShuffle', 'dockShuffle', 'fsRepeat', 'dockRepeat']) {
     document.getElementById(id)?.addEventListener('click', () => {
       if (remote()) ask({ shuffle: _shuffleOn, repeat: _repeatOn });
       else publish();

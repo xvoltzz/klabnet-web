@@ -69,9 +69,13 @@ function openGenreView(genre) {
   hideSortBtn();
   pickerList.innerHTML = '';
   pickerList.classList.add('picker-list-grid');
+  // Back the way the album page's is: a square button, top left.
   const back = document.createElement('button');
-  back.className = 'picker-back';
-  back.innerHTML = '<i class="ti ti-arrow-left"></i> Genres';
+  back.type = 'button';
+  back.className = 'k-icon picker-back-btn';
+  back.title = 'Back to genres';
+  back.setAttribute('aria-label', back.title);
+  back.innerHTML = '<i class="ti ti-arrow-left"></i>';
   back.addEventListener('click', () => {
     if (window.klabNav?.back()) return; // same as the browser's Back
     document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.classList.remove('active'));
@@ -135,9 +139,7 @@ async function loadGenres() {
           <div class="picker-item-title">${esc(genre.value)}</div>
           <div class="picker-item-artist">${genre.albumCount} album${genre.albumCount === 1 ? '' : 's'} · ${klabCount(genre.songCount || 0, 'song')}</div>
         </div>
-        <div class="picker-item-actions" style="flex-shrink:0;">
-          <button class="picker-action" title="Play genre"><i class="ti ti-player-play"></i></button>
-        </div>`;
+        <div class="card-acts"><button type="button" class="k-card-play" title="Shuffle ${esc(genre.value)}" aria-label="Shuffle ${esc(genre.value)}" data-genre-play><i class="ti ti-player-play-filled"></i></button></div>`;
 
       // The tile opens the genre's albums; its play button shuffles them all.
       const open = () => openGenreView(genre);
@@ -158,7 +160,7 @@ async function loadGenres() {
         showToast(`${genre.value}: shuffling ${klabCount(songs.length, 'song')}`, 'ti-arrows-shuffle');
       };
 
-      item.querySelector('[title="Play genre"]').addEventListener('click', e => { e.stopPropagation(); play(); SFX && SFX.play('click'); });
+      item.querySelector('[data-genre-play]').addEventListener('click', e => { e.stopPropagation(); play(); SFX && SFX.play('click'); });
       item.addEventListener('click', open);
       pickerList.appendChild(item);
     });
@@ -276,33 +278,66 @@ function playSongList(songs, { shuffle = false } = {}) {
   if (shuffle) { _shuffleOn = true; syncShuffleBtns(); }
   const i = shuffle ? Math.floor(Math.random() * songs.length) : 0;
   playerState.playlistIndex = i;
+  if (shuffle) klabShuffleOrder(true); // this one first, then the rest in a fresh order
   playSong(songs[i]);
 }
 
-function klabAlbumMenu(e, album) {
+// Everything an artist has in the library, record by record (newest
+// first), each in disc and track order. Up to 30 albums, six at a time.
+async function artistSongs(artistId) {
+  const r = await fetchTimeout(`${ND_URL}/rest/getArtist?id=${encodeURIComponent(artistId)}&${subsonicParams()}`, {}, 8000);
+  const albums = ((await r.json())['subsonic-response']?.artist?.album || [])
+    .slice().sort((a, b) => (b.year || 0) - (a.year || 0)).slice(0, 30);
+  const lists = new Array(albums.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < albums.length) {
+      const i = next++;
+      lists[i] = await albumSongs(albums[i].id).catch(() => []);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, albums.length) }, worker));
+  return lists.map(l => l.slice().sort((a, b) => (a.discNumber || 0) - (b.discNumber || 0) || (a.track || 0) - (b.track || 0))).flat();
+}
+async function playArtist(artist, { shuffle = false } = {}) {
+  const mark = klabPickMark();
+  let songs;
+  try { songs = await artistSongs(artist.id); }
+  catch (e) { showToast('Couldn’t play ' + (artist.name || 'that artist'), 'ti-alert-triangle'); return; }
+  if (klabPickMark() !== mark) return;
+  if (!songs.length) { showToast('Nothing to play by ' + (artist.name || 'them'), 'ti-alert-triangle'); return; }
+  songs._artistId = artist.id; // the artist page's Play shows Pause while it's theirs
+  playSongList(songs, { shuffle });
+}
+window.klabPlayArtist = playArtist;
+
+// What an album's ⋯ and right-click offer. `page`: opened from its own
+// page (no "Open album"; the page has Play and Shuffle already).
+function albumMenuItems(album, { page = false } = {}) {
   const name = album.name || album.title || 'Album';
   const withSongs = fn => async () => {
     try { fn(await albumSongs(album.id)); }
     catch { showToast('Couldn’t load that album', 'ti-alert-triangle'); }
   };
-  klabMenu(e, [
+  const fav = klabFavAlbums.has(album.id);
+  const art = toastArt(album.coverArt || album.id);
+  return [
     { header: name },
-    { label: 'Play', icon: 'ti-player-play', action: withSongs(s => playSongList(s)) },
-    { label: 'Shuffle', icon: 'ti-arrows-shuffle', action: withSongs(s => playSongList(s, { shuffle: true })) },
-    { label: 'Add to queue', icon: 'ti-playlist-add', action: withSongs(s => {
-      queue.push(...s); updateQueueBadge(); SFX && SFX.play('queue');
-      if (pickerTab === 'queue') renderQueueList(); // this menu can open over the Queue view
-      showToast('Queued ' + klabCount(s.length, 'track'), toastArt(album.coverArt || album.id));
-    }) },
+    { label: 'Play', icon: 'ti-player-play', hidden: page, action: withSongs(s => playSongList(s)) },
+    { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: page, action: withSongs(s => playSongList(s, { shuffle: true })) },
+    { label: 'Play next', icon: 'ti-player-skip-forward', action: withSongs(s => playNext(s, { label: `"${name}"`, art })) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', action: withSongs(s => queueSongs(s, { label: `"${name}"`, art })) },
     { label: 'Add to playlist', icon: 'ti-playlist', action: withSongs(s => addSongsToPlaylistFlow(s, `"${name}"`)) },
     '-',
-    { label: 'Open album', icon: 'ti-disc', action: () => loadAlbumView(album.id, name) },
+    { label: fav ? 'Remove from favorites' : 'Add to favorites', icon: fav ? 'ti-heart-filled' : 'ti-heart', action: () => { klabToggleFav('album', album); } },
+    { label: 'Open album', icon: 'ti-disc', hidden: page, action: () => loadAlbumView(album.id, name) },
     { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !album.artistId, action: () => loadArtistView({ id: album.artistId, name: album.artist }) },
     { label: 'View cover', icon: 'ti-photo', hidden: !(album.coverArt || album.id), action: () => viewCover(album.coverArt || album.id, name, null, { albumId: album.id, artist: album.artist || '', album: name }) },
     '-',
     { label: 'Download (ZIP)', icon: 'ti-download', action: () => downloadAlbumZip(album.id, name) },
-  ]);
+  ];
 }
+function klabAlbumMenu(e, album) { klabMenu(e, albumMenuItems(album)); }
 
 // ── High-resolution album art, for display ──
 // klabnet-api finds the same cover at high resolution in an outside
@@ -381,13 +416,24 @@ document.addEventListener('click', e => {
   else { SFX && SFX.play('open'); openImageViewer({ thumbSrc: img.currentSrc || img.src, alt: img.alt || '', framed: true }); }
 }, true);
 
-function klabArtistMenu(e, artist) {
-  klabMenu(e, [
+function artistMenuItems(artist, { page = false } = {}) {
+  const fav = klabFavArtists.has(artist.id);
+  const songsThen = fn => async () => {
+    try { const s = await artistSongs(artist.id); if (s.length) fn(s); }
+    catch { showToast('Couldn’t load that artist', 'ti-alert-triangle'); }
+  };
+  return [
     { header: artist.name || 'Artist' },
-    { label: 'Open artist', icon: 'ti-microphone-2', action: () => loadArtistView(artist) },
+    { label: 'Play', icon: 'ti-player-play', hidden: page, action: () => playArtist(artist) },
+    { label: 'Shuffle', icon: 'ti-arrows-shuffle', hidden: page, action: () => playArtist(artist, { shuffle: true }) },
+    { label: 'Add to queue', icon: 'ti-playlist-add', action: songsThen(s => queueSongs(s, { label: artist.name || 'Their songs' })) },
+    '-',
+    { label: fav ? 'Remove from favorites' : 'Add to favorites', icon: fav ? 'ti-heart-filled' : 'ti-heart', action: () => { klabToggleFav('artist', artist); } },
+    { label: 'Open artist', icon: 'ti-microphone-2', hidden: page, action: () => loadArtistView(artist) },
     { label: 'Copy name', icon: 'ti-copy', action: () => klabCopy(artist.name, 'Artist name') },
-  ]);
+  ];
 }
+function klabArtistMenu(e, artist) { klabMenu(e, artistMenuItems(artist)); }
 
 document.addEventListener('contextmenu', e => {
   for (let n = e.target; n && n !== document.body; n = n.parentElement) {
@@ -411,62 +457,58 @@ function hideSongCtx() { klabMenu.close(); }
 // local `songs` array instead, since those tracks were never in
 // pickerSongs to begin with.
 let _songCtxFor = null; // the song the menu was last opened on
-function showSongCtx(x, y, song, contextSongs) {
-  if (!song) return;
+function songMenuItems(song, contextSongs) {
   _songCtxFor = song;
   const isFav = isFavorite(song.id);
   const existingLogin = getLoginSong();
   const isLogin = existingLogin && existingLogin.id === song.id;
+  const isNow = playerState.currentSong?.id === song.id;
   // Label the original with what it actually is ("Download FLAC"), since
   // that's the whole reason someone would pick it over the MP3. The MP3
   // row hides when the file already is one — transcoding mp3 to mp3 just
   // costs quality.
   const suffix = (song.suffix || '').toLowerCase();
-  const starKey = 'song:' + song.id;
-  let starMine = !!klabStars.get(starKey).mine;
-  const items = [
+  return [
     { header: song.title || 'Song' },
-    { label: 'Play now', icon: 'ti-player-play', action: async () => {
+    { label: 'Play now', icon: 'ti-player-play', hidden: isNow, action: async () => {
       const list = contextSongs || pickerSongs;
       if (Array.isArray(list) && list.includes(song)) {
         playerState.playlist = list; playerState.playlistIndex = list.indexOf(song);
       }
       await playSong(song);
     } },
+    { label: 'Play next', icon: 'ti-player-skip-forward', hidden: isNow, action: () => playNext([song]) },
     { label: 'Add to queue', icon: 'ti-playlist-add', action: () => addToQueue(song) },
     { label: 'Add to playlist', icon: 'ti-playlist', action: () => addSongToPlaylistFlow(song) },
     '-',
+    { label: isFav ? 'Remove from favorites' : 'Add to favorites', icon: isFav ? 'ti-heart-filled' : 'ti-heart', action: () => {
+      klabToggleFav('song', song);
+      updateFavBadge();
+    } },
     { label: 'Go to artist', icon: 'ti-microphone-2', hidden: !song.artistId, action: () => loadArtistView({ id: song.artistId, name: song.artist }) },
     { label: 'Go to album', icon: 'ti-disc', hidden: !song.albumId, action: () => loadAlbumView(song.albumId, song.album) },
+    { label: 'View cover', icon: 'ti-photo', hidden: !song.coverArt, action: () => viewCover(song.coverArt, song.album || song.title, null, song.albumId ? { albumId: song.albumId, artist: klabAlbumArtistOf(song), album: song.album || '' } : null) },
+    { label: 'Share to feed', icon: 'ti-share-2', action: () => shareSongToFeed(song) },
     '-',
-    { label: isFav ? 'Remove from favorites' : 'Add to favorites', icon: isFav ? 'ti-heart-filled' : 'ti-heart', action: () => {
-      if (isFavorite(song.id)) removeFavorite(song.id); else addFavorite(song);
-      updateFavBadge();
-      SFX.play('star');
-    } },
-    // Does what the label says, whatever the server turns out to hold.
-    { label: starMine ? 'Unstar' : 'Star', icon: starMine ? 'ti-star-filled' : 'ti-star', hidden: typeof KLAB_STARS !== 'undefined' && !KLAB_STARS,
-      action: () => klabStars.toggle(starKey, !starMine),
-      // A song from the wheel or Cover Flow has no star drawn, so nothing
-      // has asked for its stars yet: the label follows once they're in.
-      ref: (row, text) => klabStars.ensure(starKey).then(s => {
-        if (_songCtxFor !== song || !row.isConnected) return;
-        starMine = !!s.mine;
-        text.textContent = starMine ? 'Unstar' : 'Star';
-        row.querySelector('i').className = 'ti ' + (starMine ? 'ti-star-filled' : 'ti-star');
-      }) },
     { label: isLogin ? 'Clear login song' : 'Set as login song', icon: isLogin ? 'ti-door-exit' : 'ti-door-enter', action: () => {
       if (isLogin) { clearLoginSong(); showToast('Login song cleared', 'ti-door-exit'); }
       else { setLoginSong(song); showToast(`"${song.title}" set as login song`, toastArt(song.coverArt)); }
       syncLoginSongRows();
     } },
-    '-',
     { label: 'Download' + (suffix ? ' ' + suffix.toUpperCase() : ''), icon: 'ti-download', action: () => downloadSongOriginal(song) },
     { label: 'Download as MP3', icon: 'ti-file-music', hidden: suffix === 'mp3', action: () => downloadSongMp3(song) },
   ];
+}
+function showSongCtx(x, y, song, contextSongs) {
+  if (!song) return;
   // Opened from a right-click that's already been handled (its handler
   // called preventDefault), so the menu gets the point, not the event.
-  klabMenu({ clientX: x, clientY: y, target: document.body, shiftKey: false, defaultPrevented: false, preventDefault() {} }, items);
+  klabMenu({ clientX: x, clientY: y, target: document.body, shiftKey: false, defaultPrevented: false, preventDefault() {} }, songMenuItems(song, contextSongs));
+}
+// The same menu from a row's ⋯ button, hung off the button.
+function klabSongMenuAt(anchor, song, contextSongs) {
+  if (!song) return;
+  klabMenu.at(anchor, songMenuItems(song, contextSongs), { align: 'end' });
 }
 
 // Player dock — right-click anywhere on it for the full menu on whatever's
@@ -605,7 +647,7 @@ function updateRequestsBadge() {
   const el = document.getElementById('requestsCount');
   if (!el) return;
   const pending = _musicRequests.filter(r => r.status === 'pending').length;
-  el.textContent = pending ? `(${pending})` : '';
+  el.textContent = pending ? String(pending) : '';
 }
 
 function musicRequestRowHTML(req, avatarUrl) {
@@ -643,7 +685,7 @@ function renderMusicRequestsList() {
   clearTimeout(_reqAvatarTimer);
   updateRequestsBadge();
   if (pickerTab !== 'requests') return;
-  const newBtnHTML = `<div class="mr-actions"><button class="ap-btn-queue" id="musicNewRequestBtn" type="button"><i class="ti ti-plus"></i> New request</button></div>`;
+  const newBtnHTML = `<div class="mr-actions"><button class="k-btn" id="musicNewRequestBtn" type="button"><i class="ti ti-plus"></i> New request</button></div>`;
   let anyUnresolvedAvatar = false;
   const rowsHTML = _musicRequests.map(req => {
     const avatarUrl = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(req.username) : null;
@@ -804,6 +846,7 @@ const SORT_OPTIONS = {
               ['created-desc','Recently added'], ['plays-desc','Most played'], ['played-desc','Recently played']],
   playlists: [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['created-desc','Recently created']],
   genres:    [['name-asc','Name (A–Z)'], ['count-desc','Most songs']],
+  artists:   [['name-asc','Name (A–Z)'], ['name-desc','Name (Z–A)'], ['albums-desc','Most albums']],
 };
 
 let _pickerSortState = {};
@@ -839,6 +882,7 @@ function applySort(items, tab) {
     case 'year-asc':     return arr.sort((a, b) => (a.year||0) - (b.year||0));
     case 'created-desc': return arr.sort((a, b) => new Date(b.created||0) - new Date(a.created||0));
     case 'count-desc':   return arr.sort((a, b) => (b.songCount||0) - (a.songCount||0));
+    case 'albums-desc':  return arr.sort((a, b) => (b.albumCount||0) - (a.albumCount||0) || cmp(a.name, b.name));
     case 'plays-desc':   return arr.sort((a, b) => (b.playCount||0) - (a.playCount||0));
     case 'played-desc':  return arr.sort((a, b) => String(b.played||'').localeCompare(String(a.played||'')));
     case 'duration-desc': return arr.sort((a, b) => (b.duration||0) - (a.duration||0));
@@ -852,7 +896,7 @@ function applySort(items, tab) {
 function showSortBtn(tab) {
   const btn = document.getElementById('pickerSortBtn');
   // Albums and Songs sort from their own bar (js/26-browse.js).
-  if (btn) btn.classList.toggle('shown', !!SORT_OPTIONS[tab] && tab !== 'albums' && tab !== 'songs');
+  if (btn) btn.classList.toggle('shown', !!SORT_OPTIONS[tab] && !['albums', 'songs', 'artists'].includes(tab));
 }
 function hideSortBtn() {
   const btn = document.getElementById('pickerSortBtn');
@@ -862,7 +906,7 @@ function hideSortBtn() {
 
 function rerenderSortedTab() {
   if (pickerTab === 'songs')          loadAllSongs();
-  else if (pickerTab === 'albums')    klabBrowse.render('albums');
+  else if (pickerTab === 'albums' || pickerTab === 'artists') klabBrowse.render(pickerTab);
   else if (pickerTab === 'favorites') loadPickerTab('favorites');
   else if (pickerTab === 'genres')    loadGenres();
 }
