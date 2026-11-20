@@ -1,10 +1,12 @@
 // ══════════════════════════════════════════
-//  MUSIC HOME — the Music tab's Home view, as a front page for the library
-//  rather than a list of random songs:
+//  MUSIC HOME — Music → Browse (the sidebar's first row under Music), as a
+//  front page for the library rather than a list of random songs. Cover
+//  Flow leads, as it always did (the owner, 2026-11-20: Browse should "look
+//  the same as the original one did"):
+//    Recently added   a Cover Flow of the newest albums
 //    Jump back in     a mix of tiles: what you had on lately, artists you
 //                     play a lot, albums you haven't touched in a while,
 //                     a playlist of yours
-//    Recently added   a Cover Flow of the newest albums
 //    Listen history   albums from your own play history, newest first
 //    Featured playlists  the ones people have featured (09b-playlists.js)
 //    Most played      the library's most-played albums (every visitor plays
@@ -916,15 +918,15 @@
     list.classList.remove('picker-list-grid');
     list.classList.add('mh-home');
 
-    const jump = jumpSection();
-    if (jump) list.appendChild(jump);
-
     const flowLabel = document.createElement('div');
     flowLabel.className = 'picker-section-label';
     flowLabel.textContent = 'Recently added';
     list.appendChild(flowLabel);
     list.appendChild(flow.el);
     flow.load();
+
+    const jump = jumpSection();
+    if (jump) list.appendChild(jump);
 
     const recent = listenHistory();
     if (recent.length) list.appendChild(albumRow('Listen history', recent));

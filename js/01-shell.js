@@ -800,8 +800,6 @@ function renderKeyHints() {
         if (!row.length) break;
         e.preventDefault();
         let at = row.findIndex(b => b.classList.contains('active'));
-        // Videos' front page is Popular under its hidden Home row.
-        if (at < 0 && document.querySelector('#sideNav .nav-sub.open .picker-tab[data-vid="home"].active')) at = row.findIndex(b => b.dataset.vid === 'popular');
         const to = at < 0 ? (dir > 0 ? 0 : row.length - 1) : at + dir;
         if (to < 0 || to >= row.length) break;
         row[to].click();

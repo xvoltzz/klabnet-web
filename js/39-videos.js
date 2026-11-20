@@ -6,8 +6,11 @@
 //  so its comments and reactions are the Feed's (/api/posts/{id}/replies,
 //  /reactions).
 //    · The page is a shell like Photos' (index.html #videosShell): its rows
-//      (Home, Popular, Continue watching, Your videos) unfold under Videos
-//      in the sidebar tree, and its search box goes to the title bar.
+//      (Browse, Continue watching, Your videos) unfold under Videos in the
+//      sidebar tree, and its search box goes to the title bar. Browse
+//      (view 'home') leads with the newest video big, then Continue
+//      watching and the rest. (Popular went, 2026-11-20: the owner, "we
+//      dont have neough users". The API's sort=popular stays.)
 //    · Watching is a view of the same page (#vidPage), with Back.
 //    · The player is klabnet's own controls over a <video>. HLS plays
 //      through hls.js (js/vendor/hls.light.min.js, fetched on first play;
@@ -122,7 +125,6 @@
   // ── List views ──
   const VIEWS = {
     home: { title: 'Videos', query: 'sort=new' },
-    popular: { title: 'Popular', query: 'sort=popular' },
     mine: { title: 'Your videos', query: () => 'user=' + encodeURIComponent(me()) },
     channel: { title: v => v.user, query: v => 'user=' + encodeURIComponent(v.user) },
     search: { title: v => '“' + v.q + '”', query: v => 'q=' + encodeURIComponent(v.q) },
@@ -144,7 +146,7 @@
   async function showList(v, opts) {
     leaveWatch();
     view = v;
-    setRow(['home', 'popular', 'continue', 'mine'].includes(v.kind) ? v.kind : '');
+    setRow(['home', 'continue', 'mine'].includes(v.kind) ? v.kind : '');
     if (!(opts && opts.quiet)) record({ kind: 'list', view: v });
     const my = ++token;
     const def = VIEWS[v.kind];
@@ -155,7 +157,9 @@
         '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div>'
       : '';
     page.innerHTML = (channelHead || headHTML(title, '')) +
-      (v.kind === 'home' ? '<div class="vid-shelf-wrap" id="vidShelf" hidden></div><div class="k-label vid-label" id="vidLatest" hidden>Latest</div>' : '') +
+      (v.kind === 'home' ? '<div class="vid-hero-slot" id="vidHero"></div><div class="vid-shelf-wrap" id="vidShelf" hidden></div>' +
+        // (Room for TV channels' shelf, js/40-tv.js: see channelsShelf below.)
+        '<div class="vid-shelf-wrap" id="vidChannels" hidden></div><div class="k-label vid-label" id="vidLatest" hidden>Latest</div>' : '') +
       '<div class="vid-grid" id="vidGrid">' + LOADING + '</div>';
     if (panel()) panel().scrollTop = 0;
     klabEnter(page);
@@ -173,9 +177,50 @@
       if (!el || !j.videos?.length) return;
       el.hidden = false;
       el.innerHTML = '<div class="k-label vid-label">Continue watching</div><div class="vid-shelf">' + j.videos.map(x => cardHTML(x)).join('') + '</div>';
-      const latest = $('vidLatest');
-      if (latest) latest.hidden = false;
     } catch (e) { /* the grid says what's wrong */ }
+  }
+
+  // ── Browse's lead: the newest video, big ──
+  // Its poster wide on the left (a screen, dark in either theme), what it
+  // is beside it, Play (or Resume) and the channel.
+  function heroHTML(v) {
+    const p = progressOf(v);
+    return '<section class="vid-hero" data-vid-id="' + v.id + '">' +
+      '<button type="button" class="vid-hero-art" data-act="open" data-id="' + v.id + '" title="Play" data-silent>' +
+        (v.poster || v.posterSmall ? '<img src="' + esc(v.poster || v.posterSmall) + '" alt="" draggable="false" onload="this.classList.add(\'loaded\')" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') +
+        '<span class="vid-hero-play"><i class="ti ti-player-play-filled"></i></span>' +
+        (v.duration ? '<span class="vid-dur">' + dur(v.duration) + '</span>' : '') +
+        (p ? '<span class="vid-prog"><b style="width:' + p.toFixed(1) + '%"></b></span>' : '') +
+      '</button>' +
+      '<div class="vid-hero-tx">' +
+        '<div class="k-label">Newest</div>' +
+        '<h3 class="vid-hero-title">' + esc(v.title || 'Untitled') + '</h3>' +
+        '<button type="button" class="vid-hero-by" data-act="channel" data-user="' + esc(v.username) + '">' + face(v.username) + '<span>' + esc(v.username) + '</span></button>' +
+        '<div class="vid-hero-meta">' + views(v.views) + ' · ' + ago(v.created) + '</div>' +
+        (v.description ? '<p class="vid-hero-desc">' + esc(v.description) + '</p>' : '') +
+        '<div class="vid-hero-acts">' +
+          '<button type="button" class="k-btn primary" data-act="open" data-id="' + v.id + '"><i class="ti ti-player-play-filled"></i><span>' + (p ? 'Resume at ' + dur(v.watched) : 'Play') + '</span></button>' +
+          '<button type="button" class="k-btn" data-act="channel" data-user="' + esc(v.username) + '"><i class="ti ti-user"></i><span>Channel</span></button>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  // TV channels (js/40-tv.js), as a shelf on Browse, if that file offers
+  // a list: window.klabTv.channels() → [{ id, name, … }] and
+  // window.klabTv.open(id). Nothing shows without it.
+  function channelsShelf() {
+    const el = $('vidChannels');
+    const tv = window.klabTv;
+    if (!el || !tv || typeof tv.channels !== 'function') return;
+    Promise.resolve(tv.channels()).then(chs => {
+      if (!el.isConnected || !Array.isArray(chs) || !chs.length) return;
+      el.hidden = false;
+      el.innerHTML = '<div class="k-label vid-label">Channels</div><div class="vid-shelf vid-tv-shelf">' +
+        chs.slice(0, 12).map(c => '<button type="button" class="vid-tv-card" data-act="tv" data-id="' + esc(c.id) + '" data-silent>' +
+          '<span class="vid-thumb">' + (c.poster || c.posterSmall || c.cover ? '<img src="' + esc(c.posterSmall || c.poster || c.cover) + '" alt="" loading="lazy" draggable="false" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') + '</span>' +
+          '<span class="vid-card-title">' + esc(c.name || c.title || 'Channel') + '</span></button>').join('') + '</div>';
+    }).catch(() => {});
   }
 
   async function loadMore(my, first) {
@@ -188,23 +233,32 @@
       else {
         const q = typeof def.query === 'function' ? def.query(v) : def.query;
         const last = list[list.length - 1];
-        url = API + '?limit=24&' + q + (last && v.kind !== 'popular' ? '&before_id=' + last.id : '') + (last && v.kind === 'popular' ? '&offset=' + list.length : '');
+        url = API + '?limit=24&' + q + (last ? '&before_id=' + last.id : '');
       }
       const j = await getJSON(url);
       if (my !== token) return;
-      const got = j.videos || [];
+      let got = j.videos || [];
       remember(got);
       list = list.concat(got);
+      // Browse's first page: the newest ready video leads, big, and the
+      // grid under it is the rest.
+      if (v.kind === 'home' && first) {
+        const lead = got.find(x => x.status === 'ready');
+        const slot = $('vidHero');
+        if (lead && slot) { slot.innerHTML = heroHTML(lead); got = got.filter(x => x !== lead); }
+        channelsShelf();
+      }
       total = j.total ?? list.length;
       more = v.kind !== 'continue' && got.length >= 24 && list.length < total;
       const grid = $('vidGrid');
       if (!grid) return;
       if (first) grid.innerHTML = '';
       if (!list.length) {
-        const words = { home: 'No videos yet. Be the first.', popular: 'Nothing’s been watched yet.', continue: 'Nothing to pick up again. Videos you stop partway show here.',
+        const words = { home: 'No videos yet. Be the first.', continue: 'Nothing to pick up again. Videos you stop partway show here.',
           mine: 'You haven’t uploaded anything yet.', channel: v.user + ' hasn’t uploaded anything yet.', search: 'Nothing matches that.' };
         grid.innerHTML = emptyHTML(words[v.kind], ['home', 'mine'].includes(v.kind));
-      } else grid.insertAdjacentHTML('beforeend', got.map(x => cardHTML(x, { noUser: v.kind === 'channel' || v.kind === 'mine', noFace: v.kind === 'channel' || v.kind === 'mine' })).join(''));
+      } else if (got.length) grid.insertAdjacentHTML('beforeend', got.map(x => cardHTML(x, { noUser: v.kind === 'channel' || v.kind === 'mine', noFace: v.kind === 'channel' || v.kind === 'mine' })).join(''));
+      if (v.kind === 'home') { const l = $('vidLatest'); if (l) l.hidden = !grid.querySelector('.vid-card'); }
       const sub = $('vidSub');
       if (sub) sub.textContent = total ? klabCount(total, 'video') : '';
       watchProcessing();
@@ -278,6 +332,9 @@
   }
   window.klabOpenVideo = (id, at) => openVideo(id, at || 0);
   window.klabOpenChannel = user => { if (!showing()) setActiveTab('videos'); showList({ kind: 'channel', user }); };
+  // TV channels (js/40-tv.js) take the page over: what's playing here
+  // stops and any list still loading lets go.
+  window.klabVideosLeave = () => { leaveWatch(); view = { kind: 'tv' }; token++; more = false; clearTimeout(procTimer); };
 
   function canEdit(v) { return v.canEdit ?? (v.username === me() || admin()); }
 
@@ -768,6 +825,8 @@
     if (!b) return;
     const act = b.dataset.act;
     if (act === 'upload') uploadDialog();
+    else if (act === 'open') { SFX && SFX.play('nav'); openVideo(+b.dataset.id); }
+    else if (act === 'tv') window.klabTv?.open?.(b.dataset.id);
     else if (act === 'back') { if (!window.klabNav?.back()) showList({ kind: 'home' }); }
     else if (act === 'channel') showList({ kind: 'channel', user: b.dataset.user });
     else if (act === 'profile') window.openProfileView?.(b.dataset.user);
@@ -799,17 +858,17 @@
     const was = v.watched;
     v.watched = null;
     page.querySelectorAll('.vid-shelf .vid-card[data-vid-id="' + v.id + '"]').forEach(c => c.remove());
-    page.querySelectorAll('.vid-card[data-vid-id="' + v.id + '"] .vid-prog').forEach(b => b.remove());
+    page.querySelectorAll('[data-vid-id="' + v.id + '"] .vid-prog').forEach(b => b.remove());
     const shelf = $('vidShelf');
-    if (shelf && !shelf.querySelector('.vid-card')) { shelf.hidden = true; const l = $('vidLatest'); if (l) l.hidden = true; }
+    if (shelf && !shelf.querySelector('.vid-card')) shelf.hidden = true;
     if (view.kind === 'continue') { list = list.filter(x => x.id !== v.id); page.querySelector('.vid-grid .vid-card[data-vid-id="' + v.id + '"]')?.remove(); }
     fetch(API + '/' + v.id + '/progress', { ...json('PUT', { position: v.duration || 1e6 }), keepalive: true })
       .then(r => { if (!r.ok) throw r; })
       .catch(() => { v.watched = was; showToast('Couldn’t take it out', 'ti-alert-triangle'); });
   }
   page.addEventListener('contextmenu', e => {
-    const card = e.target.closest('.vid-card[data-vid-id]');
-    if (card) {
+    const card = e.target.closest('.vid-card[data-vid-id], .vid-hero[data-vid-id]');
+    if (card && !e.target.closest('.vid-hero-by')) {
       const v = cache.get(+card.dataset.vidId);
       if (!v) return;
       cardMenu(e, v, !!card.closest('.vid-shelf') || view.kind === 'continue');

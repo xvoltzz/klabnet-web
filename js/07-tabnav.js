@@ -57,6 +57,13 @@ function setActiveTab(key) {
     window.klabVideoLink = { id: +vlink[1], at: +vlink[2] || 0 };
     if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
   }
+  // A TV channel (#videos/tv, #videos/tv/4): Videos, then Channels (js/40-tv.js).
+  const tvlink = /^videos\/tv(?:\/(\d{1,2}))?$/.exec(key || '');
+  if (tvlink) {
+    key = 'videos';
+    window.klabTvLink = { number: +tvlink[1] || 0 };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
   // A menu belongs to the page it was opened on (tab changes don't fire hashchange).
@@ -1453,8 +1460,8 @@ async function offerAppUpdate(current) {
 //  sidebar awkward, and asked for navigation that feels obvious. So each
 //  kind of thing has one home, the same on every page:
 //    · Where you can go is the sidebar. The page you're on unfolds its
-//      sections under its own row (Social: Home, Feed, Photos, Chat;
-//      Music: Home… Requests and your playlists), the
+//      sections under its own row (Social: Home, Feed, Chat; Music:
+//      Browse… Requests and your playlists; Photos and Videos: Browse…), the
 //      way Finder's and Music's sidebars do. Only one row in the whole
 //      sidebar is highlighted: the section you're on.
 //    · Where you are is the prompt in the title bar (klabnet/feed>).
@@ -1555,11 +1562,15 @@ async function offerAppUpdate(current) {
     was = shape;
   }
   // A page's own row goes to its front page, from anywhere (the owner:
-  // "always take me back to the home page of that tab"): Music's Home,
-  // with any album or playlist page closed.
+  // "always take me back to the home page of that tab"), with any album or
+  // playlist page closed. The front page is a row of its own, first under
+  // the page's row: Browse (Music, Photos, Videos) or Social's Home. The
+  // page's row only unfolds its sections; that row is the one lit (the
+  // owner, 2026-11-20: Music "shouldnt focus on the primary tab, it should
+  // expand and the default tab should be a Browse").
   PAGES.forEach(p => {
     const btn = tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`);
-    const FRONT = '.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"]';
+    const FRONT = '.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"], .picker-tab[data-phview="timeline"]';
     const front = p.in.querySelector(FRONT) || p.parts[0]?.querySelector(FRONT);
     if (!btn || !front) return;
     btn.addEventListener('click', () => setTimeout(() => {

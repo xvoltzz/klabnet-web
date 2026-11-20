@@ -39,7 +39,8 @@
     });
     return m;
   }
-  const musicDirs = () => rowsOf('.music-nav .picker-tab[data-tab]', 'home');
+  // (Each page's Browse row is the page itself: "cd music" goes there.)
+  const musicDirs = () => rowsOf('.music-nav .picker-tab[data-tab]:not([data-tab="random"])');
   const videoDirs = () => rowsOf('#vidNav .picker-tab[data-vid]:not([data-vid="home"])');
   const dirsOf = p => p === 'music' ? musicDirs() : p === 'videos' ? videoDirs() : new Map();
   const page = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';

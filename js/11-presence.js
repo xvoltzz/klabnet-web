@@ -539,6 +539,7 @@
   function klabWhere() {
     const t = document.querySelector('.tab-panel.active')?.dataset.tabPanel || '';
     if (t === 'music' && document.querySelector('.music-nav .picker-tab.active[data-tab="radio"]')) return 'radio';
+    if (t === 'videos' && window.klabTv?.now?.()) return 'tv';
     return t;
   }
   window.klabWhere = klabWhere;
@@ -998,6 +999,8 @@
           coverArt:  song?.coverArt || '',
           // The radio station tuned in to (js/28-radio.js), for who's on what.
           radio:     window.klabRadio?.now?.() || '',
+          // The TV channel on air here (js/40-tv.js), for who's watching.
+          tv:        window.klabTv?.now?.() || '',
           partyHost: _partyHostLabel || '',
           platform:  PLATFORM,
           // Which of your devices this is, and whether it's only showing

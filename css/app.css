@@ -9609,11 +9609,10 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       #sideNav .nav-sub .music-new-playlist-btn i { font-size: 15px; }
       /* The page's own row: it heads its sections, and the highlight is
          on the section, so it's just bright. */
-      /* A page's front (Music's Home, Social's) is its own row: the
-         highlight stays on that row, and the sections' Home rows go (three
-         Homes in one sidebar read as a puzzle). */
-      #sideNav .nav-sub :is(.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"]) { display: none; }
-      html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]):not([data-vid="home"]), .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
+      /* A page's front is a row of its own, first under the page's row
+         (Browse; Social's Home), and the highlight is on that row: the
+         page's row only unfolds (2026-11-20). */
+      html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active, .music-playlist-row.active)) > .motion-pill-tabs { opacity: 0 !important; }
       html.nav-tree #sideNav .tab-nav-btn.active:has(+ .nav-sub.open) { color: var(--text); font-weight: 600; }
       /* The pages' own sidebars have nothing left in them. */
       html.nav-tree :is(#musicSidebar, #socSidebar, #photosSidebar, #videosSidebar) { display: none !important; }
@@ -9845,9 +9844,9 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     #sideNav :is(.nav-sub .picker-tab > span, .nav-sub .music-new-playlist-btn > span, .music-playlist-row-name, #chatSide .chat-channel-name) {
       padding-block: 2px 7px; margin-block: -2px -7px;
     }
-    /* A page whose section is lit: its own row stays bright, not underlined (one mark in the sidebar).
-       Not on Social's home: Chat's open conversation stays .active while you're elsewhere in Social. */
-    html.nav-tree body:not(.tab-social-active) #tabNav:has(> .nav-sub.open :is(.picker-tab.active:not([data-tab="random"]):not([data-soc="social"]), .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
+    /* A page's own row stays bright, not underlined: the mark is on its
+       section (Browse, its front page, included). One mark in the sidebar. */
+    html.nav-tree #tabNav:has(> .nav-sub.open :is(.picker-tab.active, .music-playlist-row.active, .chat-conv.active)) > .tab-nav-btn.active > span:not(#socialUnreadBadge) {
       text-decoration-color: transparent;
     }
     #sideNav :is(.tab-nav-btn, .nav-sub .picker-tab, .music-playlist-row, #chatSide .chat-conv):focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
@@ -11509,3 +11508,220 @@ html[data-nav] #sideNav .side-nav-foot :is(.side-nav-item, #dockPeek) > i { font
 html[data-theme="light"]:not(.sky) .side-nav .side-me-av { background: color-mix(in srgb, var(--me-color, #fff) 45%, var(--lt-frame-color, #333)); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
 html[data-theme="light"]:not(.sky) .side-nav .side-me-av::after { box-shadow: 0 0 0 2.5px var(--lt-frame-color, var(--bg)); }
 /* end REFRESH: SHELL */
+
+/* ═══ BROWSE: EACH PAGE'S FRONT ROW (2026-11-20) ═══
+   The owner: "every home tab to look different… the default tab should be
+   a 'Browse'". Music, Photos and Videos each open on a Browse row, first
+   under the page's row in the sidebar tree, lit like any other section
+   (the page's row only unfolds). Each Browse is built for what it holds:
+   Music its covers and shelves, Photos the photo itself, Videos the newest
+   video big and shelves under it. */
+
+/* Photos' rows sat a second indent in (their group is indented as well):
+   in line with every other page's sections. */
+#sideNav .nav-sub #phSidebar > .ph-nav .picker-tab { margin-left: 0; width: 100%; }
+
+/* ── Videos → Browse: the newest video leads ── */
+.vid-hero-slot { container-type: inline-size; }
+.vid-hero-slot:empty { display: none; }
+.vid-hero {
+  display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 28px; align-items: center;
+  margin: 0 0 34px;
+}
+.vid-hero-art {
+  position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; cursor: pointer;
+  border-radius: var(--r-lg); border: 1px solid var(--line); background: #0b0b0c;
+  transition: border-color var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+.vid-hero-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease; }
+.vid-hero-art img.loaded { opacity: 1; }
+.vid-hero-art:hover { border-color: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong), 0 10px 40px -16px rgba(var(--accent-rgb), .45); }
+.vid-hero-art:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--focus-line); }
+.vid-hero-play {
+  position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px;
+  display: grid; place-items: center; border-radius: var(--r-lg);
+  background: rgba(0,0,0,.55); color: #fff; font-size: 26px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  opacity: .85; transition: opacity var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.vid-hero-art:hover .vid-hero-play { opacity: 1; background: rgba(0,0,0,.72); }
+.vid-hero-art .vid-dur { right: 10px; bottom: 10px; }
+.vid-hero-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.vid-hero-title {
+  margin: 0; font: 700 26px/1.2 var(--font-ui); color: var(--text); letter-spacing: -.01em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.vid-hero-by {
+  display: inline-flex; align-items: center; gap: 9px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 600 var(--fs-13) var(--font-ui); color: var(--text-dim); transition: color var(--m-fast) ease;
+}
+.vid-hero-by .vid-face { --s: 26px; }
+.vid-hero-by:hover { color: var(--text); }
+.vid-hero-meta { font-size: var(--fs-13); color: var(--text-dim); margin-top: -4px; }
+.vid-hero-desc {
+  margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-dim); white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.vid-hero-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+@container (max-width: 760px) {
+  .vid-hero { grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
+  .vid-hero-title { font-size: 21px; }
+}
+html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
+
+/* TV channels on Browse (js/40-tv.js's list, when it offers one). */
+.vid-tv-card { display: flex; flex-direction: column; gap: 8px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }
+.vid-tv-card:hover .vid-thumb { border-color: var(--line-strong); }
+/* end BROWSE */
+
+/* ═══ TV: channels on a loop, the same moment for everyone (js/40-tv.js) ═══ */
+/* The guide: Music's rows, a number, the channel's colour, what's on. */
+.tv-list { display: flex; flex-direction: column; gap: 6px; }
+.tv-row, .tv-mini-row {
+  display: grid; grid-template-columns: 40px 88px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  width: 100%; padding: 10px 14px 10px 10px; box-sizing: border-box; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--fill); color: var(--text); font: inherit;
+  transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease;
+}
+.tv-row:hover, .tv-mini-row:hover { background: var(--fill-hover); border-color: var(--line-strong); }
+.tv-row:active, .tv-mini-row:active { transform: scale(.98); transition-duration: var(--m-instant); }
+.tv-num {
+  font: 700 22px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-align: center; color: var(--text);
+  border-left: 3px solid var(--tv-c); padding-left: 6px;
+}
+.tv-art {
+  width: 88px; aspect-ratio: 16 / 9; border-radius: var(--r-sm); overflow: hidden; display: grid; place-items: center;
+  background: #000; color: rgba(255,255,255,.6); font-size: 20px; box-shadow: inset 0 0 0 1px var(--line);
+}
+.tv-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-row-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tv-name { font: 600 var(--fs-14)/1.25 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-now { display: flex; gap: 10px; align-items: baseline; font-size: var(--fs-13); color: var(--text-dim); min-width: 0; }
+.tv-now-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tv-left, .tv-onnow-time { margin-left: auto; flex: none; font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.tv-next { font-size: var(--fs-12); color: var(--text-dimmer); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-dim { color: var(--text-dimmer); }
+.tv-bar { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.tv-bar b { display: block; height: 100%; background: var(--tv-c, rgb(var(--accent-rgb))); transform-origin: left; transition: transform 1s linear; }
+.tv-faces { display: flex; }
+.tv-faces .vid-face { --s: 24px; border-radius: var(--av-radius, 6px); box-shadow: 0 0 0 2px var(--bg); }
+.tv-faces .vid-face + .vid-face { margin-left: -6px; }
+
+/* Watching: Videos' watch page, with the channels down the side. */
+.tv-watch { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: start; }
+.tv-watch-main { min-width: 0; display: flex; flex-direction: column; }
+.tv-side { position: sticky; top: 0; padding-top: 42px; }
+.tv-mini { display: flex; flex-direction: column; gap: 6px; }
+.tv-mini-row { grid-template-columns: 34px minmax(0, 1fr) auto; padding: 8px 12px 8px 8px; gap: 10px; }
+.tv-mini-row .tv-num { font-size: 17px; }
+.tv-mini-row.on { background: var(--fill-hover); border-color: var(--line-strong); }
+@container (max-width: 1000px) {
+  .tv-watch { grid-template-columns: minmax(0, 1fr); }
+  .tv-side { position: static; padding-top: 8px; }
+}
+@media (max-width: 1000px) { .tv-watch { grid-template-columns: minmax(0, 1fr); } .tv-side { position: static; padding-top: 8px; } }
+
+/* The screen: two decks stacked, the one on air shown. */
+.tv-vp video.tv-deck { opacity: 0; }
+.tv-vp video.tv-deck.on { opacity: 1; }
+.tv-vp video { cursor: default; }
+.tv-blank { position: absolute; inset: 0; z-index: 1; background: #000; display: grid; place-items: center; padding: 20px; text-align: center; }
+.tv-blank[hidden] { display: none; }
+.tv-blank span { font: 500 var(--fs-14) var(--font-ui); color: rgba(255,255,255,.7); }
+.tv-vp .vp-big { box-shadow: none; }
+.tv-vp.held .vp-big { opacity: 1; pointer-events: auto; transform: none; }
+.tv-live {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; margin-right: 6px; border-radius: var(--r-sm);
+  background: rgba(255,255,255,.12); font: 700 11px/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: #fff;
+}
+.tv-live i { width: 7px; height: 7px; border-radius: 2px; background: #ff453a; }
+.tv-vp.held .tv-live, .tv-vp.paused .tv-live { opacity: .55; }
+.tv-vp.held .tv-live i, .tv-vp.paused .tv-live i { background: rgba(255,255,255,.6); }
+.tv-ctrl-now { overflow: hidden; text-overflow: ellipsis; }
+/* The overlay on a change of channel: fades after a moment. */
+.tv-osd {
+  position: absolute; top: 16px; left: 16px; z-index: 4; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px);
+  padding: 10px 16px 10px 12px; border-radius: var(--r-lg); background: rgba(10,10,12,.72); border: 1px solid rgba(255,255,255,.16);
+  color: #fff; pointer-events: none; opacity: 0; transform: translateY(-4px);
+  transition: opacity 400ms ease, transform 400ms var(--m-ease);
+}
+.tv-osd.on { opacity: 1; transform: none; transition-duration: var(--m-fast); }
+.tv-osd-num { font: 700 30px/1 var(--font-ui); font-variant-numeric: tabular-nums; padding-left: 8px; border-left: 3px solid var(--tv-c); min-width: 1.4em; }
+.tv-osd-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tv-osd-name { font: 600 var(--fs-14)/1.2 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-osd-now { font-size: var(--fs-12); color: rgba(255,255,255,.72); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-osd-now:empty { display: none; }
+
+/* What's on, under the screen. */
+.tv-info-head { display: flex; align-items: center; gap: 14px; margin: 16px 0 12px; flex-wrap: wrap; }
+.tv-chip {
+  min-width: 44px; height: 44px; padding: 0 8px; box-sizing: border-box; display: grid; place-items: center; border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--tv-c) 22%, var(--fill)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tv-c) 45%, transparent);
+  font: 700 19px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text);
+}
+.tv-info-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.tv-title { margin: 0; }
+.tv-sub { font-size: var(--fs-13); color: var(--text-dim); }
+.tv-onnow { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--fill); }
+.tv-onnow-row { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.tv-onnow-row .k-label { flex: none; width: 64px; white-space: nowrap; }
+.tv-onnow-t { font: 600 var(--fs-14)/1.3 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tv-onnow-row.tv-dim .tv-onnow-t { font-weight: 500; color: var(--text-dim); }
+.tv-desc { margin-top: 12px; }
+.tv-watching { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: var(--fs-13); color: var(--text-dim); }
+
+/* The editor: the dialog's body scrolls, its buttons stay at the foot. */
+.add-app-modal:has(.tv-form) { max-height: min(88vh, 100%); }
+#chatModalBody:has(> .tv-form) { min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.tv-form .dlg-actions { position: sticky; bottom: 0; padding-top: 10px; background: var(--surface-dialog); }
+.tv-form { display: flex; flex-direction: column; gap: 8px; width: min(560px, 100%); }
+.tv-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 90px; grid-template-rows: auto auto; grid-auto-flow: column; column-gap: 10px; row-gap: 8px; }
+.tv-note { font-weight: 400; color: var(--text-dimmer); }
+.tv-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.tv-color {
+  width: 26px; height: 26px; border-radius: var(--r-sm); border: 0; padding: 0; cursor: pointer; background: var(--tv-c); position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); transition: box-shadow var(--m-fast) ease;
+}
+.tv-color.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
+.tv-color-own { background: conic-gradient(from 0deg, #e5484d, #f5a524, #3ecf8e, #4f8cff, #7c5cff, #e5484d); overflow: hidden; }
+.tv-color-own.on { background: var(--tv-c); }
+.tv-color-own input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.tv-cover-pick { display: flex; align-items: center; gap: 12px; }
+.tv-cover-pick .tv-art { width: 44px; aspect-ratio: 1; }
+.tv-lineup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.tv-lineup-sum { font-size: var(--fs-12); color: var(--text-dim); margin-bottom: 6px; }
+.tv-lineup { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.tv-li, .tv-res {
+  display: grid; grid-template-columns: auto auto 64px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 5px 6px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--fill); color: var(--text);
+}
+.tv-li { cursor: grab; }
+.tv-li.drag { opacity: .45; }
+.tv-li.over-top { box-shadow: 0 -2px 0 rgb(var(--accent-rgb)); }
+.tv-li.over-bottom { box-shadow: 0 2px 0 rgb(var(--accent-rgb)); }
+.tv-grip { color: var(--text-dimmer); font-size: 15px; }
+.tv-li-n { font: 600 var(--fs-12) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; min-width: 1.4em; text-align: right; }
+.tv-li-thumb { width: 64px; aspect-ratio: 16 / 9; border-radius: var(--r-xs); overflow: hidden; background: #000; display: grid; place-items: center; color: rgba(255,255,255,.6); }
+.tv-li-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-li-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tv-li-t { font: 500 var(--fs-13)/1.25 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-li-s { font-size: var(--fs-12); color: var(--text-dimmer); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-find { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.tv-find-box { flex: 1; }
+.tv-results { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.tv-res { grid-template-columns: 64px minmax(0, 1fr) auto; width: 100%; text-align: left; font: inherit; cursor: pointer; transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease; }
+.tv-res:hover { background: var(--fill-hover); border-color: var(--line-strong); }
+.tv-res:disabled { opacity: .5; cursor: default; }
+.tv-res-add { color: var(--text-dim); font-size: 16px; padding-right: 4px; }
+.tv-res-empty { padding: 14px; }
+.tv-add-file { align-self: flex-start; margin-top: 6px; }
+.tv-progress { position: relative; height: 22px; border-radius: var(--r-sm); background: var(--fill); border: 1px solid var(--line); overflow: hidden; }
+.tv-progress[hidden] { display: none; }
+.tv-progress b { position: absolute; inset: 0; background: rgba(var(--accent-rgb), .35); transform-origin: left; transform: scaleX(0); }
+.tv-progress span { position: relative; display: block; text-align: center; font: 500 var(--fs-12)/22px var(--font-ui); color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .tv-bar b { transition: none; } }
+@media (max-width: 760px) and (pointer: coarse) {
+  .tv-row { grid-template-columns: 32px 64px minmax(0, 1fr); }
+  .tv-row .tv-faces { display: none; }
+  .tv-art { width: 64px; }
+}
+/* end TV */
