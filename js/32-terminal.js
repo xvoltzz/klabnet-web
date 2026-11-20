@@ -219,6 +219,8 @@
       act('Previous song', 'ti-player-skip-back', press('btnPrev'), 'back track', 'p');
       if (typeof openFS === 'function') act('Full player', 'ti-arrows-maximize', () => openFS(), 'now playing lyrics');
     }
+    // The queue is the dock's popover (js/03-picker-tabs.js), not a section.
+    if (song || (typeof queue !== 'undefined' && queue.length)) act('Queue', 'ti-playlist', () => window.klabQueuePop?.open({ detail: 0 }), 'up next songs queued reorder');
     act('Settings', 'ti-settings', () => openSettings(), 'preferences options');
     act('Keyboard shortcuts', 'ti-keyboard', press('keyHintsBtn'), 'keys hotkeys help', '?');
     act('Feedback', 'ti-message-dots', () => window.openFeedbackModal?.(), 'bug idea report');
@@ -241,25 +243,16 @@
     return out;
   }
 
-  // Run lately, first in an empty palette (this device).
-  const RECENT_KEY = 'klabnet_palette_recent';
-  let recent = [];
-  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) {}
-  function remember(id) {
-    recent = [id, ...recent.filter(r => r !== id)].slice(0, 5);
-    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch (e) {}
-  }
+  // No "Recent" group (owner: with so few places it's worthless); an empty
+  // palette lists the pages. The old key is cleared once.
+  try { localStorage.removeItem('klabnet_palette_recent'); } catch (e) {}
 
   let pal = null, list = [], sel = 0;
   function rank(v) {
     const q = fold(v).trim();
     const all = sources();
     if (!q) {
-      const byId = new Map(all.map(o => [o.id, o]));
-      const rec = recent.map(id => byId.get(id)).filter(Boolean).map(o => ({ ...o, group: 'Recent' }));
-      const have = new Set(rec.map(o => o.id));
-      const pagesList = all.filter(o => o.kind === 'Page' && !have.has(o.id)).map(o => ({ ...o, group: 'Pages' }));
-      return [...rec, ...pagesList];
+      return all.filter(o => o.kind === 'Page').map(o => ({ ...o, group: 'Pages' }));
     }
     const words = q.split(/\s+/).filter(Boolean);
     const scored = [];
@@ -273,7 +266,7 @@
       }
       if (!m && o.keywords) { const k = match(q, o.keywords); if (k && k.s > 50) m = { s: k.s * 0.5, pos: [] }; }
       if (!m) continue;
-      scored.push({ ...o, score: m.s + o.bonus + (recent.includes(o.id) ? 6 : 0), pos: m.pos });
+      scored.push({ ...o, score: m.s + o.bonus, pos: m.pos });
     }
     scored.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
     return scored.slice(0, 40);
@@ -358,7 +351,6 @@
     const line = input?.value.trim() || '';
     if (o.cmd) { if (line && history[history.length - 1] !== line) history.push(line); close(); o.run(); return; }
     close();
-    remember(o.id);
     SFX?.play?.('nav');
     try { (alt && o.alt ? o.alt : o.run)(); } catch (e) { console.error('[palette]', e); }
   }

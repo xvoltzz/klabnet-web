@@ -642,6 +642,8 @@
   // For the desktop apps (a tray item, a global mute key) and the console.
   window.klabVoice = {
     join, leave, toggleMute, toggleDeafen, refresh,
+    // The channels (id, name), for Social's "Open voice".
+    channels: () => info.channels.map(c => ({ id: c.id, name: c.name })),
     state: () => ({
       enabled: !!info.enabled, phase, channel: joined && { ...joined }, muted: showMuted(), deafened, micProblem,
       micLive: !!micPub() && !micPub().isMuted, // what's going out right now (push to talk: only while held)

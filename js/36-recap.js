@@ -96,7 +96,11 @@
       else if (i.kind === 'mention') { html = who(i.who[0]) + ' mentioned you' + (i.reply ? ' in a reply' : ''); sub = esc(i.text); }
       else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : i.video ? esc('to “' + (i.on || 'your video') + '”') : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
+      // This week on klabnet (Social): a line about you, or a thread you're in.
+      else if (i.kind === 'week-react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = esc('to This week’s ' + (i.on || 'line')); }
+      else if (i.kind === 'week-reply') { html = names(i.who) + ' replied to This week’s ' + esc(i.on || 'line'); sub = esc(i.text || ''); }
       else continue;
+      if (i.kind.startsWith('week-')) { out.push({ at, html: row({ act: 'week', data: i.week + '|' + i.line, u: i.who[0], html, sub, at, fresh }) }); continue; }
       out.push({ at, html: row({ act: i.video ? 'video' : i.kind === 'tag' || i.photo ? 'photo' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
     }
     return out.sort((a, b) => b.at - a.at).map(r => r.html).join('');
@@ -136,6 +140,7 @@
     else if (act === 'photo') { if (d && window.klabOpenPhoto) window.klabOpenPhoto(+d); else setActiveTab('photos'); }
     else if (act === 'videos') setActiveTab('videos');
     else if (act === 'video') window.klabOpenVideo?.(+d);
+    else if (act === 'week') { const [w, l] = String(d).split('|'); window.klabOpenWeek?.(w, l); }
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
     else if (act === 'radio') { setActiveTab('music'); setTimeout(() => { document.querySelector('.music-nav .picker-tab[data-tab="radio"]')?.click(); window.klabRadio?.tune?.(d); }, 60); }
   }

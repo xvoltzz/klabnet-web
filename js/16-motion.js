@@ -145,8 +145,8 @@
   // each that glides to what you pick.
   slidingPill(document.getElementById('socNav'), '.picker-tab.active', 'motion-pill-music', '.picker-tab');
   slidingPill(document.querySelector('#chatSide .chat-side-scroll'), '.chat-conv.active', 'motion-pill-chat', '.chat-conv');
-  // Photos' Timeline / What's new switch.
-  slidingPill(document.getElementById('phOrder'), 'button[aria-pressed="true"]', 'motion-pill-music', 'button');
+  // Photos' views, on a phone (Browse / Yours / Tagged).
+  slidingPill(document.getElementById('phViews'), 'button[aria-pressed="true"]', 'motion-pill-music', 'button');
 
   // ── Music views ──
   // Fade the whole list in when its content is replaced (a new view), not

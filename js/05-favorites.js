@@ -467,9 +467,9 @@ syncShuffleBtns();
 syncRepeatBtns();
 updateFavBadge();
 
-// The dock's queue button: the full player, on Up next. The full player's
-// disc button: the album playing.
-document.getElementById('dockQueue')?.addEventListener('click', () => { window.klabOpenUpNext?.(); SFX && SFX.play('open'); });
+// The dock's queue button: the queue popover (js/03-picker-tabs.js). The
+// full player's disc button: the album playing.
+document.getElementById('dockQueue')?.addEventListener('click', e => window.klabQueuePop?.toggle(e));
 document.getElementById('fsGoAlbum')?.addEventListener('click', () => {
   const song = playerState.currentSong;
   if (!song?.albumId) return;

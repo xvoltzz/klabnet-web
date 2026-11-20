@@ -177,7 +177,6 @@
     if (sess.now && playerState.playlist[sess.now.index]) playerState.playlistIndex = sess.now.index;
     applying++;
     try { updateQueueBadge(); } finally { applying--; }
-    if (pickerTab === 'queue') renderQueueList();
   }
 
   function songFor(now) {
@@ -494,7 +493,6 @@
   function setQueue(list) {
     queue = list.slice();
     updateQueueBadge();
-    if (pickerTab === 'queue') renderQueueList();
   }
 
   function onCommand(msg) {

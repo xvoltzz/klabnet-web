@@ -4001,7 +4001,7 @@
     #musicShell .picker-tab:hover:not(.active) { background: var(--glass-fill); color: var(--text); border-color: transparent; }
     #musicShell .picker-tab.active { background: var(--glass-fill-h); color: var(--text); border-color: var(--glass-border); }
     #musicShell .picker-tab.active i { color: var(--text); opacity: 1; }
-    #musicShell #favCount, #musicShell #queueCount, #musicShell #requestsCount {
+    #musicShell #favCount, #musicShell #requestsCount {
       flex: none; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums;
     }
     #musicShell .music-playlist-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
@@ -8237,10 +8237,9 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .soc-home-body > .picker-section-label:first-child, .hp-sec > .picker-section-label { padding-top: 0; margin-top: 0; }
     /* Music's sections are 6px apart besides; here the labels carry it. */
     .soc-home-body > .picker-section-label:not(:first-child) { margin-top: calc(0.5rem + 6px); }
-    /* Photos: each at its own shape (js sets the width), corners a touch
-       rounder, the blurred backdrop a little stronger. */    /* Latest posts: cards in a row you can flick along, like Music's. */
+    /* From the feed: a few posts as cards (js/25-social.js). */
     .soc-post {
-      flex: none; width: 260px; min-height: 132px; display: flex; flex-direction: column; gap: 8px;
+      min-width: 0; min-height: 112px; display: flex; flex-direction: column; gap: 8px;
       padding: 12px 14px; border-radius: 10px; cursor: pointer; scroll-snap-align: start;
       border: 1px solid var(--glass-border); background: var(--glass-fill);
       transition: border-color .15s, background .15s;
@@ -8262,48 +8261,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .soc-post-meta { margin-top: auto; display: flex; gap: 12px; font-size: var(--fs-11); color: var(--text-dimmer); }
     .soc-post-meta i { margin-right: 3px; }
     .soc-home-empty { padding: 10px 4px; font-size: var(--fs-13); color: var(--text-dimmer); }
-    /* On a big screen, Latest posts fill the height under the photos: the
-       page is at least the panel's height, and the row a grid of up to
-       three rows (js/25-social.js fit() sets --rows and --lines). */
-    @media (min-width: 761px), (pointer: fine) {
-      .soc-home { min-height: 100%; display: flex; flex-direction: column; }
-      .soc-home-body { flex: 1; }
-      .soc-posts { flex: 1; display: flex; flex-direction: column; min-height: 152px; }
-      .soc-posts .mh-row-wrap { flex: 1; display: flex; flex-direction: column; }
-      .soc-posts .mh-row {
-        flex: 1 1 0; min-height: 0; display: grid; grid-auto-flow: column;
-        grid-template-rows: repeat(var(--rows, 1), minmax(0, 1fr)); grid-auto-columns: minmax(260px, 1fr);
-      }
-      .soc-posts .soc-post { width: auto; min-height: 0; }
-      .soc-posts .soc-post-text { -webkit-line-clamp: var(--lines, 4); }
-      .soc-posts .mh-row-nav { top: calc(50% - 21px); }
-      .soc-posts .tall .soc-post-pic {
-        display: block; flex: 1 1 0; min-height: 60px; border-radius: 6px; overflow: hidden; background: var(--glass-fill-h);
-      }
-      .soc-posts .tall .soc-post-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .soc-posts .tall .soc-post-pic ~ .soc-post-meta { margin-top: 0; }
-      .soc-posts .tall .soc-post:has(.soc-post-pic) .soc-post-text { -webkit-line-clamp: 3; flex: none; }
-    }
-    .soc-post-pic { display: none; }
-    /* On a desktop, a wall instead (js/25-social.js place()): columns of
-       cards as tall as what they hold, pictures in their own shape (up to
-       a tall phone shot's), a few words big. */
-    @media (min-width: 761px), (pointer: fine) {
-      .soc-posts.as-wall { flex: none; display: block; min-height: 0; }
-      .soc-posts.as-wall .mh-row-wrap { display: none; }
-      .soc-wall { display: flex; gap: 14px; align-items: flex-start; }
-      .soc-wall-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-      .soc-wall .soc-post { width: auto; min-height: 0; gap: 10px; }
-      .soc-wall .soc-post-text { -webkit-line-clamp: 12; }
-      .soc-wall .soc-post.short .soc-post-text { font-size: 17px; line-height: 1.35; color: var(--text); }
-      /* Pictures edge to edge: inset in the card, with their own corners
-         and a grey backing, they looked framed twice (the owner). */
-      .soc-wall .soc-post { overflow: hidden; }
-      .soc-wall .soc-post-pic { display: block; margin: 0 -14px; border-radius: 0; overflow: hidden; background: none; }
-      .soc-wall .soc-post-pic:has(+ .soc-post-meta:empty) { margin-bottom: -12px; }
-      .soc-wall .soc-post-pic img { width: 100%; height: auto; max-height: 640px; object-fit: cover; display: block; }
-      .soc-wall .soc-post-meta:empty { display: none; }
-    }
 
     /* (Social's sidebar folded away: "A PAGE'S SIDEBAR, FOLDED" at the end.) */
 
@@ -8326,7 +8283,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       body.tab-chat-active.chat-rooms-view .soc-main { display: none; }
       body.tab-chat-active:not(.chat-rooms-view) .soc-sidebar { display: none; }
       :is(#socShell, #photosShell, #videosShell) .music-view-head h2 { font-size: 24px; }
-      .soc-post { width: 220px; }
     }
     /* One box at a time, as in Music's sidebar: the sliding highlight is
        the active row's, and hovering only brightens a row's text. */
@@ -8459,6 +8415,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .soc-post-av img,
     .soc-unread-face,
     .soc-unread-face img,
+    .tg-face, .tg-face img, .tg-row-face, .tg-row-face img, .room-face, .room-face img, .wk-art-face, .wk-art-face img,
     .vc-av,
     .vc-av img,
     .rd-av { border-radius: var(--av-radius) !important; }
@@ -9585,7 +9542,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       #sideNav .nav-sub .picker-tab.active { background: none; color: var(--text); border-color: transparent; }
       #sideNav .nav-sub .picker-tab.active i { opacity: 1; }
       #sideNav .nav-sub .motion-pill-music { border-radius: var(--radius-md); }
-      #sideNav .nav-sub :is(#favCount, #queueCount, #requestsCount, .soc-dot) {
+      #sideNav .nav-sub :is(#favCount, #requestsCount, .soc-dot) {
         margin-left: auto; flex: none; font-size: 11px; color: var(--text-dimmer); font-variant-numeric: tabular-nums;
       }
       #sideNav .nav-sub .music-nav { gap: 0; }
@@ -10953,10 +10910,10 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
    small level meter stands in front of its length. */
 .np-eq { display: none; align-items: flex-end; gap: 2px; height: 12px; flex: none; }
 .np-eq i { width: 3px; height: 100%; border-radius: 1px; background: rgba(var(--accent-rgb), .95); transform-origin: bottom; transform: scaleY(.35); }
-:is(.picker-item.is-now, .ap-track.ap-now) .np-eq { display: inline-flex; }
-body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i { animation: kNpEq 900ms ease-in-out infinite alternate; }
-body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i:nth-child(2) { animation-duration: 700ms; animation-delay: -300ms; }
-body.is-playing :is(.picker-item.is-now, .ap-track.ap-now) .np-eq i:nth-child(3) { animation-duration: 1100ms; animation-delay: -500ms; }
+:is(.picker-item.is-now, .ap-track.ap-now, .q-row.q-now) .np-eq { display: inline-flex; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now, .q-row.q-now) .np-eq i { animation: kNpEq 900ms ease-in-out infinite alternate; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now, .q-row.q-now) .np-eq i:nth-child(2) { animation-duration: 700ms; animation-delay: -300ms; }
+body.is-playing :is(.picker-item.is-now, .ap-track.ap-now, .q-row.q-now) .np-eq i:nth-child(3) { animation-duration: 1100ms; animation-delay: -500ms; }
 @keyframes kNpEq { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
 html.win-idle .np-eq i { animation-play-state: paused !important; }
 html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7) !important; }
@@ -11030,14 +10987,108 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .fav-songs { display: flex; flex-direction: column; gap: 2px; }
 .fav-empty { padding: 48px 0; }
 
-/* ── The queue ── */
-.q-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.q-label .k-btn { text-transform: none; letter-spacing: 0; }
-#musicShell .picker-item.q-item { cursor: grab; }
-#musicShell .picker-item.q-item:active { cursor: grabbing; }
-.q-dragging { opacity: .4; }
-.q-drop-before { box-shadow: inset 0 2px 0 rgba(var(--accent-rgb), .9); }
-.q-drop-after { box-shadow: inset 0 -2px 0 rgba(var(--accent-rgb), .9); }
+/* ── The queue: a popover from the dock's queue button ──
+   (js/03-picker-tabs.js klabQueuePop.) The menu surface (COMPONENTS 9)
+   at popover size; a bottom sheet on a phone. Rows are the compact song
+   row: a 36px cover, title, artist, length. Dragging moves rows by
+   transform only: the lifted one follows the pointer, the others slide
+   aside in 140ms. */
+.q-pop {
+  position: fixed; z-index: var(--z-pop); width: 380px; max-width: calc(100vw - 16px); max-height: 60vh;
+  display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface-pop); box-shadow: var(--elev-2); color: var(--text);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  user-select: none; -webkit-user-select: none;
+  opacity: 0; transform: scale(.96); pointer-events: none;
+  transition: opacity 100ms var(--m-ease-exit), transform 100ms var(--m-ease-exit);
+}
+.q-pop[hidden] { display: none; }
+.q-pop.open {
+  opacity: 1; transform: none; pointer-events: auto;
+  transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
+}
+html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.q-head { display: flex; align-items: baseline; gap: 8px; padding: 12px 10px 6px 16px; flex: none; }
+.q-title { font: 700 var(--fs-15, 15px)/1.2 var(--font-ui); color: var(--text); }
+.q-count { font: 500 var(--fs-12)/1.2 var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-head .q-clear { margin-left: auto; align-self: center; }
+.q-head .q-clear[hidden] { display: none; }
+.q-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 6px 6px; scrollbar-width: none; }
+.q-body::-webkit-scrollbar { display: none; }
+.q-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 10px 4px; }
+.q-label > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-label-sub { flex: none; font: 500 var(--fs-11, 11px)/1.2 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dimmer); }
+.q-list { display: flex; flex-direction: column; }
+.q-row {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; box-sizing: border-box;
+  border-radius: var(--r-md); cursor: pointer; transition: background-color var(--m-fast) ease;
+}
+.q-row:hover, .q-row:focus-visible { background: var(--fill-hover); outline: none; }
+.q-row:focus-visible { box-shadow: inset 0 0 0 1px var(--focus-line); }
+.q-art { width: 36px; height: 36px; flex: none; border-radius: var(--r-sm); object-fit: cover; background: var(--fill-hover); display: block; }
+.q-art-ph { display: grid; place-items: center; color: var(--text-dimmer); font-size: 16px; }
+.q-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.q-t, .q-a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-t { font: 500 var(--fs-13)/1.25 var(--font-ui); color: var(--text); }
+.q-a { font: 400 var(--fs-12)/1.25 var(--font-ui); color: var(--text-dim); }
+.q-d { flex: none; font: 400 var(--fs-12)/1 var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.q-now .q-t { color: rgb(var(--accent-rgb)); }
+.q-grip {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 12px; display: grid; place-items: center;
+  color: var(--text-dimmer); font-size: 14px; cursor: grab; touch-action: none; opacity: 0;
+  transition: opacity var(--m-fast) ease;
+}
+.q-queued:is(:hover, :focus-visible, :focus-within) .q-grip, .q-pop.q-dragging .q-grip { opacity: 1; }
+.q-acts { flex: none; display: none; margin: -4px -6px -4px 0; }
+.q-acts .q-up, .q-acts .q-down { display: none; }
+.q-queued:is(:hover, :focus-within) .q-acts { display: flex; }
+.q-queued:is(:hover, :focus-within) .q-d { display: none; }
+.q-more { padding: 6px 10px; font: 400 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+.q-empty { padding: 28px 16px; }
+.q-foot { flex: none; display: flex; padding: 6px 10px 8px; border-top: 1px solid var(--line); }
+.q-fs {
+  border: 0; background: none; padding: 4px 6px; border-radius: var(--r-sm); cursor: pointer;
+  font: 500 var(--fs-12) var(--font-ui); color: var(--text-dim); transition: color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.q-fs:hover { color: var(--text); background: var(--fill-hover); }
+.q-fs:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Dragging. */
+.q-pop.q-dragging, .q-pop.q-dragging .q-row { cursor: grabbing; }
+.q-pop.q-dragging .q-row:not(.lifted):hover { background: none; }
+.q-row.q-shift { transition: transform var(--m-fast) var(--m-ease), background-color var(--m-fast) ease; }
+.q-row.lifted {
+  position: relative; z-index: 2; transition: none;
+  background: var(--surface-dialog); box-shadow: var(--elev-1), inset 0 0 0 1px var(--line-strong);
+}
+.q-row.lifted .q-acts { display: none; }
+.q-row.lifted .q-d { display: block; }
+.q-row.lifted.settling { transition: transform var(--m-fast) var(--m-ease); }
+/* The dock's button is lit while it's open. */
+.player-dock .dock-queue.on { opacity: 1; color: var(--text); background: var(--fill-hover); }
+/* A phone: a sheet from the foot of the screen, over the mini player. */
+.q-scrim {
+  position: fixed; inset: 0; z-index: calc(var(--z-pop) - 1); background: var(--scrim);
+  opacity: 0; pointer-events: none; transition: opacity var(--m-med) ease;
+}
+.q-scrim.on { opacity: 1; pointer-events: auto; }
+.q-pop.q-sheet {
+  left: 0; right: 0; bottom: 0; width: auto; max-width: none; max-height: 78vh;
+  border-radius: var(--r-lg) var(--r-lg) 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface-dialog); -webkit-backdrop-filter: none; backdrop-filter: none;
+  opacity: 1; transform: translateY(100%);
+  transition: transform var(--m-fast) var(--m-ease-exit);
+}
+.q-pop.q-sheet.open { transform: none; transition: transform var(--m-slow) var(--m-ease); }
+.q-pop.q-sheet .q-head { padding-top: 16px; }
+.q-pop.q-sheet .q-row { min-height: 56px; }
+/* Touch: no hover, so the grip and the buttons always show (↑/↓ too). */
+@media (pointer: coarse) {
+  .q-grip { position: static; flex: none; width: 22px; margin: 0 -4px 0 -6px; opacity: 1; font-size: 16px; }
+  .q-queued .q-acts { display: flex; }
+  .q-queued .q-d { display: none; }
+  .q-acts .q-up, .q-acts .q-down { display: inline-flex; }
+}
 
 /* ── The dock: shuffle and repeat say whether they're on (B8, A7) ── */
 .player-dock .dock-toggle, .fs-secondary-controls :is(#fsShuffle, #fsRepeat) { position: relative; transition: opacity var(--m-fast) ease, color var(--m-fast) ease; }
@@ -11053,7 +11104,13 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .dock-queue { position: relative; }
 .dock-q-n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; font: 700 9px/14px var(--font-ui); text-align: center; background: var(--text); color: var(--bg); pointer-events: none; }
 .dock-q-n:empty { display: none; }
-@container dock (max-width: 760px) { .player-dock .dock-queue { display: none; } }
+/* The queue's only way in: it stays until the dock is very narrow, and
+   shows in a phone's mini player too. */
+@container dock (max-width: 460px) { .player-dock .dock-queue { display: none; } }
+@media (max-width: 760px) and (pointer: coarse) {
+  #playerDock .dock-queue { display: flex !important; }
+  #playerDock .ctrl-btn, #playerDock .ctrl-btn.play-btn { width: 38px; } /* room for the title beside four */
+}
 
 /* ── The full player ── */
 /* Lyrics are a tab beside the player on a desktop: the button is the phone's. */
@@ -11179,11 +11236,13 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .ph-empty.k-empty { padding: 60px 20px; }
 .ph-empty #phEmptyPost[hidden] { display: none; }
 /* The views as a segmented control, on a phone only (the rows otherwise). */
-#phOrder[hidden] { display: none; }
-#phOrder { height: auto; }
-#phOrder button { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; }
-#phOrder button i { font-size: 15px; }
-@media (max-width: 420px) { #phOrder button span { display: none; } }
+#phViews[hidden] { display: none; }
+#phViews { height: auto; }
+#phViews button { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; }
+#phViews button i { font-size: 15px; }
+@media (max-width: 420px) { #phViews button span { display: none; } }
+/* The order: Music's Sort, one button and its menu. */
+#phSortBtn .ti-chevron-down { font-size: 13px; color: var(--text-dim); margin-left: -2px; }
 /* A photo's downloads. */
 .ph-side-foot .ph-original + .ph-original { margin-top: -2px; }
 
@@ -11223,43 +11282,6 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .vid-up-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--fill-hover); overflow: hidden; }
 .vid-up-bar b { display: block; height: 100%; background: var(--text); transform-origin: 0 50%; transition: transform 200ms linear; }
 
-/* ── Social's home: shelves (E1) ──
-   Unread messages, the latest posts, a strip from Photos and a row of new
-   videos; each label with "See all" at its end, as on Music Home. */
-.soc-shelf-head { display: flex; align-items: baseline; gap: 12px; padding: 14px 4px 8px; margin-top: calc(0.5rem + 6px); }
-.soc-home-body > .soc-shelf-head:first-child, .soc-home-body > [hidden]:first-child + .soc-shelf-head { margin-top: 0; padding-top: 0; }
-.soc-shelf-head[hidden] { display: none; }
-.soc-see-all {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border: 0; border-radius: var(--r-sm);
-  background: none; color: var(--text-dimmer); font: 500 var(--fs-12) var(--font-ui); cursor: pointer;
-  transition: color var(--m-fast) ease, background-color var(--m-fast) ease;
-}
-.soc-see-all i { font-size: 14px; }
-.soc-see-all:hover { color: var(--text); background: var(--fill); }
-/* The posts are a glimpse now (the newest dozen), not the page's height. */
-@media (min-width: 761px), (pointer: fine) {
-  .soc-home-body .soc-posts { flex: none; }
-}
-/* From Photos: one row at a fixed height, each photo at its own shape. */
-.soc-strip { display: flex; gap: 4px; height: 180px; overflow: hidden; border-radius: var(--r-lg); }
-.soc-strip[hidden] { display: none; }
-.soc-tile {
-  position: relative; min-width: 0; height: 100%; padding: 0; border: 0; margin: 0; overflow: hidden; cursor: pointer;
-  border-radius: var(--r-xs); background: var(--fill);
-}
-.soc-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease; }
-.soc-tile.loaded img { opacity: 1; }
-.soc-tile:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
-.soc-tile-cap {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 8px; text-align: left;
-  font: 500 var(--fs-12) var(--font-ui); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: linear-gradient(transparent, rgba(0,0,0,.6)); opacity: 0; transition: opacity var(--m-fast) ease;
-}
-.soc-tile-cap:empty { display: none; }
-.soc-tile:hover .soc-tile-cap, .soc-tile:focus-visible .soc-tile-cap { opacity: 1; }
-@media (max-width: 760px) and (pointer: coarse) { .soc-strip { height: 120px; } }
-.soc-videos[hidden] { display: none; }
-.soc-home-body .soc-home-empty { padding: 6px 4px; }
 
 /* ── Photos' chips: a like is a red heart, not the filled house chip ── */
 #phReacts { display: flex; gap: 6px; }
@@ -11308,13 +11330,195 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .rc-head .rc-seen { margin-left: auto; height: 26px; padding: 0 8px; gap: 5px; font-size: var(--fs-12); color: var(--text-dim); }
 .rc-head .rc-seen i { font-size: 14px; }
 
-/* Phone Photos: the action row fits (the four views as icons, Slideshow
-   and Post as icons too, the views first). */
+/* Phone Photos: the action row fits (the three views as icons, Sort,
+   Slideshow and Post as icons too, the views first). */
 @media (max-width: 900px) and (pointer: coarse) {
-  #phSlideBtn > span, #phPostBtn > span, #phOrder button > span { display: none; }
-  #phSlideBtn, #phPostBtn { width: var(--h-md, 34px); padding: 0; justify-content: center; }
-  #phOrder button { padding: 0 10px; }
+  #phSlideBtn > span, #phPostBtn > span, #phSortBtn > span, #phSortBtn > .ti-chevron-down, #phViews button > span { display: none; }
+  #phSlideBtn, #phPostBtn, #phSortBtn { width: var(--h-md, 34px); padding: 0; justify-content: center; }
+  #phViews button { padding: 0 10px; }
 }
+/* ── Social → Browse: Together, This week (2026-11-20) ──
+   js/25-social.js. Calm cards for the rooms happening now, then the
+   week as a tidy list of lines. No looping motion: the progress lines move
+   once a second from JS (paused with the window idle), the eq bars are
+   Home's own (.pz-eq, already in the idle and fx-low lists). */
+.soc-label { display: block; padding: 0 4px 8px; }
+.soc-home-body > * + .soc-label, .soc-home-body > * + .soc-shelf-head { margin-top: 28px; }
+.soc-home-body > [hidden] + .soc-label { margin-top: 28px; }
+.soc-shelf-head { display: flex; align-items: baseline; gap: 12px; padding: 0 4px 8px; }
+.soc-shelf-head[hidden] { display: none; }
+.soc-see-all {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--text-dimmer); font: 500 var(--fs-12) var(--font-ui); cursor: pointer;
+  transition: color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.soc-see-all i { font-size: 14px; }
+.soc-see-all:hover { color: var(--text); background: var(--fill); }
+.tg-head { padding-bottom: 8px; min-height: 28px; }
+.tg-head .soc-start { margin-left: auto; display: flex; gap: 6px; }
+.tg-head .soc-start:empty { display: none; }
+
+/* Together: the rooms. */
+.tg-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.tg-rooms[hidden], .tg-empty[hidden], .tg-listen[hidden], .tg-listen-label[hidden] { display: none; }
+.tg-card {
+  display: flex; gap: 14px; min-width: 0; padding: 12px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); background: var(--fill);
+  transition: border-color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.tg-card:hover { border-color: var(--line-strong); }
+.tg-art {
+  flex: none; width: 96px; height: 96px; padding: 0; border: 0; border-radius: var(--r-md); overflow: hidden; cursor: pointer;
+  background: var(--fill-hover); display: flex; align-items: center; justify-content: center;
+}
+.tg-art.wide { width: 152px; height: 86px; align-self: flex-start; }
+.tg-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tg-art b {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--st, var(--fill-hover)) 30%, transparent); color: var(--text); font: 700 22px var(--font-ui);
+}
+.tg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tg-kind { display: inline-flex; align-items: center; gap: 5px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+.tg-kind i { font-size: 13px; }
+.tg-title { font: 600 var(--fs-14)/1.3 var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-sub { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-prog { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tg-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--fill-hover); overflow: hidden; }
+.tg-bar b { display: block; height: 100%; background: rgb(var(--accent-rgb)); transform-origin: 0 50%; }
+.tg-t { flex: none; font: 500 var(--fs-11) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.tg-foot { margin-top: auto; padding-top: 8px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tg-faces { display: flex; flex: none; }
+.tg-face {
+  width: 22px; height: 22px; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: color-mix(in srgb, var(--c, var(--text-dim)) 24%, var(--bg)); color: var(--c, var(--text-dim)); font: 700 10px var(--font-ui);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.tg-face + .tg-face { margin-left: -5px; }
+.tg-face img { width: 100%; height: 100%; object-fit: cover; }
+.tg-who { flex: 1; min-width: 0; font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-here { flex: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+.tg-foot .k-btn { flex: none; }
+.tg-empty.k-empty { padding: 28px 20px 30px; border: 1px dashed var(--line); border-radius: var(--r-lg); }
+.tg-start { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.tg-empty .tg-start .k-btn { margin-top: 0; }
+
+/* Listening now: one line a person, under the rooms. */
+.tg-listen-label { margin-top: 22px; }
+.tg-listen { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); column-gap: 24px; }
+.tg-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.tg-row-face {
+  width: 28px; height: 28px; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, transparent); color: var(--c, var(--text-dim)); font: 700 12px var(--font-ui);
+}
+.tg-row-face img { width: 100%; height: 100%; object-fit: cover; }
+.tg-row-tx {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 0; border: 0; background: none;
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+}
+.tg-row-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-row-song { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-row-tx:hover .tg-row-song { color: var(--text); }
+.tg-row .k-btn { flex: none; }
+
+/* This week on klabnet: a list of lines, each with its own replies. */
+.wk { margin-top: 30px; }
+.wk-head { display: flex; align-items: center; gap: 10px; padding: 0 0 4px 4px; }
+.wk-range { font: 500 var(--fs-12) var(--font-ui); color: var(--text-dim); }
+.wk-nav { margin-left: auto; display: flex; gap: 2px; }
+.wk-nav .k-icon:disabled { opacity: .35; pointer-events: none; }
+.wk-totals { padding: 0 4px 10px; font-size: var(--fs-13); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.wk-totals:empty { display: none; }
+.wk-lines { border-top: 1px solid var(--line); }
+.wk-line { border-bottom: 1px solid var(--line); transition: background-color 600ms ease; }
+.wk-line.lit { background: var(--fill); }
+.wk-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 4px; }
+.wk-art { flex: none; width: 48px; height: 48px; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-hover); display: flex; }
+.wk-art.wide { width: 72px; height: 41px; margin-top: 4px; }
+.wk-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wk-art.ico { align-items: center; justify-content: center; background: var(--fill); border: 1px solid var(--line); color: var(--text-dimmer); font-size: 20px; }
+.wk-art-face { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, transparent); color: var(--c, var(--text-dim)); font: 700 17px var(--font-ui); }
+.wk-art-face img { width: 100%; height: 100%; object-fit: cover; }
+.wk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wk-cap { font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
+.wk-main { font-size: var(--fs-14); line-height: 1.35; color: var(--text-dim); overflow-wrap: anywhere; }
+.wk-main b { font-weight: 600; color: var(--text); }
+.wk-sub { font-size: var(--fs-12); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.wk-line[data-line="reacted"] .wk-tx { cursor: pointer; }
+.wk-strip { display: flex; gap: 6px; margin-top: 8px; overflow: hidden; }
+.wk-thumb {
+  flex: none; width: 56px; height: 56px; padding: 0; border: 0; border-radius: var(--r-sm); overflow: hidden; cursor: pointer;
+  background: var(--fill-hover); color: var(--text-dimmer); display: flex; align-items: center; justify-content: center;
+}
+.wk-thumb.wide { width: 100px; }
+.wk-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity var(--m-fast) ease; }
+.wk-thumb:hover img { opacity: .85; }
+.wk-thumb:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.wk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.wk-chip { gap: 7px; }
+.wk-chip i { font-size: 14px; color: var(--text-dimmer); }
+.wk-chip-n { font: 600 var(--fs-11) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.wk-acts { flex: none; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.wk-reacts { display: flex; gap: 4px; }
+.wk-reacts:empty { display: none; }
+.wk-pill {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1px solid var(--line); background: var(--fill); color: var(--text); font: 600 var(--fs-12) var(--font-ui);
+  transition: border-color var(--m-fast) ease, background-color var(--m-fast) ease;
+}
+.wk-pill:hover { border-color: var(--line-strong); }
+.wk-pill.mine { background: rgba(var(--accent-rgb), .16); border-color: rgba(var(--accent-rgb), .45); }
+.wk-pill span { font-variant-numeric: tabular-nums; }
+.wk-reply-btn { color: var(--text-dim); }
+.wk-reply-btn[aria-expanded="true"] { color: var(--text); background: var(--fill); }
+/* The thread folds open (grid rows, not height). */
+.wk-thread { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--m-med) var(--m-ease); }
+.wk-line.open .wk-thread { grid-template-rows: 1fr; }
+.wk-thread-in { min-height: 0; overflow: hidden; padding: 0 4px 0 66px; }
+.wk-line.open .wk-thread-in { padding-bottom: 12px; }
+.wk-com-list:empty { display: none; }
+.wk-com-form { margin-top: 6px; }
+.wk-empty.k-empty { padding: 26px 20px; }
+
+/* From the feed: one row of a few cards. */
+.soc-feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.soc-feed[hidden] { display: none; }
+.soc-feed .soc-post-text { -webkit-line-clamp: 3; }
+.soc-home { padding-bottom: 32px; }
+
+/* The watch party's bar, over the player (js/41-rooms.js). */
+.room-bar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px; margin: 0 0 10px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); background: var(--fill);
+}
+.room-bar[hidden], #vidTogether[hidden] { display: none; }
+.room-faces { display: flex; flex: none; }
+.room-face {
+  width: 26px; height: 26px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c, var(--text-dim)) 24%, var(--bg)); color: var(--c, var(--text-dim)); font: 700 11px var(--font-ui);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.room-face + .room-face { margin-left: -6px; }
+.room-face img { width: 100%; height: 100%; object-fit: cover; }
+.room-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.room-tx b { font: 600 var(--fs-13) var(--font-ui); color: var(--text); }
+.room-tx span { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-bar .k-btn { flex: none; }
+.pf-now[data-pf-room] i { font-size: 15px; color: var(--text-dim); }
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .tg-head { flex-wrap: wrap; }
+  .tg-head .soc-start { margin-left: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .tg-rooms { grid-template-columns: minmax(0, 1fr); }
+  .tg-art { width: 72px; height: 72px; }
+  .tg-art.wide { width: 112px; height: 63px; }
+  .wk-row { flex-wrap: wrap; gap: 10px 12px; }
+  .wk-acts { width: 100%; padding-left: 60px; margin-top: 0; }
+  .wk-thread-in { padding-left: 4px; }
+  .soc-feed { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 78%; overflow-x: auto; scrollbar-width: none; }
+  .room-bar .k-btn span { display: none; }
+}
+
 /* end REFRESH: SOCIAL */
 
 /* ═══ REFRESH: SHELL, SETTINGS, HOME (2026-11-19) ═══ */
@@ -11724,4 +11928,240 @@ html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
   .tv-row .tv-faces { display: none; }
   .tv-art { width: 64px; }
 }
+/* The guide (2026-11-20): List or Guide in the head; the Guide is a time
+   grid, channels down and time across, 6px a minute. The loop is a quiet
+   band, programs solid blocks in the channel's colour; a red now line
+   (moved every 30s, never animated). */
+.tv-view-seg { align-self: center; }
+.tv-prog-mark { flex: none; font-size: 13px; color: var(--tv-c, var(--text-dim)); margin-right: -4px; align-self: center; }
+.tv-next .tv-prog-mark { margin-right: 4px; vertical-align: -1px; }
+.tv-list.is-grid { display: block; }
+.tv-g { position: relative; --g-head: 176px; --g-row: 58px; }
+.tv-g-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.tv-g-hint { font-size: var(--fs-12); color: var(--text-dimmer); }
+.tv-g-scroll {
+  overflow: auto; max-height: calc(100vh - 240px); overscroll-behavior-x: contain; outline: none;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--fill);
+}
+.tv-g-inner { position: relative; width: calc(var(--g-head) + var(--g-w)); }
+.tv-g-times { position: sticky; top: 0; z-index: 4; display: flex; height: 30px; background: var(--surface-dialog); border-bottom: 1px solid var(--line); }
+.tv-g-corner { position: sticky; left: 0; z-index: 2; flex: none; width: var(--g-head); background: var(--surface-dialog); border-right: 1px solid var(--line); }
+.tv-g-scale { position: relative; flex: none; width: var(--g-w); overflow: hidden; }
+.tv-g-tick {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 5px; padding-left: 7px;
+  border-left: 1px solid var(--line); white-space: nowrap; font: 500 var(--fs-12)/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dimmer);
+}
+.tv-g-tick.hour { color: var(--text-dim); }
+.tv-g-tick.day b { color: var(--text); font-weight: 600; }
+.tv-g-nowtag {
+  position: absolute; left: 0; top: 7px; z-index: 1; margin-left: -1px; padding: 2px 5px; border-radius: var(--r-xs);
+  background: #ff453a; color: #fff; font: 600 10.5px/1.2 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; translate: -50% 0;
+}
+.tv-g-row { display: flex; height: var(--g-row); border-bottom: 1px solid var(--line); }
+.tv-g-row:last-of-type { border-bottom: 0; }
+.tv-g-head {
+  position: sticky; left: 0; z-index: 3; flex: none; width: var(--g-head); display: flex; align-items: center; gap: 10px;
+  padding: 0 12px 0 10px; box-sizing: border-box; border: 0; border-right: 1px solid var(--line); background: var(--surface-dialog);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; outline: none; transition: background-color var(--m-fast) ease;
+}
+.tv-g-head:hover { background: color-mix(in srgb, var(--surface-dialog), var(--text) 5%); }
+.tv-g-head:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-line); }
+.tv-g-head .tv-num { font-size: 17px; min-width: 1.5em; }
+.tv-g-name { min-width: 0; font: 600 var(--fs-13)/1.25 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Half-hour lines (the window starts on one, 30 minutes = 180px). */
+.tv-g-lane {
+  position: relative; flex: none; width: var(--g-w); cursor: pointer;
+  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 180px);
+}
+.tv-g-band { position: absolute; left: 0; right: 0; top: 16px; bottom: 16px; background: color-mix(in srgb, var(--tv-c) 9%, transparent); }
+.tv-g-loop {
+  position: absolute; top: 16px; bottom: 16px; box-sizing: border-box; display: flex; align-items: center; padding: 0 8px; overflow: hidden;
+  border-left: 1px solid color-mix(in srgb, var(--tv-c) 32%, transparent); font-size: 11.5px; color: var(--text-dimmer);
+}
+.tv-g-loop span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-g-prog {
+  position: absolute; top: 6px; bottom: 6px; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  min-width: 0; padding: 0 9px; overflow: hidden; border: 0; border-radius: var(--r-md); outline: none; cursor: pointer;
+  background: var(--tv-c); color: var(--tv-ink, #fff); text-align: left; font: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); transition: filter var(--m-fast) ease, box-shadow var(--m-fast) ease;
+}
+.tv-g-prog b { display: flex; align-items: center; gap: 4px; min-width: 0; font: 600 var(--fs-13)/1.2 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-g-prog b i { font-size: 12px; flex: none; }
+.tv-g-prog span { font-size: 11.5px; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-g-prog:hover { filter: brightness(1.08); }
+.tv-g-prog:active { filter: brightness(.95); }
+.tv-g-prog:focus-visible { box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 2px var(--surface-dialog), 0 0 0 4px var(--text); }
+.tv-g-prog.on { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 0 14px color-mix(in srgb, var(--tv-c) 45%, transparent); }
+.tv-g-past { position: absolute; top: 31px; bottom: 0; left: var(--g-head); z-index: 2; pointer-events: none; background: color-mix(in srgb, var(--surface-dialog) 45%, transparent); }
+.tv-g-now { position: absolute; top: 30px; bottom: 0; left: var(--g-head); z-index: 2; width: 0; border-left: 2px solid #ff453a; margin-left: -1px; pointer-events: none; }
+.tv-g-tip {
+  position: absolute; z-index: 6; max-width: 300px; display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; pointer-events: none;
+  background: var(--surface-pop); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--elev-2);
+  font-size: var(--fs-12); color: var(--text-dim);
+}
+.tv-g-tip[hidden] { display: none; }
+.tv-g-tip b { font: 600 var(--fs-13)/1.3 var(--font-ui); color: var(--text); }
+.tv-g-tip-note { color: var(--text-dimmer); white-space: pre-wrap; }
+html[data-fx="low"] .tv-g-prog.on { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+
+/* On now, in the watch view: a program's title and who scheduled it. */
+.tv-onnow.is-prog { border-color: color-mix(in srgb, var(--tv-c) 40%, var(--line)); }
+.tv-onnow-sub { display: flex; flex-wrap: wrap; gap: 2px 8px; padding-left: 74px; margin-top: -4px; font-size: var(--fs-12); color: var(--text-dim); cursor: pointer; }
+.tv-onnow-sub:hover { color: var(--text); }
+.tv-onnow-note { flex-basis: 100%; color: var(--text-dimmer); }
+.tv-onnow-by { font-weight: 400; color: var(--text-dimmer); }
+
+/* A program's sheet. */
+.tv-sheet { display: flex; flex-direction: column; gap: 12px; width: min(480px, 100%); }
+.tv-sheet-when { display: flex; align-items: center; gap: 12px; }
+.tv-sheet-when b { font: 600 var(--fs-14)/1.3 var(--font-ui); }
+.tv-sheet-state {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: 7px; margin: 0; padding: 6px 9px;
+  border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--fill); font: 500 var(--fs-12)/1.2 var(--font-ui); color: var(--text-dim);
+}
+.tv-sheet-state.on { color: var(--text); }
+.tv-sheet-state.on i { width: 7px; height: 7px; border-radius: 2px; background: #ff453a; flex: none; }
+.tv-sheet-note { margin: 0; font-size: var(--fs-13); line-height: 1.45; color: var(--text); white-space: pre-wrap; }
+.tv-sheet .k-label { margin-bottom: -4px; }
+.tv-sheet-list { max-height: 240px; }
+.tv-li-ro { grid-template-columns: auto 64px minmax(0, 1fr); cursor: default; }
+.tv-li-ro.skip { opacity: .55; }
+.tv-sheet-by { display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-dim); }
+.tv-sheet-by .vid-face { --s: 22px; border-radius: var(--av-radius, 6px); }
+.tv-sheet-by b { color: var(--text); font-weight: 600; }
+.tv-sheet-own { display: flex; gap: 8px; margin-right: auto; }
+
+/* Schedule a program. */
+.tv-when-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 132px; column-gap: 10px; row-gap: 8px; }
+.tv-form select.k-field {
+  appearance: none; padding-right: 30px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%), linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.tv-form select.k-field option { background: var(--surface-dialog); color: var(--text); }
+.tv-form input[type="time"].k-field { color-scheme: dark; font-variant-numeric: tabular-nums; }
+:root[data-theme="light"] .tv-form input[type="time"].k-field { color-scheme: light; }
+.tv-form .k-field:disabled { opacity: .55; cursor: default; }
+.tv-p-sum { margin: 0; font-size: var(--fs-12); color: var(--text-dim); }
+.tv-p-sum:empty { display: none; }
+.tv-warn { margin: 0; padding: 8px 10px; border-radius: var(--r-md); border: 1px solid var(--danger-line); background: var(--danger-fill); color: var(--danger); font-size: var(--fs-12); line-height: 1.4; }
+.tv-warn[hidden] { display: none; }
+.tv-p-live { margin: 2px 0; }
+.tv-form .tv-find { flex-wrap: wrap; }
+.tv-form .tv-find-box { flex: 1 1 180px; min-width: 0; }
+.tv-form .tv-find .k-seg { flex: none; }
+@media (max-width: 760px) and (pointer: coarse) {
+  .tv-g { --g-head: 58px; --g-row: 54px; }
+  .tv-g-name, .tv-g-hint { display: none; }
+  .tv-g-scroll { max-height: calc(100vh - 200px); }
+  .tv-when-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8px; }
+  .tv-when-grid > :nth-child(3) { grid-column: 1; grid-row: 3; }
+  .tv-when-grid > :nth-child(6) { grid-column: 1; grid-row: 4; }
+  .tv-sheet-own .k-btn span { display: none; }
+  .tv-guide > .k-page-head { flex-wrap: wrap; }
+  .tv-guide > .k-page-head .k-page-actions { flex-basis: 100%; margin-left: 0; }
+  .tv-guide > .k-page-head .k-page-actions .k-btn span { display: none; }
+  .tv-guide > .k-page-head .k-page-actions .k-btn { width: var(--h-md); padding: 0; }
+}
 /* end TV */
+
+/* ═══ VIDEOS: PUBLISHED DATES, PLAYLISTS, ORIGINAL (js/39-videos.js, 2026-11-20) ═══ */
+/* Published: a date and an optional time side by side, the file's date a quiet link. */
+.vid-pub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vid-pub .k-field { width: auto; flex: 0 1 170px; min-width: 0; color-scheme: light dark; }
+.vid-pub .k-field[type="time"] { flex-basis: 120px; }
+.vid-pub-file { border: 0; background: none; padding: 0 2px; cursor: pointer; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dim); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.vid-pub-file:hover { color: var(--text); }
+.vid-pub-file[hidden] { display: none; }
+
+/* A channel's videos by year, Newest / Oldest. */
+.vid-channel-acts { display: flex; align-items: center; gap: 10px; flex: none; }
+.vid-year { grid-column: 1 / -1; padding: 6px 0 0; margin-bottom: -12px; }
+.vid-year:first-child { padding-top: 0; }
+
+/* Playlists: the art is a square, a cover or the first posters as a 2x2. */
+.vid-pl-art { position: relative; display: block; aspect-ratio: 1; border-radius: var(--r-lg); overflow: hidden; background: #0b0b0c; border: 1px solid var(--line); }
+.vid-pl-art > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vid-pl-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; background: #0b0b0c; }
+.vid-pl-grid img { width: 100%; height: 100%; object-fit: cover; display: block; min-width: 0; min-height: 0; }
+.vid-pl-grid.n1 img { grid-column: 1 / -1; grid-row: 1 / -1; }
+.vid-pl-grid.n2 img { grid-row: 1 / -1; }
+.vid-pl-grid.n3 img:first-child { grid-row: 1 / -1; }
+.vid-pl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; margin-bottom: 28px; }
+.vid-pl-shelf { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.vid-pl-card { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; min-width: 0; }
+.vid-pl-card .vid-pl-art { margin-bottom: 6px; transition: border-color var(--m-fast) ease; }
+.vid-pl-card:hover .vid-pl-art { border-color: var(--line-strong); }
+
+/* A playlist's page: Music's album head, then its rows. */
+.vid-pl-head { display: flex; gap: 24px; align-items: flex-end; padding: 2px 0 26px; }
+.vid-pl-head > .vid-pl-art { width: 200px; flex: none; }
+.vid-pl-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vid-pl-title { margin: 0; font: 700 30px/1.1 var(--font-ui); letter-spacing: -.02em; color: var(--text); overflow-wrap: anywhere; }
+.vid-pl-desc { margin: 0; max-width: 62ch; font-size: var(--fs-13); line-height: 1.5; color: var(--text-dim); white-space: pre-line; }
+.vid-pl-meta { font-size: var(--fs-13); color: var(--text-dimmer); }
+.vid-pl-by { border: 0; background: none; padding: 0; font: 600 var(--fs-13) var(--font-ui); color: var(--text); cursor: pointer; }
+.vid-pl-by:hover { text-decoration: underline; }
+.vid-pl-acts { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.vid-pl-list { display: flex; flex-direction: column; gap: 2px; }
+.vid-pl-row, .vid-run-row {
+  display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: var(--r-lg); cursor: pointer;
+  border: 0; background: none; color: var(--text); text-align: left; font: inherit; min-width: 0; width: 100%; box-sizing: border-box;
+  transition: background-color var(--m-fast) ease;
+}
+.vid-pl-row:hover, .vid-pl-row:focus-visible, .vid-run-row:hover { background: var(--fill-hover); outline: none; }
+.vid-pl-row.processing { cursor: default; opacity: .6; }
+.vid-pl-row.dragging { opacity: .4; }
+.vid-pl-grip { color: var(--text-dimmer); font-size: 15px; cursor: grab; flex: none; }
+.vid-pl-n { width: 22px; flex: none; text-align: center; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.vid-pl-row .vid-thumb { width: 160px; flex: none; border-radius: var(--r-md); }
+.vid-pl-row-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.vid-pl-rm { opacity: 0; flex: none; }
+.vid-pl-row:hover .vid-pl-rm, .vid-pl-row:focus-within .vid-pl-rm { opacity: 1; }
+
+/* Watching through a playlist: its list in Up next's place. */
+.vid-run { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--fill); overflow: hidden; }
+.vid-run-head { padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.vid-run-name { display: flex; flex-direction: column; gap: 2px; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; color: var(--text); font: inherit; min-width: 0; max-width: 100%; }
+.vid-run-name b { font: 700 var(--fs-14)/1.3 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vid-run-name:hover b { text-decoration: underline; }
+.vid-run-name span { font-size: var(--fs-12); color: var(--text-dimmer); }
+.vid-run-list { display: flex; flex-direction: column; gap: 1px; padding: 4px; max-height: min(60vh, 560px); overflow-y: auto; }
+.vid-run-row { gap: 10px; padding: 5px 6px; border-radius: var(--r-md); }
+.vid-run-row .vid-thumb { width: 100px; flex: none; border-radius: var(--r-sm); }
+.vid-run-row .vid-card-title { font-size: var(--fs-13); -webkit-line-clamp: 2; }
+.vid-run-row .vid-pl-n { width: 16px; font-size: 11px; }
+.vid-run-row.on { background: var(--fill-hover); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.vid-run-row.on .vid-pl-n { color: var(--text); }
+.vp-end-note { font: 500 var(--fs-13) var(--font-ui); color: rgba(255,255,255,.75); }
+
+/* The playlist form: the cover beside the name. */
+.vid-pl-form-top { display: flex; gap: 16px; align-items: flex-start; }
+.vid-pl-cover-pick { width: 112px; flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
+.vid-pl-cover-pick .vid-pl-art { width: 100%; }
+.vid-pl-form-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.vid-pl-form-fields .vid-field-label { margin-top: 0; }
+.vid-pl-cover-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.vid-pl-cover-acts [hidden] { display: none; }
+.vid-pl-feat { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; cursor: pointer; }
+.vid-pl-feat > span { display: flex; flex-direction: column; gap: 2px; }
+.vid-pl-feat b { font: 600 var(--fs-13) var(--font-ui); color: var(--text); }
+.vid-pl-feat > span > span { font-size: var(--fs-12); color: var(--text-dim); }
+
+/* The player's quality: "Original" as a small tag while on it. */
+.vp-tag { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: var(--r-xs); background: rgba(255,255,255,.92); color: #000; font: 700 10.5px/1 var(--font-ui); letter-spacing: .02em; }
+.vp-menu-row[disabled] { opacity: .5; cursor: default; }
+.vp-menu-row[disabled]:hover { background: none; color: var(--text-dim); }
+.vp-menu { max-width: 320px; }
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .vid-channel { flex-wrap: wrap; }
+  .vid-channel-acts { width: 100%; }
+  .vid-pl-head { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .vid-pl-head > .vid-pl-art { width: 160px; }
+  .vid-pl-title { font-size: 24px; }
+  .vid-pl-row .vid-thumb { width: 120px; }
+  .vid-pl-rm { opacity: 1; }
+  .vid-pl-cards, .vid-pl-shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* end VIDEOS: PUBLISHED DATES, PLAYLISTS, ORIGINAL */

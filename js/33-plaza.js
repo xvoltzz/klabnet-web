@@ -64,6 +64,7 @@
       song: on ? p.song || '' : '', artist: p.artist || '',
       color: on ? p.color : null, plat: on ? p.platformInfo : null,
       paused: on ? p.paused : null, where: on ? p.where || '' : '', status: on ? p.status || '' : '',
+      room: on ? p.room : null,
     };
   }
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')).getTime() : 0;
@@ -82,7 +83,8 @@
     // where they are; Away / Do not disturb in front of it.
     if (s.song) sub = '<span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + (s.artist ? ' · ' + esc(s.artist) : '');
     else if (s.on) {
-      const doing = s.paused ? 'Paused · ' + esc(s.paused.song) : ['Not listening', WHERE[s.where]].filter(Boolean).join(' · ');
+      const doing = s.room ? 'Watching together · ' + esc(s.room.title)
+        : s.paused ? 'Paused · ' + esc(s.paused.song) : ['Not listening', WHERE[s.where]].filter(Boolean).join(' · ');
       sub = s.status === 'dnd' ? 'Do not disturb · ' + doing : s.away ? 'Away' : doing;
     }
     else { const t = when(stats.get(u)?.lastSeen); sub = t ? 'Last here ' + esc(shortAgo(t)) : ''; }

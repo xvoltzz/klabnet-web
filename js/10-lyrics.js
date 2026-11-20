@@ -562,7 +562,7 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
   // flow (defined much later in the script) offer whatever lyric line is
   // actually on screen right now as a quotable excerpt, without duplicating
   // this module's own sync-tracking state.
-  // The dock's queue button: the full player, on Up next.
+  // The full player, on Up next (the queue popover's "Open full player").
   window.klabOpenUpNext = () => {
     if (!document.getElementById('fsPlayer')?.classList.contains('open')) openFS();
     if (_lyricsOpen) toggleLyrics();

@@ -55,18 +55,22 @@
   // Bumped when the order changes, so a page asked for under the old order
   // is dropped when it lands.
   let gen = 0;
-  // 'shot' is the timeline (when photos were taken, the default); 'posted'
-  // is "What's New" (by upload). Not remembered: the tab always opens on
-  // the timeline.
+  // The order, one control on the page's head (setOrder): 'shot' by when
+  // the photos were taken (the default), 'posted' by when the post was
+  // uploaded (the post's `created`, never the photo's metadata; the API's
+  // order=posted). It applies to every view, and is remembered per device.
+  const ORDER_KEY = 'klabnet_photos_order';
+  const ORDER_LABEL = { shot: 'Date taken', posted: 'Date uploaded' };
   let order = 'shot';
-  // Which photos (the sidebar's rows, setView): the timeline, what's new,
-  // yours, or the ones you're tagged in. The last two are the timeline
-  // filtered here (the API has no filter), topped up a page at a time.
+  try { if (localStorage.getItem(ORDER_KEY) === 'posted') order = 'posted'; } catch (e) {}
+  // Which photos (the sidebar's rows, setView): Browse (everyone's), yours,
+  // or the ones you're tagged in. The last two are the same pages filtered
+  // here (the API has no filter), topped up a page at a time.
   let view = 'timeline';
-  const VIEW_TITLE = { timeline: 'Photos', new: 'What’s new', mine: 'Your photos', with: 'With you' };
-  const filtered = () => view === 'mine' || view === 'with';
+  const VIEW_TITLE = { timeline: 'Photos', mine: 'Your photos', tagged: 'Tagged' };
+  const filtered = () => view === 'mine' || view === 'tagged';
   const inView = post => view === 'mine' ? (post.username || '').toLowerCase() === me()
-    : view === 'with' ? (post.tags || []).some(t => String(t).toLowerCase() === me()) : true;
+    : view === 'tagged' ? (post.tags || []).some(t => String(t).toLowerCase() === me()) : true;
   const shownPosts = () => filtered() ? posts.filter(inView) : posts;
   const loadedPhotos = () => posts.reduce((n, p) => n + p.photos.length, 0);
   // How many photos there are in all, from the API's first page (null
@@ -135,7 +139,7 @@
         if (had) { p.reactions = had.reactions; p.likers = had.likers; p.reply_count = had.reply_count; }
       }
       if (typeof data.total === 'number' && g === gen) total = data.total;
-      // Switched between Timeline and What's New while this was in flight.
+      // The order changed while this was in flight.
       if (g !== gen) return;
       // Merge: the newest page replaces whatever overlaps it; older pages
       // already loaded by scrubbing left stay put.
@@ -156,7 +160,7 @@
       // selection minutes later when older pages happen to load.
       if (pendingFocus) { focusPhoto(pendingFocus.postId, pendingFocus.photoId); pendingFocus = null; }
     } catch (e) {
-      // A request from before a switch to What's New failing says nothing
+      // A request from before a change of order failing says nothing
       // about the new order's own, which may still be on its way.
       if (g !== gen || seq !== latestSeq) return;
       pendingFocus = null;
@@ -256,8 +260,9 @@
   }
 
   // ── Opening one photo from elsewhere (Home) ──
-  // If it isn't in what's loaded (the timeline orders by shooting date, so a
-  // fresh upload of old photos sits far back), What's New has it up front.
+  // If it isn't in what's loaded (by date taken, a fresh upload of old
+  // photos sits far back), everyone's photos by date uploaded have it up
+  // front. That order is shown, not saved: it's this visit's.
   let pendingFocus = null;
   function focusPhoto(postId, photoId) {
     const idx = items.findIndex(it => it.post.id === postId && (photoId == null || it.ph.id === photoId));
@@ -269,17 +274,26 @@
     setActiveTab('photos');
     if (focusPhoto(postId, photoId)) return;
     pendingFocus = { postId, photoId };
-    if (view !== 'new') setView('new'); else fetchLatest();
+    if (view !== 'timeline' || order !== 'posted') show('timeline', 'posted'); else fetchLatest();
   };
 
-  // ── Timeline / What's New ──
-  function setView(next) {
-    if (!VIEW_TITLE[next]) return;
-    document.querySelectorAll('#phOrder button[data-phview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.phview === next));
-    document.querySelectorAll('#phNav .picker-tab[data-phview]').forEach(b => b.classList.toggle('active', b.dataset.phview === next));
-    if (next === view) return;
-    const nextOrder = next === 'new' ? 'posted' : 'shot';
+  // ── Views (Browse / Your photos / Tagged) and the order ──
+  const setView = next => show(next, order);
+  function setOrder(next) {
+    try { localStorage.setItem(ORDER_KEY, next); } catch (e) {}
+    show(view, next);
+  }
+  function syncControls() {
+    document.querySelectorAll('#phViews button[data-phview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.phview === view));
+    document.querySelectorAll('#phNav .picker-tab[data-phview]').forEach(b => b.classList.toggle('active', b.dataset.phview === view));
+    const sb = $('phSortBtn');
+    if (sb) { sb.querySelector('span').textContent = ORDER_LABEL[order]; sb.title = 'Sort by ' + ORDER_LABEL[order].toLowerCase(); }
+  }
+  function show(next, nextOrder) {
+    if (!VIEW_TITLE[next] || !ORDER_LABEL[nextOrder]) return;
+    if (next === view && nextOrder === order) { syncControls(); return; }
     view = next;
+    syncControls();
     // The same pages under another filter: just draw them again.
     if (nextOrder === order && loadedOnce) {
       SFX && SFX.play('click');
@@ -293,6 +307,7 @@
       return;
     }
     order = nextOrder;
+    syncControls();
     renderViewHead();
     posts = []; items = []; sel = -1; hasOlder = true; loadedOnce = false;
     cursor = null; gen++; loadingOlder = false;
@@ -300,9 +315,17 @@
     SFX && SFX.play('click');
     fetchLatest();
   }
-  document.getElementById('phOrder')?.addEventListener('click', e => {
+  syncControls();
+  document.getElementById('phViews')?.addEventListener('click', e => {
     const b = e.target.closest('button[data-phview]');
     if (b) setView(b.dataset.phview);
+  });
+  // Music's Sort: one button, a menu of the two orders (klabMenu.at).
+  document.getElementById('phSortBtn')?.addEventListener('click', e => {
+    klabMenu.at(e.currentTarget, [
+      { section: 'Sort by' },
+      ...Object.entries(ORDER_LABEL).map(([k, l]) => ({ label: l, checked: k === order, action: () => setOrder(k) })),
+    ], { align: 'end' });
   });
   document.getElementById('phNav')?.addEventListener('click', e => {
     const b = e.target.closest('.picker-tab[data-phview]');
@@ -317,9 +340,9 @@
     $('phEmpty').hidden = false;
     $('phEmptyText').textContent = msg || (filtered() && hasOlder ? 'Looking…'
       : view === 'mine' ? 'You haven’t posted any photos yet.'
-      : view === 'with' ? 'Nobody’s tagged you in a photo yet.'
+      : view === 'tagged' ? 'Nobody’s tagged you in a photo yet.'
       : 'No photos yet. Post the first one.');
-    $('phEmptyPost').hidden = view === 'with';
+    $('phEmptyPost').hidden = view === 'tagged';
     shell.classList.add('is-empty');
     stopClip();
   }
@@ -481,16 +504,16 @@
     const b = id => $(id);
     if (narrowMq.matches) {
       if (railL.parentElement === frame) return;
-      actions.append(b('phOrder'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
-      b('phOrder').hidden = false;
+      actions.append(b('phViews'), b('phSortBtn'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      b('phViews').hidden = false;
       railR.insertBefore(b('phSong'), b('phReacts'));
       frame.insertBefore(railL, mainImg);
       frame.insertBefore(railR, mainImg.nextSibling);
     } else {
       if (railL.parentElement === $('phSideInfo')) return;
-      // The views are the sidebar's rows here; the head has the one action.
-      b('phOrder').hidden = true;
-      $('phViewTools').append(b('phSlideBtn'), b('phPostBtn'));
+      // The views are the sidebar's rows here; the head has the order and the actions.
+      b('phViews').hidden = true;
+      $('phViewTools').append(b('phSortBtn'), b('phSlideBtn'), b('phPostBtn'));
       $('phSideToggles').append(b('phInfoBtn'));
       $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);

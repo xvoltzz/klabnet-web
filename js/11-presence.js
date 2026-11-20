@@ -568,8 +568,13 @@
       paused: l && !l.playing && l.song ? { song: l.song, artist: l.artist } : null,
       where: username === me ? klabWhere() : l?.where || '',
       status: username === me ? klabStatus() : l?.status || '',
+      // The watch party they're in ({id, title}; js/41-rooms.js), as the
+      // API last said (its rooms know their members).
+      room: l?.room || null,
     };
   };
+  // Everyone online but you, as the last poll said (Social's Together).
+  window.klabListeners = () => (_lastOthers || []).filter(l => l && l.username !== window.KLAB_USER?.username);
   // Everyone the site knows, online first, for chat's search.
   window.klabRoster = function() {
     const on = [...(window.KLAB_ONLINE_USERNAMES || [])].filter(Boolean);

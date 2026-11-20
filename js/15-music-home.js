@@ -1017,8 +1017,6 @@
       queue.splice(0, it.k);
       const song = queue.shift();
       updateQueueBadge();
-      // The full player's Up next can sit over the Queue view.
-      if (pickerTab === 'queue') renderQueueList();
       playSong(song);
     } else if (it.kind === 'next') {
       playerState.playlistIndex = it.i;
@@ -1053,13 +1051,15 @@
   }
   window.klabNpSource = npSource;
   // ── Kept live ──
-  playerState.audio.addEventListener('loadstart', () => fsUpRender());
+  // The full player's Up next and the dock's queue popover (js/03-picker-tabs.js).
+  const upNextChanged = () => { fsUpRender(); window.klabQueuePop?.refresh(); };
+  playerState.audio.addEventListener('loadstart', upNextChanged);
   // The queue and shuffle change what's next.
   const _npQueueBadge = updateQueueBadge;
-  updateQueueBadge = function() { _npQueueBadge(); fsUpRender(); };
+  updateQueueBadge = function() { _npQueueBadge(); upNextChanged(); };
   const _npShuffle = syncShuffleBtns;
-  syncShuffleBtns = function() { _npShuffle(); fsUpRender(); };
-  window.klabUpNextRender = () => fsUpRender();
+  syncShuffleBtns = function() { _npShuffle(); upNextChanged(); };
+  window.klabUpNextRender = upNextChanged;
 
   // ── The full player's "Up next" ──
   // What's coming after the one playing: your queue first (under its own

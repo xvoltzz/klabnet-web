@@ -51,17 +51,27 @@ const PANEL_SCROLLS = new Set(['social', 'feed', 'videos']);
 const tabPanel = key => document.querySelector(`.tab-panel[data-tab-panel="${key}"]`);
 function setActiveTab(key) {
   // A link to a video (#videos/12, #videos/12?t=90): Videos, then that video.
-  const vlink = /^videos\/(\d+)(?:\?t=(\d+))?$/.exec(key || '');
+  // (…?room=<id> is a watch party's link: js/41-rooms.js joins it.)
+  const vlink = /^videos\/(\d+)(?:\?t=(\d+))?(?:[?&]room=[\w-]+)?$/.exec(key || '');
+  // A video playlist (#videos/playlist/<id>, js/39-videos.js).
+  const plink = /^videos\/playlist\/([\w-]{4,40})$/.exec(key || '');
+  if (plink) {
+    key = 'videos';
+    window.klabVideoLink = { playlist: plink[1] };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
   if (vlink) {
     key = 'videos';
     window.klabVideoLink = { id: +vlink[1], at: +vlink[2] || 0 };
     if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
   }
-  // A TV channel (#videos/tv, #videos/tv/4): Videos, then Channels (js/40-tv.js).
-  const tvlink = /^videos\/tv(?:\/(\d{1,2}))?$/.exec(key || '');
+  // A TV channel (#videos/tv, #videos/tv/4), the guide (#videos/tv/guide) or
+  // a program on it (#videos/tv/p/<id>): Videos, then Channels (js/40-tv.js).
+  const tvlink = /^videos\/tv(?:\/(\d{1,2}|guide|p\/[\w-]+))?$/.exec(key || '');
   if (tvlink) {
     key = 'videos';
-    window.klabTvLink = { number: +tvlink[1] || 0 };
+    const sub = tvlink[1] || '';
+    window.klabTvLink = { number: +sub || 0, guide: sub === 'guide', program: sub.startsWith('p/') ? sub.slice(2) : '' };
     if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
   }
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
@@ -1564,7 +1574,7 @@ async function offerAppUpdate(current) {
   // A page's own row goes to its front page, from anywhere (the owner:
   // "always take me back to the home page of that tab"), with any album or
   // playlist page closed. The front page is a row of its own, first under
-  // the page's row: Browse (Music, Photos, Videos) or Social's Home. The
+  // the page's row: Browse (Music, Social, Photos, Videos). The
   // page's row only unfolds its sections; that row is the one lit (the
   // owner, 2026-11-20: Music "shouldnt focus on the primary tab, it should
   // expand and the default tab should be a Browse").

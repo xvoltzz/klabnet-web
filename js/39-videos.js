@@ -41,6 +41,15 @@
     return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(' ', 'T') + 'Z').getTime() || 0;
   };
   const ago = s => klabRelativeTime(apiTime(s));
+  // When a video came out (published, settable; created for an API from
+  // before): "3 days ago" under a week, then "Mar 3, 2019".
+  const pubOf = v => v.published || v.created;
+  function when(v) {
+    const t = apiTime(pubOf(v));
+    if (!t) return '';
+    if (Date.now() - t < 7 * 864e5) return klabRelativeTime(t);
+    return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   function dur(s) {
     s = Math.max(0, Math.floor(+s || 0));
     const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = s % 60;
@@ -99,7 +108,7 @@
         '<span class="vid-card-meta">' +
           '<span class="vid-card-title">' + esc(v.title || 'Untitled') + '</span>' +
           (o.noUser ? '' : '<span class="vid-card-sub vid-card-user">' + esc(v.username) + '</span>') +
-          '<span class="vid-card-sub">' + views(v.views) + ' · ' + ago(v.created) + '</span>' +
+          '<span class="vid-card-sub">' + views(v.views) + ' · ' + when(v) + '</span>' +
         '</span>' +
       '</span>' +
     '</button>';
@@ -125,17 +134,25 @@
   // ── List views ──
   const VIEWS = {
     home: { title: 'Videos', query: 'sort=new' },
-    mine: { title: 'Your videos', query: () => 'user=' + encodeURIComponent(me()) },
-    channel: { title: v => v.user, query: v => 'user=' + encodeURIComponent(v.user) },
+    mine: { title: 'Your videos', query: v => 'user=' + encodeURIComponent(me()) + '&sort=' + (v.sort === 'old' ? 'old' : 'new') },
+    channel: { title: v => v.user, query: v => 'user=' + encodeURIComponent(v.user) + '&sort=' + (v.sort === 'old' ? 'old' : 'new') },
     search: { title: v => '“' + v.q + '”', query: v => 'q=' + encodeURIComponent(v.q) },
     continue: { title: 'Continue watching' },
+    playlists: { title: 'Playlists' },
+    playlist: { title: 'Playlist' },
   };
+  // A channel's videos (and yours) in order of when they came out, like
+  // YouTube's channel page: Newest or Oldest first, with the years marked.
+  const orderHTML = v => '<div class="k-seg vid-order" role="group" aria-label="Order">' +
+    '<button type="button" data-order="new" aria-pressed="' + (v.sort !== 'old') + '">Newest</button>' +
+    '<button type="button" data-order="old" aria-pressed="' + (v.sort === 'old') + '">Oldest</button></div>';
+  let lastYear = 0;
   // The house page head (Photos' twin): the title, its dim count on the
   // baseline, and the page's one action.
-  function headHTML(title, sub, extra) {
+  function headHTML(title, sub, extra, action) {
     return '<div class="k-page-head vid-head"><h2 class="k-page-title">' + esc(title) + '</h2><span class="k-page-count" id="vidSub">' + esc(sub || '') + '</span>' +
       '<div class="k-page-actions">' + (extra || '') +
-      '<button type="button" class="k-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload</span></button></div></div>';
+      (action ?? '<button type="button" class="k-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload</span></button>') + '</div></div>';
   }
   function emptyHTML(text, upload) {
     return '<div class="k-empty vid-empty"><i class="ti ti-movie"></i><div>' + esc(text) + '</div>' +
@@ -146,25 +163,28 @@
   async function showList(v, opts) {
     leaveWatch();
     view = v;
-    setRow(['home', 'continue', 'mine'].includes(v.kind) ? v.kind : '');
+    plRun = null;
+    setRow(['home', 'continue', 'mine', 'playlists'].includes(v.kind) ? v.kind : v.kind === 'playlist' ? 'playlists' : '');
     if (!(opts && opts.quiet)) record({ kind: 'list', view: v });
     const my = ++token;
+    if (v.kind === 'playlists' || v.kind === 'playlist') { (v.kind === 'playlists' ? showPlaylists : showPlaylist)(v, my); return; }
     const def = VIEWS[v.kind];
     const title = typeof def.title === 'function' ? def.title(v) : def.title;
     list = []; total = 0; more = false;
     const channelHead = v.kind === 'channel'
       ? '<div class="vid-channel">' + face(v.user, 'big') + '<div class="vid-channel-tx"><h2>' + esc(v.user) + '</h2><span id="vidSub"></span></div>' +
-        '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div>'
+        '<div class="vid-channel-acts">' + orderHTML(v) + '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div></div>'
       : '';
-    page.innerHTML = (channelHead || headHTML(title, '')) +
+    page.innerHTML = (channelHead || headHTML(title, '', v.kind === 'mine' ? orderHTML(v) : '')) +
       (v.kind === 'home' ? '<div class="vid-hero-slot" id="vidHero"></div><div class="vid-shelf-wrap" id="vidShelf" hidden></div>' +
         // (Room for TV channels' shelf, js/40-tv.js: see channelsShelf below.)
-        '<div class="vid-shelf-wrap" id="vidChannels" hidden></div><div class="k-label vid-label" id="vidLatest" hidden>Latest</div>' : '') +
+        '<div class="vid-shelf-wrap" id="vidChannels" hidden></div><div class="vid-shelf-wrap" id="vidPlShelf" hidden></div>' +
+        '<div class="k-label vid-label" id="vidLatest" hidden>Latest</div>' : '') +
       '<div class="vid-grid" id="vidGrid">' + LOADING + '</div>';
     if (panel()) panel().scrollTop = 0;
     klabEnter(page);
     if (server === false) { $('vidGrid').innerHTML = emptyHTML('Videos need the latest klabnet-api.'); return; }
-    if (v.kind === 'home') loadShelf(my);
+    if (v.kind === 'home') { loadShelf(my); playlistsShelf(my); }
     await loadMore(my, true);
   }
 
@@ -196,7 +216,7 @@
         '<div class="k-label">Newest</div>' +
         '<h3 class="vid-hero-title">' + esc(v.title || 'Untitled') + '</h3>' +
         '<button type="button" class="vid-hero-by" data-act="channel" data-user="' + esc(v.username) + '">' + face(v.username) + '<span>' + esc(v.username) + '</span></button>' +
-        '<div class="vid-hero-meta">' + views(v.views) + ' · ' + ago(v.created) + '</div>' +
+        '<div class="vid-hero-meta">' + views(v.views) + ' · ' + when(v) + '</div>' +
         (v.description ? '<p class="vid-hero-desc">' + esc(v.description) + '</p>' : '') +
         '<div class="vid-hero-acts">' +
           '<button type="button" class="k-btn primary" data-act="open" data-id="' + v.id + '"><i class="ti ti-player-play-filled"></i><span>' + (p ? 'Resume at ' + dur(v.watched) : 'Play') + '</span></button>' +
@@ -252,12 +272,23 @@
       more = v.kind !== 'continue' && got.length >= 24 && list.length < total;
       const grid = $('vidGrid');
       if (!grid) return;
-      if (first) grid.innerHTML = '';
+      if (first) { grid.innerHTML = ''; lastYear = 0; }
       if (!list.length) {
         const words = { home: 'No videos yet. Be the first.', continue: 'Nothing to pick up again. Videos you stop partway show here.',
           mine: 'You haven’t uploaded anything yet.', channel: v.user + ' hasn’t uploaded anything yet.', search: 'Nothing matches that.' };
         grid.innerHTML = emptyHTML(words[v.kind], ['home', 'mine'].includes(v.kind));
-      } else if (got.length) grid.insertAdjacentHTML('beforeend', got.map(x => cardHTML(x, { noUser: v.kind === 'channel' || v.kind === 'mine', noFace: v.kind === 'channel' || v.kind === 'mine' })).join(''));
+      } else if (got.length) {
+        const own = v.kind === 'channel' || v.kind === 'mine';
+        grid.insertAdjacentHTML('beforeend', got.map(x => {
+          // The years, on a channel: a label across the grid where one starts.
+          let year = '';
+          if (own) {
+            const y = new Date(apiTime(pubOf(x))).getFullYear();
+            if (y && y !== lastYear) { lastYear = y; year = '<div class="k-label vid-year">' + y + '</div>'; }
+          }
+          return year + cardHTML(x, { noUser: own, noFace: own });
+        }).join(''));
+      }
       if (v.kind === 'home') { const l = $('vidLatest'); if (l) l.hidden = !grid.querySelector('.vid-card'); }
       const sub = $('vidSub');
       if (sub) sub.textContent = total ? klabCount(total, 'video') : '';
@@ -288,7 +319,7 @@
           const v = await getJSON(API + '/' + id, null, 8000);
           cache.set(v.id, v);
           page.querySelectorAll('.vid-card[data-vid-id="' + id + '"]').forEach(c => { c.outerHTML = cardHTML(v, { noUser: c.querySelector('.vid-card-user') == null, noFace: !c.querySelector('.vid-face'), row: c.classList.contains('row') }); });
-          if (view.kind === 'watch' && view.id === id && v.status !== 'processing') openVideo(id, 0, { quiet: true, fresh: v });
+          if (view.kind === 'watch' && view.id === id && v.status !== 'processing') openVideo(id, 0, { quiet: true, fresh: v, keep: true });
         } catch (e) {}
       }
       watchProcessing();
@@ -297,7 +328,12 @@
 
   // ── Watching ──
   let cur = null;        // the video showing
+  // Playing through a playlist: { pl (its summary), videos, i }. The watch
+  // view's side shows it instead of Up next, and the end goes on to the
+  // next one (after a 5s you can stop; only here, never for one video).
+  let plRun = null;
   let hls = null, video = null, player = null;
+  let srcKind = 'hls';   // what the <video> plays: the HLS ladder, or the Original mp4
   let viewSent = false, played = 0, lastTick = 0, lastSave = 0;
 
   async function openVideo(id, at, opts) {
@@ -306,9 +342,10 @@
     const o = opts || {};
     if (!showing()) setActiveTab('videos');
     leaveWatch();
+    if ('list' in o) plRun = o.list; else if (!o.keep) plRun = null;
     view = { kind: 'watch', id };
-    setRow('');
-    if (!o.quiet) record({ kind: 'watch', id });
+    setRow(plRun ? 'playlists' : '');
+    if (!o.quiet) record({ kind: 'watch', id, ...(plRun ? { pl: plRun.pl.id, i: plRun.i } : {}) });
     const my = ++token;
     let v = o.fresh || cache.get(id);
     page.innerHTML = '<div class="vid-watch"><div class="vid-watch-main"><button type="button" class="k-btn sm vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
@@ -328,9 +365,15 @@
     if (v.status === 'ready') mountPlayer(v, at > 0 ? at : (v.watched && v.watched < v.duration * 0.95 ? v.watched : 0), !!(at > 0) || o.autoplay !== false);
     else watchProcessing();
     loadComments(v);
-    loadUpNext(v, my);
+    if (plRun) paintRun(); else loadUpNext(v, my);
   }
   window.klabOpenVideo = (id, at) => openVideo(id, at || 0);
+  // For watch parties (js/41-rooms.js): what's showing, and opening one
+  // where the room is (opts.autoplay false: paused there).
+  window.klabWatch = {
+    video: () => video, current: () => cur, watching: () => showing() && view.kind === 'watch',
+    open: (id, at, opts) => openVideo(id, at || 0, opts),
+  };
   window.klabOpenChannel = user => { if (!showing()) setActiveTab('videos'); showList({ kind: 'channel', user }); };
   // TV channels (js/40-tv.js) take the page over: what's playing here
   // stops and any list still loading lets go.
@@ -344,6 +387,8 @@
       '<div class="vid-watch">' +
         '<div class="vid-watch-main">' +
           '<button type="button" class="k-btn sm vid-back" data-act="back"><i class="ti ti-arrow-left"></i><span>Back</span></button>' +
+          // A watch party's bar (js/41-rooms.js), while you're in one.
+          '<div class="room-bar" id="vidRoomBar" hidden></div>' +
           '<div class="vp" id="vidPlayer" tabindex="0">' +
             (v.status === 'ready' ? '' :
               '<div class="vp-wait">' + (v.poster ? '<img src="' + esc(v.poster) + '" alt="" />' : '') +
@@ -354,10 +399,12 @@
           '<h1 class="vid-title">' + esc(v.title || 'Untitled') + '</h1>' +
           '<div class="vid-by">' +
             '<button type="button" class="vid-by-who" data-act="channel" data-user="' + esc(v.username) + '" data-silent>' + face(v.username) +
-              '<span><b>' + esc(v.username) + '</b><span>' + views(v.views) + ' · ' + ago(v.created) + '</span></span></button>' +
+              '<span><b>' + esc(v.username) + '</b><span>' + views(v.views) + ' · <span title="' + esc(new Date(apiTime(pubOf(v))).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })) + '">' + when(v) + '</span></span></span></button>' +
             '<div class="vid-acts">' +
               '<div class="vid-reacts" id="vidReacts">' + reactsHTML(v) + '</div>' +
+              (v.status === 'ready' && window.klabRooms ? '<button type="button" class="k-btn" data-act="together" id="vidTogether"><i class="ti ti-users"></i><span>Watch together</span></button>' : '') +
               '<button type="button" class="k-btn" data-act="share"><i class="ti ti-share-2"></i><span>Share</span></button>' +
+              '<button type="button" class="k-btn" data-act="save" title="Save to playlist"><i class="ti ti-playlist-add"></i><span>Save</span></button>' +
               (canEdit(v) ? '<button type="button" class="k-icon" data-act="edit" title="Edit video" aria-label="Edit video"><i class="ti ti-pencil"></i></button>' +
                 '<button type="button" class="k-icon vid-del" data-act="delete" title="Delete video" aria-label="Delete video"><i class="ti ti-trash"></i></button>' : '') +
             '</div>' +
@@ -420,7 +467,7 @@
     }
     if (my !== token) return;
     // Theirs first, then the rest, newest first.
-    pool.sort((a, b) => (b.username === v.username) - (a.username === v.username) || b.id - a.id);
+    pool.sort((a, b) => (b.username === v.username) - (a.username === v.username) || apiTime(pubOf(b)) - apiTime(pubOf(a)) || b.id - a.id);
     const el = $('vidNext');
     if (!el) return;
     upNext = pool.slice(0, 12);
@@ -524,34 +571,11 @@
     video.playbackRate = SPEEDS.includes(prefs.speed) ? prefs.speed : 1;
     video.defaultPlaybackRate = video.playbackRate;
     viewSent = false; played = 0; lastTick = 0; lastSave = 0;
-    const src = v.hls;
-    const native = !window.MediaSource && video.canPlayType('application/vnd.apple.mpegurl');
-    const begin = () => {
-      if (start > 0) { try { video.currentTime = start; } catch {} }
-      paint();
-      if (autoplay) video.play().catch(() => box.classList.add('paused'));
-    };
     box.classList.add('paused', 'fresh');
-    if (native) {
-      video.src = src;
-      video.addEventListener('loadedmetadata', begin, { once: true });
-    } else {
-      loadHls().then(Hls => {
-        if (video !== box.querySelector('video')) return;
-        if (!Hls.isSupported()) { video.src = src; video.addEventListener('loadedmetadata', begin, { once: true }); return; }
-        hls = new Hls({ capLevelToPlayerSize: true, startPosition: start > 0 ? start : -1, maxBufferLength: 30 });
-        hls.on(Hls.Events.MANIFEST_PARSED, () => { paintQuality(); if (autoplay) video.play().catch(() => box.classList.add('paused')); paint(); });
-        hls.on(Hls.Events.LEVEL_SWITCHED, paintQuality);
-        hls.on(Hls.Events.ERROR, (_, d) => {
-          if (!d.fatal) return;
-          if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-          else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-          else { showToast('This video won’t play', 'ti-alert-triangle'); }
-        });
-        hls.loadSource(src);
-        hls.attachMedia(video);
-      }).catch(e => showToast('Couldn’t start the player: ' + e.message, 'ti-alert-triangle'));
-    }
+    // Original (the upload itself) when it's been picked on this device
+    // before and this browser plays it; otherwise the ladder.
+    if (prefs.original && canOriginal(v)) startOriginal(v, start, autoplay);
+    else startHls(v, start, autoplay);
     for (const ev of ['play', 'pause', 'timeupdate', 'progress', 'volumechange', 'ratechange', 'durationchange']) video.addEventListener(ev, paint);
     video.addEventListener('play', () => { box.classList.remove('paused', 'fresh', 'ended'); box.querySelector('.vp-end').hidden = true; quietMusic(); wake(); });
     video.addEventListener('playing', () => box.classList.add('started'), { once: true });
@@ -575,6 +599,100 @@
     vol.value = video.muted ? 0 : video.volume;
     vol.addEventListener('input', () => { video.volume = +vol.value; video.muted = +vol.value === 0; prefs.volume = video.volume; prefs.muted = video.muted; savePrefs(); });
     scrubber(box.querySelector('.vp-scrub'), v);
+    // A watch party (js/41-rooms.js) follows this player.
+    document.dispatchEvent(new CustomEvent('klab:watch', { detail: { v, video } }));
+  }
+
+  // ── What the player plays: the ladder (HLS) or the Original ──
+  // The Original is the upload remuxed into an mp4 (klabnet-api's
+  // original.mp4), played straight off the media share at its own
+  // bitrate: on the LAN, the real thing. Picking it (or a rung) switches
+  // the <video> at the same moment, and it's remembered per device.
+  let knownLevels = [];
+  const CODEC_TEST = { h264: 'avc1.640033', hevc: 'hvc1.1.6.L153.B0', av1: 'av01.0.12M.08', vp9: 'vp09.00.51.08' };
+  function canOriginal(v) {
+    const o = v && v.original;
+    if (!o || !o.url || !CODEC_TEST[o.codec]) return false;
+    try { return !!document.createElement('video').canPlayType('video/mp4; codecs="' + CODEC_TEST[o.codec] + '"'); } catch { return false; }
+  }
+  // "1080p60", "2160p": the short side, and the rate when it's over 30.
+  const rungName = (h, w, fps) => Math.min(h || 0, w || h || 0) + 'p' + (fps > 30.5 ? Math.round(fps) : '');
+  const levelName = l => rungName(l.height, l.width, l.frameRate || l.fps);
+  const mbps = b => (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + ' Mbps';
+  function saveBw() {
+    const bw = hls && hls.bandwidthEstimate;
+    if (bw > 0 && isFinite(bw)) { prefs.bw = Math.round(bw); savePrefs(); }
+  }
+  function startHls(v, start, autoplay, level) {
+    const box = player, el = video;
+    srcKind = 'hls';
+    const src = v.hls;
+    const native = !window.MediaSource && el.canPlayType('application/vnd.apple.mpegurl');
+    const begin = () => {
+      if (start > 0) { try { el.currentTime = start; } catch {} }
+      paint();
+      if (autoplay) el.play().catch(() => box.classList.add('paused'));
+    };
+    paintQuality();
+    if (native) {
+      el.src = src;
+      el.addEventListener('loadedmetadata', begin, { once: true });
+      return;
+    }
+    loadHls().then(Hls => {
+      if (el !== video || srcKind !== 'hls') return;
+      if (!Hls.isSupported()) { el.src = src; el.addEventListener('loadedmetadata', begin, { once: true }); return; }
+      // Not capped to the player's size (people here care about the
+      // bitrate), and starting from the last speed this device measured.
+      hls = new Hls({ capLevelToPlayerSize: false, startPosition: start > 0 ? start : -1, maxBufferLength: 30,
+        abrEwmaDefaultEstimate: prefs.bw > 0 ? prefs.bw : 8e6, ...(level >= 0 ? { startLevel: level } : {}) });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        knownLevels = hls.levels.map((l, i) => ({ i, height: l.height, width: l.width, frameRate: l.frameRate }));
+        if (level >= 0) hls.currentLevel = level;
+        paintQuality(); if (autoplay) el.play().catch(() => box.classList.add('paused')); paint();
+      });
+      hls.on(Hls.Events.LEVEL_SWITCHED, paintQuality);
+      hls.on(Hls.Events.ERROR, (_, d) => {
+        if (!d.fatal) return;
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        else { showToast('This video won’t play', 'ti-alert-triangle'); }
+      });
+      hls.loadSource(src);
+      hls.attachMedia(el);
+    }).catch(e => showToast('Couldn’t start the player: ' + e.message, 'ti-alert-triangle'));
+  }
+  function startOriginal(v, start, autoplay) {
+    const el = video;
+    srcKind = 'original';
+    if (hls) { saveBw(); try { hls.destroy(); } catch {} hls = null; }
+    el.src = v.original.url;
+    el.addEventListener('loadedmetadata', () => {
+      if (start > 0) { try { el.currentTime = start; } catch {} }
+      paint();
+      if (autoplay) el.play().catch(() => player?.classList.add('paused'));
+    }, { once: true });
+    // A file this browser turns out not to play: back to the ladder.
+    el.addEventListener('error', () => {
+      if (el !== video || srcKind !== 'original') return;
+      showToast('The original won’t play here. Back to the stream', 'ti-alert-triangle');
+      prefs.original = false; savePrefs();
+      el.removeAttribute('src'); try { el.load(); } catch {}
+      startHls(v, start, autoplay);
+    }, { once: true });
+    paintQuality();
+  }
+  function switchTo(kind, level) {
+    if (!video || !cur) return;
+    const t = video.currentTime || 0, was = !video.paused;
+    if (kind === 'original') { video.removeAttribute('src'); try { video.load(); } catch {} startOriginal(cur, t, was); }
+    else if (srcKind === 'original') { video.removeAttribute('src'); try { video.load(); } catch {} startHls(cur, t, was, level); }
+    else if (hls) { hls.currentLevel = level; paintQuality(); }
+  }
+  function pickLevel(i) {
+    prefs.original = false; savePrefs();
+    if (srcKind === 'original') switchTo('hls', i);
+    else if (hls) { hls.currentLevel = i; paintQuality(); }
   }
 
   let idleT = 0;
@@ -604,9 +722,11 @@
   function paintQuality() {
     const b = player?.querySelector('[data-vp="quality"]');
     if (!b) return;
-    if (!hls || !hls.levels?.length) { b.hidden = true; return; }
+    if (srcKind === 'original') { b.hidden = false; b.innerHTML = '<span class="vp-tag">Original</span>'; return; }
+    if (!hls || !hls.levels?.length) { b.hidden = !cur?.original; b.textContent = 'Auto'; return; }
+    b.hidden = false;
     const lvl = hls.levels[hls.currentLevel];
-    b.textContent = hls.autoLevelEnabled ? 'Auto' + (lvl ? ' · ' + lvl.height + 'p' : '') : (lvl ? lvl.height + 'p' : 'Auto');
+    b.textContent = hls.autoLevelEnabled ? 'Auto' + (lvl ? ' · ' + levelName(lvl) : '') : (lvl ? levelName(lvl) : 'Auto');
   }
   function scrubber(el, v) {
     const peek = el.querySelector('.vp-peek'), img = peek.querySelector('.vp-peek-img'), tl = peek.querySelector('.vp-peek-t');
@@ -661,25 +781,47 @@
     else (player.requestFullscreen || player.webkitRequestFullscreen)?.call(player);
   }
   // The end: a calm card over the last frame. Replay, and the next video
-  // if there is one; nothing plays by itself.
+  // if there is one; nothing plays by itself, except inside a playlist,
+  // where the next one starts after 5s (Cancel stops it).
+  let nextT = 0;
+  const stopNext = () => { clearInterval(nextT); nextT = 0; };
   function endCard() {
     const box = player, el = box?.querySelector('.vp-end');
     if (!el) return;
     box.classList.add('ended');
-    const next = upNext.find(x => x.status === 'ready');
+    stopNext();
+    const inRun = !!plRun;
+    const ri = inRun ? plRun.videos.findIndex((x, k) => k > plRun.i && x.status === 'ready') : -1;
+    const next = inRun ? plRun.videos[ri] : upNext.find(x => x.status === 'ready');
     el.innerHTML = '<div class="vp-end-in">' +
       '<button type="button" class="k-btn on-media" data-end="replay"><i class="ti ti-rotate-2"></i><span>Replay</span></button>' +
-      (next ? '<button type="button" class="vp-end-next" data-end="next" data-vid-next="' + next.id + '">' +
+      (next ? '<button type="button" class="vp-end-next" data-end="next" data-vid-next="' + next.id + '"' + (inRun ? ' data-run-i="' + ri + '"' : '') + '>' +
         (next.posterSmall ? '<img src="' + esc(next.posterSmall) + '" alt="" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') +
-        '<span class="vp-end-tx"><small>Up next</small><b>' + esc(next.title || 'Untitled') + '</b><span>' + esc(next.username) + '</span></span></button>' : '') +
+        '<span class="vp-end-tx"><small' + (inRun ? ' id="vidNextIn"' : '') + '>' + (inRun ? 'Next in 5s' : 'Up next') + '</small><b>' + esc(next.title || 'Untitled') + '</b><span>' + esc(next.username) + '</span></span></button>' +
+        (inRun ? '<button type="button" class="k-btn on-media sm" data-end="cancel">Cancel</button>' : '')
+        : (inRun ? '<span class="vp-end-note">End of “' + esc(plRun.pl.name) + '”</span>' : '')) +
     '</div>';
     el.hidden = false;
+    if (inRun && next) {
+      let left = 5;
+      nextT = setInterval(() => {
+        left--;
+        const t = $('vidNextIn');
+        if (!t || !player?.classList.contains('ended')) { stopNext(); return; }
+        if (left > 0) { t.textContent = 'Next in ' + left + 's'; return; }
+        stopNext();
+        runTo(ri);
+      }, 1000);
+    }
   }
   page.addEventListener('click', e => {
     const b = e.target.closest('[data-end]');
     if (!b || !video) return;
     e.stopPropagation();
+    stopNext();
     if (b.dataset.end === 'replay') { seekTo(0); video.play().catch(() => {}); }
+    else if (b.dataset.end === 'cancel') { const t = $('vidNextIn'); if (t) t.textContent = 'Next'; b.remove(); }
+    else if (b.dataset.runI != null) runTo(+b.dataset.runI);
     else openVideo(+b.dataset.vidNext);
   }, true);
   document.addEventListener('fullscreenchange', () => {
@@ -696,11 +838,16 @@
     let items;
     if (kind === 'speed') items = SPEEDS.map(s => ({ label: s === 1 ? 'Normal' : s + '×', on: video.playbackRate === s, go: () => { video.playbackRate = s; video.defaultPlaybackRate = s; prefs.speed = s; savePrefs(); } }));
     else {
-      const lv = (hls?.levels || []).map((l, i) => ({ i, h: l.height })).sort((a, b) => b.h - a.h);
-      items = [{ label: 'Auto', on: hls?.autoLevelEnabled, go: () => { hls.currentLevel = -1; paintQuality(); } }]
-        .concat(lv.map(l => ({ label: l.h + 'p', on: !hls.autoLevelEnabled && hls.currentLevel === l.i, go: () => { hls.currentLevel = l.i; paintQuality(); } })));
+      const levels = hls?.levels?.length ? hls.levels.map((l, i) => ({ i, height: l.height, width: l.width, frameRate: l.frameRate })) : knownLevels;
+      const lv = levels.map(l => ({ ...l, h: Math.min(l.height, l.width || l.height) })).sort((a, b) => b.h - a.h || (b.frameRate || 0) - (a.frameRate || 0));
+      const o = cur?.original, ok = canOriginal(cur), onHls = srcKind === 'hls';
+      items = (o ? [{ label: 'Original · ' + rungName(o.height, o.width, o.fps) + (o.bitrate ? ' · ' + mbps(o.bitrate) : '') + (ok ? '' : ' · not supported here'),
+        on: srcKind === 'original', disabled: !ok,
+        go: () => { prefs.original = true; savePrefs(); if (srcKind !== 'original') switchTo('original'); } }] : [])
+        .concat([{ label: 'Auto', on: onHls && (!hls || hls.autoLevelEnabled), go: () => pickLevel(-1) }])
+        .concat(lv.map(l => ({ label: levelName(l), on: onHls && !!hls && !hls.autoLevelEnabled && hls.currentLevel === l.i, go: () => pickLevel(l.i) })));
     }
-    m.innerHTML = items.map((it, i) => '<button type="button" class="vp-menu-row' + (it.on ? ' on' : '') + '" data-i="' + i + '">' + esc(it.label) + (it.on ? '<i class="ti ti-check"></i>' : '') + '</button>').join('');
+    m.innerHTML = items.map((it, i) => '<button type="button" class="vp-menu-row' + (it.on ? ' on' : '') + '" data-i="' + i + '"' + (it.disabled ? ' disabled' : '') + '>' + esc(it.label) + (it.on ? '<i class="ti ti-check"></i>' : '') + '</button>').join('');
     m._items = items;
     m.hidden = false;
     const btn = player.querySelector('[data-vp="' + kind + '"]');
@@ -719,7 +866,9 @@
     } catch (e) {}
   }
 
-  function tick() {
+  function tick(e) {
+    // An element let go of (leaveWatch, a source switch) can still fire one.
+    if (!video || (e && e.target !== video)) return;
     const now = performance.now();
     if (lastTick && !video.paused) played += Math.min(1, (now - lastTick) / 1000);
     lastTick = now;
@@ -745,10 +894,13 @@
   function leaveWatch() {
     if (video) { saveProgress(); try { video.pause(); } catch {} }
     if (document.fullscreenElement && document.fullscreenElement === player) document.exitFullscreen?.();
-    if (hls) { try { hls.destroy(); } catch {} hls = null; }
+    stopNext();
+    if (hls) { saveBw(); try { hls.destroy(); } catch {} hls = null; }
+    srcKind = 'hls';
     if (video) { video.removeAttribute('src'); try { video.load(); } catch {} }
     const had = !!video;
     video = null; player = null; cur = null;
+    if (had) document.dispatchEvent(new CustomEvent('klab:watch', { detail: null }));
     clearTimeout(idleT);
     if (had) window.klabnetDesktop?.trimMemory?.();
   }
@@ -821,9 +973,23 @@
     if (del && cur) { deleteComment(cur, del.dataset.replyId); return; }
     const who = e.target.closest('.k-com-name, .k-com-face[data-username]');
     if (who && !who.closest('.k-com-form')) { window.openProfileView?.(who.dataset.username); return; }
+    const ord = e.target.closest('[data-order]');
+    if (ord && (view.kind === 'channel' || view.kind === 'mine')) { if ((view.sort || 'new') !== ord.dataset.order) showList({ ...view, sort: ord.dataset.order }, { quiet: true }); return; }
+    const plc = e.target.closest('.vid-pl-card');
+    if (plc) { SFX && SFX.play('nav'); showList({ kind: 'playlist', id: plc.dataset.plId }); return; }
+    const rm = e.target.closest('[data-act="pl-rm"]');
+    if (rm && plOpen) { removeFromPlaylist(plOpen, +rm.closest('.vid-pl-row').dataset.plI); return; }
+    const plr = e.target.closest('.vid-pl-row');
+    if (plr && plOpen) { if (!plr.classList.contains('processing')) playRun(plOpen, +plr.dataset.plI); return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const act = b.dataset.act;
+    if (act === 'pl-new') { playlistDialog(null); return; }
+    if (act === 'pl-play' && plOpen) { playRun(plOpen, 0); return; }
+    if (act === 'pl-shuffle' && plOpen) { playRun(plOpen, 0, true); return; }
+    if (act === 'pl-more' && plOpen) { playlistMenu(plOpen, b); return; }
+    if (act === 'pl-open') { showList({ kind: 'playlist', id: b.dataset.id }); return; }
+    if (act === 'save' && cur) { saveMenu(cur, null, b); return; }
     if (act === 'upload') uploadDialog();
     else if (act === 'open') { SFX && SFX.play('nav'); openVideo(+b.dataset.id); }
     else if (act === 'tv') window.klabTv?.open?.(b.dataset.id);
@@ -831,6 +997,7 @@
     else if (act === 'channel') showList({ kind: 'channel', user: b.dataset.user });
     else if (act === 'profile') window.openProfileView?.(b.dataset.user);
     else if (act === 'share' && cur) shareDialog(cur);
+    else if (act === 'together' && cur) window.klabRooms?.together(cur);
     else if (act === 'edit' && cur) editDialog(cur);
     else if (act === 'delete' && cur) deleteVideo(cur);
     else if (act === 'more') { const d = $('vidDesc'); d.classList.toggle('open'); b.textContent = d.classList.contains('open') ? 'Show less' : 'Show more'; }
@@ -844,6 +1011,7 @@
       { label: 'Open', icon: 'ti-player-play', disabled: v.status !== 'ready', action: () => openVideo(v.id) },
       { label: 'Share…', icon: 'ti-share-2', action: () => shareDialog(v) },
       { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(v), 'Link') },
+      { label: 'Save to playlist…', icon: 'ti-playlist-add', disabled: v.status !== 'ready', action: () => setTimeout(() => saveMenu(v, e), 0) },
       '-',
       { label: 'Go to channel', icon: 'ti-user', hidden: view.kind === 'channel' && view.user === v.username, action: () => showList({ kind: 'channel', user: v.username }) },
       { label: 'Remove from Continue watching', icon: 'ti-x', hidden: !inContinue && !v.watched, action: () => forget(v) },
@@ -867,6 +1035,34 @@
       .catch(() => { v.watched = was; showToast('Couldn’t take it out', 'ti-alert-triangle'); });
   }
   page.addEventListener('contextmenu', e => {
+    const plc = e.target.closest('.vid-pl-card');
+    if (plc) {
+      const p = (pls || []).find(x => x.id === plc.dataset.plId);
+      if (!p) return;
+      klabMenu(e, [
+        { header: p.name },
+        { label: 'Open', icon: 'ti-playlist', action: () => showList({ kind: 'playlist', id: p.id }) },
+        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(plLink(p.id), 'Link') },
+        '-',
+        { label: 'Edit playlist…', icon: 'ti-pencil', hidden: !p.canEdit, action: () => playlistDialog(p) },
+        { label: 'Delete playlist', icon: 'ti-trash', danger: true, hidden: !p.canEdit, action: () => deletePlaylist(p) },
+      ]);
+      return;
+    }
+    const plr = e.target.closest('.vid-pl-row');
+    if (plr && plOpen) {
+      const p = plOpen, i = +plr.dataset.plI, x = p.videos[i];
+      if (!x) return;
+      klabMenu(e, [
+        { header: x.title || 'Untitled' },
+        { label: 'Play from here', icon: 'ti-player-play', disabled: x.status !== 'ready', action: () => playRun(p, i) },
+        { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(x), 'Link') },
+        { label: 'Go to channel', icon: 'ti-user', action: () => showList({ kind: 'channel', user: x.username }) },
+        '-',
+        { label: 'Remove from playlist', icon: 'ti-x', danger: true, hidden: !p.canEdit, action: () => removeFromPlaylist(p, i) },
+      ]);
+      return;
+    }
     const card = e.target.closest('.vid-card[data-vid-id], .vid-hero[data-vid-id]');
     if (card && !e.target.closest('.vid-hero-by')) {
       const v = cache.get(+card.dataset.vidId);
@@ -885,6 +1081,7 @@
       { label: 'Share…', icon: 'ti-share-2', action: () => shareDialog(v) },
       { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(v), 'Link') },
       { label: 'Copy link at ' + dur(t), icon: 'ti-clock', hidden: t < 2, action: () => klabCopy(linkTo(v, t), 'Link') },
+      { label: 'Save to playlist…', icon: 'ti-playlist-add', action: () => setTimeout(() => saveMenu(v, e), 0) },
       '-',
       { label: 'Go to channel', icon: 'ti-user', action: () => showList({ kind: 'channel', user: v.username }) },
       { label: 'View profile', icon: 'ti-user-circle', action: () => window.openProfileView?.(v.username) },
@@ -892,6 +1089,11 @@
       { label: 'Edit video', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
       { label: 'Delete video', icon: 'ti-trash', danger: true, hidden: !canEdit(v), action: () => deleteVideo(v) },
     ]);
+  });
+
+  page.addEventListener('keydown', e => {
+    const row = e.target.closest?.('.vid-pl-row');
+    if (row && (e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); row.click(); }
   });
 
   // The sidebar's rows.
@@ -917,6 +1119,52 @@
   });
   search?.addEventListener('keydown', e => { if (e.key === 'Escape' && search.value) { search.value = ''; search.dispatchEvent(new Event('input')); e.stopPropagation(); } });
 
+  // ── Published: when the video came out ──
+  // A date and an optional time (local; blank time is noon), sent as UTC.
+  // Left as it was, an upload is "now" (the API's own clock) and an edit
+  // doesn't send it. A file's own date is offered, never taken silently.
+  const pad2 = n => String(n).padStart(2, '0');
+  const localDate = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const localTime = d => pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  const longDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  function pubFieldHTML() {
+    return '<label class="vid-field-label" for="vidPubDate">Published</label>' +
+      '<div class="vid-pub"><input type="date" class="k-field" id="vidPubDate" aria-label="Date" />' +
+      '<input type="time" class="k-field" id="vidPubTime" aria-label="Time (optional)" />' +
+      '<button type="button" class="vid-pub-file" id="vidPubFile" hidden></button></div>';
+  }
+  function pubField(initial) {
+    const dEl = $('vidPubDate'), tEl = $('vidPubTime'), fileBtn = $('vidPubFile');
+    const set = d => { dEl.value = localDate(d); tEl.value = localTime(d); };
+    set(initial);
+    dEl.max = localDate(new Date());
+    const start = dEl.value + 'T' + tEl.value;
+    let fileDate = null;
+    fileBtn.addEventListener('click', () => { if (fileDate) { set(fileDate); fileBtn.hidden = true; } });
+    const value = () => {
+      if (!dEl.value) return '';
+      const d = new Date(dEl.value + 'T' + (tEl.value || '12:00'));
+      return isNaN(d) ? '' : d.toISOString();
+    };
+    return {
+      changed: () => (dEl.value + 'T' + tEl.value) !== start,
+      value,
+      problem: () => {
+        if (!dEl.value) return 'It needs a date.';
+        const v = value();
+        if (!v) return 'That isn’t a date.';
+        if (new Date(v).getTime() > Date.now() + 60000) return 'That’s in the future.';
+        return '';
+      },
+      // The file's own date (when the browser says), as a link to take.
+      offerFile: f => {
+        fileDate = f && f.lastModified ? new Date(f.lastModified) : null;
+        fileBtn.hidden = !fileDate || localDate(fileDate) === dEl.value;
+        if (fileDate) fileBtn.textContent = 'Use file’s date (' + longDate(fileDate) + ')';
+      },
+    };
+  }
+
   // ── Uploading ──
   const ACCEPT = 'video/*,.mkv,.mov,.m4v,.avi,.webm';
   function uploadDialog(file) {
@@ -929,6 +1177,7 @@
         <input class="chat-modal-input" id="vidTitle" maxlength="100" autocomplete="off" />
         <label class="vid-field-label" for="vidDescIn">Description</label>
         <textarea class="chat-modal-input vid-desc-in" id="vidDescIn" rows="4" maxlength="5000" placeholder="Optional. Times like 1:32 become links."></textarea>
+        ${pubFieldHTML()}
         <p class="emo-err" id="vidErr" hidden></p>
       </div>
       <div class="dlg-actions">
@@ -937,6 +1186,7 @@
       </div>`, null);
     let picked = null;
     const err = m => { $('vidErr').hidden = !m; $('vidErr').textContent = m || ''; };
+    const pub = pubField(new Date());
     const pick = f => {
       if (!f) return;
       if (!/^video\//.test(f.type) && !/\.(mkv|mov|m4v|avi|webm|mp4)$/i.test(f.name)) { err('That isn’t a video.'); return; }
@@ -946,6 +1196,7 @@
       d.querySelector('b').textContent = f.name;
       d.querySelector('span').textContent = (f.size / 1048576).toFixed(f.size > 1048576 * 100 ? 0 : 1) + ' MB · choose another';
       if (!$('vidTitle').value) $('vidTitle').value = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim().slice(0, 100);
+      pub.offerFile(f);
       $('vidSend').disabled = false;
       err('');
       $('vidTitle').focus();
@@ -961,9 +1212,11 @@
       if (!picked) return;
       const title = $('vidTitle').value.trim();
       if (!title) { err('It needs a title.'); $('vidTitle').focus(); return; }
+      const bad = pub.problem();
+      if (bad) { err(bad); return; }
       // It goes on in the background: the dialog closes into a row under
       // Your videos, with its progress (and a toast saying so).
-      startUpload(picked, title, $('vidDescIn').value.trim());
+      startUpload(picked, title, $('vidDescIn').value.trim(), pub.changed() ? pub.value() : '');
       closeChatModal();
     });
     if (file) pick(file);
@@ -998,9 +1251,10 @@
         '<button type="button" class="k-icon sm" data-up-stop="' + u.key + '" title="Stop upload" aria-label="Stop upload"><i class="ti ti-x"></i></button></div>';
     }).join('');
   }
-  function startUpload(file, title, description) {
+  function startUpload(file, title, description, published) {
     const fd = new FormData();
     fd.append('file', file); fd.append('title', title); fd.append('description', description);
+    if (published) fd.append('published', published);
     const xhr = new XMLHttpRequest();
     const u = { key: Math.random().toString(36).slice(2), title, f: 0, xhr };
     uploads.push(u);
@@ -1053,6 +1307,7 @@
         <input class="chat-modal-input" id="vidTitle" maxlength="100" autocomplete="off" />
         <label class="vid-field-label" for="vidDescIn">Description</label>
         <textarea class="chat-modal-input vid-desc-in" id="vidDescIn" rows="5" maxlength="5000"></textarea>
+        ${pubFieldHTML()}
         <label class="vid-field-label">Thumbnail</label>
         <div class="vid-thumb-pick"><img id="vidThumbImg" alt="" ${v.posterSmall ? 'src="' + esc(v.posterSmall) + '"' : 'hidden'} />
           <button type="button" class="k-btn" id="vidThumbBtn"><i class="ti ti-photo"></i> Choose a picture</button>
@@ -1065,6 +1320,7 @@
       </div>`, null);
     $('vidTitle').value = v.title || '';
     $('vidDescIn').value = v.description || '';
+    const pub = pubField(new Date(apiTime(pubOf(v)) || Date.now()));
     let thumb = null;
     $('vidThumbBtn').addEventListener('click', () => $('vidThumbFile').click());
     $('vidThumbFile').addEventListener('change', () => {
@@ -1081,9 +1337,11 @@
     $('vidSave').addEventListener('click', async () => {
       const title = $('vidTitle').value.trim();
       if (!title) { $('vidErr').hidden = false; $('vidErr').textContent = 'It needs a title.'; return; }
+      const bad = pub.problem();
+      if (bad) { $('vidErr').hidden = false; $('vidErr').textContent = bad; return; }
       $('vidSave').disabled = true; $('vidSave').textContent = 'Saving…';
       try {
-        let nv = await getJSON(API + '/' + v.id, json('PATCH', { title, description: $('vidDescIn').value.trim() }));
+        let nv = await getJSON(API + '/' + v.id, json('PATCH', { title, description: $('vidDescIn').value.trim(), ...(pub.changed() ? { published: pub.value() } : {}) }));
         if (thumb) { const fd = new FormData(); fd.append('file', thumb); nv = await getJSON(API + '/' + v.id + '/poster', { method: 'PUT', body: fd }, 60000); }
         cache.set(nv.id, nv);
         closeChatModal();
@@ -1092,11 +1350,14 @@
           Object.assign(cur, nv);
           // Only the words and the poster changed: the player stays.
           page.querySelector('.vid-title').textContent = nv.title;
+          const by = page.querySelector('.vid-by-who > span > span');
+          if (by) by.innerHTML = views(nv.views) + ' · ' + when(nv);
           const d = $('vidDesc');
           if (d) d.querySelector('.vid-desc-tx').innerHTML = descHTML(nv.description || '');
-          else if (nv.description) openVideo(v.id, t, { quiet: true, fresh: nv, autoplay: playing });
+          else if (nv.description) openVideo(v.id, t, { quiet: true, fresh: nv, autoplay: playing, keep: true });
           if (thumb && video) video.poster = nv.poster;
         }
+        if (pub.changed() && view.kind !== 'watch') showList(view, { quiet: true });
         showToast('Saved', 'ti-check');
       } catch (e) {
         $('vidErr').hidden = false; $('vidErr').textContent = klabCap(e.message);
@@ -1116,6 +1377,318 @@
       else showList(view, { quiet: true });
     } catch (e) { showToast('Couldn’t delete it: ' + e.message, 'ti-alert-triangle'); }
   }
+
+  // ── Playlists ──
+  // Music's playlists for videos (klabnet-api routers/video_playlists.py):
+  // a name, a description, a cover (or the first posters as a 2x2) and
+  // videos in order. Private until featured; anyone can watch a featured
+  // one. Its page is a list view (#videos/playlist/<id>); playing one runs
+  // through it in the watch view (plRun).
+  const PL = API + '/playlists';
+  let pls = null, plsLoading = null;
+  function loadPlaylists(force) {
+    if (pls && !force) return Promise.resolve(pls);
+    return plsLoading ||= getJSON(PL).then(j => { pls = j.playlists || []; return pls; })
+      .catch(() => (pls = pls || [])).finally(() => { plsLoading = null; });
+  }
+  const myPls = () => (pls || []).filter(p => p.mine);
+  const plLink = id => location.origin + location.pathname + '#videos/playlist/' + id;
+  function plArt(p, cls) {
+    const inner = p.coverSmall || p.cover
+      ? '<img src="' + esc(cls === 'big' ? p.cover || p.coverSmall : p.coverSmall || p.cover) + '" alt="" loading="lazy" draggable="false" />'
+      : (p.posters || []).length
+        ? '<span class="vid-pl-grid n' + Math.min(4, p.posters.length) + '">' + p.posters.slice(0, 4).map(u => '<img src="' + esc(u) + '" alt="" loading="lazy" draggable="false" />').join('') + '</span>'
+        : '<span class="vid-thumb-ph"><i class="ti ti-playlist"></i></span>';
+    return '<span class="vid-pl-art ' + (cls || '') + '">' + inner + '</span>';
+  }
+  const plSub = p => klabCount(p.count || 0, 'video') + (p.mine ? (p.featured ? ' · Featured' : ' · Private') : ' · ' + esc(p.username));
+  function plCardHTML(p) {
+    return '<button type="button" class="vid-pl-card" data-pl-id="' + esc(p.id) + '" data-silent>' + plArt(p) +
+      '<span class="vid-card-title">' + esc(p.name) + '</span><span class="vid-card-sub">' + plSub(p) + '</span></button>';
+  }
+  function hours(sec) {
+    sec = Math.round(sec || 0);
+    const h = Math.floor(sec / 3600), m = Math.round(sec / 60) % 60;
+    return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : Math.max(1, m) + ' min';
+  }
+
+  async function showPlaylists(v, my) {
+    page.innerHTML = headHTML('Playlists', '', '', '<button type="button" class="k-btn" data-act="pl-new"><i class="ti ti-plus"></i><span>New playlist</span></button>') +
+      '<div id="vidPls">' + LOADING + '</div>';
+    if (panel()) panel().scrollTop = 0;
+    klabEnter(page);
+    await loadPlaylists(true);
+    if (my !== token) return;
+    const el = $('vidPls');
+    if (!el) return;
+    const mine = myPls(), others = pls.filter(p => !p.mine);
+    $('vidSub').textContent = pls.length ? klabCount(pls.length, 'playlist') : '';
+    el.innerHTML = !pls.length
+      ? '<div class="k-empty vid-empty"><i class="ti ti-playlist"></i><div>No playlists yet. Make one, or save a video to one from its page.</div>' +
+        '<button type="button" class="k-btn" data-act="pl-new"><i class="ti ti-plus"></i><span>New playlist</span></button></div>'
+      : (mine.length ? '<div class="k-label vid-label">Yours</div><div class="vid-pl-cards">' + mine.map(plCardHTML).join('') + '</div>' : '') +
+        (others.length ? '<div class="k-label vid-label">Featured</div><div class="vid-pl-cards">' + others.map(plCardHTML).join('') + '</div>' : '');
+  }
+
+  // Browse's shelf: the featured ones, if there are any.
+  async function playlistsShelf(my) {
+    await loadPlaylists(true);
+    const el = $('vidPlShelf');
+    const feat = (pls || []).filter(p => p.featured && p.count);
+    if (my !== token || !el || !feat.length) return;
+    el.hidden = false;
+    el.innerHTML = '<div class="k-label vid-label">Playlists</div><div class="vid-shelf vid-pl-shelf">' + feat.slice(0, 12).map(plCardHTML).join('') + '</div>';
+  }
+
+  let plOpen = null; // the playlist page's playlist (with its videos)
+  async function showPlaylist(v, my) {
+    page.innerHTML = LOADING;
+    if (panel()) panel().scrollTop = 0;
+    let p;
+    try { p = await getJSON(PL + '/' + encodeURIComponent(v.id)); }
+    catch (e) {
+      if (my !== token) return;
+      page.innerHTML = emptyHTML(e.status === 404 ? 'That playlist’s gone, or it’s private.' : 'Couldn’t load that playlist.');
+      return;
+    }
+    if (my !== token) return;
+    plOpen = p;
+    remember(p.videos);
+    paintPlaylist(p);
+    klabEnter(page);
+  }
+  function paintPlaylist(p) {
+    const ready = p.videos.filter(x => x.status === 'ready');
+    page.innerHTML = '<section class="vid-pl-head">' + plArt(p, 'big') +
+      '<div class="vid-pl-tx"><div class="k-label">' + (p.featured ? 'Featured playlist' : 'Private playlist') + '</div>' +
+        '<h2 class="vid-pl-title">' + esc(p.name) + '</h2>' +
+        (p.description ? '<p class="vid-pl-desc">' + esc(p.description) + '</p>' : '') +
+        '<div class="vid-pl-meta"><button type="button" class="vid-pl-by" data-act="channel" data-user="' + esc(p.username) + '">' + esc(p.username) + '</button>' +
+          ' · ' + klabCount(p.videos.length, 'video') + (p.duration ? ' · ' + hours(p.duration) : '') + '</div>' +
+        '<div class="vid-pl-acts">' +
+          '<button type="button" class="k-btn primary" data-act="pl-play"' + (ready.length ? '' : ' disabled') + '><i class="ti ti-player-play-filled"></i><span>Play all</span></button>' +
+          '<button type="button" class="k-btn" data-act="pl-shuffle"' + (ready.length > 1 ? '' : ' disabled') + '><i class="ti ti-arrows-shuffle"></i><span>Shuffle</span></button>' +
+          '<button type="button" class="k-icon" data-act="pl-more" title="More" aria-label="More"><i class="ti ti-dots"></i></button>' +
+        '</div></div></section>' +
+      (p.videos.length
+        ? '<div class="vid-pl-list' + (p.canEdit ? ' editable' : '') + '" id="vidPlList">' + p.videos.map((x, i) => plRowHTML(x, i, p.canEdit)).join('') + '</div>'
+        : '<div class="k-empty vid-empty"><i class="ti ti-playlist"></i><div>Nothing in it yet. Save a video to it from the video’s page.</div></div>');
+  }
+  function plRowHTML(x, i, edit) {
+    return '<div class="vid-pl-row' + (x.status !== 'ready' ? ' processing' : '') + '" data-pl-i="' + i + '" data-vid-id="' + x.id + '"' + (edit ? ' draggable="true"' : '') + ' role="button" tabindex="0">' +
+      (edit ? '<i class="ti ti-grip-vertical vid-pl-grip" aria-hidden="true"></i>' : '') +
+      '<span class="vid-pl-n">' + (i + 1) + '</span>' +
+      '<span class="vid-thumb">' + (x.posterSmall ? '<img src="' + esc(x.posterSmall) + '" alt="" loading="lazy" draggable="false" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') +
+        (x.duration ? '<span class="vid-dur">' + dur(x.duration) + '</span>' : '') + '</span>' +
+      '<span class="vid-pl-row-tx"><span class="vid-card-title">' + esc(x.title || 'Untitled') + '</span>' +
+        '<span class="vid-card-sub">' + esc(x.username) + ' · ' + (x.status === 'ready' ? when(x) : 'Processing') + '</span></span>' +
+      (edit ? '<button type="button" class="k-icon sm vid-pl-rm" data-act="pl-rm" title="Remove from playlist" aria-label="Remove from playlist"><i class="ti ti-x"></i></button>' : '') +
+    '</div>';
+  }
+
+  // Playing: from a place in it, or shuffled.
+  function playRun(p, i, shuffle) {
+    let vids = p.videos.filter(x => x.status === 'ready');
+    if (!vids.length) return;
+    let at = Math.max(0, vids.indexOf(p.videos[i]));
+    if (shuffle) {
+      vids = vids.slice();
+      for (let k = vids.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [vids[k], vids[j]] = [vids[j], vids[k]]; }
+      at = 0;
+    }
+    SFX && SFX.play('nav');
+    openVideo(vids[at].id, 0, { list: { pl: p, videos: vids, i: at } });
+  }
+  function runTo(i) {
+    if (!plRun || !plRun.videos[i]) return;
+    openVideo(plRun.videos[i].id, 0, { list: { ...plRun, i } });
+  }
+  // The watch view's side while in one: the list, the one playing marked.
+  function paintRun() {
+    const side = page.querySelector('.vid-watch-side');
+    if (!side || !plRun) return;
+    const r = plRun;
+    side.innerHTML = '<div class="vid-run">' +
+      '<div class="vid-run-head"><button type="button" class="vid-run-name" data-act="pl-open" data-id="' + esc(r.pl.id) + '"><b>' + esc(r.pl.name) + '</b>' +
+        '<span>' + esc(r.pl.username) + ' · ' + (r.i + 1) + ' / ' + r.videos.length + '</span></button></div>' +
+      '<div class="vid-run-list">' + r.videos.map((x, i) =>
+        '<button type="button" class="vid-run-row' + (i === r.i ? ' on' : '') + '" data-run-i="' + i + '"' + (i === r.i ? ' aria-current="true"' : '') + ' data-silent>' +
+          '<span class="vid-pl-n">' + (i === r.i ? '<i class="ti ti-player-play-filled"></i>' : i + 1) + '</span>' +
+          '<span class="vid-thumb">' + (x.posterSmall ? '<img src="' + esc(x.posterSmall) + '" alt="" loading="lazy" draggable="false" />' : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>') + '</span>' +
+          '<span class="vid-pl-row-tx"><span class="vid-card-title">' + esc(x.title || 'Untitled') + '</span><span class="vid-card-sub">' + esc(x.username) + '</span></span>' +
+        '</button>').join('') + '</div></div>';
+    upNext = [];
+    requestAnimationFrame(() => side.querySelector('.vid-run-row.on')?.scrollIntoView({ block: 'nearest' }));
+  }
+  page.addEventListener('click', e => {
+    const row = e.target.closest('.vid-run-row');
+    if (row) { e.stopPropagation(); SFX && SFX.play('nav'); runTo(+row.dataset.runI); }
+  }, true);
+
+  // Save to playlist: yours, and a new one.
+  async function saveMenu(v, e, anchor) {
+    if (!pls) await loadPlaylists();
+    const items = [{ header: 'Save to playlist' }]
+      .concat(myPls().map(p => ({ label: p.name, icon: 'ti-playlist', action: () => addTo(p, v) })))
+      .concat(myPls().length ? ['-'] : [])
+      .concat([{ label: 'New playlist…', icon: 'ti-plus', action: () => playlistDialog(null, [v.id]) }]);
+    if (anchor) klabMenu.at(anchor, items, { align: 'end' }); else klabMenu(e, items);
+  }
+  async function addTo(p, v) {
+    try {
+      const j = await getJSON(PL + '/' + encodeURIComponent(p.id) + '/videos', json('POST', { videos: [v.id] }), 10000);
+      Object.assign(p, j);
+      showToast(j.added ? 'Saved to “' + p.name + '”' : 'It’s already in “' + p.name + '”', 'ti-playlist-add', 4000, null, null,
+        { action: { label: 'Open', run: () => showList({ kind: 'playlist', id: p.id }) } });
+    } catch (err) { showToast('Couldn’t save it: ' + klabCap(err.message), 'ti-alert-triangle'); }
+  }
+
+  // New or edit: name, description, featured, cover.
+  function playlistDialog(p, videos) {
+    openChatModal(p ? 'Edit playlist' : 'New playlist', `
+      <div class="vid-up vid-pl-form">
+        <div class="vid-pl-form-top">
+          <button type="button" class="vid-pl-cover-pick" id="vidPlCover" title="Choose a cover">${p ? plArt(p, 'big') : '<span class="vid-pl-art big"><span class="vid-thumb-ph"><i class="ti ti-photo"></i></span></span>'}</button>
+          <div class="vid-pl-form-fields">
+            <label class="vid-field-label" for="vidPlName">Name</label>
+            <input class="k-field" id="vidPlName" maxlength="80" autocomplete="off" />
+            <div class="vid-pl-cover-acts"><button type="button" class="k-btn sm" id="vidPlCoverBtn"><i class="ti ti-photo"></i><span>Choose a cover</span></button>
+              <button type="button" class="k-btn sm ghost" id="vidPlCoverRm" ${p && p.cover ? '' : 'hidden'}>Remove cover</button></div>
+            <input type="file" id="vidPlCoverFile" accept="image/*" hidden>
+          </div>
+        </div>
+        <label class="vid-field-label" for="vidPlDesc">Description</label>
+        <textarea class="chat-modal-input vid-desc-in" id="vidPlDesc" rows="3" maxlength="600" placeholder="Optional"></textarea>
+        <label class="vid-pl-feat"><span><b>Feature it</b><span>Everyone can find it in Videos and watch it. Off, it’s only yours.</span></span>
+          <input type="checkbox" class="k-switch" id="vidPlFeat" role="switch"></label>
+        <p class="emo-err" id="vidErr" hidden></p>
+      </div>
+      <div class="dlg-actions">
+        <button class="k-btn" id="vidCancel">Cancel</button>
+        <button class="k-btn primary" id="vidSave">${p ? 'Save' : 'Make playlist'}</button>
+      </div>`, null);
+    $('vidPlName').value = p ? p.name : '';
+    $('vidPlDesc').value = p ? p.description || '' : '';
+    $('vidPlFeat').checked = !!(p && p.featured);
+    let blob = null, gone = false;
+    const pick = () => $('vidPlCoverFile').click();
+    $('vidPlCover').addEventListener('click', pick);
+    $('vidPlCoverBtn').addEventListener('click', pick);
+    $('vidPlCoverFile').addEventListener('change', async () => {
+      const f = $('vidPlCoverFile').files?.[0];
+      $('vidPlCoverFile').value = '';
+      if (!f) return;
+      const cropped = await openImageCropper(f, { shape: 'square', outputWidth: 1000, outputHeight: 1000 });
+      if (!cropped) return;
+      blob = cropped; gone = false;
+      const url = URL.createObjectURL(cropped);
+      $('vidPlCover').innerHTML = '<span class="vid-pl-art big"><img src="' + url + '" alt="" /></span>';
+      $('vidPlCoverRm').hidden = false;
+    });
+    $('vidPlCoverRm').addEventListener('click', () => {
+      blob = null; gone = true;
+      $('vidPlCover').innerHTML = plArt({ ...(p || {}), cover: null, coverSmall: null }, 'big');
+      $('vidPlCoverRm').hidden = true;
+    });
+    $('vidCancel').addEventListener('click', () => closeChatModal());
+    setTimeout(() => $('vidPlName')?.focus(), 50);
+    $('vidSave').addEventListener('click', async () => {
+      const name = $('vidPlName').value.trim();
+      const err = m => { $('vidErr').hidden = !m; $('vidErr').textContent = m || ''; };
+      if (!name) { err('It needs a name.'); $('vidPlName').focus(); return; }
+      $('vidSave').disabled = true;
+      const body = { name, description: $('vidPlDesc').value.trim(), featured: $('vidPlFeat').checked };
+      try {
+        let np = p ? await getJSON(PL + '/' + encodeURIComponent(p.id), json('PATCH', body))
+                   : await getJSON(PL, json('POST', { ...body, videos: videos || [] }));
+        if (blob) { const fd = new FormData(); fd.append('file', blob, 'cover.jpg'); np = { ...np, ...(await getJSON(PL + '/' + np.id + '/cover', { method: 'POST', body: fd }, 60000)) }; }
+        else if (gone && p && p.cover) np = { ...np, ...(await getJSON(PL + '/' + np.id + '/cover', { method: 'DELETE' })) };
+        closeChatModal();
+        await loadPlaylists(true);
+        SFX && SFX.play('star');
+        if (p) {
+          showToast('Saved', 'ti-check');
+          if (view.kind === 'playlist' && view.id === p.id) showList(view, { quiet: true });
+          else if (view.kind === 'playlists') showList(view, { quiet: true });
+        } else if (videos && videos.length) {
+          showToast('Saved to “' + np.name + '”', 'ti-playlist-add', 4000, null, null, { action: { label: 'Open', run: () => showList({ kind: 'playlist', id: np.id }) } });
+        } else showList({ kind: 'playlist', id: np.id });
+      } catch (e) { err(klabCap(e.message)); $('vidSave').disabled = false; }
+    });
+  }
+
+  function playlistMenu(p, anchor) {
+    klabMenu.at(anchor, [
+      { header: p.name },
+      { label: 'Edit playlist…', icon: 'ti-pencil', hidden: !p.canEdit, action: () => playlistDialog(p) },
+      { label: p.featured ? 'Make it private' : 'Feature it', icon: p.featured ? 'ti-eye-off' : 'ti-world', hidden: !p.canEdit, action: () => setFeatured(p, !p.featured) },
+      { label: 'Copy link', icon: 'ti-link', hidden: !p.featured && !p.mine, action: () => klabCopy(plLink(p.id), 'Link') },
+      '-',
+      { label: 'Delete playlist', icon: 'ti-trash', danger: true, hidden: !p.canEdit, action: () => deletePlaylist(p) },
+    ], { align: 'end' });
+  }
+  async function setFeatured(p, on) {
+    try {
+      await getJSON(PL + '/' + encodeURIComponent(p.id), json('PATCH', { featured: on }));
+      showToast(on ? 'Featured: everyone can watch it' : 'It’s private now', on ? 'ti-world' : 'ti-eye-off');
+      loadPlaylists(true);
+      if (view.kind === 'playlist' && view.id === p.id) showList(view, { quiet: true });
+    } catch (e) { showToast('Couldn’t change it: ' + klabCap(e.message), 'ti-alert-triangle'); }
+  }
+  async function deletePlaylist(p) {
+    if (!(await showConfirmDialog('Delete this playlist?', '“' + p.name + '” is gone for everyone. The videos in it stay.', 'Delete'))) return;
+    try {
+      await getJSON(PL + '/' + encodeURIComponent(p.id), { method: 'DELETE' }, 15000);
+      showToast('Playlist deleted', 'ti-trash');
+      await loadPlaylists(true);
+      if (!window.klabNav?.back()) showList({ kind: 'playlists' });
+    } catch (e) { showToast('Couldn’t delete it: ' + klabCap(e.message), 'ti-alert-triangle'); }
+  }
+  // Out of the playlist at once, with Undo.
+  function removeFromPlaylist(p, i) {
+    const x = p.videos[i];
+    if (!x) return;
+    klabUndo('Removed from “' + p.name + '”', {
+      icon: 'ti-playlist',
+      apply: () => { p.videos.splice(p.videos.indexOf(x), 1); if (plOpen === p && view.kind === 'playlist') paintPlaylist(p); },
+      undo: () => { p.videos.splice(Math.min(i, p.videos.length), 0, x); if (plOpen === p && view.kind === 'playlist') paintPlaylist(p); },
+      commit: () => getJSON(PL + '/' + encodeURIComponent(p.id) + '/videos/' + x.id, { method: 'DELETE' }, 10000).then(() => loadPlaylists(true)),
+    });
+  }
+  // Dragging rows to reorder (the owner's): the row moves as you go, and
+  // the new order is saved when you let go.
+  let dragRow = null;
+  page.addEventListener('dragstart', e => {
+    const row = e.target.closest?.('.vid-pl-list.editable .vid-pl-row');
+    if (!row) return;
+    dragRow = row;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', row.dataset.vidId); } catch {}
+  });
+  page.addEventListener('dragover', e => {
+    if (!dragRow) return;
+    const over = e.target.closest?.('.vid-pl-row');
+    e.preventDefault();
+    if (!over || over === dragRow || over.parentNode !== dragRow.parentNode) return;
+    const r = over.getBoundingClientRect();
+    over.parentNode.insertBefore(dragRow, e.clientY > r.top + r.height / 2 ? over.nextSibling : over);
+  });
+  page.addEventListener('dragend', async () => {
+    const row = dragRow;
+    dragRow = null;
+    if (!row) return;
+    row.classList.remove('dragging');
+    const p = plOpen;
+    if (!p) return;
+    const ids = [...page.querySelectorAll('#vidPlList .vid-pl-row')].map(r => +r.dataset.vidId);
+    if (ids.join() === p.videos.map(x => x.id).join()) return;
+    const byId = new Map(p.videos.map(x => [x.id, x]));
+    p.videos = ids.map(id => byId.get(id)).filter(Boolean);
+    paintPlaylist(p);
+    try { await getJSON(PL + '/' + encodeURIComponent(p.id), json('PATCH', { videos: ids }), 10000); loadPlaylists(true); }
+    catch (e) { showToast('Couldn’t save the order', 'ti-alert-triangle'); showList(view, { quiet: true }); }
+  });
 
   // ── Sharing ──
   const shareOf = (v, at) => ({ id: v.id, title: v.title, poster: v.posterSmall || v.poster || '', duration: v.duration || 0, username: v.username, ...(at ? { start: at } : {}) });
@@ -1172,9 +1745,14 @@
         entered = true;
         const link = window.klabVideoLink;
         window.klabVideoLink = null;
-        if (link) openVideo(link.id, link.at, { quiet: false });
+        if (link && link.playlist) showList({ kind: 'playlist', id: link.playlist });
+        else if (link) openVideo(link.id, link.at, { quiet: false });
         else showList({ kind: 'home' }, { quiet: true });
-      } else if (window.klabVideoLink) { const l = window.klabVideoLink; window.klabVideoLink = null; openVideo(l.id, l.at); }
+      } else if (window.klabVideoLink) {
+        const l = window.klabVideoLink; window.klabVideoLink = null;
+        if (l.playlist) showList({ kind: 'playlist', id: l.playlist }); else openVideo(l.id, l.at);
+      }
+      loadPlaylists();
       watchProcessing();
     } else {
       if (video && !video.paused && !document.pictureInPictureElement) video.pause();
@@ -1186,7 +1764,14 @@
   window.klabVideosRestore = d => {
     restoring = true;
     try {
-      if (d.kind === 'watch') openVideo(d.id, 0, { quiet: true });
+      if (d.kind === 'watch' && d.pl) {
+        // Back into a playlist's video: the playlist again, then that video in it.
+        getJSON(PL + '/' + encodeURIComponent(d.pl)).then(p => {
+          const vids = p.videos.filter(x => x.status === 'ready');
+          const i = vids.findIndex(x => x.id === d.id);
+          openVideo(d.id, 0, { quiet: true, ...(i >= 0 ? { list: { pl: p, videos: vids, i } } : {}) });
+        }).catch(() => openVideo(d.id, 0, { quiet: true }));
+      } else if (d.kind === 'watch') openVideo(d.id, 0, { quiet: true });
       else if (d.kind === 'list' && d.view) showList(d.view, { quiet: true });
       else showList({ kind: 'home' }, { quiet: true });
       entered = true;

@@ -46,6 +46,8 @@
       const vid = e.target.closest('.vid-card[data-vid-id]');
       if (vid) { close(); window.klabOpenVideo?.(+vid.dataset.vidId); return; }
       if (e.target.closest('[data-pf-channel]')) { close(); window.klabOpenChannel?.(who); return; }
+      const party = e.target.closest('[data-pf-room]');
+      if (party) { close(); window.klabRooms?.join(party.dataset.pfRoom); return; }
       const song = e.target.closest('[data-pf-song]');
       if (song) {
         try { const s = klabCleanSong(JSON.parse(decodeURIComponent(song.dataset.pfSong))); if (s) klabPlayFrom(s, +song.dataset.at || 0); } catch {}
@@ -160,7 +162,8 @@
     const state = p.online ? (p.away ? 'Away' : 'Online') : data?.lastSeen ? 'Last here ' + ago(data.lastSeen) : 'Offline';
     const now = p.song
       ? `<button type="button" class="pf-now"${p.songId ? ` data-pf-song="${songJSON({ songId: p.songId, song: p.song, artist: p.artist })}"` : ''}>` +
-        `<span class="pz-eq"><i></i><i></i><i></i></span><span><b>${esc(p.song)}</b>${p.artist ? ' · ' + esc(p.artist) : ''}</span></button>` : '';
+        `<span class="pz-eq"><i></i><i></i><i></i></span><span><b>${esc(p.song)}</b>${p.artist ? ' · ' + esc(p.artist) : ''}</span></button>`
+      : p.room ? `<button type="button" class="pf-now" data-pf-room="${esc(p.room.id)}" title="Join the watch party"><i class="ti ti-users"></i><span>Watching together · <b>${esc(p.room.title)}</b></span></button>` : '';
     return `<div class="pf-banner${banner?.classList.contains('has') ? ' has' : ''}" style="${banner?.style.backgroundImage ? `background-image:${esc(banner.style.backgroundImage)}` : ''}; --c:${profileColor(who)}"></div>
       <button type="button" class="pf-close" data-pf-close title="Close"><i class="ti ti-x"></i></button>
       <div class="pf-head">

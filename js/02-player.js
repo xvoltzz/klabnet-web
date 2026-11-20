@@ -381,7 +381,6 @@ async function nextSong() {
   if (typeof queue !== "undefined" && queue.length) {
     const next = queue.shift();
     updateQueueBadge();
-    if (typeof pickerTab !== 'undefined' && pickerTab === 'queue' && typeof renderQueueList === 'function') renderQueueList();
     await playSong(next);
     return;
   }
@@ -785,7 +784,7 @@ async function fetchRandomSongs() {
 
 // Sections something can ask for; anything else (an old link, a stale
 // saved state) opens Home, not an empty list.
-const PICKER_TABS = new Set(['random', 'recent', 'search', 'songs', 'albums', 'artists', 'genres', 'favorites', 'queue', 'playlists', 'requests', 'activity', 'radio']);
+const PICKER_TABS = new Set(['random', 'recent', 'search', 'songs', 'albums', 'artists', 'genres', 'favorites', 'playlists', 'requests', 'activity', 'radio']);
 
 async function loadPickerTab(tab) {
   if (!PICKER_TABS.has(tab)) { console.warn('[music] unknown section', tab); tab = 'random'; }
@@ -913,13 +912,12 @@ function renderSongItem(song, container) {
 // ♥, Add to queue and ⋯ (the song's menu: Play next, Add to playlist, the
 // login song, downloads…), shown on hover (the heart stays when it's on).
 // Pressing the row plays it. Used by Music's lists, the album and artist
-// pages and the queue (js/13-tail.js, js/03-picker-tabs.js); the row
+// pages (js/13-tail.js); the row
 // carries ._song (and ._list, the list it plays from, where that isn't
 // Music's own pickerSongs).
-function klabSongActsHTML(song, { remove } = {}) {
+function klabSongActsHTML(song) {
   return `<div class="song-acts">${klabHeartHTML('song', song.id, 'k-icon sm')}` +
-    (remove ? `<button type="button" class="k-icon sm" data-act="remove" title="Remove from queue" aria-label="Remove from queue"><i class="ti ti-x"></i></button>`
-      : `<button type="button" class="k-icon sm" data-act="queue" title="Add to queue" aria-label="Add to queue"><i class="ti ti-playlist-add"></i></button>`) +
+    `<button type="button" class="k-icon sm" data-act="queue" title="Add to queue" aria-label="Add to queue"><i class="ti ti-playlist-add"></i></button>` +
     `<button type="button" class="k-icon sm" data-act="more" title="More" aria-label="More" aria-haspopup="menu"><i class="ti ti-dots"></i></button></div>`;
 }
 function _songHost(el) {
@@ -939,7 +937,7 @@ document.addEventListener('click', e => {
   else if (act === 'more') {
     const list = host._list || (host.closest('#pickerList') ? pickerSongs : null);
     klabSongMenuAt(b, song, list);
-  } else if (act === 'remove') host._remove?.();
+  }
 }, true);
 
 // ── Song row event delegation ──────────────────────────
@@ -1656,8 +1654,6 @@ if (playerState.audio) {
 let queue = [];
 function updateQueueBadge() {
   const n = queue.length ? queue.length.toLocaleString() : '';
-  const el = document.getElementById('queueCount');
-  if (el) el.textContent = n;
   const d = document.getElementById('dockQueueN');
   if (d) d.textContent = n;
   klabSavePlayerSoon();
@@ -1665,20 +1661,16 @@ function updateQueueBadge() {
 // Something just went into the queue: its count gives a little bump.
 function klabQueueBump() {
   if (!(window.klabMotionOk?.() ?? true)) return;
-  for (const id of ['dockQueue', 'queueCount']) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.classList.remove('k-bump'); void el.offsetWidth; el.classList.add('k-bump');
-  }
+  const el = document.getElementById('dockQueue');
+  if (el) { el.classList.remove('k-bump'); void el.offsetWidth; el.classList.add('k-bump'); }
 }
 // Every "Add to queue" and "Play next" goes through these two: the count,
-// the Queue view, the sound and one toast for however many songs.
+// the queue popover, the sound and one toast for however many songs.
 function queueSongs(songs, { next = false, label, art } = {}) {
   songs = (songs || []).filter(Boolean);
   if (!songs.length) return;
   if (next) queue.unshift(...songs); else queue.push(...songs);
   updateQueueBadge();
-  if (pickerTab === 'queue') renderQueueList();
   SFX && SFX.play('queue');
   klabQueueBump();
   const what = label || (songs.length === 1 ? `"${songs[0].title}"` : klabCount(songs.length, 'song'));

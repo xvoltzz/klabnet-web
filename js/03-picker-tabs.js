@@ -12,7 +12,8 @@ loadPickerTab = async function(tab) {
   if (tab === 'coverflow') tab = 'random';
   if (tab === 'albums') { pickerTab = tab; await loadAlbums(); return; }
   if (tab === 'artists') { pickerTab = tab; await loadArtists(); return; }
-  if (tab === 'queue') { pickerTab = tab; renderQueueList(); return; }
+  // The Queue was a view here until 2026-11-20; it's the dock's popover now.
+  if (tab === 'queue') tab = 'random';
   return _origLoadPickerTab(tab);
 };
 
@@ -315,11 +316,15 @@ async function loadArtistView(artist) {
 }
 
 // ══════════════════════════════════════════
-//  QUEUE — what's playing, what you queued (drag to reorder, ✕ to take
-//  one out) and what comes next from the album or list.
+//  QUEUE — a popover from the dock's queue button (owner, 2026-11-20: "a
+//  button in the player that just pops out and lets u drag around and
+//  reorder", not a section of its own). What's playing, what you queued
+//  (drag by the grip or the row, Alt+↑/↓, ✕ with Undo) and what comes
+//  next from the album or list, in the order it'll play. A bottom sheet
+//  on a phone. The full player's Up next is the big view of the same.
 // ══════════════════════════════════════════
 const QUEUE_SHOWN = 200;
-function _queueChanged() { updateQueueBadge(); if (pickerTab === 'queue') renderQueueList(true); }
+function _queueChanged() { updateQueueBadge(); }
 // Taken out at once, with Undo.
 function klabClearQueue() {
   if (!queue.length) return;
@@ -344,131 +349,300 @@ function _fmtTotal(sec) {
   sec = Math.round(sec);
   return sec >= 3600 ? `${Math.floor(sec / 3600)} hr ${Math.floor(sec % 3600 / 60)} min` : `${Math.max(1, Math.round(sec / 60))} min`;
 }
-function renderQueueList(keepScroll) {
-  if (queue.some(s => !s)) queue = queue.filter(Boolean);
-  updateQueueBadge();
-  const top = pickerList.scrollTop;
-  const cur = playerState.currentSong;
-  const upcoming = klabUpcoming(50);
-  const pl = playerState.playlist || [];
-  if (!queue.length && !cur) {
-    pickerList.innerHTML = '<div class="k-empty"><i class="ti ti-playlist"></i><div>Nothing’s queued. Use Add to queue on a song or album.</div></div>';
-    document.getElementById('musicViewSub').textContent = '';
-    return;
-  }
-  pickerList.innerHTML = '';
-  const label = (text, count, extra) => {
-    const l = document.createElement('div');
-    l.className = 'picker-section-label q-label';
-    l.innerHTML = `<span>${esc(text)}${count ? ` <span class="k-count">${esc(count)}</span>` : ''}</span>${extra || ''}`;
-    pickerList.appendChild(l);
-    return l;
-  };
-  const row = (song, list) => {
-    const box = document.createDocumentFragment();
-    renderSongItem(song, box);
-    const el = box.firstElementChild;
-    if (list) el._list = list;
-    pickerList.appendChild(el);
-    return el;
-  };
-  if (cur) {
-    label('Now playing');
-    const el = row(cur, null);
-    el.classList.add('q-now');
-    el._playNow = true;
-  }
-  if (queue.length) {
-    const total = queue.reduce((n, s) => n + (s.duration || 0), 0);
-    const l = label('Queued', `${queue.length.toLocaleString()}${total ? ' · ' + _fmtTotal(total) : ''}`,
-      '<button type="button" class="k-btn sm ghost q-clear"><i class="ti ti-trash"></i>Clear</button>');
-    l.querySelector('.q-clear').addEventListener('click', klabClearQueue);
-    queue.slice(0, QUEUE_SHOWN).forEach((song, k) => {
-      const box = document.createDocumentFragment();
-      renderSongItem(song, box);
-      const el = box.firstElementChild;
-      el.classList.add('q-item');
-      el.draggable = true;
-      el._queueAt = k;
-      el._remove = () => klabUnqueue(song);
-      el.querySelector('.song-acts').outerHTML = klabSongActsHTML(song, { remove: true });
-      pickerList.appendChild(el);
+
+window.klabQueuePop = (() => {
+  const btn = document.getElementById('dockQueue');
+  const phone = matchMedia('(max-width: 760px) and (pointer: coarse)');
+  let el = null, body = null, scrim = null, popLayer = null, drag = null, stale = false, closeTimer = 0;
+  const isOpen = () => !!el && el.classList.contains('open');
+
+  function setup() {
+    el = document.createElement('div');
+    el.className = 'q-pop';
+    el.id = 'queuePop';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', 'Queue');
+    el.innerHTML = '<div class="q-head"><span class="q-title">Queue</span><span class="q-count"></span>' +
+      '<button type="button" class="k-btn sm ghost q-clear"><i class="ti ti-trash"></i>Clear</button></div>' +
+      '<div class="q-body"></div>' +
+      '<div class="q-foot"><button type="button" class="q-fs">Open full player</button></div>';
+    body = el.querySelector('.q-body');
+    scrim = Object.assign(document.createElement('div'), { className: 'q-scrim' });
+    document.body.append(scrim, el);
+    el.querySelector('.q-clear').addEventListener('click', klabClearQueue);
+    el.querySelector('.q-fs').addEventListener('click', () => { close(); window.klabOpenUpNext?.(); });
+    scrim.addEventListener('click', () => close());
+    body.addEventListener('click', onClick);
+    body.addEventListener('keydown', onKey);
+    body.addEventListener('pointerdown', onDown);
+    body.addEventListener('contextmenu', e => {
+      const row = e.target.closest('.q-row');
+      if (!row?._song || typeof showSongCtx !== 'function') return;
+      e.preventDefault();
+      showSongCtx(e.clientX, e.clientY, row._song);
     });
-    if (queue.length > QUEUE_SHOWN) {
-      const more = document.createElement('div');
-      more.className = 'picker-empty';
-      more.textContent = 'and ' + (queue.length - QUEUE_SHOWN).toLocaleString() + ' more';
-      pickerList.appendChild(more);
+    // Outside it: closes. The dock (play, skip) and what opens from in
+    // here (a song's menu, the Undo toast) don't count.
+    document.addEventListener('pointerdown', e => {
+      if (isOpen() && !e.target.closest?.('#queuePop, #playerDock, .ctx-menu, #toastFlyout, .q-scrim')) close();
+    }, true);
+    addEventListener('hashchange', () => close());
+    addEventListener('popstate', () => close());
+    addEventListener('resize', () => { if (isOpen()) place(); });
+  }
+
+  // Above the button, its right edge on the button's; a sheet on a phone.
+  function place() {
+    const sheet = phone.matches;
+    el.classList.toggle('q-sheet', sheet);
+    scrim.classList.toggle('on', sheet && isOpen());
+    if (sheet) { el.style.left = el.style.top = el.style.bottom = el.style.maxHeight = ''; return; }
+    const r = (btn && btn.offsetParent ? btn : document.getElementById('playerDock'))?.getBoundingClientRect();
+    if (!r) return;
+    const w = Math.min(380, innerWidth - 16);
+    const right = r.left + r.width / 2 > innerWidth / 2;
+    const left = Math.max(8, Math.min(right ? r.right + 6 - w : r.left - 6, innerWidth - w - 8));
+    el.style.left = left + 'px';
+    el.style.bottom = (innerHeight - r.top + 8) + 'px';
+    el.style.maxHeight = Math.max(200, Math.min(innerHeight * .6, r.top - 16)) + 'px';
+    el.style.transformOrigin = (right ? 'right' : 'left') + ' bottom';
+  }
+
+  function open(e) {
+    if (!el) setup();
+    clearTimeout(closeTimer);
+    el.hidden = false;
+    render();
+    place();
+    void el.offsetWidth;
+    el.classList.add('open');
+    scrim.classList.toggle('on', phone.matches);
+    btn?.setAttribute('aria-expanded', 'true');
+    btn?.classList.add('on');
+    popLayer?.();
+    popLayer = klabLayers.push(el, { kind: 'popover', close: () => close(), dim: phone.matches });
+    SFX && SFX.play('open');
+    // Opened from the keyboard: the first row takes focus.
+    if (e && e.detail === 0) body.querySelector('.q-row')?.focus({ preventScroll: true });
+  }
+  function close() {
+    if (!isOpen()) return;
+    if (drag) endDrag(false);
+    el.classList.remove('open');
+    scrim.classList.remove('on');
+    btn?.setAttribute('aria-expanded', 'false');
+    btn?.classList.remove('on');
+    popLayer?.(); popLayer = null;
+    if (el.contains(document.activeElement)) btn?.focus({ preventScroll: true });
+    closeTimer = setTimeout(() => { if (!isOpen()) el.hidden = true; }, 320);
+  }
+  const toggle = e => isOpen() ? close() : open(e);
+  // Whatever changed what's next (the queue, the song, shuffle, repeat):
+  // drawn again where it stands, not while a row is being dragged.
+  function refresh() {
+    if (!isOpen()) return;
+    if (drag) { stale = true; return; }
+    render(true);
+  }
+
+  const artUrl = s => s.coverArt ? `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(s.coverArt)}&size=80&${subsonicParams()}` : '';
+  function row(song, kind, k) {
+    const r = document.createElement('div');
+    r.className = 'q-row q-' + kind;
+    r.tabIndex = 0;
+    r._song = song; r._kind = kind; r._k = k;
+    const u = artUrl(song);
+    r.innerHTML =
+      (kind === 'queued' ? '<span class="q-grip" title="Drag to reorder" aria-hidden="true"><i class="ti ti-grip-vertical"></i></span>' : '') +
+      (u ? `<img class="q-art" src="${esc(u)}" alt="" draggable="false" decoding="async" onload="this.classList.add('loaded')">` : '<span class="q-art q-art-ph"><i class="ti ti-music"></i></span>') +
+      `<span class="q-meta"><span class="q-t">${esc(song.title || 'Unknown')}</span><span class="q-a">${esc(song.artist || 'Unknown artist')}</span></span>` +
+      (kind === 'now' ? '<span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>' : '') +
+      `<span class="q-d">${song.duration ? formatTime(song.duration) : ''}</span>` +
+      (kind === 'queued' ? '<span class="q-acts">' +
+        '<button type="button" class="k-icon sm q-up" title="Move up" aria-label="Move up"><i class="ti ti-chevron-up"></i></button>' +
+        '<button type="button" class="k-icon sm q-down" title="Move down" aria-label="Move down"><i class="ti ti-chevron-down"></i></button>' +
+        '<button type="button" class="k-icon sm q-x" title="Remove from queue" aria-label="Remove from queue"><i class="ti ti-x"></i></button></span>' : '');
+    return r;
+  }
+  function label(text, sub) {
+    const l = document.createElement('div');
+    l.className = 'q-label k-label';
+    l.innerHTML = `<span>${esc(text)}</span>${sub ? `<span class="q-label-sub">${esc(sub)}</span>` : ''}`;
+    return l;
+  }
+
+  function render(keep) {
+    if (queue.some(s => !s)) queue = queue.filter(Boolean);
+    const top = body.scrollTop, focusKey = document.activeElement?.closest?.('.q-row') && el.contains(document.activeElement)
+      ? [document.activeElement._kind, document.activeElement._k] : null;
+    const cur = playerState.currentSong, pl = playerState.playlist || [];
+    const upcoming = klabUpcoming(30);
+    const frag = document.createDocumentFragment();
+    if (cur) {
+      frag.append(label('Now playing'));
+      frag.append(row(cur, 'now', 0));
+    }
+    if (queue.length) {
+      frag.append(label('Queued'));
+      const box = document.createElement('div');
+      box.className = 'q-list';
+      queue.slice(0, QUEUE_SHOWN).forEach((s, k) => box.append(row(s, 'queued', k)));
+      frag.append(box);
+      if (queue.length > QUEUE_SHOWN) frag.append(Object.assign(document.createElement('div'), { className: 'q-more', textContent: `and ${(queue.length - QUEUE_SHOWN).toLocaleString()} more` }));
+    }
+    if (upcoming.length) {
+      const from = window.klabNpSource?.();
+      frag.append(label(from ? `Next from ${from}` : 'Next', _shuffleOn ? 'Shuffled' : ''));
+      upcoming.forEach(i => pl[i] && frag.append(row(pl[i], 'next', i)));
+    }
+    if (!cur && !queue.length) {
+      frag.append(Object.assign(document.createElement('div'), { className: 'k-empty q-empty',
+        innerHTML: '<i class="ti ti-playlist"></i><div>Nothing’s queued. Use Add to queue on a song or album.</div>' }));
+    }
+    body.replaceChildren(frag);
+    const total = queue.reduce((n, s) => n + (s.duration || 0), 0) + upcoming.reduce((n, i) => n + (pl[i]?.duration || 0), 0);
+    const n = queue.length + upcoming.length;
+    el.querySelector('.q-count').textContent = n ? `${n.toLocaleString()}${total ? ' · ' + _fmtTotal(total) : ''}` : '';
+    el.querySelector('.q-clear').hidden = !queue.length;
+    if (keep) body.scrollTop = top;
+    if (focusKey) [...body.querySelectorAll('.q-row')].find(r => r._kind === focusKey[0] && r._k === focusKey[1])?.focus({ preventScroll: true });
+  }
+
+  // Pressing a row: the one playing pauses or plays, a queued song plays
+  // now (those before it stay queued), one from the list plays from there.
+  function play(r) {
+    if (r._kind === 'now') { togglePlay(); return; }
+    if (r._kind === 'queued') {
+      const at = queue.indexOf(r._song);
+      if (at >= 0) queue.splice(at, 1);
+      updateQueueBadge();
+    } else playerState.playlistIndex = r._k;
+    playSong(r._song);
+  }
+  function move(from, to, focus) {
+    to = Math.max(0, Math.min(queue.length - 1, to));
+    if (to === from) return;
+    const [s] = queue.splice(from, 1);
+    queue.splice(to, 0, s);
+    _queueChanged();
+    SFX && SFX.play('click');
+    if (focus) body.querySelector(`.q-queued:nth-child(${to + 1})`)?.focus({ preventScroll: false });
+  }
+  function onClick(e) {
+    const r = e.target.closest('.q-row');
+    if (!r || r._dragged) { if (r) r._dragged = false; return; }
+    if (e.target.closest('.q-x')) { klabUnqueue(r._song); return; }
+    if (e.target.closest('.q-up')) { move(r._k, r._k - 1, true); return; }
+    if (e.target.closest('.q-down')) { move(r._k, r._k + 1, true); return; }
+    if (e.target.closest('.q-grip')) return;
+    play(r);
+  }
+  function onKey(e) {
+    const r = e.target.closest?.('.q-row');
+    if (!r || e.target !== r) return;
+    const rows = [...body.querySelectorAll('.q-row')], i = rows.indexOf(r);
+    if (e.altKey && r._kind === 'queued' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault(); e.stopPropagation();
+      move(r._k, r._k + (e.key === 'ArrowUp' ? -1 : 1), true);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation();
+      rows[i + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); e.stopPropagation(); play(r);
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && r._kind === 'queued') {
+      e.preventDefault(); e.stopPropagation();
+      const next = rows[i + 1]?._kind === 'queued' ? i : i - 1;
+      klabUnqueue(r._song);
+      [...body.querySelectorAll('.q-row')][Math.max(0, next)]?.focus();
     }
   }
-  if (upcoming.length) {
-    const from = window.klabNpSource?.();
-    label(from ? `Next from ${from}` : 'Next', _shuffleOn ? 'shuffled' : '');
-    upcoming.forEach(i => { const el = row(pl[i], pl); el._plIndex = i; el.classList.add('q-next'); });
+
+  // ── Dragging a queued song ──
+  // Pointer events, so a mouse, a pen and a finger (by the grip) all work.
+  // The row follows the pointer; the others make room for it by sliding
+  // (transform only), and it's written to the queue on letting go.
+  function onDown(e) {
+    const r = e.target.closest('.q-queued');
+    if (!r || e.button > 0 || e.target.closest('.q-acts')) return;
+    const grip = !!e.target.closest('.q-grip');
+    if (e.pointerType !== 'mouse' && !grip) return; // a finger scrolls; the grip drags
+    const rows = [...r.parentElement.children];
+    drag = { r, rows, from: rows.indexOf(r), to: rows.indexOf(r), y0: e.clientY, s0: body.scrollTop, y: e.clientY, live: grip, id: e.pointerId, h: r.offsetHeight };
+    if (grip) { e.preventDefault(); begin(); }
+    addEventListener('pointermove', onMove, true);
+    addEventListener('pointerup', onUp, true);
+    addEventListener('pointercancel', onCancel, true);
   }
-  const total = queue.reduce((n, s) => n + (s.duration || 0), 0) + upcoming.reduce((n, i) => n + (pl[i]?.duration || 0), 0);
-  document.getElementById('musicViewSub').textContent = queue.length || upcoming.length ? `${klabCount(queue.length + upcoming.length, 'song')}${total ? ' · ' + _fmtTotal(total) : ''}` : '';
-  refreshApNowHighlight();
-  if (keepScroll) pickerList.scrollTop = top;
-}
-// Pressing a row: a queued song plays now (those before it stay queued),
-// one from the list plays from there, the one playing pauses or plays.
-// (Before #pickerList's own song-row handler, which plays from pickerSongs.)
-pickerList.addEventListener('click', e => {
-  if (pickerTab !== 'queue') return;
-  const row = e.target.closest('.picker-item');
-  if (!row || !row._song || e.target.closest('.song-acts, .picker-link')) return;
-  e.stopImmediatePropagation();
-  if (row._playNow) { togglePlay(); return; }
-  if (row.classList.contains('q-item')) {
-    const at = queue.indexOf(row._song);
-    if (at >= 0) queue.splice(at, 1);
-    updateQueueBadge();
-    playSong(row._song).then(() => { if (pickerTab === 'queue') renderQueueList(true); });
-    return;
+  function begin() {
+    drag.live = true;
+    el.classList.add('q-dragging');
+    drag.r.classList.add('lifted');
+    drag.rows.forEach(x => { if (x !== drag.r) x.classList.add('q-shift'); });
+    try { body.setPointerCapture?.(drag.id); } catch {}
+    tick();
   }
-  if (row._plIndex != null) {
-    playerState.playlistIndex = row._plIndex;
-    playSong(row._song).then(() => { if (pickerTab === 'queue') renderQueueList(true); });
-  }
-}, true);
-// Dragging a queued song up or down the queue.
-(function() {
-  let from = null;
-  const clearMarks = () => pickerList.querySelectorAll('.q-drop-before, .q-drop-after').forEach(r => r.classList.remove('q-drop-before', 'q-drop-after'));
-  pickerList.addEventListener('dragstart', e => {
-    const row = e.target.closest?.('.q-item');
-    if (!row || pickerTab !== 'queue') return;
-    from = row._queueAt;
-    row.classList.add('q-dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', row._song.title || ''); } catch (err) {}
-  });
-  pickerList.addEventListener('dragover', e => {
-    if (from == null) return;
-    const row = e.target.closest?.('.q-item');
-    if (!row) return;
-    e.preventDefault();
-    const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
-    clearMarks();
-    row.classList.add(after ? 'q-drop-after' : 'q-drop-before');
-  });
-  pickerList.addEventListener('drop', e => {
-    if (from == null) return;
-    const row = e.target.closest?.('.q-item');
-    e.preventDefault();
-    if (row) {
-      const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
-      let to = row._queueAt + (after ? 1 : 0);
-      const [song] = queue.splice(from, 1);
-      if (to > from) to--;
-      queue.splice(to, 0, song);
-      _queueChanged();
-      SFX && SFX.play('click');
+  function onMove(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.y = e.clientY;
+    if (!drag.live) {
+      if (Math.abs(e.clientY - drag.y0) < 4) return;
+      begin();
     }
-    from = null; clearMarks();
-  });
-  pickerList.addEventListener('dragend', () => { from = null; clearMarks(); pickerList.querySelector('.q-dragging')?.classList.remove('q-dragging'); });
+    e.preventDefault();
+    layout();
+  }
+  function layout() {
+    const d = drag;
+    const dy = d.y - d.y0 + (body.scrollTop - d.s0);
+    d.to = Math.max(0, Math.min(d.rows.length - 1, d.from + Math.round(dy / d.h)));
+    d.r.style.transform = `translateY(${dy}px)`;
+    d.rows.forEach((x, i) => {
+      if (x === d.r) return;
+      const shift = d.from < d.to && i > d.from && i <= d.to ? -d.h : d.to < d.from && i >= d.to && i < d.from ? d.h : 0;
+      x.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  }
+  // Near the top or the foot of the list, it scrolls.
+  function tick() {
+    if (!drag?.live) return;
+    const b = body.getBoundingClientRect(), edge = 36;
+    const v = drag.y < b.top + edge ? -(b.top + edge - drag.y) : drag.y > b.bottom - edge ? drag.y - (b.bottom - edge) : 0;
+    if (v) { body.scrollTop += Math.max(-14, Math.min(14, v / 3)); layout(); }
+    drag.raf = requestAnimationFrame(tick);
+  }
+  function onUp(e) { if (drag && e.pointerId === drag.id) endDrag(true); }
+  function onCancel(e) { if (drag && e.pointerId === drag.id) endDrag(false); }
+  function endDrag(commit) {
+    const d = drag;
+    removeEventListener('pointermove', onMove, true);
+    removeEventListener('pointerup', onUp, true);
+    removeEventListener('pointercancel', onCancel, true);
+    if (!d) return;
+    cancelAnimationFrame(d.raf);
+    drag = null;
+    if (!d.live) return; // a plain click
+    d.r._dragged = true; // the click that follows isn't a play
+    setTimeout(() => { d.r._dragged = false; }, 0);
+    const done = () => {
+      el.classList.remove('q-dragging');
+      d.rows.forEach(x => { x.style.transform = ''; x.classList.remove('q-shift', 'lifted', 'settling'); });
+      const moved = commit && d.to !== d.from;
+      if (moved) {
+        const [s] = queue.splice(d.from, 1);
+        queue.splice(d.to, 0, s);
+        stale = false;
+        _queueChanged(); // draws it again, in the new order
+        SFX && SFX.play('click');
+      } else if (stale) { stale = false; render(true); }
+    };
+    if (!commit || !(window.klabMotionOk?.() ?? true)) { done(); return; }
+    // It settles into its slot, then the list is written.
+    d.r.classList.add('settling');
+    d.r.style.transform = `translateY(${(d.to - d.from) * d.h}px)`;
+    setTimeout(done, 140);
+  }
+
+  btn?.setAttribute('aria-haspopup', 'dialog');
+  btn?.setAttribute('aria-expanded', 'false');
+  return { open, close, toggle, refresh, isOpen };
 })();
-// The queue view follows the song changing.
-playerState.audio.addEventListener('loadstart', () => { if (pickerTab === 'queue') renderQueueList(true); });
