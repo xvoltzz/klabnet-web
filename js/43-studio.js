@@ -1035,7 +1035,9 @@
     if (!r) return;
     if (!window.klabClips?.fromRange) { showToast('Clips need the latest klabnet', 'ti-scissors'); return; }
     try {
-      await window.klabClips.fromRange(S.id, r[0], r[1], { title: S.title });
+      // The Studio works in the upload's time: say so, and send the edit as
+      // it is in the editor (saved or not), so the clip is what's on screen.
+      await window.klabClips.fromRange(S.id, r[0], r[1], { title: S.title, timeline: 'upload', edit: forServer().edit });
       showToast('Making a clip of ' + fine(r[0]) + '–' + fine(r[1]) + '. It shows in Clips when it’s ready', 'ti-scissors', 6000, null, null,
         { action: { label: 'Clips', run: () => window.klabClips?.show?.({ user: me() }) } });
     } catch (e) { showToast('Couldn’t make a clip: ' + klabCap(e.message), 'ti-alert-triangle'); }

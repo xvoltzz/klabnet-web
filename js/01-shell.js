@@ -3,11 +3,11 @@
 //  TERMINAL TYPING ANIMATION
 // ══════════════════════════════════════════
 // The blinking _ after it is the cursor (#promptCursor), the only one.
-const FULL_TEXT = 'klabnet>';
+const FULL_TEXT = 'KLABNET>'; // in capitals since 2026-11-20 (owner)
 // The prompt on each page: Home is just klabnet>, each page is a
 // directory under it (klabnet/feed>), Chat included.
 function klabPromptFor(key) {
-  return !key || key === 'home' ? FULL_TEXT : `klabnet/${key}>`;
+  return !key || key === 'home' ? FULL_TEXT : `KLABNET/${key}>`;
 }
 // Shown instead, while on the Chat tab — klab.chat is a domain the user
 // has picked up with an eye toward possibly spinning Chat out as its own
@@ -16,7 +16,7 @@ function klabPromptFor(key) {
 // intro typing animation below has finished, or by this animation itself
 // if it's still mid-typing at that point (e.g. a page load landing
 // directly on the #chat hash).
-const CHAT_PROMPT_TEXT = 'klabnet/chat>'; // was klab.chat>_; every page is a directory now
+const CHAT_PROMPT_TEXT = 'KLABNET/chat>'; // was klab.chat>_; every page is a directory now
 let typed = 0;
 const promptEl  = document.getElementById('promptText');
 const cursorEl  = document.getElementById('promptCursor');
@@ -38,27 +38,31 @@ const syncCursorFont = () => { if (cursorEl && promptEl) cursorEl.style.fontSize
 syncCursorFont();
 window.addEventListener('resize', syncCursorFont);
 
-// Going to a page, it's a shell: "cd feed" is typed after the prompt and
-// entered, and the prompt is in that directory ("klabnet/feed>"); Home is
-// "cd ~". Works from whatever is on screen, so switching pages mid-command
-// just types the new one.
+// Going to a page, the prompt backspaces to where the two paths part and
+// types the new one ("KLABNET/music>" → "KLABNET/" → "KLABNET/videos>").
+// No "cd …" typed out any more (owner, 2026-11-20: it took too long).
+// Works from whatever is on screen, so switching pages mid-way just heads
+// for the new one.
 let _retypeTimer = 0;
 function retypePrompt(target) {
   clearTimeout(_retypeTimer);
   // Still on the intro? It lands on the right text by itself.
   if (typed < FULL_TEXT.length) return;
-  const base = promptEl.textContent.replace(/ .*$/, '');
-  // Typed into the prompt itself (js/32-terminal.js): already cd'd.
-  if (base === target || window._klabTermJump || !(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
-  const cmd = ' cd ' + (target === FULL_TEXT ? '~' : target.slice(target.indexOf('/') + 1, -1));
-  let i = 0;
+  const from = promptEl.textContent;
+  // Typed into the prompt itself (js/32-terminal.js): already there.
+  if (from === target || window._klabTermJump || !(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
+  let keep = 0;
+  while (keep < from.length && keep < target.length && from[keep] === target[keep]) keep++;
+  let cur = from;
   const step = () => {
-    if (i < cmd.length) {
-      promptEl.textContent = base + cmd.slice(0, ++i);
-      _retypeTimer = setTimeout(step, i === 1 ? 70 : 30 + Math.random() * 28);
-    } else {
-      // Enter.
-      _retypeTimer = setTimeout(() => { promptEl.textContent = target; }, 150);
+    if (cur.length > keep) {
+      cur = cur.slice(0, -1);
+      promptEl.textContent = cur;
+      _retypeTimer = setTimeout(step, 16);
+    } else if (cur.length < target.length) {
+      cur = target.slice(0, cur.length + 1);
+      promptEl.textContent = cur;
+      _retypeTimer = setTimeout(step, 22 + Math.random() * 16);
     }
   };
   step();

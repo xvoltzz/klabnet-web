@@ -922,6 +922,7 @@
         prev = m;
         return h;
       }).join('');
+      try { window.klabEmojify?.(log); } catch (e) {}
       if (stick) log.scrollTop = log.scrollHeight;
     }
     async function onSend(e) {

@@ -431,8 +431,11 @@
   function progBlock(p, t) {
     const x = gx(Math.max(p.start, gFrom)), w = Math.max(8, gx(p.end) - x);
     const cls = p.end <= t ? ' past' : p.start <= t ? ' on' : '';
+    // The part already shown is shaded inside the block, under its title
+    // (the grid's own shade stays under programs, so a title is never dimmed).
+    const past = Math.min(w, Math.max(0, gx(t) - x));
     return '<button type="button" class="tv-g-prog' + cls + '" data-tv-prog="' + esc(p.id) + '" data-s="' + p.start + '" tabindex="-1"' +
-      ' style="left:' + x.toFixed(1) + 'px;width:' + w.toFixed(1) + 'px" aria-label="' + esc(p.title + ', ' + when(p) + ', scheduled by ' + by(p.createdBy)) + '" data-silent>' +
+      ' style="left:' + x.toFixed(1) + 'px;width:' + w.toFixed(1) + 'px;--past:' + past.toFixed(1) + 'px" aria-label=""' + esc(p.title + ', ' + when(p) + ', scheduled by ' + by(p.createdBy)) + '" data-silent>' +
       '<b>' + (reminded(p.id) ? '<i class="ti ti-bell" aria-hidden="true"></i>' : '') + esc(p.title) + '</b>' +
       (w >= 110 ? '<span>' + esc(clock(p.start)) + ' · ' + esc(by(p.createdBy)) + '</span>' : '') + '</button>';
   }
@@ -455,8 +458,10 @@
     let ticks = '';
     for (let x = from; x < gTo; x += 1800) {
       const d = new Date(x * 1000), day = d.getHours() === 0 && d.getMinutes() === 0;
-      ticks += '<span class="tv-g-tick' + (d.getMinutes() === 0 ? ' hour' : '') + (day ? ' day' : '') + '" style="left:' + gx(x) + 'px">' +
-        (day ? '<b>' + esc(dayName(x)) + '</b>' : '') + esc(clock(x)) + '</span>';
+      // Each tick spans its half hour; its label sticks inside the grid's
+      // left edge (past the channel column) until the next one.
+      ticks += '<span class="tv-g-tick' + (d.getMinutes() === 0 ? ' hour' : '') + (day ? ' day' : '') + '" style="left:' + gx(x) + 'px;width:' + (gx(x + 1800) - gx(x)) + 'px">' +
+        '<em>' + (day ? '<b>' + esc(dayName(x)) + '</b> ' : '') + esc(clock(x)) + '</em></span>';
     }
     const rows = channels.map(c => {
       const ps = programs.filter(p => p.channelId === c.id);
@@ -511,6 +516,8 @@
       if (!p) return;
       b.classList.toggle('past', p.end <= t);
       b.classList.toggle('on', p.start <= t && t < p.end);
+      const left = parseFloat(b.style.left) || 0, w = parseFloat(b.style.width) || 0;
+      b.style.setProperty('--past', Math.min(w, Math.max(0, x - left)).toFixed(1) + 'px');
     });
     gNowAt = Date.now();
   }
@@ -522,6 +529,19 @@
   function wireGrid(g) {
     const sc = g.querySelector('.tv-g-scroll'), tip = g.querySelector('.tv-g-tip');
     const hide = () => { tip.hidden = true; };
+    // A time label sticks at the left edge until its half hour runs out;
+    // the last few pixels of that it's hidden rather than shown half cut.
+    const ticks = [...g.querySelectorAll('.tv-g-tick')].map(el => ({ em: el.firstElementChild, l: parseFloat(el.style.left) || 0, w: parseFloat(el.style.width) || 0 }));
+    const clampTicks = () => {
+      const sl = sc.scrollLeft;
+      for (const k of ticks) {
+        if (!k.em) continue;
+        const cut = k.l < sl && k.l + k.w - sl < (k.ew ||= k.em.offsetWidth) + 14;
+        if (k.cut !== cut) { k.cut = cut; k.em.style.visibility = cut ? 'hidden' : ''; }
+      }
+    };
+    sc.addEventListener('scroll', clampTicks, { passive: true });
+    clampTicks();
     function show(el) {
       let html = '';
       if (el.matches('.tv-g-prog')) {

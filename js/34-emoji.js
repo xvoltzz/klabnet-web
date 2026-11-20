@@ -11,7 +11,8 @@
 //  /api/posts/emoji, routers/emoji.py). Anyone adds one; whoever added
 //  it, or an admin, deletes it. klabEmojify(root) turns :name: in shown
 //  text into the picture (Chat's messages, the Feed's markdown), and
-//  klabEmojiKey(key) does a reaction's. The list is kept in localStorage
+//  klabEmojiKey(key) does a reaction's. A :name: that isn't klab's but is
+//  one of Unicode's (:fire:) shows as that emoji. The list is kept in localStorage
 //  (klabnet_emoji) so they show at once, and refreshed at start and
 //  whenever the picker opens.
 //
@@ -66,7 +67,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - missAt > 60000) { missAt = Date.now(); refresh(); } });
   // New ones show in what's already on screen; the picker redraws.
   function changed() {
-    document.querySelectorAll('.chat-msg-text, .feed-post-text, .k-com-body').forEach(emojify);
+    document.querySelectorAll('.chat-msg-text, .feed-post-text, .k-com-body, .lv-msg-body, .rd-msg-body').forEach(emojify);
     document.querySelectorAll('.feed-post-reaction-pill, .chat-msg-reaction-pill').forEach(p => {
       const key = p.dataset.emoji, c = p.firstChild;
       if (custom.has(key.slice(1, -1)) && c?.nodeType === 3 && c.nodeValue.trim() === key) {
@@ -104,8 +105,17 @@
         TOKEN_RE.lastIndex = 0;
         while ((m = TOKEN_RE.exec(t))) {
           const e = custom.get(m[1]);
-          // ":not:one:" — try again from the second colon.
-          if (!e) { miss(); TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
+          // Unicode's own by name, typed as text (:fire: is 🔥).
+          const u = !e && uniBySlug?.get(m[1]);
+          if (u) {
+            frag ||= document.createDocumentFragment();
+            frag.append(t.slice(last, m.index), u);
+            last = m.index + m[0].length;
+            continue;
+          }
+          // ":not:one:" — try again from the second colon. Without Unicode's
+          // names yet, they're fetched and what's on screen drawn again.
+          if (!e) { if (!groups) wantNames(); else miss(); TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
           frag ||= document.createDocumentFragment();
           frag.append(t.slice(last, m.index), img(e));
           last = m.index + m[0].length;
@@ -130,14 +140,23 @@
   }
 
   // ── Unicode's emoji ──
-  let groups = null, dataP = null;
+  let groups = null, dataP = null, uniBySlug = null, namesWanted = false;
   function loadData() {
     return dataP ||= fetch(DATA_URL).then(r => r.json()).then(d => {
       groups = d.groups.map(([name, items], i) => ({
         id: 'g' + i, name, mark: GROUP_MARK[i] || items[0]?.[0],
         items: items.map(([e, slug, kw]) => ({ e, name: slug, kw: slug.replace(/_/g, ' ') + ' ' + kw })),
       }));
+      uniBySlug = new Map();
+      for (const g of groups) for (const it of g.items) if (!uniBySlug.has(it.name)) uniBySlug.set(it.name, it.e);
     }).catch(() => { dataP = null; });
+  }
+  // Text with a :name: that isn't klab's: Unicode's names, once, then the
+  // screen again (changed()).
+  function wantNames() {
+    if (namesWanted) return;
+    namesWanted = true;
+    loadData().then(() => { if (groups) changed(); else namesWanted = false; });
   }
 
   // ── The picker ──
@@ -538,7 +557,7 @@
   watch(document.getElementById('chatComposerInput'));
   // Fields drawn and redrawn on the fly (every comment box, the post
   // editor, Photos' and Videos' forms): the same, delegated.
-  const LATER = '.k-com-input, .feed-edit-text, #phComposeCaption, #phEditCaption, #vidDescIn';
+  const LATER = '.k-com-input, .feed-edit-text, #phComposeCaption, #phEditCaption, #vidDescIn, #lvChatIn, .rd-chat-input';
   document.addEventListener('input', e => { if (e.target.matches?.(LATER)) showSug(e.target); });
   document.addEventListener('focusout', e => { const f = e.target; if (f.matches?.(LATER)) setTimeout(() => { if (sugField === f) hideSug(); }, 100); });
   document.addEventListener('keydown', e => {

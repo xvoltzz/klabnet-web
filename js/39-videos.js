@@ -96,8 +96,12 @@
     const thumb = v.posterSmall
       ? '<img src="' + esc(v.posterSmall) + '" alt="" loading="lazy" draggable="false" />'
       : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>';
-    return '<button type="button" class="vid-card' + (o.row ? ' row' : '') + (proc ? ' processing' : '') + '" data-vid-id="' + v.id + '"' + (v.kind === 'clip' ? ' data-kind="clip"' : '') + ' data-silent>' +
-      '<span class="vid-thumb">' + thumb +
+    // Your videos: Studio on the card (shown on hover). A span, since the
+    // card is a button; the page's click handler takes it first.
+    const studio = o.studio && !proc && canEdit(v) && window.klabOpenStudio
+      ? '<span class="vid-card-studio k-icon sm on-media" role="button" title="Studio" aria-label="Open ' + esc(v.title || 'Untitled') + ' in Studio"><i class="ti ti-adjustments-horizontal"></i></span>' : '';
+    return '<button type="button" class="vid-card' + (o.row ? ' row' : '') + (proc ? ' processing' : '') + '" data-vid-id="' + v.id + '"' + (v.kind === 'clip' ? ' data-kind="clip"' : '') + (o.studio ? ' data-studio' : '') + ' data-silent>' +
+      '<span class="vid-thumb">' + thumb + studio +
         (proc
           ? '<span class="vid-proc">' + (v.status === 'failed' ? '<i class="ti ti-alert-triangle"></i>Couldn’t process it' : '<span class="vid-spin"></span>Processing ' + Math.round((v.progress || 0) * 100) + '%') + '</span>'
           : (v.duration ? '<span class="vid-dur">' + dur(v.duration) + '</span>' : '')) +
@@ -291,7 +295,7 @@
             const y = new Date(apiTime(pubOf(x))).getFullYear();
             if (y && y !== lastYear) { lastYear = y; year = '<div class="k-label vid-year">' + y + '</div>'; }
           }
-          return year + cardHTML(x, { noUser: own, noFace: own });
+          return year + cardHTML(x, { noUser: own, noFace: own, studio: v.kind === 'mine' });
         }).join(''));
       }
       if (v.kind === 'home') { const l = $('vidLatest'); if (l) l.hidden = !grid.querySelector('.vid-card'); }
@@ -323,7 +327,7 @@
         try {
           const v = await getJSON(API + '/' + id, null, 8000);
           cache.set(v.id, v);
-          page.querySelectorAll('.vid-card[data-vid-id="' + id + '"]').forEach(c => { c.outerHTML = cardHTML(v, { noUser: c.querySelector('.vid-card-user') == null, noFace: !c.querySelector('.vid-face'), row: c.classList.contains('row') }); });
+          page.querySelectorAll('.vid-card[data-vid-id="' + id + '"]').forEach(c => { c.outerHTML = cardHTML(v, { noUser: c.querySelector('.vid-card-user') == null, noFace: !c.querySelector('.vid-face'), row: c.classList.contains('row'), studio: c.hasAttribute('data-studio') }); });
           if (view.kind === 'watch' && view.id === id && v.status !== 'processing') openVideo(id, 0, { quiet: true, fresh: v, keep: true });
         } catch (e) {}
       }
@@ -1096,6 +1100,8 @@
 
   // ── Everything else you press on the page ──
   page.addEventListener('click', async e => {
+    const studio = e.target.closest('.vid-card-studio');
+    if (studio) { window.klabOpenStudio?.(+studio.closest('.vid-card').dataset.vidId); return; }
     const card = e.target.closest('.vid-card');
     if (card) { SFX && SFX.play('nav'); openVideo(+card.dataset.vidId); return; }
     const stamp = e.target.closest('.vid-stamp');

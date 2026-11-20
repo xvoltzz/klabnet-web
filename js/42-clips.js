@@ -25,7 +25,8 @@
 //      right-click) marks a range on the scrub bar; klabnet-api cuts it
 //      from the upload and makes it like any other ("Clipped from …").
 //  window.klabClips: show({game, sort, user}), open(id), fromRange(videoId,
-//  start, end, {title, game}) (the Studio's editor), makeFrom(video, at),
+//  start, end, {title, game, timeline, edit}) (the Studio's editor sends
+//  timeline 'upload' and its edit), makeFrom(video, at),
 //  cardHTML(clip), forUser(name), entries() (Go anywhere), state().
 //  Deep links: #videos/clips, #videos/clips?game=<name>, #videos/clip/<id>.
 // ══════════════════════════════════════════
@@ -1200,6 +1201,11 @@
     if (opts.title != null) body.title = opts.title;
     if (opts.game != null) body.game = opts.game;
     if (opts.description != null) body.description = opts.description;
+    // The times are the video as it plays (an edited one's edited time),
+    // unless the Studio says they're the upload's (timeline 'upload', with
+    // the editor's edit to apply).
+    if (opts.timeline) body.timeline = opts.timeline;
+    if (opts.edit !== undefined) body.edit = opts.edit;
     const c = await getJSON(API + '/' + (+videoId) + '/clip', json('POST', body), 20000);
     loadGames(true);
     return c;

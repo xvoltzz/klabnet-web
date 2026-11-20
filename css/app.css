@@ -4,8 +4,10 @@
 
     /* Humanist sans everywhere — reads as a designed UI rather than
        "generated code" on dense control labels. The klabnet wordmark
-       (.prompt-text) is the one deliberate exception and stays JetBrains
-       Mono, the terminal font the rest of the site used to default to. */
+       (.prompt-text) is the one deliberate exception: a monospace, Geist Mono
+       since 2026-11-20 (owner: "a new, cleaner font"; it was JetBrains Mono),
+       and KLABNET in capitals. */
+    :root { --font-prompt: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace; }
     :root { --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
     /* Semantic status colors — same in both themes (favorites/errors read as
@@ -666,10 +668,10 @@
     }
 
     .prompt-text {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-prompt);
       font-size: 1.55rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
+      font-weight: 600;
+      letter-spacing: 0.01em;
       color: var(--text);
       line-height: 1;
     }
@@ -691,7 +693,7 @@
     .prompt-motd {
       display: inline-block; max-width: min(50vw, 640px); overflow: hidden; text-overflow: ellipsis;
       white-space: pre; vertical-align: middle; line-height: 1.2;
-      font: 500 0.82rem 'JetBrains Mono', monospace; letter-spacing: 0; color: var(--text-dimmer);
+      font: 500 0.82rem var(--font-prompt); letter-spacing: 0; color: var(--text-dimmer);
     }
 
     /* Blinks once it's shown (the animation used to override opacity:0,
@@ -9421,8 +9423,8 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       width: auto; height: auto !important; background: none; margin-left: 0;
       font: inherit; color: var(--text); vertical-align: baseline; line-height: 1;
     }
-    .terminal-prompt { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
-    :is(html.app-titlebar, html.web-bar) .terminal-prompt { font-size: 0.95rem; letter-spacing: 0.02em; }
+    .terminal-prompt { font-family: var(--font-prompt); font-weight: 600; }
+    :is(html.app-titlebar, html.web-bar) .terminal-prompt { font-size: 0.95rem; letter-spacing: 0.01em; }
     .terminal-prompt .prompt-text { white-space: pre; }
 
     /* ══ ONE PLACE TO GET AROUND (js/07-tabnav.js, 2026-10-31) ══
@@ -10613,6 +10615,15 @@ html.ocean .chat-date-sep > :not([class*="line"])::after { content: ' --'; }
       position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 5px;
       background: rgba(0,0,0,.78); color: #fff; font: 600 var(--fs-11) var(--font-ui); font-variant-numeric: tabular-nums;
     }
+    /* Your videos: Studio, top right, on hover or keyboard focus. */
+    .vid-card-studio {
+      position: absolute; top: 6px; right: 6px; z-index: 1; display: inline-grid; place-items: center;
+      background: rgba(0,0,0,.62); opacity: 0; transition: opacity var(--m-fast) ease, background-color var(--m-fast) ease;
+    }
+    .vid-card-studio .ti { font-size: 15px; }
+    .vid-card:hover .vid-card-studio, .vid-card:focus-visible .vid-card-studio { opacity: 1; }
+    .vid-card-studio.k-icon.on-media:hover { background: rgba(0,0,0,.82); }
+    @media (hover: none) { .vid-card-studio { opacity: 1; } }
     .vid-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.25); }
     .vid-prog b { display: block; height: 100%; background: rgb(var(--accent-rgb)); box-shadow: 0 0 8px rgba(var(--accent-rgb), .7); }
     .vid-proc {
@@ -11884,7 +11895,7 @@ html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
 .tv-prog-mark { flex: none; font-size: 13px; color: var(--tv-c, var(--text-dim)); margin-right: -4px; align-self: center; }
 .tv-next .tv-prog-mark { margin-right: 4px; vertical-align: -1px; }
 .tv-list.is-grid { display: block; }
-.tv-g { position: relative; --g-head: 176px; --g-row: 58px; }
+.tv-g { position: relative; --g-head: 176px; --g-row: 58px; --tv-g-shade: color-mix(in srgb, var(--surface-dialog) 45%, transparent); }
 .tv-g-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .tv-g-hint { font-size: var(--fs-12); color: var(--text-dimmer); }
 .tv-g-scroll {
@@ -11894,11 +11905,15 @@ html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
 .tv-g-inner { position: relative; width: calc(var(--g-head) + var(--g-w)); }
 .tv-g-times { position: sticky; top: 0; z-index: 4; display: flex; height: 30px; background: var(--surface-dialog); border-bottom: 1px solid var(--line); }
 .tv-g-corner { position: sticky; left: 0; z-index: 2; flex: none; width: var(--g-head); background: var(--surface-dialog); border-right: 1px solid var(--line); }
-.tv-g-scale { position: relative; flex: none; width: var(--g-w); overflow: hidden; }
+.tv-g-scale { position: relative; flex: none; width: var(--g-w); overflow: clip; }
+/* clip, not hidden: hidden would make the scale the labels' scroll box and
+   stop them sticking. A label sticks past the channel column, inside its
+   own half hour, so the first one is never cut off at the grid's edge. */
 .tv-g-tick {
-  position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 5px; padding-left: 7px;
+  position: absolute; top: 0; bottom: 0; box-sizing: border-box; display: flex; align-items: center; padding: 0 7px;
   border-left: 1px solid var(--line); white-space: nowrap; font: 500 var(--fs-12)/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dimmer);
 }
+.tv-g-tick em { position: sticky; left: calc(var(--g-head) + 7px); font-style: normal; }
 .tv-g-tick.hour { color: var(--text-dim); }
 .tv-g-tick.day b { color: var(--text); font-weight: 600; }
 .tv-g-nowtag {
@@ -11928,11 +11943,16 @@ html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
 }
 .tv-g-loop span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-g-prog {
-  position: absolute; top: 6px; bottom: 6px; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px;
-  min-width: 0; padding: 0 9px; overflow: hidden; border: 0; border-radius: var(--r-md); outline: none; cursor: pointer;
-  background: var(--tv-c); color: var(--tv-ink, #fff); text-align: left; font: inherit;
+  position: absolute; top: 6px; bottom: 6px; z-index: 2; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  min-width: 0; padding: 0 9px; overflow: clip; border: 0; border-radius: var(--r-md); outline: none; cursor: pointer;
+  background: linear-gradient(to right, var(--tv-g-shade) 0 var(--past, 0px), transparent var(--past, 0px)), var(--tv-c);
+  color: var(--tv-ink, #fff); text-align: left; font: inherit;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); transition: filter var(--m-fast) ease, box-shadow var(--m-fast) ease;
 }
+/* A program that started before the grid's left edge keeps its title in
+   sight: the words stick past the channel column (overflow: clip on the
+   block, so it isn't their scroll box). */
+.tv-g-prog b, .tv-g-prog span { position: sticky; left: calc(var(--g-head) + 9px); align-self: flex-start; max-width: 100%; box-sizing: border-box; }
 .tv-g-prog b { display: flex; align-items: center; gap: 4px; min-width: 0; font: 600 var(--fs-13)/1.2 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-g-prog b i { font-size: 12px; flex: none; }
 .tv-g-prog span { font-size: 11.5px; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -11940,7 +11960,7 @@ html[data-fx="low"] .vid-hero-art:hover { box-shadow: none; }
 .tv-g-prog:active { filter: brightness(.95); }
 .tv-g-prog:focus-visible { box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 2px var(--surface-dialog), 0 0 0 4px var(--text); }
 .tv-g-prog.on { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 0 14px color-mix(in srgb, var(--tv-c) 45%, transparent); }
-.tv-g-past { position: absolute; top: 31px; bottom: 0; left: var(--g-head); z-index: 2; pointer-events: none; background: color-mix(in srgb, var(--surface-dialog) 45%, transparent); }
+.tv-g-past { position: absolute; top: 31px; bottom: 0; left: var(--g-head); z-index: 1; pointer-events: none; background: var(--tv-g-shade); }
 .tv-g-now { position: absolute; top: 30px; bottom: 0; left: var(--g-head); z-index: 2; width: 0; border-left: 2px solid #ff453a; margin-left: -1px; pointer-events: none; }
 .tv-g-tip {
   position: absolute; z-index: 6; max-width: 300px; display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; pointer-events: none;

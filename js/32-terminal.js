@@ -45,11 +45,11 @@
   const dirsOf = p => p === 'music' ? musicDirs() : p === 'videos' ? videoDirs() : new Map();
   const page = () => document.querySelector('.tab-panel.active')?.dataset.tabPanel || 'home';
   const cwd = () => (page() === 'home' ? '~' : page());
-  const pathOf = p => (p === '~' ? 'klabnet' : 'klabnet/' + p);
+  const pathOf = p => (p === '~' ? 'KLABNET' : 'KLABNET/' + p);
 
   // What a path means: { page, section? } or null.
   function resolve(arg) {
-    let a = (arg || '~').trim().replace(/^klabnet\/?/, '').replace(/\/+$/, '');
+    let a = (arg || '~').trim().replace(/^klabnet\/?/i, '').replace(/\/+$/, '');
     if (a === '' || a === '~' || a === '/' || a === 'home') return { page: 'home' };
     if (a === '..') return { page: 'home' };
     if (a.startsWith('~/') || a.startsWith('/')) a = a.replace(/^~?\//, '');
