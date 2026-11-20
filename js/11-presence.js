@@ -571,6 +571,8 @@
       // The watch party they're in ({id, title}; js/41-rooms.js), as the
       // API last said (its rooms know their members).
       room: l?.room || null,
+      // Streaming ({title, game, started}; js/45-live.js).
+      live: l?.live || null,
     };
   };
   // Everyone online but you, as the last poll said (Social's Together).

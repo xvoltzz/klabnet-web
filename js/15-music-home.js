@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════
-//  MUSIC HOME — Music → Browse (the sidebar's first row under Music), as a
+//  MUSIC HOME — Music → Discover (was Browse) (the sidebar's first row under Music), as a
 //  front page for the library rather than a list of random songs. Cover
 //  Flow leads, as it always did (the owner, 2026-11-20: Browse should "look
 //  the same as the original one did"):

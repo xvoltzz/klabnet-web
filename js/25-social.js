@@ -127,7 +127,8 @@
     }
     function cardHTML(c) {
       const faces = c.people.slice(0, 5).map(u => faceHTML(u)).join('');
-      const inIt = c.people.includes(me());
+      // A stream is watched, not joined: Watch stays, even for the streamer.
+      const inIt = c.kind !== 'live' && c.people.includes(me());
       const art = c.art ? '<img src="' + esc(c.art) + '" alt="" loading="lazy" decoding="async" />'
         : '<b style="--st:' + esc(c.tint || 'var(--fill-hover)') + '">' + esc(c.mark || '') + '</b>';
       return '<div class="tg-card" role="listitem" data-kind="' + c.kind + '" data-id="' + esc(String(c.id)) + '">' +
@@ -138,7 +139,8 @@
           (c.sub ? '<span class="tg-sub">' + esc(c.sub) + '</span>' : '') +
           progHTML(c.pos, c.dur) +
           '<div class="tg-foot"><span class="tg-faces">' + faces + '</span><span class="tg-who">' + esc(c.who) + '</span>' +
-            (inIt ? '<span class="tg-here">You’re here</span>' + (c.kind === 'watch' ? '<button type="button" class="k-btn sm" data-join>Open</button>' : '')
+            (inIt ? '<span class="tg-here">You’re here</span>' + (c.kind === 'watch' ? '<button type="button" class="k-btn sm" data-join>Open</button>'
+                : c.watch ? '<button type="button" class="k-btn sm" data-watch><i class="ti ti-screen-share"></i><span>Watch</span></button>' : '')
               : '<button type="button" class="k-btn sm primary" data-join>' + esc(c.join) + '</button>') +
           '</div>' +
         '</div></div>';
@@ -146,6 +148,13 @@
     // Every room as one shape of card.
     function cards() {
       const out = [];
+      // Live streams (js/45-live.js): the streamer and who's watching.
+      for (const l of data.live || []) out.push({
+        kind: 'live', id: l.username, icon: 'ti-broadcast', kindLabel: 'Live', title: l.title || l.username + ' is live', wide: true,
+        art: window.klabResolveUserAvatar?.(l.username) || '', tint: color(l.username), mark: initials(l.username),
+        sub: [l.username, l.game].filter(Boolean).join(' · '), people: [l.username, ...(l.people || [])],
+        who: l.viewers ? klabCount(l.viewers, 'viewer') : 'Just started', join: 'Watch',
+      });
       for (const w of data.watch || []) out.push({
         kind: 'watch', id: w.id, icon: 'ti-movie', kindLabel: 'Watch party', title: w.video.title, wide: true,
         art: w.video.posterSmall, sub: w.video.username ? 'from ' + w.video.username : '',
@@ -169,10 +178,16 @@
         sub: (r.track ? r.name + ' · ' : '') + 'by ' + r.author, people: r.people,
         who: names(r.people, 2), join: 'Tune in',
       });
-      for (const v of data.voice || []) out.push({
-        kind: 'voice', id: v.id, icon: 'ti-microphone', kindLabel: 'Voice', title: v.name, mark: '#',
-        sub: '', people: v.people, who: names(v.people, 2), join: 'Join',
-      });
+      // Screen sharing: who's sharing, and Watch (Join to watch from outside:
+      // only people in the channel can watch).
+      for (const v of data.voice || []) {
+        const sh = v.sharing || [];
+        out.push({
+          kind: 'voice', id: v.id, icon: sh.length ? 'ti-screen-share' : 'ti-microphone', kindLabel: 'Voice', title: v.name, mark: '#',
+          sub: sh.length ? names(sh, 2) + (sh.length > 1 ? ' are sharing' : ' is sharing') + ' · ' + v.name : '',
+          people: v.people, who: names(v.people, 2), join: sh.length ? 'Join to watch' : 'Join', watch: sh.length > 0,
+        });
+      }
       return out;
     }
     function listenRowHTML(l) {
@@ -249,6 +264,7 @@
       if (kind === 'watch') return (data.watch || []).find(x => x.id === id);
       if (kind === 'listen') return (data.listen || []).find(x => x.host === id);
       if (kind === 'tv') return (data.tv || []).find(x => x.id === id);
+      if (kind === 'live') return (data.live || []).find(x => x.username === id);
       if (kind === 'radio') return (data.radio || []).find(x => x.id === id);
       if (kind === 'voice') return (data.voice || []).find(x => String(x.id) === id);
       return null;
@@ -258,11 +274,12 @@
       if (kind === 'watch') window.klabRooms?.join(id);
       else if (kind === 'listen') window.klabListenAlong?.(id);
       else if (kind === 'tv') { setActiveTab('videos'); setTimeout(() => window.klabTv?.open(id), 60); }
+      else if (kind === 'live') window.klabLive?.open(id);
       else if (kind === 'radio') {
         await window.klabRadio?.tune(id);
         if (window.klabRadio?.now() === id) showToast('Tuned in', 'ti-radio');
       }
-      else if (kind === 'voice') window.klabVoice?.join(+id);
+      else if (kind === 'voice') window.klabVoice?.join(+id, { watch: !!find('voice', id)?.sharing?.length });
       setTimeout(load, 1500);
     }
     wrap.addEventListener('click', e => {
@@ -272,6 +289,7 @@
       if (face) { openProfileView(face.dataset.u); return; }
       const card = e.target.closest('.tg-card');
       if (card && e.target.closest('[data-join]')) { join(card.dataset.kind, card.dataset.id); return; }
+      if (card && e.target.closest('[data-watch]')) { SFX?.play('click'); window.klabVoice?.watch?.(); return; }
       const row = e.target.closest('.tg-row');
       if (!row) return;
       const l = (data?.listening || []).find(x => x.username === row.dataset.u);

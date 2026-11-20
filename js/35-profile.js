@@ -26,6 +26,20 @@
     } catch { if (mine === seq) vids.list = []; }
     if (mine === seq && pane === 'videos') paint();
   }
+  // Their clips (js/42-clips.js), the same way.
+  let clips = null;
+  async function loadClips() {
+    if (clips && clips.who === who) return;
+    const mine = seq, u = who;
+    clips = { who: u, list: null };
+    try {
+      const j = await window.klabClips?.forUser(u);
+      if (mine !== seq || clips.who !== u) return;
+      clips.list = (j?.clips || []).filter(c => c.status === 'ready');
+      clips.total = j?.total || 0;
+    } catch { if (mine === seq) clips.list = []; }
+    if (mine === seq && pane === 'clips') paint();
+  }
 
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')) : null;
   const ago = s => { const d = when(s); return d && !isNaN(d) ? shortAgo(d.getTime()) : ''; };
@@ -42,10 +56,14 @@
     el.addEventListener('click', e => {
       if (e.target === el || e.target.closest('[data-pf-close]')) return close();
       const tab = e.target.closest('[data-pf-pane]');
-      if (tab) { pane = tab.dataset.pfPane; paint(); if (pane === 'videos') loadVideos(); return; }
+      if (tab) { pane = tab.dataset.pfPane; paint(); if (pane === 'videos') loadVideos(); if (pane === 'clips') loadClips(); return; }
+      const clip = e.target.closest('.clip-card[data-clip-id]');
+      if (clip) { close(); window.klabClips?.open(+clip.dataset.clipId, { user: who }); return; }
+      if (e.target.closest('[data-pf-clips]')) { close(); window.klabClips?.show({ user: who }); return; }
       const vid = e.target.closest('.vid-card[data-vid-id]');
       if (vid) { close(); window.klabOpenVideo?.(+vid.dataset.vidId); return; }
       if (e.target.closest('[data-pf-channel]')) { close(); window.klabOpenChannel?.(who); return; }
+      if (e.target.closest('[data-pf-live]')) { close(); window.klabLive?.open(who); return; }
       const party = e.target.closest('[data-pf-room]');
       if (party) { close(); window.klabRooms?.join(party.dataset.pfRoom); return; }
       const song = e.target.closest('[data-pf-song]');
@@ -160,7 +178,10 @@
     const name = el.querySelector('.pf-name')?.textContent || who;
     const banner = el.querySelector('.pf-banner');
     const state = p.online ? (p.away ? 'Away' : 'Online') : data?.lastSeen ? 'Last here ' + ago(data.lastSeen) : 'Offline';
-    const now = p.song
+    const live = window.klabLive?.of?.(who) || p.live;
+    const now = live
+      ? `<button type="button" class="pf-now pf-live" data-pf-live title="Watch the stream"><i class="ti ti-broadcast"></i><span>Live · <b>${esc(live.title || 'Streaming now')}</b>${live.game ? ' · ' + esc(live.game) : ''}</span></button>`
+      : p.song
       ? `<button type="button" class="pf-now"${p.songId ? ` data-pf-song="${songJSON({ songId: p.songId, song: p.song, artist: p.artist })}"` : ''}>` +
         `<span class="pz-eq"><i></i><i></i><i></i></span><span><b>${esc(p.song)}</b>${p.artist ? ' · ' + esc(p.artist) : ''}</span></button>`
       : p.room ? `<button type="button" class="pf-now" data-pf-room="${esc(p.room.id)}" title="Join the watch party"><i class="ti ti-users"></i><span>Watching together · <b>${esc(p.room.title)}</b></span></button>` : '';
@@ -217,7 +238,7 @@
     if (!data) return '<p class="pf-empty">Loading…</p>';
     if (data.error) return `<p class="pf-empty">${data.error === 'old' ? 'Profiles need the latest klabnet-api' : data.error === 'none' ? 'Nothing from them here yet' : "Couldn't load their page"}</p>`;
     const d = data, L = d.listening || {};
-    const tabs = [['posts', 'Posts', d.posts.length], ['photos', 'Photos', d.photos.length], ['videos', 'Videos', d.counts?.videos || 0], ['gold', 'Gold', d.gold.length], ['listening', 'Listening', (L.recent || []).length]];
+    const tabs = [['posts', 'Posts', d.posts.length], ['photos', 'Photos', d.photos.length], ['videos', 'Videos', d.counts?.videos || 0], ...(window.klabClips ? [['clips', 'Clips', d.counts?.clips || 0]] : []), ['gold', 'Gold', d.gold.length], ['listening', 'Listening', (L.recent || []).length]];
     let html = stats(d.counts) + '<div class="pf-tabs" role="tablist">' + tabs.map(([k, label, n]) =>
       `<button type="button" role="tab" data-pf-pane="${k}" aria-selected="${pane === k}"${!n ? ' class="dim"' : ''}>${label}</button>`).join('') + '</div>';
     if (pane === 'posts') {
@@ -233,6 +254,12 @@
         : list.length ? '<div class="pf-videos">' + list.map(v => window.klabVideoCardHTML?.(v, { noFace: true, noUser: true }) || '').join('') + '</div>' +
             (vids.total > list.length ? '<button type="button" class="k-btn pf-more" data-pf-channel>All ' + vids.total + ' videos</button>' : '')
           : '<p class="pf-empty">No videos yet</p>';
+    } else if (pane === 'clips') {
+      const list = clips && clips.who === who ? clips.list : null;
+      html += !list ? '<p class="pf-empty">Loading…</p>'
+        : list.length ? '<div class="pf-videos pf-clips">' + list.map(c => window.klabClips.cardHTML(c, { noUser: true })).join('') + '</div>' +
+            (clips.total > list.length ? '<button type="button" class="k-btn pf-more" data-pf-clips>All ' + clips.total + ' clips</button>' : '')
+          : '<p class="pf-empty">No clips yet</p>';
     } else if (pane === 'gold') {
       html += d.gold.length ? '<div class="pf-posts">' + d.gold.map(p => postHTML(p, true)).join('') + '</div>'
         : `<p class="pf-empty">Nothing gold yet. A post with ${KLAB_GOLD_AT} stars turns gold</p>`;

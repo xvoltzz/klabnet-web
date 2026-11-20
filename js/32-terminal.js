@@ -170,6 +170,8 @@
       id: 'pl:' + p.id, label: p.name, icon: 'ti-playlist', kind: 'Playlist', sub: p.owner && p.owner !== window.KLAB_USER?.username ? p.owner : '',
       run: () => { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(p.id, p.name), 60); },
     }, 4));
+    // Clips of a game (js/42-clips.js): "Clips · Elden Ring".
+    (window.klabClips?.entries?.() || []).forEach(o => add(o, 3));
     // People: the profile; Alt+Enter, a message.
     const me = window.KLAB_USER?.username;
     const roster = [...new Set([...(window.klabRoster?.() || []), ...(window.klabPeople?.() || [])])].filter(u => u && u !== 'anonymous' && !u.endsWith('-bot'));

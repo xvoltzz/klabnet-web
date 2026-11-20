@@ -74,6 +74,30 @@ function setActiveTab(key) {
     window.klabTvLink = { number: +sub || 0, guide: sub === 'guide', program: sub.startsWith('p/') ? sub.slice(2) : '' };
     if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
   }
+  // Clips (js/42-clips.js): #videos/clips, #videos/clips?game=<name>, and
+  // one clip in its viewer, #videos/clip/<id>.
+  const cliplink = /^videos\/(?:clips(?:\?game=([^&]*))?|clip\/(\d+))$/.exec(key || '');
+  if (cliplink) {
+    key = 'videos';
+    let game = '';
+    try { game = decodeURIComponent(cliplink[1] || ''); } catch {}
+    window.klabClipsLink = { game, id: +cliplink[2] || 0 };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
+  // A video's studio (#videos/<id>/studio, #videos/<id>/studio/cards): js/43-studio.js.
+  const stlink = /^videos\/(\d+)\/studio(?:\/(edit|annotations|cards|end|details))?$/.exec(key || '');
+  if (stlink) {
+    key = 'videos';
+    window.klabStudioLink = { id: +stlink[1], tab: stlink[2] || 'edit' };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
+  // A live stream (#videos/live/<username>) or who's live (#videos/live): js/45-live.js.
+  const livelink = /^videos\/live(?:\/([\w.@-]{1,64}))?$/.exec(key || '');
+  if (livelink) {
+    key = 'videos';
+    window.klabLiveLink = { user: livelink[1] || '' };
+    if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
+  }
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
   // A menu belongs to the page it was opened on (tab changes don't fire hashchange).
@@ -890,15 +914,19 @@ window.klabSideNav = (function() {
     // The ☰ goes where the window's own controls are: the title bar in
     // the app, otherwise the top of the sidebar, or the header when the
     // sidebar is hidden.
-    // The tucked-away player, and voice while you're in a channel: the
-    // foot of the sidebar (voice on top), or the header.
-    ['dockPeek', 'voiceMicBtn'].forEach(id => {
+    // The tucked-away player, and the voice panel while you're in a
+    // channel: the foot of the sidebar (voice on top), or the header.
+    // Voice goes to the header with the sidebar hidden too, so leaving
+    // or muting is always on screen.
+    ['dockPeek', 'voiceNow'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      if (sideOn && el.parentElement !== foot) foot.prepend(el);
-      if (!sideOn && el.parentElement !== headerSlot) headerSlot.insertBefore(el, document.getElementById('themeToggle'));
-      el.classList.toggle('side-nav-item', sideOn);
-      el.classList.toggle('hdr-btn', !sideOn);
+      const voice = id === 'voiceNow';
+      const inSide = sideOn && !(voice && mode() === 'menu');
+      if (inSide && el.parentElement !== foot) foot.prepend(el);
+      if (!inSide && el.parentElement !== headerSlot) headerSlot.insertBefore(el, document.getElementById('themeToggle'));
+      el.classList.toggle(voice ? 'vn-side' : 'side-nav-item', inSide);
+      el.classList.toggle(voice ? 'vn-hdr' : 'hdr-btn', !inSide);
     });
     if (!sideOn) burger.remove();
     else if (root.classList.contains('app-titlebar') || bar || mode() === 'menu') {

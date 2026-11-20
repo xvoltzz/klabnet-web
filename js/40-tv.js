@@ -259,9 +259,10 @@
     nav.querySelectorAll('.picker-tab[data-vid]').forEach(b => b.classList.toggle('active', on && b.dataset.vid === 'channels'));
   }
   function take() {
-    // Videos lets go of the page (its player, its lists loading).
+    // Videos lets go of the page (its player, its lists loading). A channel
+    // that's on goes to the mini player (klabTvSoftLeave, from Videos).
     window.klabVideosLeave?.();
-    stopPlayer();
+    if (where === 'page') stopPlayer();
   }
   function record(desc) {
     if (restoring) return;
@@ -805,7 +806,8 @@
     let c = byId(id) || (typeof id === 'number' ? byNumber(id) : null);
     if (!c) { await load(true); c = byId(id) || byNumber(+id); }
     if (!c) { showToast('That channel’s gone', 'ti-device-tv'); if (view?.kind !== 'guide') showGuide({ quiet: true }); return; }
-    if (view?.kind === 'watch' && root?.isConnected) { tune(c); return; }
+    if (view?.kind === 'watch' && root?.isConnected && where === 'page') { tune(c); return; }
+    window.klabMini?.yield?.('tv');
     take();
     view = { kind: 'watch', id: c.id };
     setRow(true);
@@ -827,7 +829,7 @@
               '<input type="range" class="vp-vol-range" min="0" max="1" step="0.02" aria-label="Volume" /></div>' +
             '<span class="vp-time tv-ctrl-now"></span>' +
             '<span class="vp-gap"></span>' +
-            (document.pictureInPictureEnabled ? '<button type="button" class="vp-btn" data-tvp="pip" title="Picture in picture" data-silent><i class="ti ti-picture-in-picture"></i></button>' : '') +
+            (window.documentPictureInPicture || document.pictureInPictureEnabled ? '<button type="button" class="vp-btn" data-tvp="pip" title="Pop out" aria-label="Pop out" data-silent><i class="ti ti-picture-in-picture-top"></i></button>' : '') +
             '<button type="button" class="vp-btn" data-tvp="full" title="Full screen (f)" data-silent><i class="ti ti-arrows-maximize"></i></button>' +
           '</div></div>' +
         '</div>' +
@@ -838,8 +840,17 @@
     root = page.firstElementChild;
     if (panel()) panel().scrollTop = 0;
     klabEnter(page);
-    mountPlayer();
-    tune(c, { first: true });
+    if (where !== 'page' && player) {
+      // The one in the mini player (or popped out) comes back here, playing.
+      const slot = root.querySelector('#tvPlayer');
+      if (where === 'mini') { window.klabMini.give(slot); where = 'page'; }
+      else slot.replaceWith(away('pip'));
+      if (tuned !== c.id) tune(c);
+      else { paintInfo(true); paintSide(); }
+    } else {
+      mountPlayer();
+      tune(c, { first: true });
+    }
     startTicks();
   }
 
@@ -915,13 +926,14 @@
     paintInfo();
   }
   function paintCtrl() {
-    const c = byId(view?.id);
+    const c = byId(tuned);
     const el = player?.querySelector('.tv-ctrl-now');
     if (el && c) el.textContent = c.number + ' · ' + c.name;
   }
 
   // ── The player: two decks, one on air ──
   let player = null, decks = [], onAir = null, tuned = null;
+  let where = 'page'; // the player: on the page, in the mini player, or popped out (js/44-mini.js)
   const asked = new Set();
   let osdProg = '';
   let loopT = 0, settleUntil = 0, misses = 0, calmUntil = 0, held = false, blocked = false;
@@ -942,6 +954,8 @@
 
   function mountPlayer() {
     player = $('tvPlayer');
+    where = 'page';
+    player.addEventListener('click', playerClick);
     decks = [...player.querySelectorAll('video.tv-deck')].map(el => ({ el, hls: null, key: '', item: null, ready: false }));
     for (const d of decks) {
       const el = d.el;
@@ -949,8 +963,8 @@
       el.addEventListener('playing', () => { if (d === onAir) { player.querySelector('.vp-spin').hidden = true; show(d); player.classList.add('started'); player.classList.remove('paused', 'fresh'); } });
       el.addEventListener('waiting', () => { if (d === onAir) { player.querySelector('.vp-spin').hidden = false; settleUntil = performance.now() + 3000; } });
       el.addEventListener('canplay', () => { d.ready = true; if (d === onAir) player.querySelector('.vp-spin').hidden = true; });
-      el.addEventListener('play', () => { if (d === onAir) { quietMusic(); paintBtns(); } });
-      el.addEventListener('pause', () => { if (d === onAir) paintBtns(); });
+      el.addEventListener('play', () => { if (d === onAir) { quietMusic(); paintBtns(); if (where === 'mini') window.klabMini?.paint(); } });
+      el.addEventListener('pause', () => { if (d === onAir) { paintBtns(); if (where === 'mini') window.klabMini?.paint(); } });
       el.addEventListener('volumechange', () => { if (d === onAir) paintBtns(); });
       el.addEventListener('click', () => wake());
       el.addEventListener('dblclick', () => toggleFull());
@@ -1028,7 +1042,7 @@
     const o = opts || {};
     const was = tuned;
     tuned = c.id;
-    view = { kind: 'watch', id: c.id };
+    if (where === 'page') view = { kind: 'watch', id: c.id };
     held = false;
     for (const d of decks) unload(d);
     onAir = null;
@@ -1049,7 +1063,7 @@
     window.klabPostPresence?.();
   }
   function step() {
-    if (!player?.isConnected || view?.kind !== 'watch') { clearInterval(loopT); return; }
+    if (!player?.isConnected || (where === 'page' && view?.kind !== 'watch')) { clearInterval(loopT); return; }
     const c = byId(tuned);
     const a = c && airing(c, now());
     if (!a) {
@@ -1124,6 +1138,9 @@
   }
   function stopPlayer() {
     clearInterval(loopT);
+    if (where === 'mini') window.klabMini?.drop(player);
+    if (where === 'pip') window.klabMini?.popIn();
+    where = 'page';
     if (document.fullscreenElement && document.fullscreenElement === player) document.exitFullscreen?.();
     const had = decks.length;
     for (const d of decks) unload(d);
@@ -1132,9 +1149,89 @@
     if (tuned) { tuned = null; window.klabPostPresence?.(); }
     if (had) window.klabnetDesktop?.trimMemory?.();
   }
+  // ── The mini player and pop out (js/44-mini.js) ──
+  // Leaving a channel that's on (another view, another page) moves the
+  // player, still on air, to a corner; ✕ there stops it.
+  const tvPlaying = () => !!onAir && !onAir.el.paused && !held;
+  function away(kind) {
+    const ph = document.createElement('div');
+    ph.className = 'vp vp-away';
+    ph.dataset.away = kind;
+    ph.innerHTML = '<div class="vp-away-tx"><i class="ti ti-picture-in-picture-top"></i><span>' + (kind === 'pip' ? 'Playing in a pop-out window' : 'Playing in the mini player') +
+      '</span><button type="button" class="k-btn sm on-media" data-tv-act="pop-in">Bring it back</button></div>';
+    return ph;
+  }
+  function chName() { const c = byId(tuned); return c ? c.number + ' · ' + c.name : 'TV'; }
+  function toMini() {
+    if (!player || !window.klabMini) return false;
+    if (document.fullscreenElement && document.fullscreenElement === player) document.exitFullscreen?.();
+    const parent = player.parentNode, next = player.nextSibling;
+    const from = player.isConnected ? player.getBoundingClientRect() : null;
+    const ok = window.klabMini.take({
+      el: player, kind: 'tv', from,
+      title: chName,
+      sub: () => { const c = byId(tuned); const a = c && airing(c, now()); return a ? onTitle(a) : ''; },
+      ctl: { paused: () => !onAir || onAir.el.paused, toggle: () => toggleHold(), up: () => zap(1), down: () => zap(-1) },
+      expand: () => openChannel(tuned),
+      close: () => { where = 'page'; stopPlayer(); },
+      popout: () => popOut(),
+    });
+    if (!ok) return false;
+    where = 'mini';
+    if (parent && page.contains(parent)) parent.insertBefore(away('mini'), next);
+    return true;
+  }
+  window.klabTvSoftLeave = () => {
+    if (where === 'page' && view?.kind === 'watch' && root?.isConnected && player && tvPlaying()) toMini();
+  };
+  async function popOut() {
+    if (!player || !window.klabMini) return;
+    if (where === 'pip') { window.klabMini.popIn(); return; }
+    const wasMini = where === 'mini';
+    const parent = player.parentNode, next = player.nextSibling;
+    const how = await window.klabMini.popOut({
+      el: player, video: onAir?.el, width: 480, title: chName(),
+      keys: e => {
+        const k = e.key;
+        let done = true;
+        if (k === 'PageUp' || k === 'ArrowUp') zap(1);
+        else if (k === 'PageDown' || k === 'ArrowDown') zap(-1);
+        else if (k === 'm' || k === 'M') toggleMute();
+        else if (k === ' ' || k === 'k' || k === 'K') toggleHold();
+        else done = false;
+        if (done) e.preventDefault();
+      },
+      back: el => {
+        if (el !== player) return;
+        where = 'page';
+        const ph = root?.isConnected ? root.querySelector('.vp-away[data-away="pip"]') : null;
+        if (ph && view?.kind === 'watch' && document.body.classList.contains('tab-videos-active')) ph.replaceWith(el);
+        else if (tvPlaying() && toMini()) { if (ph) ph.replaceWith(away('mini')); }
+        else stopPlayer();
+      },
+    });
+    if (how !== 'window') return;
+    if (wasMini) window.klabMini.drop(player);
+    else if (parent && page.contains(parent)) parent.insertBefore(away('pip'), next);
+    where = 'pip';
+  }
+  function playerClick(e) {
+    if (e.currentTarget !== player) return;
+    const p = e.target.closest('[data-tvp]');
+    if (!p) return;
+    const k = p.dataset.tvp;
+    if (k === 'play') { blocked = false; held = false; if (onAir) { settleUntil = 0; goLive(onAir); } else step(); }
+    else if (k === 'mute') toggleMute();
+    else if (k === 'up') zap(1);
+    else if (k === 'down') zap(-1);
+    else if (k === 'full') toggleFull();
+    else if (k === 'pip') popOut();
+    SFX && SFX.play('click');
+  }
+
   // Leaving Channels (or Videos) altogether.
   function leave() {
-    stopPlayer();
+    if (where === 'page') stopPlayer();
     clearInterval(tickT);
     view = null; root = null;
     setRow(false);
@@ -1251,17 +1348,7 @@
   page.addEventListener('click', e => {
     if (!root || !root.contains(e.target)) return;
     const p = e.target.closest('[data-tvp]');
-    if (p && player?.contains(p)) {
-      const k = p.dataset.tvp;
-      if (k === 'play') { blocked = false; held = false; if (onAir) { settleUntil = 0; goLive(onAir); } else step(); }
-      else if (k === 'mute') toggleMute();
-      else if (k === 'up') zap(1);
-      else if (k === 'down') zap(-1);
-      else if (k === 'full') toggleFull();
-      else if (k === 'pip' && onAir) (document.pictureInPictureElement ? document.exitPictureInPicture() : onAir.el.requestPictureInPicture()).catch(() => {});
-      SFX && SFX.play('click');
-      return;
-    }
+    if (p && player?.contains(p)) return; // the player's own (playerClick)
     const m = e.target.closest('[data-tv-mode]');
     if (m) { setMode(m.dataset.tvMode); return; }
     const pr = e.target.closest('[data-tv-prog]');
@@ -1287,6 +1374,7 @@
     else if (act === 'copy' && c) klabCopy(linkTo(c), 'Link');
     else if (act === 'edit' && c) editDialog(c);
     else if (act === 'delete' && c) deleteChannel(c);
+    else if (act === 'pop-in') { if (where === 'pip') window.klabMini?.popIn(); else if (where === 'mini') openChannel(tuned); }
   });
   page.addEventListener('contextmenu', e => {
     if (!root || !root.contains(e.target)) return;
@@ -1654,10 +1742,15 @@
     prevChanged?.(on);
     if (!on) {
       // The video stops when you leave the page (picture in picture aside).
-      if (view?.kind === 'watch' && !(document.pictureInPictureElement && onAir && document.pictureInPictureElement === onAir.el)) stopPlayer();
+      if (view?.kind === 'watch' && where === 'page' && !(tvPlaying() && toMini()) && !(document.pictureInPictureElement && onAir && document.pictureInPictureElement === onAir.el)) stopPlayer();
       return;
     }
     if (link) { if (link.program) showGuide({ program: link.program }); else if (link.number) openChannel(link.number); else showGuide(link.guide ? { mode: 'grid' } : null); return; }
+    // Back on Videos with the channel in the mini player still drawn: it comes home.
+    if (where === 'mini' && view?.kind === 'watch' && root?.isConnected) {
+      const ph = root.querySelector('.vp-away');
+      if (ph) { window.klabMini.give(ph); where = 'page'; paintInfo(true); paintSide(); }
+    }
     // Back on Videos with a channel still drawn: on air again.
     if (view?.kind === 'watch' && root?.isConnected && !player) {
       const c = byId(view.id);

@@ -65,6 +65,10 @@
       color: on ? p.color : null, plat: on ? p.platformInfo : null,
       paused: on ? p.paused : null, where: on ? p.where || '' : '', status: on ? p.status || '' : '',
       room: on ? p.room : null,
+      // Streaming (js/45-live.js knows even when their klabnet is closed).
+      live: window.klabLive?.of?.(u) || (on ? p.live : null) || null,
+      // In a voice channel (js/22-voice.js knows who's where).
+      voice: on ? window.klabVoice?.where?.(u) || null : null,
     };
   }
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')).getTime() : 0;
@@ -81,14 +85,17 @@
     let sub = '';
     // What they're doing: the song, or that they're not listening and
     // where they are; Away / Do not disturb in front of it.
-    if (s.song) sub = '<span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + (s.artist ? ' · ' + esc(s.artist) : '');
+    if (s.live) sub = '<i class="ti ti-broadcast pz-live"></i>Live' + (s.live.title ? ' · ' + esc(s.live.title) : '');
+    else if (s.song) sub = '<span class="pz-eq"><i></i><i></i><i></i></span>' + esc(s.song) + (s.artist ? ' · ' + esc(s.artist) : '');
     else if (s.on) {
-      const doing = s.room ? 'Watching together · ' + esc(s.room.title)
+      const doing = s.voice?.sharing ? 'Sharing in ' + esc(s.voice.channel)
+        : s.room ? 'Watching together · ' + esc(s.room.title)
+        : s.voice ? 'In voice · ' + esc(s.voice.channel)
         : s.paused ? 'Paused · ' + esc(s.paused.song) : ['Not listening', WHERE[s.where]].filter(Boolean).join(' · ');
       sub = s.status === 'dnd' ? 'Do not disturb · ' + doing : s.away ? 'Away' : doing;
     }
     else { const t = when(stats.get(u)?.lastSeen); sub = t ? 'Last here ' + esc(shortAgo(t)) : ''; }
-    const cls = 'pz-row' + (s.on ? s.status === 'dnd' ? ' dnd' : s.away ? ' away' : ' on' : ' off') + (s.song ? ' playing' : '');
+    const cls = 'pz-row' + (s.on ? s.status === 'dnd' ? ' dnd' : s.away ? ' away' : ' on' : ' off') + (s.song ? ' playing' : '') + (s.live ? ' live' : '');
     const glow = s.color ? ' style="--glow:' + s.color.join(',') + '"' : '';
     return '<button class="' + cls + '" data-u="' + esc(u) + '"' + glow + ' type="button">' +
       '<span class="pz-row-face">' + face(u, s, 'pz-av') + '<i class="pz-dot"></i></span>' +

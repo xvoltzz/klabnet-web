@@ -272,7 +272,8 @@
   // pause everyone, so the room goes first.
   const tabChanged = window.klabVideosTabChanged;
   window.klabVideosTabChanged = on => {
-    if (!on && room) leave(true);
+    // (Not when the video plays on in the mini player: the party follows it there.)
+    if (!on && room && !window.klabWatch?.staysOn?.()) leave(true);
     tabChanged?.(on);
   };
   window.addEventListener('pagehide', () => { if (room) leave(true); });

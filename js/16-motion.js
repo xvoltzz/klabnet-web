@@ -145,7 +145,7 @@
   // each that glides to what you pick.
   slidingPill(document.getElementById('socNav'), '.picker-tab.active', 'motion-pill-music', '.picker-tab');
   slidingPill(document.querySelector('#chatSide .chat-side-scroll'), '.chat-conv.active', 'motion-pill-chat', '.chat-conv');
-  // Photos' views, on a phone (Browse / Yours / Tagged).
+  // Photos' views, on a phone (Timeline / Yours / Tagged).
   slidingPill(document.getElementById('phViews'), 'button[aria-pressed="true"]', 'motion-pill-music', 'button');
 
   // ── Music views ──

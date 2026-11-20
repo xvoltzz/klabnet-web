@@ -96,7 +96,7 @@
     const thumb = v.posterSmall
       ? '<img src="' + esc(v.posterSmall) + '" alt="" loading="lazy" draggable="false" />'
       : '<span class="vid-thumb-ph"><i class="ti ti-movie"></i></span>';
-    return '<button type="button" class="vid-card' + (o.row ? ' row' : '') + (proc ? ' processing' : '') + '" data-vid-id="' + v.id + '" data-silent>' +
+    return '<button type="button" class="vid-card' + (o.row ? ' row' : '') + (proc ? ' processing' : '') + '" data-vid-id="' + v.id + '"' + (v.kind === 'clip' ? ' data-kind="clip"' : '') + ' data-silent>' +
       '<span class="vid-thumb">' + thumb +
         (proc
           ? '<span class="vid-proc">' + (v.status === 'failed' ? '<i class="ti ti-alert-triangle"></i>Couldn’t process it' : '<span class="vid-spin"></span>Processing ' + Math.round((v.progress || 0) * 100) + '%') + '</span>'
@@ -136,7 +136,8 @@
     home: { title: 'Videos', query: 'sort=new' },
     mine: { title: 'Your videos', query: v => 'user=' + encodeURIComponent(me()) + '&sort=' + (v.sort === 'old' ? 'old' : 'new') },
     channel: { title: v => v.user, query: v => 'user=' + encodeURIComponent(v.user) + '&sort=' + (v.sort === 'old' ? 'old' : 'new') },
-    search: { title: v => '“' + v.q + '”', query: v => 'q=' + encodeURIComponent(v.q) },
+    // Videos by default; Clips (js/42-clips.js) is the head's switch.
+    search: { title: v => '“' + v.q + '”', query: v => 'q=' + encodeURIComponent(v.q) + (v.clips ? '&kind=clip' : '') },
     continue: { title: 'Continue watching' },
     playlists: { title: 'Playlists' },
     playlist: { title: 'Playlist' },
@@ -173,9 +174,13 @@
     list = []; total = 0; more = false;
     const channelHead = v.kind === 'channel'
       ? '<div class="vid-channel">' + face(v.user, 'big') + '<div class="vid-channel-tx"><h2>' + esc(v.user) + '</h2><span id="vidSub"></span></div>' +
-        '<div class="vid-channel-acts">' + orderHTML(v) + '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div></div>'
+        // Their clips are a tab of the channel (js/42-clips.js draws it).
+        '<div class="vid-channel-acts">' + (window.klabClips ? '<div class="k-seg vid-kind" role="group" aria-label="Show"><button type="button" aria-pressed="true">Videos</button><button type="button" data-chkind="clips" data-user="' + esc(v.user) + '" aria-pressed="false">Clips</button></div>' : '') + orderHTML(v) + '<button type="button" class="k-btn" data-act="profile" data-user="' + esc(v.user) + '"><i class="ti ti-user"></i><span>Profile</span></button></div></div>'
       : '';
-    page.innerHTML = (channelHead || headHTML(title, '', v.kind === 'mine' ? orderHTML(v) : '')) +
+    const kindSeg = '<div class="k-seg vid-kind" role="group" aria-label="Show">' +
+      '<button type="button" data-skind="videos" aria-pressed="' + !v.clips + '">Videos</button>' +
+      '<button type="button" data-skind="clip" aria-pressed="' + !!v.clips + '">Clips</button></div>';
+    page.innerHTML = (channelHead || headHTML(title, '', v.kind === 'mine' ? orderHTML(v) : v.kind === 'search' && window.klabClips ? kindSeg : '')) +
       (v.kind === 'home' ? '<div class="vid-hero-slot" id="vidHero"></div><div class="vid-shelf-wrap" id="vidShelf" hidden></div>' +
         // (Room for TV channels' shelf, js/40-tv.js: see channelsShelf below.)
         '<div class="vid-shelf-wrap" id="vidChannels" hidden></div><div class="vid-shelf-wrap" id="vidPlShelf" hidden></div>' +
@@ -291,7 +296,7 @@
       }
       if (v.kind === 'home') { const l = $('vidLatest'); if (l) l.hidden = !grid.querySelector('.vid-card'); }
       const sub = $('vidSub');
-      if (sub) sub.textContent = total ? klabCount(total, 'video') : '';
+      if (sub) sub.textContent = total ? klabCount(total, v.clips ? 'clip' : 'video') : '';
       watchProcessing();
       setTimeout(() => refreshFaces(), 1500);
     } catch (e) {
@@ -333,6 +338,9 @@
   // next one (after a 5s you can stop; only here, never for one video).
   let plRun = null;
   let hls = null, video = null, player = null;
+  // Where the player is (js/44-mini.js): on this page, in the mini player
+  // in a corner, or popped out into a window of its own.
+  let where = 'page';
   let srcKind = 'hls';   // what the <video> plays: the HLS ladder, or the Original mp4
   let viewSent = false, played = 0, lastTick = 0, lastSave = 0;
 
@@ -341,7 +349,11 @@
     if (!id) return;
     const o = opts || {};
     if (!showing()) setActiveTab('videos');
-    leaveWatch();
+    // The one in the mini player (or popped out), back to its page: the
+    // same player, no reload.
+    const adopt = where !== 'page' && cur && cur.id === id && video && !o.fresh;
+    if (adopt) { o.fresh = cur; o.keep = true; window.klabStudioView?.leave?.(); }
+    else { leaveWatch({ hard: true }); window.klabMini?.yield?.('video'); }
     if ('list' in o) plRun = o.list; else if (!o.keep) plRun = null;
     view = { kind: 'watch', id };
     setRow(plRun ? 'playlists' : '');
@@ -362,7 +374,8 @@
     cache.set(v.id, v);
     cur = v;
     renderWatch(v);
-    if (v.status === 'ready') mountPlayer(v, at > 0 ? at : (v.watched && v.watched < v.duration * 0.95 ? v.watched : 0), !!(at > 0) || o.autoplay !== false);
+    if (adopt) homeAgain(at);
+    else if (v.status === 'ready') mountPlayer(v, at > 0 ? at : (v.watched && v.watched < v.duration * 0.95 ? v.watched : 0), !!(at > 0) || o.autoplay !== false);
     else watchProcessing();
     loadComments(v);
     if (plRun) paintRun(); else loadUpNext(v, my);
@@ -372,12 +385,22 @@
   // where the room is (opts.autoplay false: paused there).
   window.klabWatch = {
     video: () => video, current: () => cur, watching: () => showing() && view.kind === 'watch',
+    // Leaving now, it plays on (the mini player, a pop-out window): a watch party stays.
+    staysOn: () => !!video && (where !== 'page' || (playing() && !!window.klabMini?.canTake?.())),
+    where: () => where,
+    // What plays after this one: the playlist's next, else Up next's first (the Studio's end screen "Best for viewer").
+    next: () => (plRun ? plRun.videos.find((x, k) => k > plRun.i && x.status === 'ready') : upNext.find(x => x.status === 'ready')) || null,
     open: (id, at, opts) => openVideo(id, at || 0, opts),
   };
   window.klabOpenChannel = user => { if (!showing()) setActiveTab('videos'); showList({ kind: 'channel', user }); };
   // TV channels (js/40-tv.js) take the page over: what's playing here
   // stops and any list still loading lets go.
-  window.klabVideosLeave = () => { leaveWatch(); view = { kind: 'tv' }; token++; more = false; clearTimeout(procTimer); };
+  // (Soft: a video that's playing goes on in the mini player. The Studio,
+  // js/43-studio.js, takes the page the same way: kind 'studio'.)
+  window.klabVideosLeave = kind => { leaveWatch(); view = { kind: kind || 'tv' }; token++; more = false; clearTimeout(procTimer); setRow(''); };
+  // For the Studio: details (the edit dialog), the poster, the playlists menu.
+  window.klabVideoEdit = v => editDialog(v);
+  window.klabVideoCached = (id, v) => { if (v) cache.set(id, v); return cache.get(id); };
 
   function canEdit(v) { return v.canEdit ?? (v.username === me() || admin()); }
 
@@ -405,6 +428,8 @@
               (v.status === 'ready' && window.klabRooms ? '<button type="button" class="k-btn" data-act="together" id="vidTogether"><i class="ti ti-users"></i><span>Watch together</span></button>' : '') +
               '<button type="button" class="k-btn" data-act="share"><i class="ti ti-share-2"></i><span>Share</span></button>' +
               '<button type="button" class="k-btn" data-act="save" title="Save to playlist"><i class="ti ti-playlist-add"></i><span>Save</span></button>' +
+              // Make a clip from a range of it (js/42-clips.js).
+              (v.status === 'ready' && window.klabClips ? '<button type="button" class="k-btn" data-act="clip" title="Make a clip"><i class="ti ti-scissors"></i><span>Clip</span></button>' : '') +
               (canEdit(v) ? '<button type="button" class="k-icon" data-act="edit" title="Edit video" aria-label="Edit video"><i class="ti ti-pencil"></i></button>' +
                 '<button type="button" class="k-icon vid-del" data-act="delete" title="Delete video" aria-label="Delete video"><i class="ti ti-trash"></i></button>' : '') +
             '</div>' +
@@ -558,13 +583,19 @@
           '<span class="vp-gap"></span>' +
           '<button type="button" class="vp-btn vp-text" data-vp="speed" title="Speed">1×</button>' +
           '<button type="button" class="vp-btn vp-text" data-vp="quality" title="Quality">Auto</button>' +
-          (document.pictureInPictureEnabled ? '<button type="button" class="vp-btn" data-vp="pip" title="Picture in picture" data-silent><i class="ti ti-picture-in-picture"></i></button>' : '') +
+          '<button type="button" class="vp-btn" data-vp="more" title="More" aria-label="More" data-silent><i class="ti ti-dots"></i></button>' +
+          // Pop out: an always-on-top window (js/44-mini.js), or the browser's own picture in picture.
+          (window.documentPictureInPicture || document.pictureInPictureEnabled ? '<button type="button" class="vp-btn" data-vp="pip" title="Pop out" aria-label="Pop out" data-silent><i class="ti ti-picture-in-picture-top"></i></button>' : '') +
           '<button type="button" class="vp-btn" data-vp="full" title="Full screen (f)" data-silent><i class="ti ti-arrows-maximize"></i></button>' +
         '</div>' +
         '<div class="vp-menu" hidden></div>' +
       '</div>';
     video = box.querySelector('video');
     player = box;
+    where = 'page';
+    // The player's own presses, on the player: they work wherever it is
+    // (the page, the mini player, a popped-out window).
+    box.addEventListener('click', playerClick);
     video.volume = prefs.volume ?? 1;
     video.muted = !!prefs.muted;
     // The speed you last picked, here (per device, klabnet_video).
@@ -577,6 +608,7 @@
     if (prefs.original && canOriginal(v)) startOriginal(v, start, autoplay);
     else startHls(v, start, autoplay);
     for (const ev of ['play', 'pause', 'timeupdate', 'progress', 'volumechange', 'ratechange', 'durationchange']) video.addEventListener(ev, paint);
+    for (const ev of ['play', 'pause', 'timeupdate']) video.addEventListener(ev, () => { if (where === 'mini') window.klabMini?.paint(); });
     video.addEventListener('play', () => { box.classList.remove('paused', 'fresh', 'ended'); box.querySelector('.vp-end').hidden = true; quietMusic(); wake(); });
     video.addEventListener('playing', () => box.classList.add('started'), { once: true });
     video.addEventListener('pause', () => { box.classList.add('paused'); saveProgress(); wake(); });
@@ -722,7 +754,7 @@
   function paintQuality() {
     const b = player?.querySelector('[data-vp="quality"]');
     if (!b) return;
-    if (srcKind === 'original') { b.hidden = false; b.innerHTML = '<span class="vp-tag">Original</span>'; return; }
+    if (srcKind === 'original') { b.hidden = false; b.innerHTML = '<span class="vp-tag">Original</span>'; b.title = cur?.original?.edited ? 'Original (edited)' : 'Original'; return; }
     if (!hls || !hls.levels?.length) { b.hidden = !cur?.original; b.textContent = 'Auto'; return; }
     b.hidden = false;
     const lvl = hls.levels[hls.currentLevel];
@@ -814,16 +846,17 @@
       }, 1000);
     }
   }
-  page.addEventListener('click', e => {
+  function endClick(e) {
     const b = e.target.closest('[data-end]');
-    if (!b || !video) return;
+    if (!b || !video) return false;
     e.stopPropagation();
     stopNext();
     if (b.dataset.end === 'replay') { seekTo(0); video.play().catch(() => {}); }
     else if (b.dataset.end === 'cancel') { const t = $('vidNextIn'); if (t) t.textContent = 'Next'; b.remove(); }
     else if (b.dataset.runI != null) runTo(+b.dataset.runI);
     else openVideo(+b.dataset.vidNext);
-  }, true);
+    return true;
+  }
   document.addEventListener('fullscreenchange', () => {
     const on = !!document.fullscreenElement && document.fullscreenElement === player;
     player?.classList.toggle('full', on);
@@ -836,12 +869,19 @@
     if (!m.hidden && m.dataset.kind === kind) { m.hidden = true; return; }
     m.dataset.kind = kind;
     let items;
-    if (kind === 'speed') items = SPEEDS.map(s => ({ label: s === 1 ? 'Normal' : s + '×', on: video.playbackRate === s, go: () => { video.playbackRate = s; video.defaultPlaybackRate = s; prefs.speed = s; savePrefs(); } }));
+    if (kind === 'more') {
+      // The Studio's (annotations on or off, js/43-studio.js), then the ways out of the page.
+      items = (window.klabPlayerMore?.() || []).concat([
+        { label: 'Make a clip…', hidden: !window.klabClips || cur?.status !== 'ready', go: () => window.klabClips.makeFrom(cur, video.currentTime) },
+        { label: 'Mini player', disabled: !window.klabMini?.canTake?.(), go: () => { if (where === 'page') { const back = view.kind === 'watch' ? 1 : 0; toMini(); if (back && !window.klabNav?.back()) showList({ kind: 'home' }); } } },
+        { label: 'Picture in picture', hidden: !document.pictureInPictureEnabled, go: () => video.requestPictureInPicture().catch(() => {}) },
+      ]).filter(it => !it.hidden);
+    } else if (kind === 'speed') items = SPEEDS.map(s => ({ label: s === 1 ? 'Normal' : s + '×', on: video.playbackRate === s, go: () => { video.playbackRate = s; video.defaultPlaybackRate = s; prefs.speed = s; savePrefs(); } }));
     else {
       const levels = hls?.levels?.length ? hls.levels.map((l, i) => ({ i, height: l.height, width: l.width, frameRate: l.frameRate })) : knownLevels;
       const lv = levels.map(l => ({ ...l, h: Math.min(l.height, l.width || l.height) })).sort((a, b) => b.h - a.h || (b.frameRate || 0) - (a.frameRate || 0));
       const o = cur?.original, ok = canOriginal(cur), onHls = srcKind === 'hls';
-      items = (o ? [{ label: 'Original · ' + rungName(o.height, o.width, o.fps) + (o.bitrate ? ' · ' + mbps(o.bitrate) : '') + (ok ? '' : ' · not supported here'),
+      items = (o ? [{ label: (o.edited ? 'Original (edited) · ' : 'Original · ') + rungName(o.height, o.width, o.fps) + (o.bitrate ? ' · ' + mbps(o.bitrate) : '') + (ok ? '' : ' · not supported here'),
         on: srcKind === 'original', disabled: !ok,
         go: () => { prefs.original = true; savePrefs(); if (srcKind !== 'original') switchTo('original'); } }] : [])
         .concat([{ label: 'Auto', on: onHls && (!hls || hls.autoLevelEnabled), go: () => pickLevel(-1) }])
@@ -891,7 +931,101 @@
     } catch (e) {}
   }
 
-  function leaveWatch() {
+  // ── The mini player and pop out (js/44-mini.js) ──
+  // Soft (going to another view or page while it plays): the player moves
+  // to the mini player, still playing. Hard (another video, a delete, ✕):
+  // it stops, wherever it is.
+  const playing = () => !!video && !video.paused && !video.ended;
+  function miniOpts() {
+    const v = cur;
+    return {
+      el: player, kind: 'video',
+      title: () => v.title || 'Untitled', sub: () => v.username,
+      ctl: {
+        paused: () => !video || video.paused, toggle: () => togglePlay(),
+        back: () => seekTo((video?.currentTime || 0) - 10), fwd: () => seekTo((video?.currentTime || 0) + 10),
+        progress: () => (video && (video.duration || v.duration) ? video.currentTime / (video.duration || v.duration) : 0),
+      },
+      expand: () => { const t = video?.currentTime || 0; openVideo(v.id, t, { keep: true }); },
+      close: () => leaveWatch({ hard: true }),
+      popout: () => popOut(),
+    };
+  }
+  // Moves the player out of the page, leaving a placeholder where it was.
+  function vacate(kind) {
+    const ph = document.createElement('div');
+    ph.className = 'vp vp-away';
+    ph.dataset.away = kind;
+    ph.innerHTML = '<div class="vp-away-tx"><i class="ti ti-picture-in-picture-top"></i><span>' + (kind === 'pip' ? 'Playing in a pop-out window' : 'Playing in the mini player') +
+      '</span><button type="button" class="k-btn sm on-media" data-act="pop-in">Bring it back</button></div>';
+    return ph;
+  }
+  function toMini(from) {
+    if (!player || !window.klabMini) return false;
+    if (document.fullscreenElement && document.fullscreenElement === player) document.exitFullscreen?.();
+    player.querySelector('.vp-menu').hidden = true;
+    const parent = player.parentNode, next = player.nextSibling;
+    const rect = from || (player.isConnected && parent ? player.getBoundingClientRect() : null);
+    if (!window.klabMini.take({ ...miniOpts(), from: rect })) return false;
+    where = 'mini';
+    if (parent && parent !== document.body && page.contains(parent)) parent.insertBefore(vacate('mini'), next);
+    return true;
+  }
+  // Back into the watch view showing (its new player slot, or a placeholder).
+  function homeAgain(at) {
+    const slot = page.querySelector('.vp-away') || $('vidPlayer');
+    if (!slot || slot === player) return;
+    if (where === 'mini') { window.klabMini.give(slot); where = 'page'; }
+    else if (where === 'pip') { slot.replaceWith(vacate('pip')); return; }
+    if (at > 0 && video && Math.abs((video.currentTime || 0) - at) > 2) seekTo(at);
+    wake();
+  }
+  async function popOut() {
+    if (!player || !video || !window.klabMini) return;
+    if (where === 'pip') { window.klabMini.popIn(); return; }
+    const wasMini = where === 'mini';
+    const parent = player.parentNode, next = player.nextSibling;
+    const how = await window.klabMini.popOut({
+      el: player, video, width: player.getBoundingClientRect().width * 0.6, title: cur?.title,
+      keys: e => popKeys(e),
+      back: el => {
+        if (el !== player) return;
+        where = 'page';
+        const slot = page.querySelector('.vp-away[data-away="pip"]');
+        const here = document.body.classList.contains('tab-videos-active');
+        if (slot && here && view.kind === 'watch' && view.id === cur?.id) { slot.replaceWith(el); wake(); }
+        else if (playing() && toMini(null)) { if (slot) slot.replaceWith(vacate('mini')); }
+        else leaveWatch({ hard: true });
+      },
+    });
+    if (how !== 'window') return;
+    if (wasMini) window.klabMini.drop(player);
+    const ph = page.querySelector('.vp-away');
+    if (ph) ph.replaceWith(vacate('pip'));
+    else if (!wasMini && parent && page.contains(parent)) parent.insertBefore(vacate('pip'), next);
+    where = 'pip';
+  }
+  // Keys in the popped-out window: the player's own.
+  function popKeys(e) {
+    const k = e.key;
+    let done = true;
+    if (k === ' ' || k === 'k' || k === 'K') togglePlay();
+    else if (k === 'j' || k === 'J' || k === 'ArrowLeft') seekTo(video.currentTime - (k === 'ArrowLeft' ? 5 : 10));
+    else if (k === 'l' || k === 'L' || k === 'ArrowRight') seekTo(video.currentTime + (k === 'ArrowRight' ? 5 : 10));
+    else if (k === 'm' || k === 'M') player.querySelector('[data-vp="mute"]').click();
+    else done = false;
+    if (done) { e.preventDefault(); wake(); }
+  }
+
+  function leaveWatch(o) {
+    const hard = !!(o && o.hard);
+    // A TV channel on the page goes to the corner the same way (js/40-tv.js).
+    if (!hard) window.klabTvSoftLeave?.();
+    if (!hard && video && where !== 'page') return; // it plays on, elsewhere
+    if (!hard && playing() && window.klabMini?.canTake?.() && toMini()) return;
+    if (where === 'mini') window.klabMini?.drop(player);
+    if (where === 'pip') { const w = where; where = 'page'; if (w) window.klabMini?.popIn(); }
+    where = 'page';
     if (video) { saveProgress(); try { video.pause(); } catch {} }
     if (document.fullscreenElement && document.fullscreenElement === player) document.exitFullscreen?.();
     stopNext();
@@ -905,8 +1039,18 @@
     if (had) window.klabnetDesktop?.trimMemory?.();
   }
 
-  {
-    page.addEventListener('click', e => {
+  function playerClick(e) {
+    if (e.currentTarget !== player) return;
+    if (endClick(e)) return;
+    const row = e.target.closest('.vp-menu-row');
+    if (row) {
+      const m = row.closest('.vp-menu');
+      m._items[+row.dataset.i].go();
+      m.hidden = true;
+      paint();
+      return;
+    }
+    {
       const b = e.target.closest('[data-vp]');
       if (!b || !player || !player.contains(b)) return;
       const k = b.dataset.vp;
@@ -915,25 +1059,18 @@
       else if (k === 'fwd10') seekTo(video.currentTime + 10);
       else if (k === 'mute') { video.muted = !video.muted; if (!video.muted && video.volume === 0) video.volume = 0.5; prefs.muted = video.muted; savePrefs(); player.querySelector('.vp-vol-range').value = video.muted ? 0 : video.volume; }
       else if (k === 'full') toggleFull();
-      else if (k === 'pip') { (document.pictureInPictureElement ? document.exitPictureInPicture() : video.requestPictureInPicture()).catch(() => {}); }
-      else if (k === 'speed' || k === 'quality') { menu(k); return; }
+      else if (k === 'pip') popOut();
+      else if (k === 'speed' || k === 'quality' || k === 'more') { menu(k); return; }
       player.querySelector('.vp-menu').hidden = true;
-    });
-    page.addEventListener('click', e => {
-      const row = e.target.closest('.vp-menu-row');
-      if (!row) return;
-      const m = row.closest('.vp-menu');
-      m._items[+row.dataset.i].go();
-      m.hidden = true;
-      paint();
-    });
+    }
   }
 
   // Keys on the watch page, ahead of the app's own (Space would play music,
   // j/k would scroll). ←/→ seek only with the player focused: elsewhere
   // they're the sidebar's.
   window.addEventListener('keydown', e => {
-    if (!video || !showing() || view.kind !== 'watch' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!video || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (where !== 'page' || !showing() || view.kind !== 'watch') return;
     const el = document.activeElement;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
     if (document.querySelector('.chat-modal-backdrop.open, .chat-modal.open')) return;
@@ -974,6 +1111,8 @@
     const who = e.target.closest('.k-com-name, .k-com-face[data-username]');
     if (who && !who.closest('.k-com-form')) { window.openProfileView?.(who.dataset.username); return; }
     const ord = e.target.closest('[data-order]');
+    const sk = e.target.closest('[data-skind]');
+    if (sk && view.kind === 'search') { if (!!view.clips !== (sk.dataset.skind === 'clip')) showList({ ...view, clips: sk.dataset.skind === 'clip' }, { quiet: true }); return; }
     if (ord && (view.kind === 'channel' || view.kind === 'mine')) { if ((view.sort || 'new') !== ord.dataset.order) showList({ ...view, sort: ord.dataset.order }, { quiet: true }); return; }
     const plc = e.target.closest('.vid-pl-card');
     if (plc) { SFX && SFX.play('nav'); showList({ kind: 'playlist', id: plc.dataset.plId }); return; }
@@ -998,7 +1137,8 @@
     else if (act === 'profile') window.openProfileView?.(b.dataset.user);
     else if (act === 'share' && cur) shareDialog(cur);
     else if (act === 'together' && cur) window.klabRooms?.together(cur);
-    else if (act === 'edit' && cur) editDialog(cur);
+    else if (act === 'edit' && cur) (window.klabOpenStudio ? window.klabOpenStudio(cur.id) : editDialog(cur));
+    else if (act === 'pop-in') { if (where === 'pip') window.klabMini?.popIn(); else if (where === 'mini' && cur) openVideo(cur.id, video?.currentTime || 0, { keep: true }); }
     else if (act === 'delete' && cur) deleteVideo(cur);
     else if (act === 'more') { const d = $('vidDesc'); d.classList.toggle('open'); b.textContent = d.classList.contains('open') ? 'Show less' : 'Show more'; }
   });
@@ -1016,7 +1156,8 @@
       { label: 'Go to channel', icon: 'ti-user', hidden: view.kind === 'channel' && view.user === v.username, action: () => showList({ kind: 'channel', user: v.username }) },
       { label: 'Remove from Continue watching', icon: 'ti-x', hidden: !inContinue && !v.watched, action: () => forget(v) },
       '-',
-      { label: 'Edit video', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
+      { label: 'Studio', icon: 'ti-adjustments-horizontal', hidden: !canEdit(v) || !window.klabOpenStudio || v.status !== 'ready', action: () => window.klabOpenStudio(v.id) },
+      { label: 'Edit details…', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
       { label: 'Delete video', icon: 'ti-trash', danger: true, hidden: !canEdit(v), action: () => deleteVideo(v) },
     ]);
   }
@@ -1082,11 +1223,13 @@
       { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(v), 'Link') },
       { label: 'Copy link at ' + dur(t), icon: 'ti-clock', hidden: t < 2, action: () => klabCopy(linkTo(v, t), 'Link') },
       { label: 'Save to playlist…', icon: 'ti-playlist-add', action: () => setTimeout(() => saveMenu(v, e), 0) },
+      { label: 'Make a clip…', icon: 'ti-scissors', hidden: !window.klabClips || v.status !== 'ready', action: () => window.klabClips.makeFrom(v, t) },
       '-',
       { label: 'Go to channel', icon: 'ti-user', action: () => showList({ kind: 'channel', user: v.username }) },
       { label: 'View profile', icon: 'ti-user-circle', action: () => window.openProfileView?.(v.username) },
       '-',
-      { label: 'Edit video', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
+      { label: 'Studio', icon: 'ti-adjustments-horizontal', hidden: !canEdit(v) || !window.klabOpenStudio || v.status !== 'ready', action: () => window.klabOpenStudio(v.id) },
+      { label: 'Edit details…', icon: 'ti-pencil', hidden: !canEdit(v), action: () => editDialog(v) },
       { label: 'Delete video', icon: 'ti-trash', danger: true, hidden: !canEdit(v), action: () => deleteVideo(v) },
     ]);
   });
@@ -1251,15 +1394,21 @@
         '<button type="button" class="k-icon sm" data-up-stop="' + u.key + '" title="Stop upload" aria-label="Stop upload"><i class="ti ti-x"></i></button></div>';
     }).join('');
   }
-  function startUpload(file, title, description, published) {
+  // opts (js/42-clips.js's uploads): fields (more form fields: kind, game)
+  // and quiet (no toasts; the caller says). Resolves { ok, video, error }.
+  function startUpload(file, title, description, published, opts) {
+    const o = opts || {};
     const fd = new FormData();
     fd.append('file', file); fd.append('title', title); fd.append('description', description);
     if (published) fd.append('published', published);
+    for (const [k, val] of Object.entries(o.fields || {})) fd.append(k, val);
     const xhr = new XMLHttpRequest();
     const u = { key: Math.random().toString(36).slice(2), title, f: 0, xhr };
     uploads.push(u);
     paintUploads();
-    showToast('Uploading “' + title + '”. You can keep browsing', 'ti-upload');
+    if (!o.quiet) showToast('Uploading “' + title + '”. You can keep browsing', 'ti-upload');
+    let settle;
+    const result = new Promise(r => { settle = r; });
     const done = () => { uploads.splice(uploads.indexOf(u), 1); paintUploads(); };
     let paintT = 0;
     xhr.open('POST', API);
@@ -1274,19 +1423,29 @@
       if (xhr.status >= 200 && xhr.status < 300) {
         const v = xhr.response;
         cache.set(v.id, v);
+        settle({ ok: true, video: v });
+        if (o.quiet) return;
         SFX && SFX.play('star');
         showToast('“' + title + '” is up. It’ll be ready to watch in a few minutes', 'ti-movie', 6000, null, null,
           { action: { label: 'Your videos', run: () => { if (!showing()) setActiveTab('videos'); showList({ kind: 'mine' }); } } });
         if (showing() && ['mine', 'home'].includes(view.kind)) showList(view, { quiet: true });
       } else {
         if (xhr.status === 404 || xhr.status === 405) server = false;
+        settle({ ok: false, error: klabCap(xhr.response?.error) || 'error ' + xhr.status });
+        if (o.quiet) return;
         showToast('Couldn’t upload “' + title + '”: ' + (klabCap(xhr.response?.error) || 'error ' + xhr.status), 'ti-alert-triangle');
       }
     };
-    xhr.onerror = () => { done(); showToast('The upload of “' + title + '” didn’t get through', 'ti-alert-triangle'); };
-    xhr.onabort = () => { done(); showToast('Upload stopped', 'ti-x'); };
+    xhr.onerror = () => { done(); settle({ ok: false, error: 'it didn’t get through' }); if (!o.quiet) showToast('The upload of “' + title + '” didn’t get through', 'ti-alert-triangle'); };
+    xhr.onabort = () => { done(); settle({ ok: false, aborted: true }); showToast('Upload stopped', 'ti-x'); };
     xhr.send(fd);
+    return result;
   }
+  // For Clips (js/42-clips.js): the same background uploads, and the
+  // video's own Share and Save to playlist.
+  window.klabVideoUpload = (file, o) => startUpload(file, o.title, o.description || '', o.published || '', o);
+  window.klabVideoShare = v => shareDialog(v);
+  window.klabVideoSave = (v, anchor, e) => saveMenu(v, e, anchor);
   addEventListener('beforeunload', e => { if (uploads.length) { e.preventDefault(); e.returnValue = ''; } });
 
   // A video dropped anywhere on the page.
@@ -1345,7 +1504,7 @@
         if (thumb) { const fd = new FormData(); fd.append('file', thumb); nv = await getJSON(API + '/' + v.id + '/poster', { method: 'PUT', body: fd }, 60000); }
         cache.set(nv.id, nv);
         closeChatModal();
-        if (cur && cur.id === v.id) {
+        if (cur && cur.id === v.id && view.kind === 'watch' && page.querySelector('.vid-title')) {
           const t = video ? video.currentTime : 0, playing = video && !video.paused;
           Object.assign(cur, nv);
           // Only the words and the poster changed: the player stays.
@@ -1752,10 +1911,16 @@
         const l = window.klabVideoLink; window.klabVideoLink = null;
         if (l.playlist) showList({ kind: 'playlist', id: l.playlist }); else openVideo(l.id, l.at);
       }
+      // Back on the video that's in the mini player: it comes home.
+      if (where === 'mini' && view.kind === 'watch' && cur && view.id === cur.id && page.querySelector('.vp-away')) homeAgain(0);
       loadPlaylists();
       watchProcessing();
     } else {
-      if (video && !video.paused && !document.pictureInPictureElement) video.pause();
+      // Playing: on in the mini player (Settings → General), else it stops
+      // (picture in picture aside).
+      if (video && where === 'page' && view.kind === 'watch') {
+        if (!(playing() && window.klabMini?.canTake?.() && toMini())) { if (!video.paused && !document.pictureInPictureElement) video.pause(); }
+      }
       saveProgress();
       clearTimeout(procTimer);
     }
