@@ -77,7 +77,8 @@
       const post = !e.target.closest('a, button, img, .md-spoiler') && e.target.closest('[data-pf-post]');
       if (post) { close(); window.klabFeedFocus?.(+post.dataset.pfPost); return; }
       const act = e.target.closest('[data-pf-act]')?.dataset.pfAct;
-      if (act === 'message') { close(); messageUser(who); }
+      if (act === 'message') { close(); window.klabCalls ? window.klabCalls.message(who) : messageUser(who); }
+      else if (act === 'call') { close(); window.klabCalls?.dial(who); }
       else if (act === 'edit') { close(); openProfileModal(); }
       else if (act === 'note') { close(); window.klabEditNote?.(); }
     });
@@ -191,11 +192,12 @@
         <div class="pf-face" style="--c:${profileColor(who)}">${face ? `<img src="${esc(face)}" alt="">` : esc((who[0] || '?').toUpperCase())}</div>
         <div class="pf-names">
           <h1 class="pf-name">${esc(name)}</h1>
-          <div class="pf-sub">@${esc(who)} · <span class="pf-state${p.online ? (p.away ? ' away' : ' on') : ''}">${esc(state)}</span>${p.platformInfo?.[1] ? ' · ' + esc(p.platformInfo[1]) : ''}</div>
+          <div class="pf-sub">@${esc(who)}${window.klabExt?.(who) ? ' · ext ' + window.klabExt(who) : ''} · <span class="pf-state${p.online ? (p.away ? ' away' : ' on') : ''}">${esc(state)}</span>${p.platformInfo?.[1] ? ' · ' + esc(p.platformInfo[1]) : ''}</div>
         </div>
         <div class="pf-actions">${me
           ? '<button type="button" class="k-btn" data-pf-act="note"><i class="ti ti-message-circle"></i>Set a note</button><button type="button" class="k-btn primary" data-pf-act="edit"><i class="ti ti-pencil"></i>Edit profile</button>'
-          : '<button type="button" class="k-btn primary" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>'}</div>
+          : (window.klabCalls?.enabled?.() ? '<button type="button" class="k-btn" data-pf-act="call"><i class="ti ti-phone"></i>Call</button>' : '') +
+            '<button type="button" class="k-btn primary" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>'}</div>
       </div>
       ${p.note ? `<div class="pf-note">${esc(p.note)}</div>` : ''}
       ${prof.bio ? `<p class="pf-bio">${esc(prof.bio)}</p>` : ''}

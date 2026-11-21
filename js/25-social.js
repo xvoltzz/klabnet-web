@@ -51,8 +51,8 @@
   //     with ‹ ›, every line something to react to and reply under
   //     (GET /api/posts/week, routers/week.py).
   //   · Unread messages, then a few posts from the Feed.
-  const body = $('socHomeBody'), sub = $('socHomeSub');
-  if (!body) return;
+  // (Social's Browse page is gone: these are built detached, see the foot.)
+  const body = $('socHomeBody') || document.createElement('div'), sub = $('socHomeSub') || document.createElement('span');
   const me = () => window.KLAB_USER?.username || '';
   let active = false;
   const apiTime = s => {
@@ -708,7 +708,7 @@
     }
     // From the recap: that week, that line, its replies open.
     window.klabOpenWeek = (start, line) => {
-      setActiveTab('social');
+      openWeekSheet();
       const w = start && start !== nowWeek() ? start : '';
       if (line) { open.add(line); focusLine = line; }
       if (w !== want || !data) { want = w; data = null; render(); load(true); }
@@ -816,41 +816,70 @@
     if (active) feed.render(window.klabFeedPosts?.(feed.max) || list);
   };
 
-  // Together, This week, then unread messages and a few posts.
-  body.append(together.el, week.el, unread.head, unread.el, feed.head, feed.el);
+  // Where these show (2026-11-20, the owner: "def get rid of the browse
+  // tab on social", then Home made "minimal" with a purpose): Together on
+  // Home (js/33-plaza.js mounts klabTogether.el and says when it shows),
+  // This week in a sheet over the page (klabOpenWeek, the recap's rows).
+  // Unread messages and From the feed aren't shown anywhere; they're kept,
+  // built into a detached body, ready to be mounted again.
+  body.append(unread.head, unread.el, feed.head, feed.el);
 
   function paintSub() {
     const n = window.KLAB_ONLINE_USERNAMES?.size || 0;
     sub.textContent = n ? n + ' online' : '';
   }
-  // Rooms change by the moment (every 5s while showing); the week, the
-  // feed and unread more slowly. The running clocks tick once a second
-  // (no redraw; paused with the window idle or hidden).
-  let poll = 0, tick = 0, slow = 0;
+  // Rooms change by the moment (every 5s while Home shows them); the week
+  // more slowly. The running clocks tick once a second (no redraw; paused
+  // with the window idle or hidden).
+  let poll = 0, tick = 0, slow = 0, homeOn = false, weekOn = false;
   function refresh() {
-    if (!active || document.hidden) return;
+    if (!homeOn || document.hidden) return;
     together.load();
-    unread.render();
-    paintSub();
   }
-  function refreshSlow() {
-    if (!active || document.hidden) return;
-    week.load();
-    feed.load();
-  }
-  window.klabSocialTabChanged = show => {
-    if (show === active) return;
-    active = show;
+  function sync() {
+    active = homeOn || weekOn;
     clearInterval(poll); clearInterval(tick); clearInterval(slow);
-    if (active) {
-      together.render(); week.render();
-      refresh(); refreshSlow();
+    if (homeOn) {
+      together.render(); refresh();
       poll = setInterval(refresh, 5000);
-      slow = setInterval(refreshSlow, 60e3);
       tick = setInterval(together.step, 1000);
     }
-  };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); } });
-  // Loaded straight onto #social: the tab was set before this file was.
-  if (on('social')) window.klabSocialTabChanged(true);
+    if (weekOn) {
+      week.render(); week.load();
+      slow = setInterval(() => { if (!document.hidden) week.load(); }, 60e3);
+    }
+  }
+  window.klabTogether = { el: together.el, shown: on => { if (!!on !== homeOn) { homeOn = !!on; sync(); } }, count: together.count, load: together.load };
+  // Nothing calls this any more (Social has no Browse); kept harmless.
+  window.klabSocialTabChanged = () => {};
+
+  // ── This week, as a sheet ──
+  let weekSheet = null, popWeek = null;
+  function openWeekSheet() {
+    if (!weekSheet) {
+      weekSheet = document.createElement('div');
+      weekSheet.className = 'add-app-backdrop wk-sheet-back';
+      weekSheet.innerHTML = '<div class="add-app-modal wk-sheet" role="dialog" aria-modal="true" aria-label="This week on klabnet" tabindex="-1">' +
+        '<button type="button" class="k-icon sm wk-sheet-close" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>' +
+        '<div class="wk-sheet-body"></div></div>';
+      document.body.appendChild(weekSheet);
+      weekSheet.addEventListener('click', e => { if (e.target === weekSheet || e.target.closest('.wk-sheet-close')) closeWeekSheet(); });
+    }
+    weekSheet.querySelector('.wk-sheet-body').appendChild(week.el);
+    if (!weekSheet.classList.contains('open')) {
+      weekSheet.classList.add('open');
+      SFX?.play('sheet');
+      popWeek = window.klabLayers?.push(weekSheet, { kind: 'sheet', dim: true, close: closeWeekSheet });
+      weekSheet.querySelector('.wk-sheet').focus({ preventScroll: true });
+    }
+    weekOn = true; sync();
+  }
+  function closeWeekSheet() {
+    if (!weekSheet?.classList.contains('open')) return;
+    weekSheet.classList.remove('open');
+    SFX?.play('sheet_close');
+    popWeek?.(); popWeek = null;
+    weekOn = false; sync();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 })();

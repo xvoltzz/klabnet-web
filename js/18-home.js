@@ -1,15 +1,16 @@
 // ══════════════════════════════════════════
-//  HOME: who's here (js/33-plaza.js) and what's changed.
-//    · Changelog: the newest commits to klabnet (klabnet-api's
-//      /api/changes asks Gitea for them), a day at a time, each one open to
-//      its whole message (and closable).
+//  WHAT'S NEW: the changelog, in a sheet from Settings → About (it was on
+//  Home until Home went minimal, 2026-11-20).
+//    · The newest commits to klabnet (klabnet-api's /api/changes asks
+//      Gitea for them), a day at a time, each one open to its whole
+//      message (and closable).
 //    · The version and a link to the source at the foot.
-//  It only fetches while Home is showing. Dates are Eastern, where
+//  It only fetches while the sheet is open. Dates are Eastern, where
 //  everyone is.
 // ══════════════════════════════════════════
 (function() {
-  const page = document.getElementById('homePage');
-  if (!page) return;
+  const row = document.getElementById('settingsWhatsNew');
+  if (!row) return;
   const $ = id => document.getElementById(id);
   const TZ = 'America/New_York';
   const REFRESH_MS = 5 * 60e3;
@@ -46,6 +47,7 @@
   };
   function paintChanges() {
     const el = $('hpChanges');
+    if (!el) return;
     if (!commits) {
       // Only a 502 from klabnet-api is Gitea itself not answering; the
       // rest is klabnet-api (or the way to it), so it says that instead.
@@ -104,23 +106,45 @@
   }
 
   function paintFoot() {
+    if (!$('hpFoot')) return;
     const newest = commits?.[0];
     $('hpFoot').innerHTML = 'klabnet ' + esc(KLABNET_VERSION) +
       (newest ? ' &middot; last updated ' + esc(klabRelativeTime(when(newest.date))) : '') +
       ' &middot; <a href="https://git.klab.gg/xvoltzz/klabnet-web" target="_blank" rel="noopener">source</a>';
   }
 
-  function refresh() {
-    if (!active || document.hidden) return;
-    loadChanges();
-  }
-  window.klabHomeTabChanged = show => {
-    if (show === active) return;
-    active = show;
+  // ── The sheet ──
+  let sheet = null, pop = null;
+  function close() {
+    if (!sheet?.classList.contains('open')) return;
+    sheet.classList.remove('open');
+    SFX?.play('sheet_close');
+    pop?.(); pop = null;
+    active = false;
     clearInterval(timer);
-    if (active) { refresh(); timer = setInterval(refresh, 60e3); }
-  };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  paintFoot();
-  if (document.body.classList.contains('tab-home-active')) window.klabHomeTabChanged(true);
+  }
+  function open() {
+    if (!sheet) {
+      sheet = document.createElement('div');
+      sheet.className = 'add-app-backdrop hp-sheet-back';
+      sheet.innerHTML = '<div class="add-app-modal hp-sheet" role="dialog" aria-modal="true" aria-labelledby="hpNewTitle" tabindex="-1">' +
+        '<div class="add-app-title"><span id="hpNewTitle">What’s new</span><button type="button" class="k-icon sm add-app-close" title="Close" aria-label="Close"><i class="ti ti-x"></i></button></div>' +
+        '<div class="hp-log" id="hpChanges"><p class="hp-note">Loading&hellip;</p></div>' +
+        '<footer class="hp-foot" id="hpFoot"></footer></div>';
+      document.body.appendChild(sheet);
+      sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('.add-app-close')) close(); });
+      if (commits) paintChanges();
+      paintFoot();
+    }
+    sheet.classList.add('open');
+    SFX?.play('sheet');
+    pop = window.klabLayers?.push(sheet, { kind: 'dialog', dim: true, close });
+    sheet.querySelector('.hp-sheet').focus({ preventScroll: true });
+    active = true;
+    loadChanges();
+    clearInterval(timer);
+    timer = setInterval(() => { if (active && !document.hidden) loadChanges(); }, 60e3);
+  }
+  row.addEventListener('click', open);
+  window.klabWhatsNew = open;
 })();

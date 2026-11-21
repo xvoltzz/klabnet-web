@@ -198,9 +198,10 @@ function addToPlayHistory(song) {
 }
 
 // ══════════════════════════════════════════
-//  FAVORITES — a hub: the albums, artists and playlists you keep, then
-//  your songs (with Play and Shuffle). A section with nothing in it isn't
-//  shown.
+//  FAVORITES — Songs, Albums, Artists (and Saved playlists when there are
+//  any) as a switch along the top (owner, 2026-11-20: wanted them
+//  separated again), each with its count; the choice is kept per device
+//  (klabnet_fav_view). Songs has Play, Shuffle and a find box.
 // ══════════════════════════════════════════
 let _favSig = '', _favRedrawT = 0;
 const _favSigNow = () => [getFavorites().length, klabFavAlbums.list().length, klabFavArtists.list().length,
@@ -232,16 +233,51 @@ function renderFavoritesView(redraw) {
     hideSortBtn();
     return;
   }
-  if (albums.length && cards) pickerList.appendChild(cards.row('Albums', albums.map(cards.album), null, albums.length));
-  if (artists.length && cards) pickerList.appendChild(cards.row('Artists', artists.map(cards.artist), null, artists.length));
-  if (pls.length && cards) pickerList.appendChild(cards.row('Saved playlists', pls.map(p => window.klabPlaylists.card(p)), null, pls.length));
-  if (!songs.length) { hideSortBtn(); return; }
+  // The switch. A kind with nothing in it is still offered (except
+  // playlists), with an empty line, so the three are always where you
+  // left them.
+  const kinds = [['songs', 'Songs', songs.length], ['albums', 'Albums', albums.length], ['artists', 'Artists', artists.length]];
+  if (pls.length) kinds.push(['playlists', 'Playlists', pls.length]);
+  let want = 'songs';
+  try { want = localStorage.getItem('klabnet_fav_view') || 'songs'; } catch (e) {}
+  if (!kinds.some(k => k[0] === want)) want = 'songs';
+  // Nothing in the kept one but something elsewhere: show what there is.
+  if (!kinds.find(k => k[0] === want)[2]) want = (kinds.find(k => k[2]) || kinds[0])[0];
+  const seg = document.createElement('div');
+  seg.className = 'k-seg fav-seg';
+  seg.setAttribute('role', 'tablist');
+  seg.innerHTML = kinds.map(([k, label, n]) =>
+    `<button type="button" role="tab" data-fav-kind="${k}" aria-selected="${k === want}" aria-pressed="${k === want}">${label}<span class="k-count">${n ? n.toLocaleString() : ''}</span></button>`).join('');
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('[data-fav-kind]');
+    if (!b || b.getAttribute('aria-pressed') === 'true') return;
+    try { localStorage.setItem('klabnet_fav_view', b.dataset.favKind); } catch (e2) {}
+    SFX && SFX.play('click');
+    renderFavoritesView(true);
+    pickerList.scrollTop = 0;
+  });
+  pickerList.appendChild(seg);
+  const grid = (items, empty) => {
+    if (!items.length) { pickerList.insertAdjacentHTML('beforeend', `<div class="k-empty fav-empty-kind">${empty}</div>`); return; }
+    const g = document.createElement('div');
+    g.className = 'fav-grid';
+    items.forEach(c => g.appendChild(c));
+    pickerList.appendChild(g);
+  };
+  if (want !== 'songs') {
+    hideSortBtn();
+    if (want === 'albums') grid(cards ? albums.map(cards.album) : [], 'No favorite albums yet. Use the ♥ on an album.');
+    else if (want === 'artists') grid(cards ? artists.map(cards.artist) : [], 'No favorite artists yet. Use the ♥ on an artist.');
+    else grid(pls.map(p => window.klabPlaylists.card(p)), '');
+    return;
+  }
+  if (!songs.length) { pickerList.insertAdjacentHTML('beforeend', '<div class="k-empty fav-empty-kind">No favorite songs yet. Use the ♥ on a song.</div>'); hideSortBtn(); return; }
 
   // Songs: a label with Play, Shuffle and a find box beside it.
   const sorted = applySort(songs, 'favorites');
   const head = document.createElement('div');
   head.className = 'fav-songs-head';
-  head.innerHTML = `<div class="picker-section-label">Songs <span class="k-count">${songs.length.toLocaleString()}</span></div>
+  head.innerHTML = `<div></div>
     <div class="fav-songs-actions">
       <label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"></label>
       <button type="button" class="k-btn sm" data-fav-shuffle><i class="ti ti-arrows-shuffle"></i>Shuffle</button>

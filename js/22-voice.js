@@ -248,12 +248,13 @@
       : micProblem === 'missing' ? ['Listening only', 'No microphone found', 'warn']
       : quality === 'lost' ? ['Connection lost', joined.name, 'bad']
       : quality === 'poor' ? ['Weak connection', joined.name, 'warn']
+      : joined.call ? ['In a call', 'with ' + joined.with + (S.mode === 'ptt' ? ' · push to talk' : ''), 'ok']
       : ['Voice connected', joined.name + (S.mode === 'ptt' ? ' · push to talk' : ''), 'ok'];
     panel.dataset.tone = tone;
     $('vcStatusHead').textContent = head;
     $('voiceNowLabel').textContent = sub;
     const info = $('vcNowInfo');
-    info.title = 'Open ' + joined.name + (QUALITY[quality] && phase === 'live' ? ' · connection ' + QUALITY[quality].toLowerCase() : '');
+    info.title = (joined.call ? 'The call with ' : 'Open ') + joined.name + (QUALITY[quality] && phase === 'live' ? ' · connection ' + QUALITY[quality].toLowerCase() : '');
     info.setAttribute('aria-label', head + ', ' + sub + '. Open the channel');
     const m = showMuted();
     micBtn.classList.toggle('muted', m);
@@ -268,6 +269,9 @@
     deaf.setAttribute('aria-label', deafened ? 'Undeafen' : 'Deafen');
     deaf.querySelector('i').className = deafened ? 'ti ti-headphones-off' : 'ti ti-headphones';
     micBtn.disabled = deaf.disabled = phase === 'joining';
+    const leaveBtn = $('vcLeave');
+    leaveBtn.title = joined.call ? 'Hang up' : 'Disconnect';
+    leaveBtn.setAttribute('aria-label', leaveBtn.title);
     // Sharing: lit while you are (it's live: the accent, not mute's red).
     const shareBtn = $('vcShare'), on = sharingNow();
     shareBtn.hidden = !canShare();
@@ -282,6 +286,7 @@
   // Your channel in Social's sidebar (Chat shows the voice group).
   function showChannel() {
     if (!joined) return;
+    if (joined.call) { window.klabCalls?.show?.(); return; }
     sfx('nav');
     if (typeof setActiveTab === 'function') setActiveTab('chat');
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -306,10 +311,11 @@
       { label: others.length === 1 ? 'Watch ' + others[0].username + '’s screen' : 'Watch shared screens', icon: 'ti-eye', hidden: !others.length,
         action: () => openStage(others.length === 1 ? others[0].username : '') },
       '-',
-      { label: 'Open channel', icon: 'ti-volume', action: showChannel },
+      { label: joined?.call ? 'Show the call' : 'Open channel', icon: joined?.call ? 'ti-phone' : 'ti-volume', action: showChannel },
+      { label: 'Dialer', icon: 'ti-dialpad', hidden: !window.klabCalls?.enabled?.(), action: () => window.klabCalls.openDialer() },
       { label: 'Voice settings', icon: 'ti-settings', action: openVoiceSettings },
       '-',
-      { label: 'Disconnect', icon: 'ti-phone-off', danger: true, action: () => leave() },
+      { label: joined?.call ? 'Hang up' : 'Disconnect', icon: 'ti-phone-off', danger: true, action: () => leave() },
     ];
   }
   panel.addEventListener('contextmenu', e => {
@@ -905,6 +911,8 @@
 
   // ── Joining and leaving ──
   function reset() {
+    // Out of a call's room, for whatever reason: js/46-calls.js hangs up.
+    if (joined?.call) { const id = joined.callId; setTimeout(() => window.dispatchEvent(new CustomEvent('klab:call-left', { detail: { id } })), 0); }
     room = null; joined = null; phase = 'idle';
     pttHeld = false; deafened = false; micProblem = ''; needsClick = false;
     speaking = new Set(); volOpen = ''; lastAttrs = '';
@@ -965,8 +973,11 @@
     r.on(E.Disconnected, mine(reason => {
       if (phase === 'joining') return;
       const R = LK.DisconnectReason || {};
+      const wasCall = !!joined?.call;
       reset();
       sfx('close');
+      // A call's end is js/46-calls.js's to tell.
+      if (wasCall) { render(); return; }
       showToast(
         reason === R.DUPLICATE_IDENTITY ? 'Voice moved to your other device'
         : reason === R.ROOM_DELETED ? 'That channel was deleted'
@@ -976,25 +987,38 @@
     }));
   }
 
+  // A call (js/46-calls.js) goes through here too: opts.call is
+  // { id, with, token() → { url, token } }, and its room is the call's own.
+  // Everything else (the panel, mute, deafen, sharing, the stage, the
+  // microphone rule) is the same.
   async function join(id, opts) {
-    const ch = info.channels.find(c => c.id === id);
+    const call = opts?.call || null;
+    const ch = call ? { id: 'call:' + call.id, name: call.with, call: true, callId: call.id, with: call.with }
+      : info.channels.find(c => c.id === id);
     if (ch && opts?.watch && room && joined?.id === id && phase !== 'joining') { openStage(); return; }
-    if (!ch || phase === 'joining' || (room && joined?.id === id)) return;
+    if (!ch || phase === 'joining' || (room && joined?.id === ch.id)) return;
+    // One at a time: leaving a call for a channel asks first.
+    if (!call && room && joined?.call && !opts?.force) {
+      if (!(await window.klabCalls?.confirmSwitch?.('channel', ch.name))) return;
+    }
     if (room) await leave({ quiet: true });
     const seq = ++joinSeq;
-    joined = { id: ch.id, name: ch.name };
+    joined = call ? { ...ch } : { id: ch.id, name: ch.name };
     phase = 'joining';
     render();
     let r = null;
     try {
-      const [lib, res] = await Promise.all([
+      const [lib, t] = await Promise.all([
         loadLib(),
-        fetchTimeout('/api/voice/token', {
+        call ? call.token() : fetchTimeout('/api/voice/token', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: id }),
-        }, 8000),
+        }, 8000).then(async res => {
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok || !d.token) throw new Error(d.error || 'the server said no');
+          return d;
+        }),
       ]);
-      const t = await res.json().catch(() => ({}));
-      if (!res.ok || !t.token) throw new Error(t.error || 'the server said no');
+      if (!t?.token) throw new Error('the server said no');
       if (seq !== joinSeq) return;
       LK = lib;
       r = new LK.Room({
@@ -1028,7 +1052,7 @@
       render();
       // LiveKit's own words for an unreachable server aren't worth reading.
       const why = String(e?.message || '');
-      showToast("Couldn't join " + ch.name + ': ' + (!why || /signal|fetch|websocket|timed? ?out|abort/i.test(why)
+      showToast((call ? "Couldn't connect the call with " : "Couldn't join ") + ch.name + ': ' + (!why || /signal|fetch|websocket|timed? ?out|abort/i.test(why)
         ? "the voice server isn't answering" : why), 'ti-headset', 6000);
     }
   }
@@ -1260,6 +1284,8 @@
   // For the desktop apps (a tray item, a global mute key) and the console.
   window.klabVoice = {
     join, leave, toggleMute, toggleDeafen, refresh,
+    // A call's room (js/46-calls.js): { id, with, token() }.
+    joinCall: call => join(null, { call }),
     // Screens: share(mode 'smooth'|'sharp'), stopShare(), watch(username?) opens the stage.
     share: startShare, stopShare, watch: u => openStage(u || ''), closeStage: () => closeStage(),
     // Where someone is in voice ({ channel, id, sharing } or null), and two

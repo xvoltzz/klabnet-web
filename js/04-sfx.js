@@ -140,6 +140,22 @@ const SFX = (() => {
     }
     return _noise;
   }
+  // Plain sines, for the phone's own sounds (js/46-calls.js): DTMF keys
+  // and the ringback. Soft edges so nothing clicks; straight to the dry bus.
+  function tone(freqs, dur, vel, at) {
+    const c = getCtx();
+    const t = c.currentTime + (at || 0) + 0.005;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vel, t + 0.012);
+    g.gain.setValueAtTime(vel, t + Math.max(0.013, dur - 0.04));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.connect(dry);
+    freqs.forEach(f => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur + 0.02); });
+  }
+  const DTMF = { 1: [697, 1209], 2: [697, 1336], 3: [697, 1477], 4: [770, 1209], 5: [770, 1336], 6: [770, 1477],
+    7: [852, 1209], 8: [852, 1336], 9: [852, 1477], '*': [941, 1209], 0: [941, 1336], '#': [941, 1477] };
+
   // Soft airy swell (filtered noise), for panels opening and closing.
   function air(from, to, vel, dur, at) {
     const c = getCtx();
@@ -330,11 +346,20 @@ const SFX = (() => {
     send:     () => { air(600, 2200, 0.03, 0.14); note(N.D4, 0.42, 0.14, 0, { bright: 0.8 }); note(N.A4, 0.46, 0.24, 0.035, { tine: 1.3 }); },
     receive:  from => { const m = motif(from).notes[0]; note(m + 12, 0.6, 0.45, 0, { bright: 0.8, tine: 1.2 }); note(m, 0.4, 0.35, 0.02, { bright: 0.5, tine: 0 }); },
     scratch:  o => scratch(o),
+    // Calls (js/46-calls.js). ring: someone's calling you, a warm two-note
+    // phrase played every few seconds while it rings (a notification sound:
+    // off with notification sounds and in do not disturb). ringback: what
+    // the caller hears while it rings, quiet. dtmf: the dialer's keys.
+    ring:     () => { [N.D5, N.A5, N.Fs5, N.D6].forEach((m, i) => note(m, 0.34, 0.55, i * 0.13, { tine: 0.8 }));
+                      [N.D5, N.A5, N.Fs5, N.D6].forEach((m, i) => note(m, 0.26, 0.55, 0.75 + i * 0.13, { tine: 0.8 })); },
+    ringback: () => { tone([440, 480], 1.1, 0.05); },
+    dtmf:     key => { const f = DTMF[key]; if (f) tone(f, 0.11, 0.07); },
+    hangup:   () => { tone([480, 620], 0.16, 0.05); tone([480, 620], 0.16, 0.05, 0.24); },
     dm:       from => person(from, 'dm'),
     message:  from => person(from, 'message'),
     mention:  from => person(from, 'mention'),
   };
-  const NOTIF = new Set(['notify', 'dm', 'message', 'mention']);
+  const NOTIF = new Set(['notify', 'dm', 'message', 'mention', 'ring']);
 
   function play(type, from) {
     try { (SOUNDS[type] || (() => {}))(from); } catch (e) { /* audio not available */ }

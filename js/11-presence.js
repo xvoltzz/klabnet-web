@@ -573,6 +573,8 @@
       room: l?.room || null,
       // Streaming ({title, game, started}; js/45-live.js).
       live: l?.live || null,
+      // On a call (js/46-calls.js; the API says only that, not with whom).
+      call: !!l?.call,
     };
   };
   // Everyone online but you, as the last poll said (Social's Together).

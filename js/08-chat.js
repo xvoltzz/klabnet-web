@@ -3620,11 +3620,15 @@ function syncChatHead() {
       sub = `<span>${p.away ? esc(p.away) : p.online ? 'Online' : 'Offline'}</span>` + (p.note ? `<span class="chat-head-note">“${esc(p.note)}”</span>` : '');
     }
     if (p.song && p.note) sub += `<span class="chat-head-note">“${esc(p.note)}”</span>`;
+    // Their extension (js/46-calls.js), and a call button beside Profile.
+    const ext = window.klabExt?.(other);
+    if (ext) sub += `<span class="chat-head-ext">ext ${ext}</span>`;
     tint = color;
     html = back +
       `<span class="chat-head-face" style="--c:${color}">${face ? `<img src="${esc(face)}" alt="" />` : esc((other[0] || '?').toUpperCase())}${p.online ? `<span class="chat-channel-online-dot${p.away ? ' away' : ''}"></span>` : ''}</span>` +
       `<div class="chat-head-who"><h2 style="color:${color}">${esc(room.name || other)}</h2><div class="chat-head-sub">${sub}</div></div>` +
       (p.song ? `<button type="button" class="chat-head-btn" data-listen="${esc(other)}"><i class="ti ti-headphones"></i>Listen along</button>` : '') +
+      (window.klabCalls?.enabled?.() ? `<button type="button" class="chat-icon-btn" data-call="${esc(other)}" title="Call ${esc(other)}"><i class="ti ti-phone"></i></button>` : '') +
       `<button type="button" class="chat-icon-btn" data-profile="${esc(other)}" title="Profile"><i class="ti ti-user-circle"></i></button>`;
   } else {
     let topic = '';
@@ -3655,6 +3659,8 @@ document.getElementById('chatHead')?.addEventListener('click', e => {
   if (e.target.closest('[data-chat-back]')) { setChatMobileView('rooms'); return; }
   const listen = e.target.closest('[data-listen]');
   if (listen) { window.klabListenAlong?.(listen.dataset.listen); return; }
+  const callBtn = e.target.closest('[data-call]');
+  if (callBtn) { window.klabCalls?.dial(callBtn.dataset.call); return; }
   const prof = e.target.closest('[data-profile]');
   if (prof && typeof openProfileView === 'function') openProfileView(prof.dataset.profile);
 });

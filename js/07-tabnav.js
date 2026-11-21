@@ -11,6 +11,9 @@ const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos', 'videos'];
 // keeps working; the app's nav has one Social button for the three, and it
 // lands on Social's home. Photos was one of them until 2026-11-19; it and
 // Videos are pages of their own now, in the same kind of shell.
+// Social's front is Contacts (the tab key stays 'social', js/47-contacts.js).
+// What was its Browse is gone (2026-11-20): Together is on Home, This week
+// a sheet (js/25-social.js).
 const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social' };
 // The pages laid out as a sidebar shell beside the page (.soc-shell):
 // full height, scrolling inside (body.tab-shell, "SOCIAL" in css/app.css).
@@ -130,7 +133,7 @@ function setActiveTab(key) {
     if (PANEL_SCROLLS.has(key)) { window.scrollTo(0, 0); tabPanel(key).scrollTop = _tabScroll[key] || 0; }
     else window.scrollTo(0, _tabScroll[key] || 0);
   }
-  if (typeof window.klabSocialTabChanged === 'function') { const on = key === 'social'; afterSwitchPaints(() => window.klabSocialTabChanged(on)); }
+  if (typeof window.klabContactsTabChanged === 'function') { const on = key === 'social'; afterSwitchPaints(() => window.klabContactsTabChanged(on)); }
   if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.

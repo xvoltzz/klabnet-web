@@ -98,6 +98,8 @@
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
       // This week on klabnet (Social): a line about you, or a thread you're in.
       else if (i.kind === 'week-react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = esc('to This week’s ' + (i.on || 'line')); }
+      // A missed call (js/46-calls.js): pressing it calls back.
+      else if (i.kind === 'call') { out.push({ at, html: row({ act: 'call', data: i.who[0], u: i.who[0], html: 'Missed call from ' + who(i.who[0]), sub: i.outcome === 'dnd' ? 'While you had do not disturb on' : 'Press to call back', at, fresh }) }); continue; }
       else if (i.kind === 'week-reply') { html = names(i.who) + ' replied to This week’s ' + esc(i.on || 'line'); sub = esc(i.text || ''); }
       else continue;
       if (i.kind.startsWith('week-')) { out.push({ at, html: row({ act: 'week', data: i.week + '|' + i.line, u: i.who[0], html, sub, at, fresh }) }); continue; }
@@ -145,6 +147,7 @@
     else if (act === 'live') window.klabLive?.open(d);
     else if (act === 'video') window.klabOpenVideo?.(+d);
     else if (act === 'clips') { if (window.klabClips) window.klabClips.show(); else setActiveTab('videos'); }
+    else if (act === 'call') { if (window.klabCalls) window.klabCalls.dial(d); }
     else if (act === 'week') { const [w, l] = String(d).split('|'); window.klabOpenWeek?.(w, l); }
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
     else if (act === 'radio') { setActiveTab('music'); setTimeout(() => { document.querySelector('.music-nav .picker-tab[data-tab="radio"]')?.click(); window.klabRadio?.tune?.(d); }, 60); }

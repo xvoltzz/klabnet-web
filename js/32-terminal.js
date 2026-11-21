@@ -172,6 +172,8 @@
     }, 4));
     // Clips of a game (js/42-clips.js): "Clips · Elden Ring".
     (window.klabClips?.entries?.() || []).forEach(o => add(o, 3));
+    // The dialer and recent calls (js/46-calls.js).
+    (window.klabCalls?.entries?.() || []).forEach(o => add(o, 8));
     // People: the profile; Alt+Enter, a message.
     const me = window.KLAB_USER?.username;
     const roster = [...new Set([...(window.klabRoster?.() || []), ...(window.klabPeople?.() || [])])].filter(u => u && u !== 'anonymous' && !u.endsWith('-bot'));
