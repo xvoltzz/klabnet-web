@@ -7222,7 +7222,10 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
 
     /* ── Switches and focus: the system accent ── */
     html.klabnet-app[data-platform="darwin"] .s-toggle.on { background: var(--mac-accent); border-color: transparent; box-shadow: none; }
-    html.klabnet-app[data-platform="darwin"] :is(button, input, textarea, [tabindex]):focus-visible {
+    /* Not text fields (ONE FOCUS lights their box) and not a dialog that
+       takes focus itself (tabindex="-1": Settings drew a 3px ring round
+       its whole sheet). */
+    html.klabnet-app[data-platform="darwin"] :is(button, [tabindex]:not([tabindex="-1"])):focus-visible {
       outline: 3px solid color-mix(in srgb, var(--mac-accent) 55%, transparent); outline-offset: 1px;
     }
     /* Settings and dialogs read in the system font, like System Settings. */
@@ -13209,3 +13212,15 @@ html[data-fx="low"] .toast-item { -webkit-backdrop-filter: none; backdrop-filter
    "Loading…" first (owner: "should never feel sluggish, especially on LAN"). */
 [data-wait] { animation: kWait 180ms ease 300ms both; }
 @keyframes kWait { from { opacity: 0; } }
+
+/* The sidebar's foot stays put (2.0 pass, found on the Mac): with a page's
+   tree unfolded (Music's sections, Chat's lists) the whole sidebar used to
+   scroll, pushing the player, Settings and your name below the window.
+   Now only the tree scrolls, above the foot. */
+html[data-nav] #sideNav { overflow: hidden; }
+html[data-nav] #sideNav #tabNav.tab-nav {
+  flex: 1 1 auto; min-height: 0; overflow: hidden auto;
+  scrollbar-width: none; overscroll-behavior: contain;
+}
+html[data-nav] #sideNav #tabNav.tab-nav::-webkit-scrollbar { display: none; }
+html[data-nav] #sideNav .side-nav-foot { flex: none; }
