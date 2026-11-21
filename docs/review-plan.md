@@ -129,3 +129,38 @@ Look especially at:
 - **An API older than the site:** 404/405 handled everywhere.
 
 Count timers, intervals and listeners before and after visiting each page several times.
+
+---
+
+# Features to build next (after the reviews)
+
+The owner picked two of the ideas from 2026-11-20. Build them after reviews A to C, one at a time, the same way. Follow "How to work" above for the rig, drivers, load, commits and pushing to Gitea only. Then add a section to CLAUDE.md for each.
+
+## Feature D: the dialer reaches channels
+
+Extensions 800–999 were kept free for this (CLAUDE.md "Calls, extensions, Contacts"; klabnet-api `app/routers/calls.py`). Make the dialer a remote for all of klabnet:
+
+- **8xx is a voice channel.** 801 is the first channel and so on, in the channels' own order. A channel gets a fixed number once it exists, stored in klabnet-api, so it doesn't shift when one is deleted. Dialing joins it, with the same "leave your call?" prompt as now.
+- **9xx is a TV channel.** 9 + the channel's own number, so 903 is TV channel 3 (TV numbers are 1–99). Dialing opens it in Videos, or in the mini player if you're elsewhere.
+- **Showing numbers:** wherever channels show (the voice group, TV's list and guide, the dialer's as-you-type lookup, Contacts' find box, Go anywhere), show the number dim beside the name, like a person's extension.
+- **No match:** an unknown number says so ("Nothing on 857").
+- **Radio, maybe:** 7xx for radio stations would be natural, but 100–799 are people's. Ask the owner before taking any range.
+- **Tests:** dialing each kind by keyboard and by keypad, a deleted channel's number, and dialing while in a call.
+
+## Feature E: streams saved as videos
+
+When a live stream ends, it lands in the streamer's Videos, so Clips' "Make a clip" works on it (CLAUDE.md "Live streaming"; klabnet-api `app/routers/live.py`).
+
+- **Recording:** use LiveKit **Egress** (a room-composite or track-composite egress of the `live-<user>` room to an MP4 file on the media share), started when the stream goes live and stopped when it ends.
+  - Add the `egress` service to compose.yml beside `ingress`. It uses the same Redis, and its config goes through an env body like ingress.
+  - Document it in the README: the profile, its ports, and its CPU and GPU needs. Egress can use NVENC on the 4070 Ti; see README "GPU (NVIDIA)".
+- **Settings → Streaming:** a switch, "Save my streams to Videos", on by default, plus per stream "Don't save this one" while live.
+- **After a stream ends:** the file goes through the normal video pipeline (`videos.create`, `queue_it`), with:
+  - `published` = the stream's start;
+  - title = the stream's title, with game and description carried over;
+  - `unlisted` until the streamer publishes it, or public at once (ask the owner which default).
+  The stream's chat stays readable beside the video if that's cheap (the `live_chat` rows keep their stream id); otherwise leave it.
+- **Where it shows:** the Live page's "Earlier" rows link to the saved video, and the recap says "alice's stream is up".
+- **Short streams:** under 60 seconds aren't saved. Remove the file.
+- **Failure modes:** egress not running means streams still work and simply aren't saved (log it, show nothing broken). A disk that fills mid-stream stops the recording without stopping the stream.
+- **Tests:** the live harness from the Live pass (Ingress under bwrap and ffmpeg as OBS) plus Egress the same way if it can run there. If it can't, test the API side with a stubbed egress and say what's unverified.
