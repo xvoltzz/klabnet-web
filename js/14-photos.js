@@ -67,7 +67,14 @@
   // or the ones you're tagged in. The last two are the same pages filtered
   // here (the API has no filter), topped up a page at a time.
   let view = 'timeline';
-  const VIEW_TITLE = { timeline: 'Photos', mine: 'Your photos', tagged: 'Tagged' };
+  const VIEW_TITLE = { timeline: 'Photos', mine: 'Your photos', tagged: 'Tagged', screens: 'Screenshots' };
+  // Screenshots (2026-11-21, the owner: "a screenshots section inside of the
+  // photos area too! for game screenshots") are photo posts of their own
+  // kind with a game, fetched apart (the API's kind=screenshot) so they
+  // never crowd the Timeline. `game` narrows them to one game ('' = all).
+  const kindOf = v => v === 'screens' ? 'screenshot' : 'photo';
+  let game = '';
+  const source = () => '&kind=' + kindOf(view) + (view === 'screens' && game ? '&game=' + encodeURIComponent(game) : '');
   const filtered = () => view === 'mine' || view === 'tagged';
   const inView = post => view === 'mine' ? (post.username || '').toLowerCase() === me()
     : view === 'tagged' ? (post.tags || []).some(t => String(t).toLowerCase() === me()) : true;
@@ -107,7 +114,8 @@
     $('phViewTitle').textContent = VIEW_TITLE[view];
     const n = filtered() ? items.length : Math.max(total ?? 0, items.length);
     const more = filtered() ? hasOlder : total == null && hasOlder;
-    $('phViewSub').textContent = n ? `${n.toLocaleString()}${more ? '+' : ''} photo${n === 1 && !more ? '' : 's'}` : '';
+    const noun = view === 'screens' ? 'screenshot' : 'photo';
+    $('phViewSub').textContent = n ? `${n.toLocaleString()}${more ? '+' : ''} ${noun}${n === 1 && !more ? '' : 's'}${view === 'screens' && game ? ' of ' + game : ''}` : '';
   }
   // The first photo of the newest post: where the tab opens, and what G/End
   // go back to. (The newest post's later photos sit to its right.)
@@ -127,7 +135,7 @@
     lastFetch = Date.now();
     const asked = order, g = gen, seq = ++latestSeq, startedAt = performance.now();
     try {
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}`, {}, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${asked}${source()}`, {}, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const data = await r.json();
       if (seq !== latestSeq) return;
@@ -185,7 +193,7 @@
     const ctrl = new AbortController();
     const deadline = setTimeout(() => ctrl.abort(), 20000);
     try {
-      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}&before_sort=${encodeURIComponent(cursor.sort_at)}&before_id=${cursor.id}`, { signal: ctrl.signal }, 10000);
+      const r = await fetchTimeout(`${API}?limit=${PAGE}&order=${order}${source()}&before_sort=${encodeURIComponent(cursor.sort_at)}&before_id=${cursor.id}`, { signal: ctrl.signal }, 10000);
       if (!r.ok) throw new Error('status ' + r.status);
       const older = (await r.json()).posts || [];
       if (g !== gen) return;
@@ -278,11 +286,12 @@
     goTo(idx);
     return true;
   }
-  window.klabOpenPhoto = function(postId, photoId) {
+  window.klabOpenPhoto = function(postId, photoId, kind) {
     setActiveTab('photos');
+    if (kind === 'screenshot' && view !== 'screens') { pendingFocus = { postId, photoId }; game = ''; show('screens', 'posted', true); return; }
     if (focusPhoto(postId, photoId)) return;
     pendingFocus = { postId, photoId };
-    if (view !== 'timeline' || order !== 'posted') show('timeline', 'posted'); else fetchLatest();
+    if (kind !== 'screenshot' && (view !== 'timeline' || order !== 'posted')) show('timeline', 'posted'); else fetchLatest();
   };
 
   // ── Views (Browse / Your photos / Tagged) and the order ──
@@ -296,14 +305,20 @@
     document.querySelectorAll('#phNav .picker-tab[data-phview]').forEach(b => b.classList.toggle('active', b.dataset.phview === view));
     const sb = $('phSortBtn');
     if (sb) { sb.querySelector('span').textContent = ORDER_LABEL[order]; sb.title = 'Sort by ' + ORDER_LABEL[order].toLowerCase(); }
+    const gb = $('phGameBtn');
+    if (gb) { gb.hidden = view !== 'screens'; gb.querySelector('span').textContent = game || 'All games'; gb.classList.toggle('on', !!game); }
   }
-  function show(next, nextOrder) {
+  // force: fetch again even with the same view and order (a new game).
+  function show(next, nextOrder, force) {
     if (!VIEW_TITLE[next] || !ORDER_LABEL[nextOrder]) return;
-    if (next === view && nextOrder === order) { syncControls(); return; }
+    if (next === view && nextOrder === order && !force) { syncControls(); return; }
+    // Screenshots and photos are different pages from the API: going between
+    // them is a fetch, as a change of order is.
+    const sameSource = kindOf(next) === kindOf(view) && !force;
     view = next;
     syncControls();
     // The same pages under another filter: just draw them again.
-    if (nextOrder === order && loadedOnce) {
+    if (sameSource && nextOrder === order && loadedOnce) {
       SFX && SFX.play('click');
       sel = -1; strip.textContent = ''; thumbEls = []; centers = [];
       const keep = posts; posts = [];
@@ -335,6 +350,38 @@
       ...Object.entries(ORDER_LABEL).map(([k, l]) => ({ label: l, checked: k === order, action: () => setOrder(k) })),
     ], { align: 'end' });
   });
+  // Which game, on Screenshots: the games there are (the API's /games, most
+  // screenshots first) and All games.
+  let games = [];
+  async function loadGames() {
+    try {
+      const r = await fetchTimeout(API + '/games', {}, 8000);
+      if (r.ok && /json/.test(r.headers.get('content-type') || '')) games = (await r.json()).games || [];
+    } catch (e) {}
+    const dl = $('phGameList');
+    if (dl) dl.innerHTML = games.map(g => '<option value="' + esc(g.name) + '"></option>').join('');
+    return games;
+  }
+  function setGame(g) {
+    game = g || '';
+    show('screens', order, true);
+  }
+  window.klabPhotosGame = g => { if (!isActive()) setActiveTab('photos'); setGame(g); };
+  // A screenshot's game, under it: all of that game's.
+  document.addEventListener('click', e => {
+    const c = e.target.closest?.('[data-ph-game]');
+    if (c) { SFX && SFX.play('click'); window.klabPhotosGame(c.dataset.phGame); }
+  });
+  document.getElementById('phGameBtn')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    await loadGames();
+    klabMenu.at(btn, [
+      { section: 'Game' },
+      { label: 'All games', icon: 'ti-device-gamepad-2', checked: !game, action: () => setGame('') },
+      ...(games.length ? ['-'] : []),
+      ...games.map(g => ({ label: g.name, hint: String(g.count), checked: game.toLowerCase() === g.name.toLowerCase(), action: () => setGame(g.name) })),
+    ], { align: 'end' });
+  });
   document.getElementById('phNav')?.addEventListener('click', e => {
     const b = e.target.closest('.picker-tab[data-phview]');
     if (!b) return;
@@ -349,8 +396,11 @@
     $('phEmptyText').textContent = msg || (filtered() && hasOlder ? 'Looking…'
       : view === 'mine' ? 'You haven’t posted any photos yet.'
       : view === 'tagged' ? 'Nobody’s tagged you in a photo yet.'
+      : view === 'screens' ? (game ? 'No screenshots of ' + game + ' yet.' : 'No screenshots yet. Post the first one.')
       : 'No photos yet. Post the first one.');
     $('phEmptyPost').hidden = view === 'tagged';
+    const ep = $('phEmptyPost').querySelector('span');
+    if (ep) ep.textContent = view === 'screens' ? 'Post screenshots' : 'Post photos';
     shell.classList.add('is-empty');
     stopClip();
   }
@@ -512,7 +562,7 @@
     const b = id => $(id);
     if (narrowMq.matches) {
       if (railL.parentElement === frame) return;
-      actions.append(b('phViews'), b('phSortBtn'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
+      actions.append(b('phViews'), b('phGameBtn'), b('phSortBtn'), b('phSlideBtn'), b('phInfoBtn'), b('phSoundBtn'), b('phPostBtn'));
       b('phViews').hidden = false;
       railR.insertBefore(b('phSong'), b('phReacts'));
       frame.insertBefore(railL, mainImg);
@@ -521,7 +571,7 @@
       if (railL.parentElement === $('phSideInfo')) return;
       // The views are the sidebar's rows here; the head has the order and the actions.
       b('phViews').hidden = true;
-      $('phViewTools').append(b('phSortBtn'), b('phSlideBtn'), b('phPostBtn'));
+      $('phViewTools').append(b('phGameBtn'), b('phSortBtn'), b('phSlideBtn'), b('phPostBtn'));
       $('phSideToggles').append(b('phInfoBtn'));
       $('phNow').append(b('phSong'), b('phSoundBtn'));
       $('phSideInfo').append(railL, railR);
@@ -699,7 +749,9 @@
       ? `<i class="ti ti-camera"></i> Shot on ${esc(fmtShot(post.shot_at))}`
       : `Posted ${esc(new Date(post.created.replace(' ', 'T') + 'Z').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }))}`;
     $('phCaption').innerHTML = window.klabMentionsHTML ? klabMentionsHTML(post.text) : esc(post.text || '');
-    $('phTags').innerHTML = post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '';
+    $('phTags').innerHTML = (post.kind === 'screenshot' && post.game
+        ? '<button type="button" class="ph-game-chip" data-ph-game="' + esc(post.game) + '" title="All screenshots of ' + esc(post.game) + '"><i class="ti ti-device-gamepad-2"></i>' + esc(post.game) + '</button> ' : '') +
+      (post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '');
 
     // The slot stays even without a song, so every post has the same shape.
     const song = post.song;
@@ -1112,6 +1164,9 @@
     $('phEditDate').value = editDate0 = (editing.shot_at || '').slice(0, 10);
     $('phEditDate').max = localToday();
     $('phEditCaption').value = editing.text || '';
+    $('phEditGameField').hidden = editing.kind !== 'screenshot';
+    $('phEditGame').value = editing.game || '';
+    if (editing.kind === 'screenshot') loadGames();
     editTags.set(editing.tags || []);
     $('phEditError').hidden = true;
     editBackdrop.classList.add('open');
@@ -1130,6 +1185,7 @@
     btn.disabled = true;
     try {
       const body = { caption: $('phEditCaption').value.trim(), tags: editTags.get() };
+      if (editing.kind === 'screenshot') body.game = $('phEditGame').value.trim();
       if ($('phEditDate').value !== editDate0) body.shot_at = $('phEditDate').value;
       const r = await fetchTimeout(`${API}/${editing.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -1469,7 +1525,20 @@
   let shotEdited = false; // the shooting date was set by hand, so stop auto-filling it
   const EDIT_FIELDS = ['camera', 'lens', 'film', 'aperture', 'shutter', 'iso', 'focal'];
 
+  // What a new post is: screenshots from Photos → Screenshots (with a game,
+  // the one being looked at to start with), photos anywhere else.
+  let composeKind = 'photo';
   function openComposer(files) {
+    if (!backdrop.classList.contains('open')) {
+      composeKind = view === 'screens' ? 'screenshot' : 'photo';
+      const shots = composeKind === 'screenshot';
+      $('phGameField').hidden = !shots;
+      if (shots) { if (!$('phGame').value) $('phGame').value = game; loadGames(); }
+      backdrop.querySelector('.add-app-title > span').textContent = shots ? 'New screenshots' : 'New photo post';
+      // A game screenshot has no shooting date or song worth asking for.
+      backdrop.querySelector('.ph-date-field').hidden = shots;
+      backdrop.querySelector('.ph-compose-song').hidden = shots;
+    }
     backdrop.classList.add('open');
     SFX && SFX.play('sheet');
     loadRoster();
@@ -1487,6 +1556,7 @@
     drafts = []; activeDraft = null; pickedSong = null; shotEdited = false;
     composerTags.set([]);
     $('phComposeCaption').value = '';
+    $('phGame').value = '';
     $('phShotDate').value = '';
     $('phComposeError').hidden = true;
     renderDrafts(); renderSongPick();
@@ -1759,7 +1829,12 @@
       tags: composerTags.get(),
     };
     if (shotEdited && !body.shot_at) body.shot_at_cleared = true;
-    if (pickedSong) {
+    if (composeKind === 'screenshot') {
+      body.kind = 'screenshot';
+      body.game = $('phGame').value.trim();
+      if (!body.game) { showComposeError('Which game is it?'); btn.dataset.posting = ''; updateSubmit(); $('phGame').focus(); return; }
+    }
+    if (pickedSong && composeKind !== 'screenshot') {
       body.song = {
         songId: pickedSong.id, title: pickedSong.title, artist: pickedSong.artist || '',
         album: pickedSong.album || '', coverArt: pickedSong.coverArt || '',

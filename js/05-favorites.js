@@ -225,7 +225,7 @@ function _favRedrawSoon() {
 window._favViewSync = () => { if (typeof pickerTab !== 'undefined' && pickerTab === 'favorites') _favRedrawSoon(); };
 window.addEventListener('klab:playlists', () => window._favViewSync());
 
-let _favFind = '', _favVirtualOff = null;
+let _favFind = '', _favVirtualOff = null, _favPicked = false;
 function renderFavoritesView(redraw) {
   _favVirtualOff?.(); _favVirtualOff = null;
   _favSig = _favSigNow();
@@ -249,8 +249,11 @@ function renderFavoritesView(redraw) {
   let want = 'songs';
   try { want = localStorage.getItem('klabnet_fav_view') || 'songs'; } catch (e) {}
   if (!kinds.some(k => k[0] === want)) want = 'songs';
-  // Nothing in the kept one but something elsewhere: show what there is.
-  if (!kinds.find(k => k[0] === want)[2]) want = (kinds.find(k => k[2]) || kinds[0])[0];
+  // Coming in with nothing in the kept one: show what there is. Not after a
+  // press, though: pressing an empty Albums jumped straight back to Songs,
+  // so it couldn't be opened at all.
+  if (!_favPicked && !kinds.find(k => k[0] === want)[2]) want = (kinds.find(k => k[2]) || kinds[0])[0];
+  _favPicked = false;
   const seg = document.createElement('div');
   seg.className = 'k-seg fav-seg';
   seg.setAttribute('role', 'tablist');
@@ -260,13 +263,28 @@ function renderFavoritesView(redraw) {
     const b = e.target.closest('[data-fav-kind]');
     if (!b || b.getAttribute('aria-pressed') === 'true') return;
     try { localStorage.setItem('klabnet_fav_view', b.dataset.favKind); } catch (e2) {}
+    _favPicked = true;
     SFX && SFX.play('click');
     renderFavoritesView(true);
     pickerList.scrollTop = 0;
   });
-  pickerList.appendChild(seg);
+  // One bar: the switch on the left, and for songs the filter, Play and
+  // Shuffle on the right.
+  const bar = document.createElement('div');
+  bar.className = 'fav-bar';
+  bar.appendChild(seg);
+  pickerList.appendChild(bar);
+  // An empty kind says how to fill it, with a way to go and find some.
+  const emptyKind = (icon, what, where, tab) =>
+    `<div class="k-empty fav-empty-kind"><i class="ti ${icon}"></i><div>No favorite ${what} yet</div>` +
+    `<div class="fav-empty-sub">Press the ♥ on ${where} and it shows up here.</div>` +
+    (tab ? `<button type="button" class="k-btn sm" data-fav-go="${tab}">Browse ${what}</button>` : '') + `</div>`;
+  pickerList.onclick = e => {
+    const go = e.target.closest('[data-fav-go]');
+    if (go) document.querySelector(`.music-nav .picker-tab[data-tab="${go.dataset.favGo}"]`)?.click();
+  };
   const grid = (items, empty) => {
-    if (!items.length) { pickerList.insertAdjacentHTML('beforeend', `<div class="k-empty fav-empty-kind">${empty}</div>`); return; }
+    if (!items.length) { pickerList.insertAdjacentHTML('beforeend', empty); return; }
     const g = document.createElement('div');
     g.className = 'fav-grid';
     items.forEach(c => g.appendChild(c));
@@ -274,24 +292,20 @@ function renderFavoritesView(redraw) {
   };
   if (want !== 'songs') {
     hideSortBtn();
-    if (want === 'albums') grid(cards ? albums.map(cards.album) : [], 'No favorite albums yet. Use the ♥ on an album.');
-    else if (want === 'artists') grid(cards ? artists.map(cards.artist) : [], 'No favorite artists yet. Use the ♥ on an artist.');
+    if (want === 'albums') grid(cards ? albums.map(cards.album) : [], emptyKind('ti-disc', 'albums', 'an album’s page', 'albums'));
+    else if (want === 'artists') grid(cards ? artists.map(cards.artist) : [], emptyKind('ti-microphone-2', 'artists', 'an artist’s page', 'artists'));
     else grid(pls.map(p => window.klabPlaylists.card(p)), '');
     return;
   }
-  if (!songs.length) { pickerList.insertAdjacentHTML('beforeend', '<div class="k-empty fav-empty-kind">No favorite songs yet. Use the ♥ on a song.</div>'); hideSortBtn(); return; }
+  if (!songs.length) { pickerList.insertAdjacentHTML('beforeend', emptyKind('ti-music', 'songs', 'a song', 'songs')); hideSortBtn(); return; }
 
   // Songs: a label with Play, Shuffle and a find box beside it.
   const sorted = applySort(songs, 'favorites');
   const head = document.createElement('div');
-  head.className = 'fav-songs-head';
-  // Play and Shuffle first, like an album's or a playlist's page; the
-  // filter at the other end.
-  head.innerHTML = `<div class="fav-songs-actions">
-      <button type="button" class="k-btn sm primary" data-fav-play><i class="ti ti-player-play-filled"></i>Play</button>
-      <button type="button" class="k-btn sm" data-fav-shuffle><i class="ti ti-arrows-shuffle"></i>Shuffle</button>
-    </div>
-    <label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"><button type="button" class="fav-find-x" title="Clear" aria-label="Clear the filter" hidden><i class="ti ti-x"></i></button></label>`;
+  head.className = 'fav-bar-end';
+  head.innerHTML = `<label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"><button type="button" class="fav-find-x" title="Clear" aria-label="Clear the filter" hidden><i class="ti ti-x"></i></button></label>
+    <button type="button" class="k-btn sm" data-fav-shuffle title="Shuffle"><i class="ti ti-arrows-shuffle"></i>Shuffle</button>
+    <button type="button" class="k-btn sm primary" data-fav-play><i class="ti ti-player-play-filled"></i>Play</button>`;
   const box = document.createElement('div');
   box.className = 'fav-songs';
   const input = head.querySelector('input');
@@ -330,7 +344,8 @@ function renderFavoritesView(redraw) {
   clearX.addEventListener('click', e => { e.preventDefault(); input.value = ''; set('', true); input.focus(); });
   head.querySelector('[data-fav-play]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l); SFX && SFX.play('click'); } });
   head.querySelector('[data-fav-shuffle]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l, { shuffle: true }); SFX && SFX.play('click'); } });
-  pickerList.append(head, box);
+  bar.appendChild(head);
+  pickerList.appendChild(box);
   draw();
   showSortBtn('favorites');
 }

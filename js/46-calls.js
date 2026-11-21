@@ -452,7 +452,7 @@
       side.innerHTML =
         '<div class="k-label">Speed dial</div>' + (sd.length ? '<div class="cl-sd">' + sd.slice(0, 8).map(u =>
           '<button type="button" class="cl-sd-item" data-call="' + esc(u) + '" title="Call ' + esc(u) + '">' + face(u, 'cl-face') + '<span>' + esc(u) + '</span></button>').join('') + '</div>'
-          : '<div class="cl-dim-line">Add people from Contacts (⋯ → Add to speed dial).</div>') +
+          : '<div class="cl-dim-line">Add people from Chat’s People list (right-click → Add to speed dial).</div>') +
         '<div class="k-label">Recent</div>' + (rec.length ? rec.map(logRowHTML).join('') : '<div class="cl-dim-line">No calls yet.</div>');
     }
     const press = k => {

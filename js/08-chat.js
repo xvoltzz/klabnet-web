@@ -596,8 +596,12 @@ function applyChatSearch() {
   for (const [lblSel, listId] of [['#chatChannelsList', 'chatChannelsList'], ['#chatDmLbl', 'chatDmList']]) {
     const listEl = document.getElementById(listId);
     const lbl = lblSel === '#chatChannelsList' ? listEl?.previousElementSibling : document.querySelector(lblSel);
-    if (lbl) lbl.classList.toggle('search-empty', !!q && !listEl?.querySelector('.chat-conv:not([hidden])'));
+    // People is the conversations and everyone else (#chatPeopleMore) together.
+    const more = listId === 'chatDmList' ? document.getElementById('chatPeopleMore') : null;
+    if (lbl) lbl.classList.toggle('search-empty', !!q && !listEl?.querySelector('.chat-conv:not([hidden])') && !more?.querySelector('.chat-conv:not([hidden])'));
   }
+  // Everyone is in People already (js/47-contacts.js): no second list of them.
+  if (document.getElementById('chatPeopleMore')) { if (people) { people.hidden = true; people.innerHTML = ''; } return; }
   if (!people) return;
   if (!q) { people.hidden = true; people.innerHTML = ''; return; }
   const me = window.KLAB_USER?.username;
@@ -808,9 +812,16 @@ function renderChannelList() {
     const dmList = document.getElementById('chatDmList');
     if (dmList) {
       sync(dmList, dmRooms, 'ti-user');
+      // People always has someone in it: everyone you haven't messaged
+      // follows the conversations (js/47-contacts.js).
       const lbl = document.getElementById('chatDmLbl');
-      if (lbl) lbl.hidden = !dmRooms.length;
+      if (lbl) lbl.hidden = false;
     }
+    // Who you have a conversation with, for People's other rows.
+    const was = window.klabChatDmUsers?.() || new Set();
+    const now = new Set(dmRooms.map(r => dmOtherUsername(r)).filter(Boolean));
+    window.klabChatDmUsers = () => now;
+    if (was.size !== now.size || [...now].some(u => !was.has(u))) window.dispatchEvent(new CustomEvent('klab:chat-rooms'));
     applyChatSearch();
   }
   syncChatHead();
@@ -3731,7 +3742,7 @@ function showChatApp() {
   document.getElementById('chatConnect').hidden = true;
   document.getElementById('chatApp').hidden = false;
   // Social's sidebar shows the conversations instead of "Connect chat".
-  document.body.classList.add('chat-on');
+  document.body.classList.add('chat-on'); window.dispatchEvent(new CustomEvent('klab:chat-rooms'));
   const dot  = document.getElementById('chatStatusDot');
   const text = document.getElementById('chatStatusText');
   // showChatApp() can run more than once (MatrixChat.login() is idempotent,
@@ -3804,7 +3815,7 @@ function showChatApp() {
       updateSocialUnreadBadge();
       document.getElementById('chatApp').hidden = true;
       document.getElementById('chatConnect').hidden = false;
-      document.body.classList.remove('chat-on');
+      document.body.classList.remove('chat-on'); window.dispatchEvent(new CustomEvent('klab:chat-rooms'));
       showToast('Chat was signed out. Connect again to keep chatting.', 'ti-plug-connected-x');
     });
     MatrixChat.on('memberProfileChanged', userId => invalidateMsgAvatar(userId));

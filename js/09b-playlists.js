@@ -909,7 +909,7 @@ function playlistMenuItems(p) {
     try { const songs = (await plGet(p.id)).songs; songs._plId = p.id; fn(songs); }
     catch (err) { showToast(err.message, 'ti-alert-triangle'); }
   };
-  const n = p.count, canEdit = p.mine || (p.can_edit && !p.local);
+  const n = p.count, canEdit = p.mine || (!p.local && (p.can_edit || (_plServer && !!window.KLAB_USER?.is_admin)));
   return [
     { header: p.name },
     { label: 'Play', icon: 'ti-player-play', hidden: !n, action: withSongs(s => playSongList(s)) },

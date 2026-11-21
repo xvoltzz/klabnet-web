@@ -1082,6 +1082,7 @@
   // Your own note, for the sidebar (js/24-flair.js).
   window.klabMyNote = () => _notesCache.get(window.KLAB_USER?.username) || '';
   window.klabEditNote = () => editMyNote();
+  window.klabRefreshNotes = () => fetchNotes(); // after an admin takes one down (js/35-profile.js)
   async function editMyNote() {
     const me = window.KLAB_USER?.username;
     if (!me) return;

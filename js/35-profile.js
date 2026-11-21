@@ -86,6 +86,7 @@
       else if (act === 'call') { close(); window.klabCalls?.dial(who); }
       else if (act === 'edit') { close(); openProfileModal(); }
       else if (act === 'note') { close(); window.klabEditNote?.(); }
+      else if (act === 'admin') adminMenu(e.target.closest('[data-pf-act]'));
     });
     el.addEventListener('keydown', e => {
       const post = e.key === 'Enter' && e.target.matches?.('[data-pf-post]') && e.target;
@@ -109,6 +110,34 @@
     });
     // Escape and mouse Back close it when it's the top layer (js/00-util.js).
     klabLayers.watch(el, { kind: 'sheet', dim: true, close: () => close() });
+  }
+
+  // An admin's ⋯ on someone else's profile: take down what they've put up
+  // (klabnet-api: DELETE /api/notes?user=, PUT /api/profiles/<user>).
+  function adminMenu(anchor) {
+    const u = who, p = window.klabPresenceOf?.(u) || {}, prof = _profiles.get(u) || {};
+    const fix = async (title, body, label, run) => {
+      if (!(await showConfirmDialog(title, body, label))) return;
+      try {
+        const r = await run();
+        const j = await r.json().catch(() => null);
+        // An API from before this answers a note's DELETE ?user= with a bare ok
+        // and does nothing; the new one says what's left ("text").
+        if (!r.ok || !j || !('text' in j || 'bio' in j)) throw new Error(r.ok || r.status === 404 || r.status === 405 ? 'That needs the latest klabnet-api' : klabCap(j?.error) || 'Couldn’t change that');
+        await Promise.all([typeof fetchProfiles === 'function' ? fetchProfiles() : null, window.klabRefreshNotes?.()]);
+        if (u === who && el?.classList.contains('open')) paint();
+        SFX && SFX.play('click');
+      } catch (err) { showToast(err.message || 'Couldn’t change that', 'ti-alert-triangle'); }
+    };
+    const put = body => fetchTimeout('/api/profiles/' + encodeURIComponent(u), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 8000);
+    klabMenu.at(anchor, [
+      { header: 'Admin' },
+      { label: 'Clear note', icon: 'ti-message-x', disabled: !p.note, action: () => fix('Clear ' + u + '’s note?', 'It comes off their card for everyone.', 'Clear',
+        () => fetchTimeout('/api/notes?user=' + encodeURIComponent(u), { method: 'DELETE' }, 8000)) },
+      { label: 'Clear bio', icon: 'ti-x', disabled: !prof.bio, action: () => fix('Clear ' + u + '’s bio?', 'Their profile shows no bio until they write one.', 'Clear', () => put({ bio: '' })) },
+      { label: 'Remove banner', icon: 'ti-photo-off', disabled: !prof.banner_mxc, action: () => fix('Remove ' + u + '’s banner?', 'Their profile goes back to a plain banner.', 'Remove', () => put({ banner_mxc: '' })) },
+      { label: 'Reset name colour', icon: 'ti-palette', disabled: !prof.chat_color, action: () => fix('Reset ' + u + '’s name colour?', 'Their name goes back to its default colour.', 'Reset', () => put({ chat_color: '' })) },
+    ], { align: 'end' });
   }
 
   let returnFocus = null;
@@ -202,7 +231,8 @@
         <div class="pf-actions">${me
           ? '<button type="button" class="k-btn" data-pf-act="note"><i class="ti ti-message-circle"></i>Set a note</button><button type="button" class="k-btn primary" data-pf-act="edit"><i class="ti ti-pencil"></i>Edit profile</button>'
           : (window.klabCalls?.enabled?.() ? '<button type="button" class="k-btn" data-pf-act="call"><i class="ti ti-phone"></i>Call</button>' : '') +
-            '<button type="button" class="k-btn primary" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>'}</div>
+            '<button type="button" class="k-btn primary" data-pf-act="message"><i class="ti ti-message-2-plus"></i>Message</button>' +
+            (window.KLAB_USER?.is_admin ? '<button type="button" class="k-btn icon" data-pf-act="admin" title="Admin" aria-label="Admin"><i class="ti ti-dots"></i></button>' : '')}</div>
       </div>
       ${p.note ? `<div class="pf-note">${esc(p.note)}</div>` : ''}
       ${prof.bio ? `<p class="pf-bio">${esc(prof.bio)}</p>` : ''}

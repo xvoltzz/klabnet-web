@@ -643,6 +643,9 @@
     }
   }
   async function deleteMsg(id) {
+    const msg = chat.msgs.find(m => m.id === id);
+    if (msg && msg.username !== me() &&
+        !(await showConfirmDialog('Delete ' + msg.username + '’s message?', 'It’s gone from the stream’s chat.', 'Delete'))) return;
     const i = chat.msgs.findIndex(m => m.id === id);
     if (i < 0) return;
     const [m] = chat.msgs.splice(i, 1);
@@ -707,8 +710,18 @@
       { label: 'Copy link', icon: 'ti-link', action: () => klabCopy(linkTo(u), 'Link') },
       { label: 'Channel', icon: 'ti-user', action: () => window.klabOpenChannel?.(u) },
       { label: 'Profile', icon: 'ti-user-circle', action: () => window.openProfileView?.(u) },
+      ...(window.KLAB_USER?.is_admin && u !== me() ? ['-', { label: 'Edit stream title…', icon: 'ti-pencil', action: () => adminRetitle(u) }] : []),
     ]);
   });
+  // An admin fixing someone's title (klabnet-api PATCH /live/<user>): it
+  // applies to the stream on now and the next.
+  async function adminRetitle(u) {
+    const cur = byUser(u)?.title || '';
+    const title = await showInputDialog('Edit ' + u + '’s stream title', 'It changes for everyone watching, and for their next stream.', 'Title', cur, { maxLength: 120 });
+    if (title === null) return;
+    try { await getJSON(API + '/' + encodeURIComponent(u), json('PATCH', { title: title.trim() }), 8000); poll(); }
+    catch (e) { showToast(e.status === 405 ? 'That needs the latest klabnet-api' : e.status === 404 || e.status === 403 ? klabCap(e.message) : 'Couldn’t change that', 'ti-alert-triangle'); }
+  }
 
   // Keys while a stream's showing (ahead of the app's).
   window.addEventListener('keydown', e => {

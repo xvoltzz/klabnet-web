@@ -1,19 +1,19 @@
 // ══════════════════════════════════════════
-//  CONTACTS — Social's front
-//  The owner (2026-11-20): "maybe instead of a browse on social it starts
-//  off in Contacts! and it shows everyone on the site and lets u message,
-//  call, or share something with".
-//    · Everyone on klabnet, Music's list look: speed dial first, then who's
-//      online (what they're doing, from presence), then everyone else by
-//      when they were last here. Each row: face, name, extension, what
-//      they're doing, and Message / Call / Share / ⋯ (the same as its
-//      right-click menu).
-//    · "Find someone or dial a number": letters filter by name, digits by
-//      extension (Enter calls the number).
-//    · Calls: the call log (js/46-calls.js), missed ones marked.
-//    · Keys: ↑/↓ between rows, Enter messages, c calls, s shares, the
-//      menu key or Shift+F10 opens the menu; / finds.
-//  The tab key is still 'social' (#social), so every old link lands here.
+//  PEOPLE AND CALLS — Contacts, folded into Chat (2026-11-21)
+//  The owner: "maybe chat should be the main page and contacts should get
+//  merged into it". Social's front is Chat now, and this file is two things:
+//    · People, in Chat's sidebar (#chatPeopleMore, under your conversations):
+//      everyone on klabnet you haven't messaged yet, speed dial first, then
+//      who's online (what they're doing, from presence), then "Everyone
+//      else" folded away (last here). A row messages them (a conversation
+//      starts and takes its place above); hover has Call and Share; right-
+//      click is the menu. These rows show before chat is connected too.
+//    · Calls (tab 'calls', Social → Calls, #ctPage): the call log, and a
+//      "Find someone or dial a number" box (letters by name, digits by
+//      extension; Enter calls the number). The dialer button is in its head.
+//    · Keys on the Calls page: ↑/↓ between rows, Enter messages, c calls,
+//      s shares, the menu key or Shift+F10 opens the menu; / finds.
+//  It was Social's front page, Contacts, from 2026-11-20.
 // ══════════════════════════════════════════
 (function () {
   const page = document.getElementById('ctPage');
@@ -25,18 +25,15 @@
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')).getTime() : 0;
 
   page.innerHTML =
-    '<div class="k-page-head ct-head"><h2 class="k-page-title">Contacts</h2><span class="k-page-count" id="ctCount"></span>' +
+    '<div class="k-page-head ct-head"><h2 class="k-page-title">Calls</h2><span class="k-page-count" id="ctCount"></span>' +
       '<div class="k-page-actions">' +
-        '<div class="k-seg ct-views" role="tablist" aria-label="Contacts">' +
-          '<button type="button" role="tab" data-ctv="people" aria-selected="true">People</button>' +
-          '<button type="button" role="tab" data-ctv="calls" aria-selected="false">Calls<span class="ct-missed" hidden></span></button></div>' +
         '<button type="button" class="k-btn" id="ctDialBtn" hidden><i class="ti ti-dialpad"></i><span>Dialer</span></button>' +
       '</div></div>' +
     '<label class="k-field-box ct-find"><i class="ti ti-search"></i><input type="text" id="ctFind" placeholder="Find someone or dial a number" aria-label="Find someone or dial a number" autocomplete="off" spellcheck="false" /></label>' +
     '<div class="ct-list" id="ctList" role="list"></div>';
   const listEl = page.querySelector('#ctList'), findEl = page.querySelector('#ctFind'), countEl = page.querySelector('#ctCount');
   const dialBtn = page.querySelector('#ctDialBtn');
-  let view = 'people', active = false, stats = new Map(), statsAt = 0, lastHTML = '';
+  let view = 'calls', active = false, stats = new Map(), statsAt = 0, lastHTML = '';
 
   async function loadStats(force) {
     if (!force && Date.now() - statsAt < 60e3) return;
@@ -54,7 +51,7 @@
     return [...set].filter(u => u && u !== me() && u !== 'anonymous' && !u.endsWith('-bot'));
   }
   // What they're doing, as Home's rows say it (js/33-plaza.js).
-  const WHERE = { home: 'Home', social: 'In contacts', together: 'Social', feed: 'On the feed', chat: 'In chat', photos: 'Looking at photos', videos: 'Watching videos', music: 'In music', radio: 'On the radio', tv: 'Watching TV' };
+  const WHERE = { home: 'Home', social: 'In chat', calls: 'In calls', together: 'Social', feed: 'On the feed', chat: 'In chat', photos: 'Looking at photos', videos: 'Watching videos', music: 'In music', radio: 'On the radio', tv: 'Watching TV' };
   function stateOf(u) {
     const p = window.klabPresenceOf?.(u) || {};
     const on = !!p.online;
@@ -104,19 +101,17 @@
   }
 
   function paint() {
+    paintSide(); paintNav();
     if (!active) return;
     const c = calls();
     dialBtn.hidden = !c?.enabled();
-    const missed = c?.missed?.() || 0;
-    const mb = page.querySelector('.ct-missed');
-    mb.hidden = !missed; mb.textContent = String(missed);
-    page.querySelectorAll('[data-ctv]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.ctv === view)));
-    page.querySelector('[data-ctv="calls"]').hidden = !c?.enabled();
     const mine = c?.ext(me());
+    // The log, until something's typed in the box: then who it finds.
+    view = findEl.value.trim() ? 'people' : 'calls';
     let html = '';
     if (view === 'calls') {
       const log = c?.log() || [];
-      countEl.textContent = log.length ? klabCount(log.length, 'call') : '';
+      countEl.textContent = (log.length ? klabCount(log.length, 'call') : '') + (mine ? (log.length ? ' · ' : '') + 'you’re ext ' + mine : '');
       html = log.length ? log.map(r => c.logRowHTML(r)).join('') : '<div class="k-empty"><i class="ti ti-phone"></i><div>No calls yet.</div></div>';
     } else {
       const q = findEl.value.trim().toLowerCase().replace(/^@/, '');
@@ -136,7 +131,7 @@
         html += '<button type="button" class="ct-dial-row" data-dial="' + esc(q) + '"' + (q.length === 3 && !who ? ' disabled' : '') + '><i class="ti ti-phone"></i><span>' +
           (who ? 'Call ' + esc(q) + ' · <b>' + esc(who) + '</b>' : q.length === 3 ? 'Nobody has ' + esc(q) : 'Call ' + esc(q) + '…') + '</span><kbd>Enter</kbd></button>';
       }
-      html += sec('Speed dial', favs.map(u => shown.find(x => x.u === u))) + sec('Online', online) + sec(q ? 'Everyone else' : 'Everyone else', offline);
+      html += sec('Speed dial', favs.map(u => shown.find(x => x.u === u))) + sec('Online', online) + sec('Everyone else', offline);
       if (!shown.length) html += '<div class="k-empty"><i class="ti ti-search"></i><div>' + (q ? 'Nobody called “' + esc(q) + '”.' : 'Nobody else is here yet.') + '</div></div>';
     }
     if (html === lastHTML) return;
@@ -146,6 +141,93 @@
     listEl.innerHTML = html;
     if (focused) listEl.querySelector('.ct-row[data-u="' + CSS.escape(focused) + '"]')?.focus({ preventScroll: true });
   }
+
+  // ── People, in Chat's sidebar ──
+  // Everyone you haven't a conversation with, under your conversations
+  // (js/08-chat.js draws those): speed dial, who's online, then everyone
+  // else folded away. Rows look and filter like the conversations'.
+  const side = document.getElementById('chatPeopleMore');
+  const FOLD_KEY = 'klabnet_people_fold';
+  let folded = true, sideHTML = '', chatShown = false;
+  try { folded = localStorage.getItem(FOLD_KEY) !== 'open'; } catch (e) {}
+  function sideRowHTML(u, s) {
+    const url = window.klabResolveUserAvatar?.(u);
+    const dot = s.on ? '<span class="chat-channel-online-dot' + (s.tone === 'away' ? ' away' : '') + '"></span>' : '';
+    const canCall = !!calls()?.enabled();
+    const ext = calls()?.ext(u);
+    return '<div class="chat-channel-item chat-conv ct-srow' + (s.on ? '' : ' ct-off') + '" data-u="' + esc(u) + '" data-search="' + esc((u + ' ' + (ext || '')).toLowerCase()) + '" title="Message ' + esc(u) + '">' +
+      '<span class="chat-conv-face" style="--c:' + color(u) + '">' + (url ? '<img src="' + esc(url) + '" alt="" />' : esc(u[0].toUpperCase())) + dot + '</span>' +
+      '<span class="chat-conv-tx"><span class="chat-conv-top"><span class="chat-channel-name" style="color:' + color(u) + '">' + esc(u) + '</span></span>' +
+      '<span class="chat-conv-last">' + esc(s.doing || 'Message ' + u) + '</span></span>' +
+      '<span class="ct-sacts">' +
+        (canCall ? '<button type="button" class="k-icon sm" data-ct="call" title="Call ' + esc(u) + '" aria-label="Call ' + esc(u) + '"><i class="ti ti-phone"></i></button>' : '') +
+        '<button type="button" class="k-icon sm" data-ct="share" title="Share something" aria-label="Share something with ' + esc(u) + '" aria-haspopup="menu"><i class="ti ti-share-2"></i></button>' +
+      '</span></div>';
+  }
+  function paintSide() {
+    if (!side || !chatShown) return;
+    const c = calls();
+    const dm = document.body.classList.contains('chat-on') ? (window.klabChatDmUsers?.() || new Set()) : new Set();
+    const people = everyone().filter(u => !dm.has(u)).map(u => ({ u, s: stateOf(u) }));
+    const favs = (c?.favorites() || []).filter(u => people.some(x => x.u === u));
+    const byName = (a, b) => a.u.localeCompare(b.u);
+    const pinned = favs.map(u => people.find(x => x.u === u));
+    const online = people.filter(x => x.s.on && !favs.includes(x.u)).sort((a, b) => (b.s.playing - a.s.playing) || (a.s.tone === 'away') - (b.s.tone === 'away') || byName(a, b));
+    const offline = people.filter(x => !x.s.on && !favs.includes(x.u)).sort((a, b) => (b.s.seen - a.s.seen) || byName(a, b));
+    let html = [...pinned, ...online].map(x => sideRowHTML(x.u, x.s)).join('');
+    if (offline.length) {
+      html += '<button type="button" class="ct-fold" aria-expanded="' + !folded + '"><i class="ti ti-chevron-' + (folded ? 'right' : 'down') + '"></i><span>Everyone else</span><span class="ct-fold-n">' + offline.length + '</span></button>' +
+        '<div class="ct-rest">' + offline.map(x => sideRowHTML(x.u, x.s)).join('') + '</div>';
+    }
+    if (html === sideHTML) return;
+    sideHTML = html;
+    side.innerHTML = html;
+    side.classList.toggle('folded', folded);
+    if (typeof applyChatSearch === 'function') applyChatSearch(); // keep a search in progress applied
+  }
+  if (side) {
+    side.addEventListener('click', e => {
+      if (e.target.closest('.ct-fold')) {
+        folded = !folded;
+        try { localStorage.setItem(FOLD_KEY, folded ? '' : 'open'); } catch (err) {}
+        sfx('click'); sideHTML = ''; paintSide(); return;
+      }
+      const row = e.target.closest('.ct-srow');
+      if (!row) return;
+      const b = e.target.closest('[data-ct]');
+      if (b) { e.stopPropagation(); act(b.dataset.ct, row.dataset.u, b); return; }
+      act('message', row.dataset.u, row);
+    });
+    side.addEventListener('contextmenu', e => {
+      const row = e.target.closest('.ct-srow');
+      if (row) window.klabContacts && klabMenu(e, window.klabContacts.menu(row.dataset.u));
+    });
+  }
+  // Social → Calls in the sidebar: shown while calls are set up, with the
+  // missed calls since you last looked.
+  const SEEN_KEY = 'klabnet_calls_seen';
+  const seen = () => { try { return +localStorage.getItem(SEEN_KEY) || 0; } catch (e) { return 0; } };
+  function seenNow() { try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) {} }
+  function paintNav() {
+    const c = calls(), row = document.getElementById('socCallsRow'), n = document.getElementById('socCallsCount');
+    if (!row) return;
+    row.hidden = !c?.enabled();
+    const since = seen();
+    const fresh = active ? 0 : (c?.log() || []).filter(r => r.missed && (Date.parse(r.ended) || 0) > since).length;
+    if (n) { n.hidden = !fresh; n.textContent = fresh ? String(fresh) : ''; }
+  }
+  let sideT = 0;
+  window.klabChatPeopleShown = on => {
+    if (on === chatShown) return;
+    chatShown = on;
+    clearInterval(sideT);
+    if (!on) return;
+    sideHTML = '';
+    loadStats();
+    paintSide();
+    sideT = setInterval(() => { if (!document.hidden) paintSide(); }, 10e3);
+  };
+  window.addEventListener('klab:chat-rooms', () => { sideHTML = ''; paintSide(); });
 
   // ── Sharing something with someone (as a chat message) ──
   async function sendTo(u, content, what) {
@@ -281,17 +363,7 @@
     else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); klabMenu.at(row.querySelector('[data-ct="more"]'), menuItems(u), { align: 'end' }); }
     else if (e.key === '/') { e.preventDefault(); findEl.focus(); }
   }, true);
-  findEl.addEventListener('input', () => { if (view !== 'people') { view = 'people'; } paint(); });
-  page.querySelector('.ct-views').addEventListener('click', e => {
-    const b = e.target.closest('[data-ctv]');
-    if (!b || b.dataset.ctv === view) return;
-    sfx('click');
-    view = b.dataset.ctv;
-    lastHTML = '';
-    paint();
-    klabEnter?.(listEl);
-    if (view === 'calls') calls()?.loadLog();
-  });
+  findEl.addEventListener('input', () => paint());
   dialBtn.addEventListener('click', () => calls()?.openDialer(/^\d+$/.test(findEl.value.trim()) ? findEl.value.trim() : ''));
 
   // ── Coming and going ──
@@ -302,6 +374,8 @@
     clearInterval(presenceT);
     if (!on) return;
     lastHTML = '';
+    // Seen: the Calls row's count is the missed calls since you last looked.
+    seenNow();
     paint();
     loadStats();
     calls()?.loadLog();
@@ -310,7 +384,8 @@
     presenceT = setInterval(() => { if (!document.hidden) paint(); }, 10e3);
   };
   window.klabContacts = {
-    show: v => { view = v === 'calls' ? 'calls' : 'people'; lastHTML = ''; setActiveTab('social'); paint(); },
+    // Calls (the log); anything else is Chat, where the people are.
+    show: v => setActiveTab(v === 'calls' ? 'calls' : 'chat'),
     share: (u, anchor) => shareMenu(u, anchor),
     // For Home's Online list (js/33-plaza.js): the same rows and actions.
     // opts.join adds the button for what they're in (Listen along, Join…).
@@ -324,5 +399,7 @@
   // Presence changing (Home's hook is chained by every page that cares).
   const presenceChanged = window.klabHomePresenceChanged;
   window.klabHomePresenceChanged = () => { presenceChanged?.(); paint(); };
-  if (document.body.classList.contains('tab-social-active')) window.klabContactsTabChanged(true);
+  if (document.body.classList.contains('tab-calls-active')) window.klabContactsTabChanged(true);
+  if (document.body.classList.contains('tab-chat-active')) window.klabChatPeopleShown(true);
+  paintNav();
 })();

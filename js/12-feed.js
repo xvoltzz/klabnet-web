@@ -76,8 +76,11 @@
     });
   }
   // A delete with Undo. o: { postId, reply, row, apply(), undo(), label }
-  // apply/undo update the owner's own list and counts.
-  function del(o) {
+  // apply/undo update the owner's own list and counts. Someone else's
+  // comment (an admin's power) is asked about first, as posts are.
+  async function del(o) {
+    if (o.reply.username !== me() &&
+        !(await showConfirmDialog('Delete ' + o.reply.username + '’s comment?', 'It’s gone for everyone.', 'Delete'))) return;
     const id = String(o.reply.id);
     goneIds.add(id);
     let applied = false;
@@ -654,7 +657,7 @@
           KLAB_QUICK_REACTS.map(e => '<button type="button" class="k-icon feed-post-act" data-post-id="' + post.id + '" data-emoji="' + e + '" title="React ' + e + '">' + klabReactHTML(e) + '</button>').join('') +
           '<button type="button" class="k-icon feed-post-act feed-post-add-reaction" data-post-id="' + post.id + '" title="More reactions" aria-label="More reactions"><i class="ti ti-mood-plus"></i></button>' +
           '<button type="button" class="k-icon feed-post-act feed-post-reply-open" data-post-id="' + post.id + '" title="Reply" aria-label="Reply"><i class="ti ti-arrow-back-up"></i></button>' +
-          (post.username === me ? '<button type="button" class="k-icon feed-post-act feed-post-edit" data-post-id="' + post.id + '" title="Edit post" aria-label="Edit post"><i class="ti ti-pencil"></i></button>' : '') +
+          ((post.username === me || window.KLAB_USER?.is_admin) ? '<button type="button" class="k-icon feed-post-act feed-post-edit" data-post-id="' + post.id + '" title="Edit post" aria-label="Edit post"><i class="ti ti-pencil"></i></button>' : '') +
           (canDelete ? '<button type="button" class="k-icon feed-post-act feed-post-delete" data-post-id="' + post.id + '" title="Delete post" aria-label="Delete post"><i class="ti ti-trash"></i></button>' : '') +
         '</div>' +
         (_editing.has(post.id) ? editorHTML(post) : post.text ? postTextHTML(post, me) : '') +
@@ -1587,7 +1590,7 @@
   // ── Editing your own post (PATCH /api/posts/{id} {text}) ──
   function editPost(id) {
     const post = _feedPosts.find(p => p.id === id);
-    if (!post || post.username !== window.KLAB_USER?.username) return;
+    if (!post || (post.username !== window.KLAB_USER?.username && !window.KLAB_USER?.is_admin)) return;
     _editing.set(id, post.text || '');
     renderFeed();
     const ta = listEl.querySelector('.feed-edit-text[data-post-id="' + id + '"]');
@@ -2032,7 +2035,7 @@
         toggleFeedReaction(post.id, emoji);
       } },
       { label: 'Reply', icon: 'ti-arrow-back-up', action: () => openReplyBox(post.id) },
-      { label: 'Edit post', icon: 'ti-pencil', hidden: !mine, action: () => editPost(post.id) },
+      { label: 'Edit post', icon: 'ti-pencil', hidden: !mine && !window.KLAB_USER?.is_admin, action: () => editPost(post.id) },
       { label: 'Copy text', icon: 'ti-copy', hidden: !post.text, action: () => klabCopy(post.text, 'Post') },
       '-',
       { label: 'Open image', icon: 'ti-photo', hidden: !img, action: () => openImageViewer({ thumbSrc: img.src, mxc: img.dataset.mxc, alt: img.alt }) },

@@ -4,20 +4,23 @@
 //  player dock lives outside every .tab-panel, so it's unaffected by any of
 //  this and keeps playing/visible across tab switches.
 // ══════════════════════════════════════════
-const TABS = ['home', 'social', 'feed', 'chat', 'music', 'photos', 'videos'];
+const TABS = ['home', 'calls', 'feed', 'chat', 'music', 'photos', 'videos'];
 // Social is one page with a sidebar, like Music, holding its own home, Feed
 // and Chat. Each of those is still a tab of its own here (its own panel,
 // hash, body class and Back entry), so everything that sends you to one
 // keeps working; the app's nav has one Social button for the three, and it
 // lands on Social's home. Photos was one of them until 2026-11-19; it and
 // Videos are pages of their own now, in the same kind of shell.
-// Social's front is Contacts (the tab key stays 'social', js/47-contacts.js).
-// What was its Browse is gone (2026-11-20): Together is on Home, This week
-// a sheet (js/25-social.js).
-const TAB_GROUP = { social: 'social', feed: 'social', chat: 'social' };
+// Social's front is Chat (2026-11-21, the owner: "chat should be the main
+// page and contacts should get merged into it"): 'social' isn't a tab of its
+// own any more, it's Chat (setActiveTab redirects, so #social and every old
+// link land there). Contacts' people are in Chat's sidebar; its page is
+// Calls (js/47-contacts.js). Before that Contacts was the front (2026-11-20),
+// and before that Browse (Together is on Home, This week a sheet).
+const TAB_GROUP = { calls: 'social', feed: 'social', chat: 'social' };
 // The pages laid out as a sidebar shell beside the page (.soc-shell):
 // full height, scrolling inside (body.tab-shell, "SOCIAL" in css/app.css).
-const SHELL_TABS = new Set(['social', 'feed', 'chat', 'photos', 'videos']);
+const SHELL_TABS = new Set(['calls', 'feed', 'chat', 'photos', 'videos']);
 // The pages the app's nav (and Tab, and 1–3) go between.
 const topTab = key => TAB_GROUP[key] || key;
 
@@ -50,7 +53,7 @@ function isTabEnabled(key) {
 // home and Feed scroll inside the page, beside its sidebar, and a panel
 // that's been hidden comes back scrolled to the top, so those are kept too.
 const _tabScroll = {};
-const PANEL_SCROLLS = new Set(['social', 'feed', 'videos']);
+const PANEL_SCROLLS = new Set(['calls', 'feed', 'videos']);
 const tabPanel = key => document.querySelector(`.tab-panel[data-tab-panel="${key}"]`);
 function setActiveTab(key) {
   // A link to a video (#videos/12, #videos/12?t=90): Videos, then that video.
@@ -101,6 +104,7 @@ function setActiveTab(key) {
     window.klabLiveLink = { user: livelink[1] || '' };
     if (document.body.classList.contains('tab-videos-active')) afterSwitchPaints(() => window.klabVideosTabChanged?.(true));
   }
+  if (key === 'social' || key === 'contacts') key = 'chat'; // Social's front
   if (!TABS.includes(key) || !isTabEnabled(key)) key = 'home';
   const leaving = document.querySelector('.tab-panel.active')?.dataset.tabPanel;
   // A menu belongs to the page it was opened on (tab changes don't fire hashchange).
@@ -115,7 +119,7 @@ function setActiveTab(key) {
   document.querySelectorAll('#socNav [data-soc], .hdr-pagenav [data-soc]').forEach(b => b.classList.toggle('active', b.dataset.soc === key));
   document.body.classList.toggle('tab-social-group', topTab(key) === 'social');
   document.body.classList.toggle('tab-shell', SHELL_TABS.has(key));
-  document.body.classList.toggle('tab-social-active', key === 'social');
+  document.body.classList.toggle('tab-calls-active', key === 'calls');
   // Chat wants to feel like its own app screen, not another section on
   // the scrolling dashboard — the hero/MOTD header and the presence rail
   // (redundant there anyway, Chat already shows who's around) collapse
@@ -133,7 +137,9 @@ function setActiveTab(key) {
     if (PANEL_SCROLLS.has(key)) { window.scrollTo(0, 0); tabPanel(key).scrollTop = _tabScroll[key] || 0; }
     else window.scrollTo(0, _tabScroll[key] || 0);
   }
-  if (typeof window.klabContactsTabChanged === 'function') { const on = key === 'social'; afterSwitchPaints(() => window.klabContactsTabChanged(on)); }
+  if (typeof window.klabContactsTabChanged === 'function') { const on = key === 'calls'; afterSwitchPaints(() => window.klabContactsTabChanged(on)); }
+  // Chat's People (js/47-contacts.js) only keep up while Chat shows.
+  if (typeof window.klabChatPeopleShown === 'function') { const on = key === 'chat'; afterSwitchPaints(() => window.klabChatPeopleShown(on)); }
   if (typeof window.klabHomeTabChanged === 'function') { const on = key === 'home'; afterSwitchPaints(() => window.klabHomeTabChanged(on)); }
   // Photos starts/stops its song clips and refits its stage (which had no
   // size while hidden). Nothing is fetched here: the tab loads in the background.
@@ -1524,7 +1530,7 @@ async function offerAppUpdate(current) {
   const desk = matchMedia(KLAB_DESK_MQ);
   const roomy = matchMedia('(min-width: 1100px)');
   const PAGES = [
-    { tab: 'social', pages: ['social', 'feed', 'chat'], parts: ['socNav', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
+    { tab: 'social', pages: ['chat', 'feed', 'calls'], parts: ['socNav', 'socVoice', 'chatSide'].map(id => document.getElementById(id)), search: document.querySelector('#socSidebar .soc-search'), searchOn: ['chat'] },
     { tab: 'photos', pages: ['photos'], parts: ['phSidebar', 'phNow'].map(id => document.getElementById(id)) },
     { tab: 'videos', pages: ['videos'], parts: [document.getElementById('vidNav')], search: document.querySelector('#videosSidebar .vid-search') },
     { tab: 'music', pages: ['music'], parts: [document.querySelector('#musicSidebar .music-nav')], search: document.querySelector('#musicSidebar .picker-search') },
@@ -1611,7 +1617,7 @@ async function offerAppUpdate(current) {
   // expand and the default tab should be a Browse").
   PAGES.forEach(p => {
     const btn = tabNav.querySelector(`.tab-nav-btn[data-tab-target="${p.tab}"]`);
-    const FRONT = '.picker-tab[data-tab="random"], .picker-tab[data-soc="social"], .picker-tab[data-vid="home"], .picker-tab[data-phview="timeline"]';
+    const FRONT = '.picker-tab[data-tab="random"], .picker-tab[data-soc="chat"], .picker-tab[data-vid="home"], .picker-tab[data-phview="timeline"]';
     const front = p.in.querySelector(FRONT) || p.parts[0]?.querySelector(FRONT);
     if (!btn || !front) return;
     btn.addEventListener('click', () => setTimeout(() => {

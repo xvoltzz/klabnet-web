@@ -25,7 +25,7 @@
   if (!prompt || !textEl || !cursor) return;
   const root = document.documentElement;
 
-  const ALL_PAGES = ['social', 'feed', 'chat', 'photos', 'videos', 'music'];
+  const ALL_PAGES = ['chat', 'feed', 'calls', 'photos', 'videos', 'music'];
   // Only the ones that are on.
   let PAGES = ALL_PAGES;
   const pages = () => (PAGES = ALL_PAGES.filter(p => typeof isTabEnabled !== 'function' || isTabEnabled(p)));
@@ -55,6 +55,7 @@
     if (a.startsWith('~/') || a.startsWith('/')) a = a.replace(/^~?\//, '');
     const parts = a.split('/').filter(Boolean);
     pages();
+    if (parts[0] === 'social' || parts[0] === 'contacts') parts[0] = 'chat'; // Social's front
     if (parts.length === 1) {
       if (PAGES.includes(parts[0])) return { page: parts[0] };
       // A section from inside its page.
@@ -147,7 +148,7 @@
 
   // What there is to find, fresh each time it opens (or what's typed changes).
   const PAGE_INFO = {
-    home: ['Home', 'ti-home'], social: ['Social', 'ti-users'], feed: ['Feed', 'ti-news'], chat: ['Chat', 'ti-message'],
+    home: ['Home', 'ti-home'], social: ['Social', 'ti-users'], feed: ['Feed', 'ti-news'], chat: ['Chat', 'ti-message'], calls: ['Calls', 'ti-phone'],
     music: ['Music', 'ti-music'], photos: ['Photos', 'ti-photo'], videos: ['Videos', 'ti-movie'],
   };
   const press = id => () => document.getElementById(id)?.click();

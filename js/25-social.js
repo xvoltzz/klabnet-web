@@ -98,6 +98,7 @@
   const together = (() => {
     const wrap = document.createElement('section');
     wrap.className = 'tg';
+    wrap.hidden = true; // until there's a room to show
     wrap.innerHTML = '<div class="wk-head tg-head"><span class="k-label">Together</span><span class="wk-range tg-count"></span><span class="soc-start"></span></div>' +
       '<div class="tg-rooms" role="list" aria-label="Rooms"></div>' +
       '<div class="tg-empty" hidden></div>' +
@@ -146,7 +147,16 @@
         '</div></div>';
     }
     // Every room as one shape of card.
-    function cards() {
+    // Only what's really together (the owner, 2026-11-21: Home is "really
+    // cluttered… i dont even know if i want the together stuff featured
+    // unless people are in voice or multiple people are actually in a
+    // watch/listen party"): voice channels with people in them, and watch
+    // or listening parties of two or more. Live streams, TV and the radio
+    // aren't shown here any more (Videos → Live, Channels, Music → Radio).
+    const SHOWN = new Set(['voice', 'watch', 'listen']);
+    const together2 = c => SHOWN.has(c.kind) && (c.kind === 'voice' ? c.people.length > 0 : c.people.length > 1);
+    function cards() { return allCards().filter(together2); }
+    function allCards() {
       const out = [];
       // Live streams (js/45-live.js): the streamer and who's watching.
       for (const l of data.live || []) out.push({
@@ -206,23 +216,26 @@
         roomsEl.innerHTML = '';
         emptyEl.hidden = false;
         emptyEl.className = 'k-empty tg-empty';
-        emptyEl.innerHTML = failed === 404 ? '<div>Together needs the latest klabnet-api.</div>' : failed ? '<div>Couldn’t see who’s around just now.</div>' : '<div>Loading…</div>';
+        emptyEl.innerHTML = '';
+        emptyEl.hidden = true;
+        wrap.hidden = true; // nothing to say until there's a room to join
         return;
       }
       const cs = cards();
-      const listening = (data.listening || []).filter(l => l.username !== me());
+      // "Listening now" (people on their own) isn't together: Home's Online has it.
+      const listening = [];
       // Redrawn only when something other than the running clocks changed.
       const key = JSON.stringify([cs.map(c => [c.kind, c.id, c.title, c.sub, c.art, c.people, c.who, c.playing]), listening.map(l => [l.username, l.now.songId]), startHTML()]);
       if (key === lastKey) { step(); return; }
       lastKey = key;
       roomsEl.innerHTML = cs.map(cardHTML).join('');
       roomsEl.hidden = !cs.length;
-      emptyEl.hidden = !!cs.length;
-      if (!cs.length) {
-        emptyEl.className = 'k-empty tg-empty';
-        emptyEl.innerHTML = '<i class="ti ti-users"></i><div>Nobody’s in a room right now.</div><div class="tg-start">' + startHTML() + '</div>';
-      }
-      startEl.innerHTML = cs.length ? startHTML() : '';
+      // Nothing together: nothing shown at all (no empty state, no "start
+      // something" buttons: the owner didn't want them).
+      emptyEl.hidden = true;
+      startEl.innerHTML = '';
+      wrap.hidden = !cs.length;
+      wrap.dispatchEvent(new CustomEvent('tg:shown', { bubbles: true }));
       const n = new Set(cs.flatMap(c => c.people)).size;
       countEl.textContent = cs.length ? klabCount(n, 'person', 'people') + ' in ' + klabCount(cs.length, 'room') : '';
       listenEl.innerHTML = listening.map(listenRowHTML).join('');
@@ -624,9 +637,13 @@
       } catch (err) { showToast('Couldn’t reply: ' + klabCap(err.message), 'ti-alert-triangle'); }
       finally { input.disabled = false; input.focus(); }
     });
-    function deleteReply(row, line, id) {
+    async function deleteReply(row, line, id) {
       const list = data?.replies?.[line] || [];
-      const i = list.findIndex(r => String(r.id) === String(id));
+      const found = list.find(r => String(r.id) === String(id));
+      if (!found) return;
+      // Someone else's (an admin's moderating): asked first, as anywhere.
+      if (found.username !== window.KLAB_USER?.username && !(await showConfirmDialog('Delete ' + found.username + '’s reply?', 'It’s gone for everyone.', 'Delete'))) return;
+      const i = list.indexOf(found);
       if (i < 0) return;
       const [gone] = list.splice(i, 1);
       klabUndo('Reply deleted', {

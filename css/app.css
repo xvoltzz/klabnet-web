@@ -8061,7 +8061,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .soc-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
     body.tab-shell .soc-main > .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     /* Social's home and Feed scroll inside the page, as Music's lists do. */
-    body.tab-shell .soc-main > .tab-panel[data-tab-panel="social"].active,
+    body.tab-shell .soc-main > .tab-panel[data-tab-panel="calls"].active,
     body.tab-shell .soc-main > .tab-panel[data-tab-panel="feed"].active,
     body.tab-shell .soc-main > .tab-panel[data-tab-panel="videos"].active {
       display: block; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
@@ -8130,7 +8130,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     body.chat-on :is(#socShell, #photosShell, #videosShell, #sideNav) .soc-chat-connect { display: none; }
     /* Not signed in: no empty Channels and Messages headings, just the
        way in. (Only :is(#socShell, #photosShell, #videosShell) had this, and the sidebar tree showed them.) */
-    body:not(.chat-on) :is(#socShell, #photosShell, #videosShell, #sideNav) :is(.chat-lbl-row, #chatChannelsList, #chatDmLbl, #chatDmList, #chatPeopleResults) { display: none; }
+    body:not(.chat-on) :is(#socShell, #photosShell, #videosShell, #sideNav) :is(.chat-lbl-row, #chatChannelsList, #chatDmList, #chatPeopleResults) { display: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active { background: transparent; border-color: transparent; box-shadow: none; }
     body:not(.tab-chat-active) #chatSide .chat-conv.active:hover { background: var(--glass-fill); }
     body:not(.tab-chat-active) #chatSide .motion-pill-chat { opacity: 0 !important; }
@@ -9565,7 +9565,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        that leaves nothing on Social's home or the Feed, so their sidebar
        goes. Photos keeps its own (this photo's info, its switches). */
     html.hdr-pagenav-on body:not(.tab-chat-active) :is(#socShell, #photosShell, #videosShell, #sideNav) :is(#chatSide, #socVoice) { display: none !important; }
-    html.hdr-pagenav-on body:is(.tab-social-active, .tab-feed-active) #socSidebar { display: none !important; }
+    html.hdr-pagenav-on body:is(.tab-calls-active, .tab-feed-active) #socSidebar { display: none !important; }
 
     /* The prompt, typed into (js/32-terminal.js). */
     .term-btn { cursor: default; -webkit-app-region: no-drag; }
@@ -10846,16 +10846,19 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 /* ── Favorites, the hub ── */
 #pickerList.fav-hub { display: block; }
 #pickerList.fav-hub > .mh-section { margin-bottom: 10px; }
-.fav-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 8px; flex-wrap: wrap; }
+/* Favorites' bar: the switch, then (songs) the filter, Shuffle and Play at
+   the other end, on one line under the title; a hairline under it. */
+.fav-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 0 12px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+.fav-bar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.fav-empty-sub { font-size: var(--fs-13); color: var(--text-dimmer); }
+.fav-empty-kind .k-btn { margin-top: 10px; }
 /* Favorites' switch: Songs / Albums / Artists (/ Playlists), with counts. */
-#pickerList.fav-hub > .fav-seg { display: inline-flex; margin: 4px 0 6px; }
+#pickerList.fav-hub .fav-seg { display: inline-flex; }
 .fav-seg .k-count { margin-left: 6px; opacity: .6; font-variant-numeric: tabular-nums; }
 .fav-seg .k-count:empty { display: none; }
 .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 22px 18px; padding: 16px 0 24px; }
 .fav-grid > .mh-card { width: auto; }
-.fav-empty-kind { padding: 40px 0; }
-.fav-songs-head .picker-section-label { padding-bottom: 8px; }
-.fav-songs-actions { display: flex; align-items: center; gap: 8px; }
+.fav-empty-kind { padding: 56px 0; gap: 6px; }
 .fav-find-x { flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-dimmer); cursor: pointer; }
 .fav-find-x:hover { color: var(--text); background: var(--fill-hover); }
 .fav-find .fav-find-x i { font-size: 13px; color: inherit; }
@@ -11130,7 +11133,7 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 #phViews button i { font-size: 15px; }
 @media (max-width: 420px) { #phViews button span { display: none; } }
 /* The order: Music's Sort, one button and its menu. */
-#phSortBtn .ti-chevron-down { font-size: 13px; color: var(--text-dim); margin-left: -2px; }
+#phSortBtn .ti-chevron-down, #phGameBtn .ti-chevron-down { font-size: 13px; color: var(--text-dim); margin-left: -2px; }
 /* A photo's downloads. */
 .ph-side-foot .ph-original + .ph-original { margin-top: -2px; }
 
@@ -11221,8 +11224,8 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 /* Phone Photos: the action row fits (the three views as icons, Sort,
    Slideshow and Post as icons too, the views first). */
 @media (max-width: 900px) and (pointer: coarse) {
-  #phSlideBtn > span, #phPostBtn > span, #phSortBtn > span, #phSortBtn > .ti-chevron-down, #phViews button > span { display: none; }
-  #phSlideBtn, #phPostBtn, #phSortBtn { width: var(--h-md, 34px); padding: 0; justify-content: center; }
+  #phSlideBtn > span, #phPostBtn > span, #phSortBtn > span, #phSortBtn > .ti-chevron-down, #phGameBtn > span, #phGameBtn > .ti-chevron-down, #phViews button > span { display: none; }
+  #phSlideBtn, #phPostBtn, #phSortBtn, #phGameBtn:not([hidden]) { width: var(--h-md, 34px); padding: 0; justify-content: center; }
   #phViews button { padding: 0 10px; }
 }
 /* ── Social → Browse: Together, This week (2026-11-20) ──
@@ -13003,7 +13006,11 @@ body:not(.player-hidden) .cl-card { bottom: calc(var(--dock-h, 76px) + 24px); }
    No boxes behind things: rows with hairlines, names that underline on
    hover, covers and posters as the only tiles. This week is a sheet
    (.wk-sheet), the changelog Settings → About → What's new (.hp-sheet). */
-.hp { max-width: 1280px; padding: clamp(22px, 5vh, 52px) 28px 56px; }
+/* The whole page, at Music's margins (2026-11-21, owner: "home isnt taking
+   advantage of the space it has. that padding is weird"): no width cap and
+   no padding of its own on top of .dash's, so the greeting sits where
+   Music's view title does. */
+.hp { max-width: none; margin: 0; padding: 0 0 40px; }
 .hp-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0 0 22px; }
 .hp-top-tx { min-width: 0; }
 .hp-hello { margin: 0; }
@@ -13016,26 +13023,6 @@ body:not(.player-hidden) .cl-card { bottom: calc(var(--dock-h, 76px) + 24px); }
 html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; }
 
 /* Now playing: one row on a hairline panel; the bar is a transform. */
-.hp-now { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 10px 14px 10px 10px; margin-bottom: 30px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--fill); }
-.hp-now-art { flex: none; width: 56px; height: 56px; padding: 0; border: 0; border-radius: var(--r-md); overflow: hidden; background: var(--fill-hover); color: var(--text-dimmer); display: grid; place-items: center; font-size: 22px; cursor: pointer; box-shadow: var(--elev-1); }
-.hp-now-art.idle, span.hp-now-art { cursor: default; box-shadow: none; }
-.hp-now-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hp-now-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.hp-now-t { font: 650 var(--fs-15, 15px) var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hp-now-a { font-size: var(--fs-13); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hp-now-bar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-.hp-now-time { flex: none; min-width: 74px; font: 500 var(--fs-11) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dimmer); }
-.hp-now-track { flex: 1; max-width: 420px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.hp-now-track b { display: block; height: 100%; background: var(--text); transform-origin: left; transform: scaleX(0); }
-.hp-now.playing .hp-now-track b { background: rgb(var(--accent-rgb)); }
-.hp-now-btns { flex: none; display: flex; align-items: center; gap: 4px; }
-.hp-now-btns .k-btn + .k-btn { margin-left: 4px; }
-.hp-now-play { background: var(--text); color: var(--bg); }
-.hp-now-play:hover { background: var(--text); color: var(--bg); opacity: .9; }
-.hp-jump { display: flex; gap: 6px; flex: none; }
-.hp-jump-a { width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-hover); cursor: pointer; transition: transform var(--m-fast) var(--m-ease); }
-.hp-jump-a img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hp-jump-a:hover { transform: translateY(-2px); }
 
 /* Links in running text: plain until pointed at, then underlined. */
 .hp-link { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -13044,7 +13031,7 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
 .hp-dot { margin: 0 6px; color: var(--text-dimmer); }
 
 /* The two columns. */
-.hp-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 0 36px; align-items: start; }
+.hp-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 0 40px; align-items: stretch; min-height: calc(100vh - 230px); }
 .hp-side { padding-left: 28px; border-left: 1px solid var(--line); min-width: 0; }
 .hp-main { min-width: 0; }
 .hp-shelf { margin-bottom: 30px; }
@@ -13059,14 +13046,14 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
 
 /* Together, on Home: its head is ours; nothing in a dashed box. */
 .hp-together { margin-bottom: 30px; }
+/* Only there while people are actually together (js/25-social.js hides it). */
+.hp-together:not(:has(> .tg:not([hidden]))) { display: none; }
 .hp-together .tg-head { padding: 0 2px 10px; }
-.hp-together .tg-listen, .hp-together .tg-listen-label { display: none !important; }
-.hp-together .tg-empty.k-empty { padding: 4px 2px; border: 0; border-radius: 0; align-items: flex-start; text-align: left; font-size: var(--fs-13); color: var(--text-dimmer); }
-.hp-together .tg-empty.k-empty > i, .hp-together .tg-empty .ti:first-child:not(.k-btn i) { display: none; }
-.hp-together .tg-empty .tg-start { justify-content: flex-start; margin-top: 10px; }
 
 /* New music: covers in one row that fits (no sideways scroll). */
-#hpAlbums .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 14px; overflow: hidden; }
+/* Two rows that fit (no sideways scroll); what doesn't fit is cut. */
+#hpAlbums .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-template-rows: auto auto; grid-auto-rows: 0; gap: 0 16px; overflow: hidden; }
+#hpAlbums .hp-album:nth-child(n) { margin-bottom: 20px; }
 .hp-album { display: flex; flex-direction: column; min-width: 0; padding: 0; border: 0; background: none; text-align: left; color: var(--text); cursor: pointer; }
 .hp-album-art { position: relative; aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; background: var(--fill); box-shadow: 0 6px 18px var(--shadow-30); }
 .hp-album-art img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease; }
@@ -13079,11 +13066,12 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
 .hp-album:hover .hp-album-t { text-decoration: underline; }
 
 /* New videos: Videos' own cards, four across. */
-#hpVideos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px 14px; }
+#hpVideos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 16px; overflow: hidden; }
 #hpVideos .vid-card { width: auto; }
 
 /* New photos: square tiles, one row. */
-#hpPhotos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 6px; overflow: hidden; }
+#hpPhotos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); grid-template-rows: auto auto; grid-auto-rows: 0; gap: 0 8px; overflow: hidden; }
+#hpPhotos .hp-photo:nth-child(n) { margin-bottom: 8px; }
 .hp-photo { aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--r-sm); overflow: hidden; background: var(--fill); cursor: pointer; }
 .hp-photo img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease, transform var(--m-med) var(--m-ease); }
 .hp-photo img.loaded { opacity: 1; }
@@ -13134,22 +13122,19 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
 
 /* A narrower window: one column, the side's lists after the main's. */
 @media (max-width: 1180px) {
-  .hp-cols { grid-template-columns: minmax(0, 1fr); }
+  .hp-cols { grid-template-columns: minmax(0, 1fr); min-height: 0; }
   .hp-side { padding-left: 0; border-left: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 32px; }
 }
 @media (max-width: 760px) {
   .hp { padding: 18px 14px 40px; }
   .hp-clock { font-size: 30px; }
-  .hp-jump { display: none; }
-  .hp-now { flex-wrap: wrap; }
 }
 @media (max-width: 760px) and (pointer: coarse) {
   .hp-on .ct-acts :is([data-ct="share"], [data-ct="more"]) { display: none; }
   .hp-on .ct-join > span { display: none; }
   .hp-together .tg-head { flex-wrap: wrap; }
-  .hp-together .soc-start { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-left: 0; }
   /* A phone has its own clock and the mini player. */
-  .hp-clock, .hp-now { display: none; }
+  .hp-clock { display: none; }
   .hp-top { margin-bottom: 26px; }
 }
 
@@ -13161,5 +13146,39 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
    class rule of the same weight. Not !important: the menus' exit fades
    (display transitioned discretely) still run. */
 [hidden] { display: none; }
+/* ══ CHAT'S PEOPLE (js/47-contacts.js, 2026-11-21) ══
+   Everyone you haven't messaged, under the conversations: the same rows,
+   Call and Share floating over the row's end on hover (as the close button
+   does on a conversation), and "Everyone else" folded away. */
+#chatSide .ct-srow { position: relative; }
+#chatSide .ct-srow.ct-off .chat-conv-face { opacity: .7; }
+#chatSide .ct-sacts { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; opacity: 0; pointer-events: none; transition: opacity var(--m-fast, 120ms) var(--m-ease, ease); }
+#chatSide .ct-sacts .k-icon { width: 24px; height: 24px; border-radius: 6px; background: var(--glass-fill-h); }
+#chatSide .ct-srow:is(:hover, :focus-within) .ct-sacts { opacity: 1; pointer-events: auto; }
+#chatSide .ct-srow:is(:hover, :focus-within) .chat-conv-last { padding-right: 56px; }
+#chatSide .ct-fold { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 4px; padding: 6px 10px; border: 0; background: none; color: var(--text-dimmer); font: 500 12.5px var(--font-ui); cursor: pointer; border-radius: 6px; text-align: left; }
+#chatSide .ct-fold:hover { color: var(--text); }
+#chatSide .ct-fold:hover span:first-of-type { text-decoration: underline; text-underline-offset: 3px; }
+#chatSide .ct-fold i { font-size: 13px; }
+#chatSide .ct-fold-n { margin-left: auto; font-variant-numeric: tabular-nums; }
+#chatSide .ct-side.folded .ct-rest { display: none; }
+/* Searching opens it: who you're looking for may be in there. */
+#chatSide .chat-side-scroll.searching .ct-side .ct-rest { display: block; }
+#chatSide .chat-side-scroll.searching .ct-fold { display: none; }
+#socCallsCount { margin-left: auto; }
+
 /* Segment buttons are styled by a heavier rule; a hidden one still hides. */
 .k-seg > [hidden], .k-toolbar > [hidden], .card-acts > [hidden] { display: none; }
+/* ══ PHOTOS → SCREENSHOTS (js/14-photos.js, 2026-11-21) ══
+   A screenshot's game under it (press: all of that game's), and the head's
+   game picker, lit while one game is picked. */
+.ph-game-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; margin: 0 6px 4px 0; border: 1px solid var(--line); border-radius: var(--r-sm, 6px); background: var(--fill); color: var(--text); font: 600 12px var(--font-ui); cursor: pointer; vertical-align: middle; }
+.ph-game-chip i { font-size: 13px; color: var(--text-dim); }
+.ph-game-chip:hover { background: var(--fill-hover); }
+.ph-game.on { color: var(--text); border-color: var(--glass-border, var(--line)); }
+.ph-game > span { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-game-field input { width: 100%; }
+
+/* The sidebar tree's rows are styled by heavier rules (display: flex): a
+   hidden one (Calls, while calls aren't set up) still hides. */
+#sideNav .nav-sub .picker-tab[hidden], #socNav .picker-tab[hidden] { display: none !important; }

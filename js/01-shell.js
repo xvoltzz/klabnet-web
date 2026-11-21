@@ -607,7 +607,7 @@ function renderKeyHints() {
     }
     // Feed and Social's home scroll beside Social's sidebar.
     const panel = document.querySelector('.tab-panel.active');
-    if (panel && ['feed', 'social'].includes(panel.dataset.tabPanel)) return panel;
+    if (panel && ['feed', 'calls'].includes(panel.dataset.tabPanel)) return panel;
     return document.scrollingElement || document.documentElement;
   }
   function scrollPane(delta) {
@@ -695,7 +695,7 @@ function renderKeyHints() {
         go: key => document.querySelector(`#vidNav .picker-tab[data-vid="${CSS.escape(key)}"]`)?.click() };
     }
     if (page === 'social') {
-      const rows = ['social', 'feed', 'chat'].filter(isTabEnabled);
+      const rows = ['chat', 'feed', 'calls'].filter(k => isTabEnabled(k) && !(k === 'calls' && document.getElementById('socCallsRow')?.hidden));
       return { rows, at: document.querySelector('.tab-panel.active')?.dataset.tabPanel,
         go: key => { SFX && SFX.play('click'); setActiveTab(key); } };
     }

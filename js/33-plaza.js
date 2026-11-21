@@ -10,16 +10,17 @@
 //    · The head: the greeting, the date, and an old LCD clock (DSEG7, the
 //      radio's face; ideas.md: "clock under home looks like old school
 //      digital clock!"). It changes once a minute, nothing loops.
-//    · Now playing: your song with play/next and its progress, or, with
-//      nothing on, Jump back in (your recent albums) and Shuffle.
-//    · The main column: Together (rooms to join), then what's new: albums
+//    · The main column: Together (only voice with people in it, and watch
+//      or listening parties of two or more; otherwise not there), then
+//      what's new: albums
 //      (Navidrome's newest), videos, photos. Each shelf only when it has
 //      something, each with See all.
 //    · The side column: Online (Contacts' rows), unread messages, the
 //      newest posts, and This week's totals (opens the week).
 //  It fetches when it's shown (each source at most every 2 minutes) and
-//  not otherwise; the progress bar follows the audio's own timeupdate,
-//  only while Home shows.
+//  not otherwise. The owner, 2026-11-21: "better but really cluttered. i
+//  dont need the music bar there", so there's no Now playing (the dock has
+//  it) and no "start a listening party / watch together / voice" buttons.
 // ══════════════════════════════════════════
 (function () {
   const page = document.getElementById('homePage');
@@ -45,7 +46,6 @@
       '<div class="hp-top-tx"><h1 class="k-page-title hp-hello" id="hpHello"></h1><div class="hp-date" id="hpDate"></div></div>' +
       '<div class="hp-clock" id="hpClock" aria-hidden="true"><span class="hp-clock-ghost">88:88</span><span class="hp-clock-now"></span><span class="hp-clock-ap"></span></div>' +
     '</header>' +
-    '<section class="hp-now" id="hpNow" aria-label="Now playing"></section>' +
     '<div class="hp-cols">' +
       '<div class="hp-main">' +
         '<section class="hp-together" id="hpTogether" aria-label="Together"></section>' +
@@ -56,7 +56,7 @@
       '<aside class="hp-side">' +
         '<section class="hp-shelf hp-online" aria-labelledby="hpOnTitle">' +
           '<div class="hp-head"><span class="k-label" id="hpOnTitle">Online</span><span class="hp-n" id="hpOnN"></span>' +
-            '<button type="button" class="hp-see" data-see="social">Contacts<i class="ti ti-chevron-right"></i></button></div>' +
+            '<button type="button" class="hp-see" data-see="social">Chat<i class="ti ti-chevron-right"></i></button></div>' +
           '<div class="ct-list hp-on" id="hpOn" role="list"></div>' +
         '</section>' +
         shelf('hpUnread', 'Unread', 'chat') +
@@ -65,7 +65,7 @@
       '</aside>' +
     '</div>';
   const $ = id => page.querySelector('#' + id);
-  const hello = $('hpHello'), dateEl = $('hpDate'), clockEl = $('hpClock'), nowEl = $('hpNow');
+  const hello = $('hpHello'), dateEl = $('hpDate'), clockEl = $('hpClock');
   const listEl = $('hpOn'), countEl = $('hpOnN');
   let active = false, lastHTML = '';
 
@@ -92,112 +92,6 @@
     greet();
     minuteTimer = setTimeout(everyMinute, 60e3 - Date.now() % 60e3 + 50);
   }
-
-  // ── Now playing ──
-  // Built once per song; the bar moves by transform from timeupdate.
-  let nowKey = null, barEl = null, timeEl = null;
-  const fmt = s => (typeof formatTime === 'function' ? formatTime(s) : Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'));
-  function recentAlbums() {
-    const seen = new Set(), out = [];
-    for (const s of (typeof getPlayHistory === 'function' ? getPlayHistory() : [])) {
-      if (!s.albumId || seen.has(s.albumId)) continue;
-      seen.add(s.albumId);
-      out.push({ id: s.albumId, name: s.album, artist: s.artist, coverArt: s.coverArt || s.albumId });
-      if (out.length >= 6) break;
-    }
-    return out;
-  }
-  function paintNow(force) {
-    const song = playerState?.currentSong;
-    const radio = document.body.classList.contains('radio-on');
-    const key = radio ? 'radio' : song ? 'song:' + song.id : 'none:' + recentAlbums().map(a => a.id).join(',');
-    if (key !== nowKey || force) {
-      nowKey = key;
-      if (song && !radio) {
-        nowEl.innerHTML =
-          '<button type="button" class="hp-now-art" data-now="full" title="Open the full player" data-silent>' +
-            (song.coverArt ? '<img src="' + esc(ndArt(song.coverArt, 72)) + '" alt="" decoding="async" draggable="false" />' : '<i class="ti ti-music"></i>') + '</button>' +
-          '<div class="hp-now-tx">' +
-            '<span class="hp-now-t">' + esc(song.title || '') + '</span>' +
-            '<span class="hp-now-a">' + (song.artist ? '<button type="button" class="hp-link" data-now="artist">' + esc(song.artist) + '</button>' : '') +
-              (song.album ? '<span class="hp-dot">·</span><button type="button" class="hp-link" data-now="album">' + esc(song.album) + '</button>' : '') + '</span>' +
-            '<span class="hp-now-bar"><span class="hp-now-time"></span><span class="hp-now-track"><b></b></span></span>' +
-          '</div>' +
-          '<div class="hp-now-btns">' +
-            '<button type="button" class="k-icon" data-now="prev" title="Previous"><i class="ti ti-player-skip-back-filled"></i></button>' +
-            '<button type="button" class="k-icon hp-now-play" data-now="play" title="Play"><i class="ti ti-player-play-filled"></i></button>' +
-            '<button type="button" class="k-icon" data-now="next" title="Next"><i class="ti ti-player-skip-forward-filled"></i></button>' +
-            '<button type="button" class="k-icon" data-now="queue" title="Up next"><i class="ti ti-playlist"></i></button>' +
-          '</div>';
-      } else if (radio) {
-        const label = document.getElementById('dockPeek')?.querySelector('[class*="label"], .peek-label')?.textContent || 'The radio';
-        nowEl.innerHTML = '<span class="hp-now-art"><i class="ti ti-radio"></i></span>' +
-          '<div class="hp-now-tx"><span class="hp-now-t">' + esc(label) + '</span><span class="hp-now-a">On the radio</span></div>' +
-          '<div class="hp-now-btns"><button type="button" class="k-btn sm" data-now="radio"><i class="ti ti-radio"></i><span>Open the radio</span></button></div>';
-      } else {
-        const recent = recentAlbums();
-        nowEl.innerHTML =
-          '<span class="hp-now-art idle"><i class="ti ti-music"></i></span>' +
-          '<div class="hp-now-tx"><span class="hp-now-t">Nothing playing</span>' +
-            '<span class="hp-now-a">' + (recent.length ? 'Pick up where you left off' : 'Put something on') + '</span></div>' +
-          (recent.length ? '<div class="hp-jump" role="list">' + recent.map(a =>
-            '<button type="button" class="hp-jump-a" role="listitem" data-album="' + esc(a.id) + '" data-name="' + esc(a.name || '') + '" title="' + esc((a.name || '') + (a.artist ? ' · ' + a.artist : '')) + '" data-silent>' +
-              '<img src="' + esc(ndArt(a.coverArt, 48)) + '" alt="" loading="lazy" decoding="async" draggable="false" /></button>').join('') + '</div>' : '') +
-          '<div class="hp-now-btns">' +
-            '<button type="button" class="k-btn sm" data-now="shuffle"><i class="ti ti-arrows-shuffle"></i><span>Shuffle</span></button>' +
-            '<button type="button" class="k-btn sm ghost" data-now="radio"><i class="ti ti-radio"></i><span>Radio</span></button>' +
-          '</div>';
-      }
-      nowEl.classList.toggle('idle', !(song && !radio));
-      barEl = nowEl.querySelector('.hp-now-track b');
-      timeEl = nowEl.querySelector('.hp-now-time');
-    }
-    const play = nowEl.querySelector('.hp-now-play');
-    if (play) {
-      const on = !!playerState.playing;
-      const icon = on ? 'ti-player-pause-filled' : 'ti-player-play-filled';
-      const i = play.querySelector('i');
-      if (!i.classList.contains(icon)) { i.className = 'ti ' + icon; play.title = on ? 'Pause' : 'Play'; }
-      nowEl.classList.toggle('playing', on);
-    }
-    tickNow();
-  }
-  function tickNow() {
-    if (!barEl || !active) return;
-    const a = playerState.audio, d = a.duration || playerState.currentSong?.duration || 0, t = a.currentTime || 0;
-    barEl.style.transform = 'scaleX(' + (d ? Math.min(1, t / d) : 0) + ')';
-    const txt = d ? fmt(t) + ' / ' + fmt(d) : '';
-    if (timeEl.textContent !== txt) timeEl.textContent = txt;
-  }
-  nowEl.addEventListener('click', e => {
-    const jump = e.target.closest('.hp-jump-a');
-    if (jump) { SFX?.play('nav'); setActiveTab('music'); window.openAlbumPage?.(jump.dataset.album, jump.dataset.name); return; }
-    const b = e.target.closest('[data-now]');
-    if (!b) return;
-    const song = playerState.currentSong;
-    switch (b.dataset.now) {
-      case 'play': togglePlay(); break;
-      case 'prev': prevSong(); break;
-      case 'next': nextSong(); break;
-      case 'shuffle': togglePlay(); break; // nothing loaded: plays a random mix
-      case 'queue': window.klabOpenUpNext?.(); break;
-      case 'full': if (song) openFS(); break;
-      case 'radio': setActiveTab('music'); document.querySelector('.music-nav .picker-tab[data-tab="radio"], .picker-tab[data-tab="radio"]')?.click(); break;
-      case 'artist': if (song?.artistId) { setActiveTab('music'); window.openArtistPage?.(song.artistId, song.artist); } break;
-      case 'album': if (song?.albumId) { setActiveTab('music'); window.openAlbumPage?.(song.albumId, song.album); } break;
-    }
-  });
-  nowEl.addEventListener('contextmenu', e => {
-    const jump = e.target.closest('.hp-jump-a');
-    if (jump) {
-      klabMenu(e, [
-        { header: jump.dataset.name || 'Album' },
-        { label: 'Open album', icon: 'ti-disc', action: () => { setActiveTab('music'); window.openAlbumPage?.(jump.dataset.album, jump.dataset.name); } },
-      ]);
-    }
-  });
-  ['play', 'pause', 'loadstart', 'loadedmetadata'].forEach(ev => playerState.audio.addEventListener(ev, () => { if (active) paintNow(); }));
-  playerState.audio.addEventListener('timeupdate', () => { if (active) tickNow(); });
 
   // ── Online ──
   function paintOnline() {
@@ -272,7 +166,7 @@
   async function loadAlbums() {
     if (!due('albums') || typeof ND_URL === 'undefined') return;
     try {
-      const j = await getJSON(ND_URL + '/rest/getAlbumList2?type=newest&size=12&' + subsonicParams(), 8000);
+      const j = await getJSON(ND_URL + '/rest/getAlbumList2?type=newest&size=24&' + subsonicParams(), 8000);
       albums = j['subsonic-response']?.albumList2?.album || [];
     } catch (e) { got.albums = 0; return; }
     paintAlbums();
@@ -282,7 +176,7 @@
       const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
       return !iso ? '' : days < 1 ? 'Today' : days < 2 ? 'Yesterday' : days < 7 ? days + ' days ago' : new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
     };
-    show('hpAlbums', albums.slice(0, 12).map(a =>
+    show('hpAlbums', albums.slice(0, 24).map(a =>
       '<button type="button" class="hp-album" data-album="' + esc(a.id) + '" data-name="' + esc(a.name || '') + '" data-silent>' +
         '<span class="hp-album-art"><img src="' + esc(ndArt(a.coverArt || a.id, 160)) + '" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add(\'loaded\')" />' +
           '<span class="k-card-play hp-album-play" data-play title="Play" aria-label="Play"><i class="ti ti-player-play-filled"></i></span></span>' +
@@ -314,7 +208,7 @@
   let videos = [];
   async function loadVideos() {
     if (!due('videos')) return;
-    try { videos = (await getJSON('/api/posts/videos?limit=4&sort=new')).videos || []; } catch (e) { got.videos = 0; return; }
+    try { videos = (await getJSON('/api/posts/videos?limit=8&sort=new')).videos || []; } catch (e) { got.videos = 0; return; }
     show('hpVideos', videos.length && window.klabVideoCardHTML ? videos.map(v => window.klabVideoCardHTML(v)).join('') : '');
   }
   $('hpVideos').addEventListener('click', e => {
@@ -325,13 +219,13 @@
     setActiveTab('videos');
   });
 
-  // New photos.
+  // New photos: newest uploaded (not by date taken), as many as two rows hold.
   async function loadPhotos() {
     if (!due('photos')) return;
     let posts;
-    try { posts = (await getJSON('/api/posts/photos?limit=8')).posts || []; } catch (e) { got.photos = 0; return; }
+    try { posts = (await getJSON('/api/posts/photos?limit=16&order=posted')).posts || []; } catch (e) { got.photos = 0; return; }
     const tiles = [];
-    for (const p of posts) for (const ph of (p.photos || [])) { if (tiles.length < 8) tiles.push({ p, ph }); }
+    for (const p of posts) for (const ph of (p.photos || [])) { if (tiles.length < 24) tiles.push({ p, ph }); }
     show('hpPhotos', tiles.map(({ p, ph }) =>
       '<button type="button" class="hp-photo" data-post="' + p.id + '" data-photo="' + esc(ph.id) + '" title="' + esc(p.username + (p.caption || p.text ? ': ' + (p.caption || p.text) : '')) + '" data-silent>' +
         '<img src="/api/posts/photos/files/' + encodeURIComponent(ph.id) + '/thumb?v=2" alt="" loading="lazy" decoding="async" draggable="false" onload="this.classList.add(\'loaded\')" /></button>').join(''));
@@ -430,7 +324,6 @@
     if (!active) return;
     greet();
     paintOnline();
-    paintNow();
     paintUnread();
     refreshTimes();
   }
@@ -455,9 +348,6 @@
   const feedChanged = window.klabHomeFeedChanged;
   window.klabHomeFeedChanged = list => { feedChanged?.(list); if (active) paintFeed(); };
   document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { paint(); loadAll(); everyMinute(); } });
-  // The radio turning on or off changes what Now playing says.
-  new MutationObserver(() => { if (active && document.body.classList.contains('radio-on') !== (nowKey === 'radio')) paintNow(); })
-    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   let tick = 0;
   const tabChanged = window.klabHomeTabChanged;
@@ -469,7 +359,7 @@
     mountTogether();
     window.klabTogether?.shown(show);
     if (active) {
-      lastHTML = ''; nowKey = null;
+      lastHTML = '';
       paint(); loadAll(); everyMinute();
       // Voice and rooms move without a presence poll: a light look every 10s.
       tick = setInterval(() => { if (!document.hidden) { paintOnline(); paintUnread(); refreshTimes(); } }, 10e3);

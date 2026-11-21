@@ -813,6 +813,7 @@
         el = pickerList.querySelector('.rd-page');
         el.addEventListener('click', onClick);
         el.querySelector('.rd-chat-form').addEventListener('submit', onSend);
+        el.querySelector('.rd-chat-log').addEventListener('contextmenu', onChatMenu);
       }
       paint(true);
     }
@@ -935,7 +936,7 @@
       log.innerHTML = chat.msgs.map(m => {
         let h = '';
         const same = prev && prev.username === m.username && m.ts - prev.ts < 300;
-        h += '<div class="rd-msg' + (same ? ' cont' : '') + '">' + (same ? '<span class="rd-av-gap"></span>' : avatar(m.username)) +
+        h += '<div class="rd-msg' + (same ? ' cont' : '') + '" data-id="' + m.id + '">' + (same ? '<span class="rd-av-gap"></span>' : avatar(m.username)) +
           '<div class="rd-msg-in">' + (same ? '' : '<div class="rd-msg-head"><b style="color:' + colorOf(m.username) + '">' + esc(m.username) + '</b><time>' + fmtTime(m.ts) + '</time></div>') +
           '<div class="rd-msg-body">' + esc(m.body) + '</div></div></div>';
         prev = m;
@@ -943,6 +944,39 @@
       }).join('');
       try { window.klabEmojify?.(log); } catch (e) {}
       if (stick) log.scrollTop = log.scrollHeight;
+    }
+    // Right-click a message: copy, profile, and Delete for whoever wrote it,
+    // the station's editors or an admin (klabnet-api's rule).
+    function onChatMenu(e) {
+      const row = e.target.closest('.rd-msg[data-id]');
+      if (!row) return;
+      const id = +row.dataset.id, m = chat.msgs.find(x => x.id === id);
+      if (!m) return;
+      const me = window.KLAB_USER?.username, d = byId(chat.id);
+      const canDel = m.username === me || !!d?.canEdit || !!window.KLAB_USER?.is_admin;
+      klabMenu(e, [
+        { header: m.username },
+        { label: 'Copy text', icon: 'ti-copy', action: () => klabCopy(m.body, 'Message') },
+        { label: 'Profile', icon: 'ti-user', action: () => window.openProfileView?.(m.username) },
+        '-',
+        { label: 'Delete', icon: 'ti-trash', danger: true, hidden: !canDel, action: () => deleteChat(m) },
+      ]);
+    }
+    async function deleteChat(m) {
+      const station = chat.id;
+      if (m.username !== window.KLAB_USER?.username &&
+          !(await showConfirmDialog('Delete ' + m.username + '’s message?', 'It’s gone from this station’s chat.', 'Delete'))) return;
+      const i = chat.msgs.findIndex(x => x.id === m.id);
+      if (i < 0 || chat.id !== station) return;
+      chat.msgs.splice(i, 1);
+      paintChat();
+      try {
+        const r = await fetchTimeout(API + '/' + encodeURIComponent(station) + '/chat/' + m.id, { method: 'DELETE' }, 8000);
+        if (!r.ok) throw new Error(r.status === 404 || r.status === 405 ? 'Deleting needs the latest klabnet-api' : 'status ' + r.status);
+      } catch (err) {
+        if (chat.id === station && !chat.msgs.some(x => x.id === m.id)) { chat.msgs = chat.msgs.concat(m).sort((a, b) => a.id - b.id); paintChat(); }
+        showToast?.(/klabnet-api/.test(err.message) ? err.message : 'Couldn’t delete that', 'ti-alert-triangle');
+      }
     }
     async function onSend(e) {
       e.preventDefault();
