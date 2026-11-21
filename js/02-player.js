@@ -1083,162 +1083,360 @@ pickerSearchEl.addEventListener('keydown', e => {
 pickerBackdrop.addEventListener('click', e => { if (e.target === pickerBackdrop) closePicker(); });
 
 
-// ── Toast notification flyout — stacked cards hanging off the header
-//    buttons' bottom-right corner instead of a lone bottom-center pill ──
+// ══════════════════════════════════════════
+//  TOASTS (redone 2026-11-21, the owner: "redo the notification system to
+//  make them cleaner, more interactable, more manageable", "mostly talking
+//  about the toasts")
+//  Two looks from one call:
+//    · a quick one: a slim line with a small glyph ("Saved", Undo), and
+//    · a notification: a card for something that happened (msg is
+//      { title, body }, or it's about a person): face, title, time, two
+//      lines, and its buttons on it (Reply, Mark read, Call back, Watch).
+//  They stack under the title bar's right, newest on top with up to two
+//  peeking behind; pointing at the stack fans it out and holds every
+//  timer (a hairline under each shows its time). Each has × (and swipe it
+//  right), Clear all shows with two or more, right-click has the rest.
+//  `group` folds a burst into one card with a count (a conversation's
+//  messages); window.klabToasts.dismissGroup(g) takes one away (opening
+//  that conversation does).
+//
+//  showToast(msg, icon, durationMs, avatarUrl, onClick, opts), or
+//  showToast(msg, icon, opts). msg: text, or { title, body }. icon: a
+//  Tabler class, toastArt(coverArt), toastPerson(username). opts:
+//    action { label, run } / actions [{ label, icon, run, keep }]: buttons
+//      (keep: the toast stays after);
+//    onReply(text): a Reply button and a field (resolve = sent, throw =
+//      keep the field);
+//    group: a key that folds into an existing toast; menu: () => klabMenu
+//      items for right-click; sticky: stays until closed; onClose(): the
+//      person closed it; onGone(): it left, however (klabUndo commits).
+//  Returns the toast's element.
+// ══════════════════════════════════════════
 const TOAST_DEFAULT_MS = 3200;
-// Every notification gets a picture of its own: pass `icon` as a Tabler
-// class ('ti-trash'), toastArt(coverArtOrAlbumId) for a cover, or
-// toastPerson(username) for someone's picture (their initial on their name
-// colour when they have none). `msg` can be { title, body } for two lines.
+const TOAST_NOTE_MS = 7000;
+const TOAST_MAX = 6;
 function toastArt(coverArt) {
   return coverArt ? { art: `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(coverArt)}&size=120&${subsonicParams()}` } : 'ti-music';
 }
 function toastPerson(username) { return { person: String(username || '').replace(/^@/, '').split(':')[0] }; }
 function toastIconHTML(icon, avatarUrl) {
-  if (avatarUrl) return `<img class="toast-item-pic round" src="${esc(avatarUrl)}" alt="" />`;
-  if (icon && icon.art) return `<img class="toast-item-pic" src="${esc(icon.art)}" alt="" />`;
+  if (avatarUrl) return `<img class="tst-pic face" src="${esc(avatarUrl)}" alt="" />`;
+  if (icon && icon.art) return `<img class="tst-pic" src="${esc(icon.art)}" alt="" />`;
   if (icon && icon.person) {
     const u = icon.person;
     const url = window.klabResolveUserAvatar ? window.klabResolveUserAvatar(u) : null;
-    if (url) return `<img class="toast-item-pic round" src="${esc(url)}" alt="" />`;
+    if (url) return `<img class="tst-pic face" src="${esc(url)}" alt="" />`;
     const color = typeof profileColor === 'function' ? profileColor(u) : 'var(--text-dim)';
-    return `<span class="toast-item-pic round toast-item-initial" style="background:${color}">${esc((u[0] || '?').toUpperCase())}</span>`;
+    return `<span class="tst-pic face tst-initial" style="--c:${color}">${esc((u[0] || '?').toUpperCase())}</span>`;
   }
-  return `<span class="toast-item-pic toast-item-glyph"><i class="ti ${typeof icon === 'string' && icon ? icon : 'ti-bell'}"></i></span>`;
+  return `<span class="tst-pic tst-glyph"><i class="ti ${typeof icon === 'string' && icon ? icon : 'ti-bell'}"></i></span>`;
 }
-// opts.onReply(text): a quick-reply field like macOS notifications, for
-// chat messages. Resolve to confirm; throw to keep the field open.
-// opts.action = { label, run }: a button in the toast ("Undo"); pressing
-// it runs run() and dismisses the toast. opts.onGone(): called once the
-// toast leaves, however it goes (klabUndo commits then). A pointer resting
-// on a toast holds it until it leaves. Returns the toast's element.
+
+const _toast = { host: null, open: false, closeT: 0, clear: null, tickT: 0 };
+const toastLive = () => _toast.host ? [..._toast.host.querySelectorAll(':scope > .toast-item:not(.leaving)')] : [];
+const toastAgo = t => { const s = (Date.now() - t) / 1000; return s < 45 ? 'now' : s < 3600 ? Math.round(s / 60) + 'm' : Math.round(s / 3600) + 'h'; };
+
+function toastHost() {
+  if (_toast.host) return _toast.host;
+  const host = document.getElementById('toastFlyout');
+  if (!host) return null;
+  _toast.host = host;
+  // Clear all: shown while the stack is fanned out with two or more.
+  const clear = document.createElement('button');
+  clear.type = 'button'; clear.className = 'tst-clear'; clear.hidden = true;
+  clear.innerHTML = '<i class="ti ti-x"></i>Clear all';
+  clear.addEventListener('click', () => { toastLive().forEach(t => dismissToast(t, { closed: true })); });
+  host.appendChild(clear);
+  _toast.clear = clear;
+  // Pointing at the stack fans it out and holds the timers; leaving it
+  // folds it back after a moment (so the gaps between cards don't).
+  host.addEventListener('pointerover', () => { clearTimeout(_toast.closeT); if (!_toast.open) toastFan(true); });
+  host.addEventListener('pointerout', e => {
+    if (host.contains(e.relatedTarget)) return;
+    clearTimeout(_toast.closeT);
+    _toast.closeT = setTimeout(() => { if (!host.matches(':focus-within') && !host.querySelector('.replying')) toastFan(false); }, 260);
+  });
+  host.addEventListener('focusin', () => { clearTimeout(_toast.closeT); if (!_toast.open) toastFan(true); });
+  host.addEventListener('focusout', e => { if (!host.contains(e.relatedTarget) && !host.matches(':hover')) toastFan(false); });
+  return host;
+}
+function toastFan(on) {
+  _toast.open = on;
+  _toast.host?.classList.toggle('open', on);
+  toastLive().forEach(t => on ? toastHold(t) : toastResume(t));
+  toastLayout();
+}
+
+// Where each card sits. Folded: the newest in front, two behind it at the
+// front's height, a little lower and smaller. Fanned: one under another.
+function toastLayout() {
+  const host = _toast.host;
+  if (!host) return;
+  const items = toastLive();
+  const open = _toast.open || items.length <= 1;
+  const frontH = items[0]?._card.offsetHeight || 0;
+  let y = 0;
+  items.forEach((t, i) => {
+    const h = t._card.offsetHeight;
+    if (open) {
+      t.style.height = h + 'px';
+      t.style.transform = `translate3d(0, ${y}px, 0)`;
+      t.style.opacity = '';
+      t.classList.remove('behind');
+      y += h + 8;
+    } else {
+      t.style.height = (i ? frontH : h) + 'px';
+      t.style.transform = `translate3d(0, ${Math.min(i, 2) * 9}px, 0) scale(${1 - Math.min(i, 3) * 0.05})`;
+      t.style.opacity = i > 2 ? '0' : '';
+      t.classList.toggle('behind', i > 0);
+    }
+    t.style.zIndex = String(50 - i);
+  });
+  if (!open) y = frontH + Math.min(items.length - 1, 2) * 9 + 8;
+  host.style.height = Math.max(0, y) + 'px';
+  const c = _toast.clear;
+  if (c) {
+    c.hidden = !(open && items.length >= 2);
+    c.style.transform = `translate3d(0, ${y}px, 0)`;
+  }
+  // The times ("now", "2m") while anything with one is up.
+  clearInterval(_toast.tickT); _toast.tickT = 0;
+  if (items.some(t => t._at && t.classList.contains('note'))) {
+    _toast.tickT = setInterval(() => toastLive().forEach(t => { const e = t.querySelector('.tst-time'); if (e) e.textContent = toastAgo(t._at); }), 30000);
+  }
+}
+
+// The time left, held while the stack is fanned out or something's typed.
+function toastArm(t, ms) {
+  clearTimeout(t._hide); t._hide = 0;
+  if (t._sticky) { t.style.removeProperty('--tst-ms'); t.classList.add('sticky'); return; }
+  t._left = ms; t._since = performance.now();
+  t.style.setProperty('--tst-ms', ms + 'ms');
+  // Restart the hairline.
+  t.classList.remove('timing'); void t.offsetWidth; t.classList.add('timing');
+  if (_toast.open || t.classList.contains('replying')) { toastHold(t); return; }
+  t._hide = setTimeout(() => dismissToast(t), ms);
+}
+function toastHold(t) {
+  if (!t._hide) return;
+  clearTimeout(t._hide); t._hide = 0;
+  t._left = Math.max(1500, t._left - (performance.now() - t._since));
+  t.classList.add('held');
+}
+function toastResume(t) {
+  if (t._hide || t._sticky || t._dismissed || t.classList.contains('replying')) return;
+  t.classList.remove('held');
+  t._since = performance.now();
+  t._hide = setTimeout(() => dismissToast(t), t._left ?? TOAST_DEFAULT_MS);
+}
+
+function toastRender(t) {
+  const s = t._spec;
+  const note = t.classList.contains('note');
+  const title = s.msg && typeof s.msg === 'object' ? s.msg.title || '' : '';
+  const body = s.msg && typeof s.msg === 'object' ? s.msg.body || '' : String(s.msg ?? '');
+  const acts = (s.actions || []).map((a, i) =>
+    `<button type="button" class="k-btn sm${note ? ' ghost' : ''} tst-act" data-i="${i}">${a.icon ? `<i class="ti ${esc(a.icon)}"></i>` : ''}${esc(a.label || 'Undo')}</button>`).join('');
+  const reply = s.onReply ? `<button type="button" class="k-btn sm ghost tst-act tst-reply-btn"><i class="ti ti-arrow-back-up"></i>Reply</button>` : '';
+  if (note) {
+    t._card.innerHTML =
+      toastIconHTML(s.icon, s.avatarUrl) +
+      `<div class="tst-main">` +
+        `<div class="tst-top"><span class="tst-title"></span>${t._count > 1 ? `<span class="tst-count">${t._count}</span>` : ''}<span class="tst-time">${toastAgo(t._at)}</span></div>` +
+        (body ? `<div class="tst-body"></div>` : '') +
+        (acts || reply ? `<div class="tst-acts">${reply}${acts}</div>` : '') +
+        (s.onReply ? `<form class="tst-reply"><input type="text" maxlength="4000" placeholder="Reply…" autocomplete="off" aria-label="Reply" /><button type="submit" class="k-icon" title="Send" aria-label="Send"><i class="ti ti-send-2"></i></button></form>` : '') +
+      `</div>` +
+      `<button type="button" class="tst-x" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>`;
+    t._card.querySelector('.tst-title').textContent = title || body;
+    const b = t._card.querySelector('.tst-body');
+    if (b) b.textContent = title ? body : '';
+    if (b && !title) b.remove();
+  } else {
+    t._card.innerHTML = toastIconHTML(s.icon, s.avatarUrl) + `<span class="tst-text"></span>${acts}` +
+      `<button type="button" class="tst-x" title="Close" aria-label="Close"><i class="ti ti-x"></i></button>`;
+    t._card.querySelector('.tst-text').textContent = title ? title + (body ? ' · ' + body : '') : body;
+  }
+  t.classList.toggle('clickable', !!s.onClick);
+}
+
 function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
   // showToast(msg, icon, { action, onGone, ms }) works too.
   if (durationMs && typeof durationMs === 'object') { opts = durationMs; durationMs = opts.ms; }
-  const host = document.getElementById('toastFlyout');
+  opts = opts || {};
+  onClick = onClick || opts.onClick;
+  const host = toastHost();
   if (!host) return null;
+  const actions = opts.actions ? [...opts.actions] : opts.action ? [opts.action] : [];
+  const spec = { msg, icon, avatarUrl, onClick, actions, onReply: opts.onReply, menu: opts.menu, onClose: opts.onClose };
+  const note = !!((msg && typeof msg === 'object' && msg.title) || avatarUrl || icon?.person || opts.note || opts.onReply);
+  const ms = opts.sticky ? Infinity : durationMs ?? (note ? TOAST_NOTE_MS : TOAST_DEFAULT_MS);
 
-  // Cap the stack so a burst of calls doesn't grow the column forever.
-  // Count only the ones still on their way in: a dismissed toast lingers
-  // for its fade, and counting those made this loop spin forever (a
-  // "Queue all" of 5+ tracks froze the page).
-  let live;
-  while ((live = host.querySelectorAll('.toast-item:not(.leaving)')).length >= 4) dismissToast(live[0]);
-
-  const item = document.createElement('div');
-  item.className = 'toast-item' + (onClick ? ' clickable' : '');
-  item.innerHTML = toastIconHTML(icon, avatarUrl) + '<span class="toast-item-msg"></span>';
-  const msgEl = item.querySelector('.toast-item-msg');
-  if (msg && typeof msg === 'object') {
-    msgEl.innerHTML = `<span class="toast-item-title"></span><span class="toast-item-body"></span>`;
-    msgEl.firstChild.textContent = msg.title || '';
-    msgEl.lastChild.textContent = msg.body || '';
-  } else msgEl.textContent = msg;
-  if (opts?.onGone) item._onGone = opts.onGone;
-  if (opts?.action) {
-    const act = document.createElement('button');
-    act.type = 'button'; act.className = 'k-btn sm toast-action'; act.textContent = opts.action.label || 'Undo';
-    act.addEventListener('click', e => {
-      e.stopPropagation();
-      try { opts.action.run?.(); } catch (err) { console.error('[toast]', err); }
-      dismissToast(item);
-    });
-    item.appendChild(act);
+  // The same group: that card again, its count up, back on top.
+  let t = opts.group ? toastLive().find(x => x._group === opts.group) : null;
+  if (t) {
+    t._count++;
+    t._at = Date.now();
+    t._spec = spec;
+    if (opts.onGone) t._onGone = opts.onGone;
+    if (t.classList.contains('replying')) {
+      // Don't lose what's being typed: just the words and the count.
+      const top = t.querySelector('.tst-title'), b = t.querySelector('.tst-body');
+      if (top && msg?.title) top.textContent = msg.title;
+      if (b && msg?.body) b.textContent = msg.body;
+      let c = t.querySelector('.tst-count');
+      if (!c) { c = document.createElement('span'); c.className = 'tst-count'; top?.after(c); }
+      c.textContent = t._count;
+    } else toastRender(t);
+    if (t !== toastLive()[0]) host.prepend(t);
+    t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump');
+    toastArm(t, ms);
+    requestAnimationFrame(toastLayout);
+    return t;
   }
-  host.appendChild(item);
-  // Double rAF so the enter transition reliably fires on the frame after insertion.
-  requestAnimationFrame(() => requestAnimationFrame(() => item.classList.add('visible')));
 
-  // A message notification's onClick (jump to that chat) fires alongside
-  // the normal dismiss, rather than replacing it — clicking any toast
-  // should always at least get it out of the way.
-  item.addEventListener('click', e => {
-    if (e.target.closest('.toast-reply, .toast-reply-btn, .toast-action')) return; // replying isn't a click-through
-    dismissToast(item); onClick?.();
-  });
-  // The time left, held while the pointer rests on it.
-  let left = durationMs ?? TOAST_DEFAULT_MS, since = 0;
-  const armHide = ms => {
-    clearTimeout(item._hide);
-    left = ms; since = performance.now();
-    item._hide = setTimeout(() => dismissToast(item), ms);
-  };
-  armHide(left);
-  item.addEventListener('pointerenter', () => {
-    if (!item._hide || item._dismissed) return;
-    clearTimeout(item._hide); item._hide = 0;
-    left = Math.max(1500, left - (performance.now() - since));
-    item._held = true;
-  });
-  item.addEventListener('pointerleave', () => {
-    if (!item._held || item._dismissed || item.classList.contains('replying')) return;
-    item._held = false;
-    armHide(left);
-  });
-
-  if (opts?.onReply) {
-    item.classList.add('has-reply');
-    const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'toast-reply-btn k-btn sm'; btn.textContent = 'Reply';
-    item.appendChild(btn);
-    const form = document.createElement('form');
-    form.className = 'toast-reply';
-    form.innerHTML = '<input type="text" maxlength="4000" placeholder="Reply…" autocomplete="off" /><button type="submit" title="Send"><i class="ti ti-send-2"></i></button>';
-    item.appendChild(form);
-    const input = form.querySelector('input');
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      clearTimeout(item._hide); item._hide = 0; // stays while you type
-      item._held = false;
-      item.classList.add('replying');
-      input.focus();
-    });
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { e.stopPropagation(); item.classList.remove('replying'); armHide(TOAST_DEFAULT_MS); }
-    });
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      input.disabled = true;
-      try {
-        await opts.onReply(text);
-        item.classList.remove('replying');
-        item.classList.add('replied');
-        msgEl.lastChild.textContent = 'Sent: ' + text;
-        armHide(1400);
-      } catch (err) {
-        input.disabled = false; input.focus();
-      }
-    });
+  t = document.createElement('div');
+  t.className = 'toast-item' + (note ? ' note' : ' quick');
+  t.setAttribute('role', note ? 'alert' : 'status');
+  t._card = document.createElement('div');
+  t._card.className = 'tst-card';
+  t.appendChild(t._card);
+  t._spec = spec; t._group = opts.group || null; t._count = 1; t._at = Date.now();
+  t._sticky = !!opts.sticky;
+  if (opts.onGone) t._onGone = opts.onGone;
+  toastRender(t);
+  host.prepend(t);
+  // Too many: the oldest quick ones go first, then the oldest of any.
+  let live = toastLive();
+  while (live.length > TOAST_MAX) {
+    const old = [...live].reverse().find(x => !x.classList.contains('note') && !x._sticky) || live[live.length - 1];
+    dismissToast(old);
+    live = toastLive();
   }
-  return item;
+  toastWire(t);
+  // Enter from where it'll sit, after a frame so the transition runs.
+  t.style.transform = 'translate3d(0, -10px, 0) scale(.98)';
+  toastLayout();
+  requestAnimationFrame(() => requestAnimationFrame(() => { t.classList.add('visible'); toastLayout(); }));
+  toastArm(t, ms);
+  if (!t._ro && 'ResizeObserver' in window) { t._ro = new ResizeObserver(() => toastLayout()); t._ro.observe(t._card); }
+  return t;
 }
-// It fades up and out, then is taken out, and the toasts below it glide
-// up into its place (FLIP: transforms only, nothing re-lays out mid-way).
-function dismissToast(item) {
+
+function toastWire(t) {
+  t.addEventListener('click', e => {
+    if (t._dragged) { t._dragged = false; return; }
+    const s = t._spec;
+    if (e.target.closest('.tst-x')) { e.stopPropagation(); dismissToast(t, { closed: true }); return; }
+    const a = e.target.closest('.tst-act');
+    if (a) {
+      e.stopPropagation();
+      if (a.classList.contains('tst-reply-btn')) { toastReply(t); return; }
+      const act = s.actions[+a.dataset.i];
+      try { act?.run?.(); } catch (err) { console.error('[toast]', err); }
+      if (!act?.keep) dismissToast(t);
+      return;
+    }
+    if (e.target.closest('.tst-reply')) return;
+    if (!s.onClick) return;
+    dismissToast(t);
+    try { s.onClick(); } catch (err) { console.error('[toast]', err); }
+  });
+  t.addEventListener('submit', async e => {
+    e.preventDefault();
+    const input = t.querySelector('.tst-reply input');
+    const text = input?.value.trim();
+    if (!text || !t._spec.onReply) return;
+    input.disabled = true;
+    try {
+      await t._spec.onReply(text);
+      t.classList.remove('replying');
+      t.classList.add('replied');
+      const b = t.querySelector('.tst-body');
+      if (b) b.textContent = 'You: ' + text;
+      t._sticky = false;
+      toastArm(t, 1600);
+      if (!_toast.open) toastResume(t);
+    } catch (err) { input.disabled = false; input.focus(); }
+  });
+  t.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    if (t.classList.contains('replying')) { t.classList.remove('replying'); t.querySelector('.tst-reply-btn')?.focus(); toastLayout(); }
+    else dismissToast(t, { closed: true });
+  });
+  t.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const s = t._spec;
+    const extra = typeof s.menu === 'function' ? s.menu() || [] : [];
+    klabMenu(e, [
+      ...(s.onClick ? [{ label: 'Open', icon: 'ti-chevron-right', action: () => { dismissToast(t); s.onClick(); } }] : []),
+      ...(s.onReply ? [{ label: 'Reply', icon: 'ti-arrow-back-up', action: () => toastReply(t) }] : []),
+      ...extra,
+      '-',
+      { label: 'Close', icon: 'ti-x', action: () => dismissToast(t, { closed: true }) },
+      ...(toastLive().length > 1 ? [{ label: 'Clear all', icon: 'ti-clear-all', action: () => toastLive().forEach(x => dismissToast(x, { closed: true })) }] : []),
+      { label: 'Notification settings', icon: 'ti-settings', action: () => { const r = document.getElementById('setNotif'); if (window.klabShowSetting && r) window.klabShowSetting(r); else openSettings?.(); } },
+    ]);
+  });
+  // Swipe it right (a mouse drag too) to close it.
+  t.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('button, input, form, a')) return;
+    const x0 = e.clientX, y0 = e.clientY, t0 = performance.now();
+    let dx = 0, going = false;
+    const move = ev => {
+      dx = ev.clientX - x0;
+      if (!going && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(ev.clientY - y0)) { going = true; t.classList.add('dragging'); try { t.setPointerCapture(e.pointerId); } catch {} }
+      if (going) { t.style.translate = Math.max(-12, dx) + 'px 0'; t.style.setProperty('--drag', Math.min(1, Math.max(0, dx) / 160)); }
+    };
+    const up = () => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+      if (!going) return;
+      t._dragged = true;
+      setTimeout(() => { t._dragged = false; }, 0);
+      t.classList.remove('dragging');
+      const v = dx / Math.max(1, performance.now() - t0);
+      if (dx > 90 || v > 0.6) { t.classList.add('swiped'); dismissToast(t, { closed: true }); }
+      else { t.style.translate = ''; t.style.removeProperty('--drag'); }
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  });
+}
+function toastReply(t) {
+  t.classList.add('replying');
+  toastHold(t);
+  const input = t.querySelector('.tst-reply input');
+  input?.focus();
+  toastLayout();
+}
+
+// It slides off to the right and fades, and the rest close up (they're
+// laid out by transform, so they glide). opts.closed: the person closed it.
+function dismissToast(item, opts) {
   if (!item || item._dismissed) return;
   item._dismissed = true;
   clearTimeout(item._hide);
+  item._ro?.disconnect();
   item.classList.remove('visible');
   item.classList.add('leaving');
+  if (opts?.closed) { try { item._spec?.onClose?.(); } catch (err) { console.error('[toast]', err); } }
+  toastLayout();
+  let done = false;
   const gone = () => {
-    if (!item.isConnected) return;
-    const host = item.parentElement;
-    const rest = host ? [...host.children].filter(el => el !== item) : [];
-    const motion = (window.klabMotionOk?.() ?? true) && item.animate;
-    const before = motion ? rest.map(el => el.getBoundingClientRect().top) : [];
+    if (done) return; done = true;
     item.remove();
-    if (motion) rest.forEach((el, i) => {
-      const dy = before[i] - el.getBoundingClientRect().top;
-      if (Math.abs(dy) > 0.5) el.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    });
     const f = item._onGone; item._onGone = null;
     try { f?.(); } catch (err) { console.error('[toast]', err); }
+    if (!toastLive().length && _toast.open) toastFan(false);
   };
   item.addEventListener('transitionend', e => { if (e.target === item && e.propertyName === 'opacity') gone(); });
-  setTimeout(gone, 260); // if transitionend never comes (reduced motion, a hidden tab)
+  setTimeout(gone, 320); // if transitionend never comes (reduced motion, a hidden tab)
 }
+window.klabToasts = {
+  dismissGroup: g => toastLive().filter(t => t._group === g).forEach(t => dismissToast(t)),
+  clear: () => toastLive().forEach(t => dismissToast(t)),
+  list: () => toastLive().map(t => ({ group: t._group, count: t._count, note: t.classList.contains('note'), text: t._card.textContent })),
+};
 
 // ══════════════════════════════════════════
 //  THE DOCK: on Music, tucked away elsewhere

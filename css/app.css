@@ -2008,53 +2008,6 @@
       margin-top: 12px; letter-spacing: 0;
     }
 
-    /* ══ LIVE UPDATE BANNER — someone deployed a new commit while this
-       tab was open (see the version-poll script near the end of the
-       document) ══ */
-    /* Sits in the header's toast stack (#toastFlyout, top right) rather
-       than pinned bottom-centre, where it covered the player dock — it was
-       landing right on top of the controls of anyone listening to music.
-       Matches .toast-item's shape so the stack reads as one thing, but
-       keeps the accent border since this one is persistent and asks for an
-       action, where a toast just fades out on its own. */
-    .update-banner {
-      pointer-events: auto; /* .toast-flyout is pointer-events:none */
-      display: flex; align-items: center; gap: 10px;
-      padding: 0.6rem 0.6rem 0.6rem 1rem; border-radius: 12px;
-      width: max-content; max-width: min(360px, calc(100vw - 3rem));
-      background: var(--modal-bg); border: 1px solid rgba(var(--accent-rgb),0.4);
-      box-shadow: 0 10px 32px var(--shadow-40), inset 0 1px 0 rgba(255,255,255,0.06);
-      font-family: var(--font-ui);
-      font-size: var(--fs-13); color: var(--text); letter-spacing: 0;
-      animation: updateNoticeIn 0.25s ease both;
-    }
-    /* Same direction .toast-item enters from, so the stack animates as one
-       thing. Toasts do it with a transition and a class; this is a one-shot
-       so a keyframe is simpler. */
-    @keyframes updateNoticeIn {
-      from { opacity: 0; transform: translateX(20px) scale(0.96); }
-      to   { opacity: 1; transform: none; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .update-banner { animation: none; }
-    }
-    .update-banner-close {
-      width: 24px; height: 24px; flex: none;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: none; border: none; cursor: pointer;
-      color: var(--text-dimmer); font-size: 14px; border-radius: var(--radius-sm);
-      transition: color 0.15s, background 0.15s;
-    }
-    .update-banner-close:hover { color: var(--text); background: var(--glass-fill-h); }
-    .update-banner i { color: rgba(var(--accent-rgb),1); font-size: 15px; }
-    .update-banner button {
-      padding: 5px 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700;
-      font-size: var(--fs-9); letter-spacing: 0.1em; text-transform: uppercase;
-      background: rgba(var(--accent-rgb),0.18); border: 1px solid rgba(var(--accent-rgb),0.4);
-      color: rgba(var(--accent-rgb),1); transition: background 0.15s;
-    }
-    .update-banner button:hover { background: rgba(var(--accent-rgb),0.28); }
-
     /* ══ SETTINGS MODAL ══ */
     .settings-body { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
     .settings-body::-webkit-scrollbar { display: none; }
@@ -4351,7 +4304,7 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 /* ── 1. Buttons ──
    Secondary by default (glass and a hairline), .primary filled with the
    text colour, .danger red, .ghost bare. 34px; .sm 28, .lg 40; .icon square. */
-.k-btn, .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn, .update-banner button,
+.k-btn, .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn,
 .chat-head-btn, .chat-hello-chip, .feed-post-more, .vid-btn, .act-along, .rd-pill, .radio-manage-btn, .radio-form-actions button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none;
   height: var(--h-md); padding: 0 16px; box-sizing: border-box; margin: 0;
@@ -4363,7 +4316,7 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 }
 .k-btn i, .chat-connect-btn i, .ap-btn-play i, .ap-btn-queue i, .vid-btn i, .app-btn i { font-size: 15px; }
 .k-btn:hover:not(:disabled), .ap-btn-queue:hover:not(:disabled), .feed-load-more:hover:not(:disabled), .app-btn:hover:not(:disabled),
-.chat-modal-row-btn:hover:not(:disabled), .update-banner button:hover, .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover,
+.chat-modal-row-btn:hover:not(:disabled), .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover,
 .vid-btn:hover:not(:disabled), .act-along:hover:not(:disabled), .rd-pill:hover, .radio-manage-btn:hover, .radio-form-actions button:hover:not(:disabled) {
   border-color: var(--line-strong); background: color-mix(in srgb, var(--fill-hover), var(--text) 5%); color: var(--text);
 }
@@ -4386,7 +4339,7 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 .k-btn.ghost { border-color: transparent; background: none; color: var(--text-dim); }
 .k-btn.ghost:hover:not(:disabled) { border-color: transparent; background: var(--fill); color: var(--text); }
 /* sizes */
-.k-btn.sm, .vid-btn.small, .act-along, .rd-pill, .radio-manage-btn, .toast-reply-btn {
+.k-btn.sm, .vid-btn.small, .act-along, .rd-pill, .radio-manage-btn {
   height: var(--h-sm); padding: 0 11px; gap: 6px; border-radius: var(--r-sm); font-size: var(--fs-12);
 }
 .k-btn.sm i, .vid-btn.small i { font-size: 14px; }
@@ -4406,7 +4359,7 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
    Square, bare; dim until hovered. Pressed ([aria-pressed=true] or .on)
    gets the fill and a ring. The accent is for what's playing or live,
    never for hover. .on-media: over a picture or a video (white on dark). */
-.k-icon, .add-app-close, .settings-close, .ph-side-close, .update-banner-close, .pf-close {
+.k-icon, .add-app-close, .settings-close, .ph-side-close, .pf-close {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: var(--h-md); height: var(--h-md); padding: 0; box-sizing: border-box; margin: 0;
   border: 0; border-radius: var(--r-md); background: none; color: var(--text-dim); cursor: pointer;
@@ -4414,11 +4367,11 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
   transition: background-color var(--m-fast) ease, color var(--m-fast) ease, box-shadow var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
   -webkit-tap-highlight-color: transparent;
 }
-.k-icon:hover:not(:disabled), .add-app-close:hover, .settings-close:hover, .ph-side-close:hover, .update-banner-close:hover, .pf-close:hover {
+.k-icon:hover:not(:disabled), .add-app-close:hover, .settings-close:hover, .ph-side-close:hover, .pf-close:hover {
   background: var(--fill-hover); color: var(--text);
 }
 .k-icon[aria-pressed="true"], .k-icon.on { background: var(--fill-hover); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.k-icon.sm, .add-app-close, .settings-close, .ph-side-close, .update-banner-close { width: var(--h-sm); height: var(--h-sm); border-radius: var(--r-sm); }
+.k-icon.sm, .add-app-close, .settings-close, .ph-side-close { width: var(--h-sm); height: var(--h-sm); border-radius: var(--r-sm); }
 .k-icon.lg { width: var(--h-lg); height: var(--h-lg); font-size: 18px; }
 .k-icon:active:not(:disabled), .add-app-close:active, .settings-close:active, .pf-close:active { transform: scale(.92); transition-duration: var(--m-instant); }
 .k-icon:disabled { opacity: .4; cursor: default; }
@@ -4653,33 +4606,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
 /* A form's field labels: sentence case, never caps. */
 .k-form-label { display: block; margin: 0 0 6px; font: 600 12.5px/1.3 var(--font-ui); color: var(--text-dim); text-transform: none; letter-spacing: 0; }
 
-/* ── 12. Toasts ──
-   The menu's surface, hanging under the title bar's right. In: down 6px
-   and a fade (200ms); out: a fade up (140ms), then the ones below glide up
-   into its place (dismissToast in js/02-player.js, transforms only). A
-   pointer resting on one holds it; .toast-action is its button (Undo). */
-.toast-flyout {
-  position: fixed; top: 5.5rem; right: 1.5rem; /* top/right set by syncToastFlyout() */
-  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-  /* Over everything that fills the window: the image viewer (600), the slideshow (3000). */
-  z-index: var(--z-toast); pointer-events: none;
-}
-.toast-item {
-  display: flex; align-items: center; gap: 12px; box-sizing: border-box;
-  width: min(340px, calc(100vw - 2rem)); padding: 11px 14px 11px 11px;
-  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
-  background: var(--surface-pop); box-shadow: var(--elev-2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
-  font: 400 13px/1.35 var(--font-ui); letter-spacing: 0; color: var(--text);
-  cursor: pointer; pointer-events: auto;
-  opacity: 0; transform: translateY(-6px);
-  transition: opacity var(--m-med) var(--m-ease), transform var(--m-med) var(--m-ease);
-}
-.toast-item.visible { opacity: 1; transform: none; }
-.toast-item.leaving { opacity: 0; transform: translateY(-4px); transition-duration: var(--m-fast); transition-timing-function: var(--m-ease-exit); pointer-events: none; }
-.toast-item.clickable:hover { border-color: color-mix(in srgb, var(--line-strong), var(--text) 18%); }
-.toast-item-msg { flex: 1; min-width: 0; word-break: break-word; }
-.toast-action { margin-left: auto; }
+/* ── 12. Toasts ── see "TOASTS" at the end of this file. */
 
 /* ── 13. Section labels (Music's) ──
    10px semibold tracked caps, dim: for section labels only. A note after
@@ -4730,7 +4657,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     transition-duration: .01ms !important; scroll-behavior: auto !important;
   }
   .ctx-menu, .hdr-more-menu, .mention-suggest, .emo-suggest, .rc-panel, .vp-menu, .emo-picker, .gif-picker,
-  .add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop, .toast-item {
+  .add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop {
     transform: none !important; transition-duration: var(--m-fast) !important;
   }
   :is(.add-app-modal, .settings-modal, .pf, .img-crop-dialog) { transform: none !important; transition-duration: var(--m-fast) !important; }
@@ -4886,29 +4813,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .mh-row, .mh-flow, .ph-shell, #musicShell .music-nav, .tab-nav { overscroll-behavior-x: contain; }
 
 
-    /* ══ NOTIFICATIONS — bigger, boxier, always a picture ══
-       A card with a large square tile on the left: an album cover, the
-       person it's about (picture, or their initial on their colour), or the
-       notification's own icon. Two lines when there's a title. */
-    .toast-item-pic {
-      width: 48px; height: 48px; flex-shrink: 0; border-radius: 10px; object-fit: cover;
-      display: grid; place-items: center; box-shadow: 0 4px 14px var(--shadow-30);
-    }
-    .toast-item-pic.round { border-radius: var(--av-radius, 28%); }
-    .toast-item-glyph {
-      background: rgba(var(--accent-rgb),0.16); border: 1px solid rgba(var(--accent-rgb),0.3);
-      color: rgba(var(--accent-rgb),1); font-size: 24px;
-      box-shadow: 0 0 18px rgba(var(--accent-rgb),0.12);
-    }
-    .toast-item-initial { color: #0b0b0c; font-weight: 700; font-size: 20px; }
-    .toast-item-msg { display: flex; flex-direction: column; gap: 2px; }
-    .toast-item-title { font-weight: 600; color: var(--text); }
-    .toast-item-body { color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    @media (max-width: 760px) and (pointer: coarse) {
-      .toast-item { min-width: 0; }
-      .toast-item-pic { width: 42px; height: 42px; }
-    }
-
     /* One box at a time: where a sliding highlight marks the active item,
        hovering only brightens an item's text. A hover box of its own fought
        the highlight (two boxes, then the highlight sliding over the hover
@@ -4926,25 +4830,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     #musicShell .music-nav.has-pill .picker-tab:hover:not(.active),
     #musicShell .music-nav.has-pill .music-playlist-row:hover:not(.active) { color: var(--text); }
 
-    /* Quick reply on chat notifications. */
-    .toast-item.has-reply { flex-wrap: wrap; position: relative; }
-    .toast-reply-btn {
-      position: absolute; top: 10px; right: 10px; height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer;
-      border: 1px solid var(--glass-border-h); background: var(--glass-fill-h); color: var(--text);
-      font: 600 var(--fs-12) var(--font-ui); opacity: 0; transition: opacity var(--m-fast) ease;
-    }
-    .toast-item.has-reply:hover .toast-reply-btn, .toast-reply-btn:focus-visible { opacity: 1; }
-    .toast-item.replying .toast-reply-btn, .toast-item.replied .toast-reply-btn { display: none; }
-    @media (hover: none) { .toast-reply-btn { opacity: 1; } }
-    .toast-reply { display: none; width: 100%; gap: 6px; margin-top: 2px; }
-    .toast-item.replying .toast-reply { display: flex; animation: fadeInUp var(--m-med) var(--m-ease) both; }
-    .toast-item.replying { cursor: default; }
-    .toast-reply input {
-      flex: 1; min-width: 0; height: 34px; border-radius: 10px; padding: 0 14px;
-      background: var(--glass-fill-h); border: 1px solid var(--glass-border); color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none;
-    }
-    .toast-reply input:focus { border-color: var(--glass-border-h); }
-    .toast-reply button { width: 34px; height: 34px; border-radius: 8px; border: none; background: var(--glass-fill-h); color: var(--text); cursor: pointer; }
     /* The sidebar scrolls, so it clips anything past its edges; the search
        box sits flush against them and its focus glow was cut off square.
        Room inside for the glow, taken back outside so nothing moves. */
@@ -7944,7 +7829,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .fb-state { border-radius: var(--radius-sm); font: 600 var(--fs-11) var(--font-ui); letter-spacing: 0; text-transform: none; }
     .img-view-hint { border-radius: var(--radius-sm); }
     .profile-modal-banner-overlay { border-radius: var(--radius-sm); color: #fff; font-size: var(--fs-12); background: rgba(0,0,0,.45); }
-    .update-banner { border-radius: var(--radius-lg); }
     /* Chat's "share what's playing" is a secondary button. */
     .chat-share-np { background: var(--glass-fill-h); border: 1px solid var(--glass-border); font: 600 var(--fs-13) var(--font-ui); }
     .chat-share-np:hover { background: var(--glass-fill-h); border-color: var(--glass-border-h); }
@@ -13182,3 +13066,234 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
 /* The sidebar tree's rows are styled by heavier rules (display: flex): a
    hidden one (Calls, while calls aren't set up) still hides. */
 #sideNav .nav-sub .picker-tab[hidden], #socNav .picker-tab[hidden] { display: none !important; }
+
+/* ══ TOASTS (js/02-player.js, redone 2026-11-21) ══
+   A stack under the title bar's right. Each .toast-item is a clip box laid
+   out by toastLayout() (transform, height); .tst-card inside is the
+   content at its own height. Folded: the newest in front, two behind at
+   its height, lower and smaller. Fanned (.open, on hover/focus): one under
+   another, timers held. .quick is a slim line ("Saved", Undo); .note a
+   card for something that happened, with its buttons on it. The hairline
+   at the foot is the time left (paused while held). Swipe right to close. */
+.toast-flyout {
+  position: fixed; top: 5.5rem; right: 16px; /* top set by syncToastFlyout() */
+  width: min(372px, calc(100vw - 32px)); height: 0;
+  z-index: var(--z-toast); pointer-events: none;
+}
+.toast-item {
+  position: absolute; top: 0; right: 0; width: 100%; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg, 10px);
+  background: var(--surface-pop); box-shadow: var(--elev-2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  overflow: hidden; pointer-events: auto; transform-origin: 50% 100%;
+  font: 400 13px/1.4 var(--font-ui); letter-spacing: 0; color: var(--text);
+  opacity: 0;
+  transition: transform 340ms cubic-bezier(.2, .8, .2, 1), height 340ms cubic-bezier(.2, .8, .2, 1),
+              opacity 200ms var(--m-ease), translate 220ms var(--m-ease), border-color var(--m-fast) ease;
+}
+.toast-item.visible { opacity: 1; }
+.toast-item.leaving { opacity: 0 !important; translate: 24px 0; pointer-events: none; transition-duration: 340ms, 340ms, 160ms, 200ms; }
+.toast-item.swiped { translate: 110% 0 !important; }
+.toast-item.dragging { transition: transform 340ms cubic-bezier(.2, .8, .2, 1), height 340ms cubic-bezier(.2, .8, .2, 1); opacity: calc(1 - var(--drag, 0) * .6); cursor: grabbing; }
+.toast-item.behind .tst-card { opacity: 0; }
+.toast-item .tst-card { transition: opacity var(--m-fast) ease; }
+.toast-item.clickable { cursor: pointer; }
+.toast-item.clickable:hover { border-color: color-mix(in srgb, var(--line-strong), var(--text) 16%); }
+/* A bounce when a group's card takes a new message. */
+.toast-item.bump .tst-card { animation: tstBump 320ms var(--m-ease); }
+@keyframes tstBump { 30% { transform: translateY(-2px); } }
+/* The time left. */
+.toast-item::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: color-mix(in srgb, var(--text) 22%, transparent); transform-origin: 0 50%; transform: scaleX(0);
+}
+.toast-item.timing::after { animation: tstTime var(--tst-ms, 3200ms) linear both; }
+.toast-item.held::after, .toast-flyout.open .toast-item::after, .toast-item.replying::after { animation-play-state: paused; }
+.toast-item.sticky::after, .toast-item.behind::after { display: none; }
+@keyframes tstTime { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+.tst-card { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 36px 9px 10px; }
+.tst-pic { flex: none; width: 28px; height: 28px; border-radius: var(--r-sm, 6px); object-fit: cover; display: grid; place-items: center; }
+.tst-pic.face { border-radius: var(--av-radius, 8px); }
+.tst-glyph { background: var(--fill); color: var(--text-dim); font-size: 16px; }
+.tst-initial { background: color-mix(in srgb, var(--c) 22%, var(--fill)); color: var(--c); font: 700 13px var(--font-ui); }
+.tst-text { flex: 1; min-width: 0; word-break: break-word; }
+.toast-item.quick .tst-act { margin-left: 4px; flex: none; }
+.tst-x {
+  position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; display: grid; place-items: center;
+  padding: 0; border: 0; border-radius: var(--r-sm, 6px); background: none; color: var(--text-dimmer); cursor: pointer;
+  opacity: 0; transition: opacity var(--m-fast) ease, background var(--m-fast) ease, color var(--m-fast) ease;
+}
+.tst-x i { font-size: 14px; }
+.toast-item:hover .tst-x, .tst-x:focus-visible { opacity: 1; }
+.tst-x:hover { background: var(--fill-hover); color: var(--text); }
+.toast-item.quick .tst-card { min-height: 44px; }
+.toast-item.quick .tst-x { top: 50%; transform: translateY(-50%); }
+
+/* A notification. */
+.toast-item.note .tst-card { align-items: flex-start; gap: 11px; padding: 12px 36px 12px 12px; }
+.toast-item.note .tst-pic { width: 36px; height: 36px; }
+.toast-item.note .tst-glyph { font-size: 19px; }
+.tst-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tst-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.tst-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tst-count { flex: none; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; align-self: center;
+  background: var(--fill-hover); color: var(--text); font: 650 11px/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+.tst-time { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.toast-item.note:hover .tst-time { visibility: hidden; }
+.tst-body { color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.tst-acts { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0 -8px; }
+.tst-acts .k-btn { height: 26px; padding: 0 8px; gap: 5px; font-size: var(--fs-12); }
+.tst-acts .k-btn i { font-size: 14px; }
+.tst-reply { display: none; gap: 6px; margin-top: 8px; }
+.toast-item.replying .tst-reply { display: flex; }
+.toast-item.replying .tst-acts { display: none; }
+.tst-reply input {
+  flex: 1; min-width: 0; height: 32px; padding: 0 10px; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: var(--r-md, 8px); background: var(--fill);
+  color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none;
+}
+.tst-reply input:focus { border-color: var(--focus-line, var(--line-strong)); box-shadow: var(--focus-ring, none); }
+.tst-reply .k-icon { width: 32px; height: 32px; }
+.toast-item.replied .tst-body { color: var(--text-dimmer); font-style: italic; }
+
+/* Clear all, under the fanned-out stack. */
+.tst-clear {
+  position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px;
+  border: 1px solid var(--line-strong); border-radius: 13px; background: var(--surface-pop); box-shadow: var(--elev-1);
+  color: var(--text-dim); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; pointer-events: auto;
+  transition: transform 340ms cubic-bezier(.2, .8, .2, 1), opacity var(--m-fast) ease;
+}
+.tst-clear[hidden] { display: none; }
+.tst-clear i { font-size: 13px; }
+.tst-clear:hover { color: var(--text); }
+
+/* The update notice rides the same stack. */
+html[data-fx="low"] .toast-item { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--modal-bg); }
+@media (prefers-reduced-motion: reduce) {
+  .toast-item, .tst-clear { transition-duration: 1ms !important; }
+  .toast-item.bump .tst-card { animation: none; }
+}
+@media (hover: none) { .tst-x { opacity: 1; } .toast-item.note .tst-time { visibility: visible; margin-right: 0; } }
+@media (max-width: 760px) and (pointer: coarse) {
+  .toast-flyout { left: 8px; right: 8px; width: auto; }
+}
+
+
+/* ══ FOLDING CHAT'S LISTS (js/48-sidefold.js, 2026-11-21) ══
+   Channels, Voice and People fold from their heading. Folded, a list keeps
+   what matters now: unread, the open conversation, a voice channel with
+   people or the one you're in. People shows six conversations, then
+   "N more". Searching shows everything. */
+.side-fold-head { cursor: pointer; user-select: none; }
+.side-fold-head .side-fold-chev { flex: none; width: 12px; margin-right: 4px; font-size: 11px; opacity: .55; transition: transform var(--m-fast) var(--m-ease), opacity var(--m-fast) ease; }
+.side-fold-head:hover .side-fold-chev, .side-fold-head:focus-visible .side-fold-chev { opacity: 1; }
+.side-fold-head.folded .side-fold-chev { transform: rotate(-90deg); }
+.side-fold-head:focus-visible { outline: none; color: var(--text); }
+.side-fold-n { margin-left: 6px; font: 600 10px var(--font-ui); letter-spacing: 0; color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.side-fold-n[hidden] { display: none; }
+.chat-side-scroll:not(.searching) #chatChannelsList[data-folded] > .chat-conv:not(.has-unread):not(.active),
+.chat-side-scroll:not(.searching) #chatDmList[data-folded] > .chat-conv:not(.has-unread):not(.active),
+.chat-side-scroll:not(.searching) #chatPeopleMore[data-folded],
+#vcChannels[data-folded] > .vc-channel:not(.joined):not(:has(.vc-members)) { display: none; }
+.chat-side-scroll:not(.searching) #chatDmList:not(.all):not([data-folded]) > .chat-conv:nth-child(n+7):not(.has-unread):not(.active) { display: none; }
+.chat-side-scroll.searching #chatDmMore { display: none; }
+.side-more {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 10px; box-sizing: border-box;
+  border: 0; border-radius: var(--r-sm, 6px); background: none; color: var(--text-dimmer);
+  font: 500 12.5px var(--font-ui); text-align: left; cursor: pointer;
+}
+.side-more i { width: 18px; font-size: 14px; text-align: center; }
+.side-more:hover { color: var(--text); background: var(--glass-fill); }
+.side-more[hidden] { display: none; }
+
+/* ══ CHAT ADMIN (js/49-chat-admin.js, 2026-11-21) ══
+   A sheet: the rooms down the left (newest first, New marked), the picked
+   one on the right: who can see it, its settings, its people. */
+#chatAdminBtn.has-new { position: relative; color: var(--text); }
+#chatAdminBtn.has-new::after { content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--accent-rgb)); }
+.add-app-modal.ca-sheet { width: min(1040px, calc(100vw - 2rem)); height: min(720px, 88vh); display: flex; flex-direction: column; padding: 18px 0 0; overflow: hidden; }
+.ca-head { display: flex; align-items: baseline; gap: 10px; padding: 0 18px 14px; border-bottom: 1px solid var(--line); }
+.ca-title { margin: 0; font: 700 22px/1.2 var(--font-ui); }
+.ca-count { font-size: var(--fs-13); color: var(--text-dim); }
+.ca-refresh { margin-left: auto; }
+.ca-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px minmax(0, 1fr); }
+.ca-side { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 12px 10px 12px 14px; border-right: 1px solid var(--line); }
+.ca-find { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; }
+.ca-find i { color: var(--text-dimmer); font-size: 15px; }
+.ca-find input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none; }
+.ca-seg { align-self: flex-start; }
+.ca-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin: 0 -4px; padding: 0 4px; }
+.ca-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 0; border-radius: var(--r-md, 8px); background: none; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+.ca-row:hover { background: var(--glass-fill); }
+.ca-row.on { background: var(--fill-hover); }
+.ca-row:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.ca-row-ico { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-sm, 6px); background: var(--fill); color: var(--text-dim); font-size: 15px; }
+.ca-row-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ca-row-name { display: flex; align-items: center; gap: 6px; font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ca-row-sub { font-size: var(--fs-12); color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ca-row-end { flex: none; display: flex; align-items: center; gap: 6px; font-size: var(--fs-12); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.ca-row-end i { font-size: 14px; }
+.ca-new { flex: none; padding: 0 6px; height: 16px; border-radius: 8px; background: rgba(var(--accent-rgb), .18); color: rgb(var(--accent-rgb)); font: 650 10px/16px var(--font-ui); }
+.ca-main { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 18px 22px 28px; transition: opacity var(--m-fast) ease; }
+.ca-main.busy { opacity: .6; pointer-events: none; }
+.ca-empty { padding: 40px 10px; text-align: center; }
+.ca-room-head h3 { margin: 0; font: 700 20px/1.25 var(--font-ui); }
+.ca-room-meta { margin-top: 4px; font-size: var(--fs-12); color: var(--text-dim); }
+.ca-room-meta i { font-size: 12px; }
+.ca-room-topic { margin-top: 8px; font-size: var(--fs-13); color: var(--text-dim); white-space: pre-wrap; }
+.ca-room-topic span { color: var(--text-dimmer); }
+.ca-room-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ca-label { display: flex; align-items: baseline; gap: 6px; margin: 24px 0 8px; }
+.ca-n { font: 600 var(--fs-11) var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-dimmer); }
+.ca-sees { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md, 8px); background: var(--fill); font-size: var(--fs-13); line-height: 1.45; }
+.ca-set { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; border-top: 1px solid var(--line); font-size: var(--fs-13); }
+.ca-set:last-of-type { border-bottom: 1px solid var(--line); }
+.ca-invite { display: flex; gap: 6px; margin-bottom: 8px; }
+.ca-invite .k-field-box { flex: 1; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; }
+.ca-invite .k-field-box i { color: var(--text-dimmer); font-size: 15px; }
+.ca-invite input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: 400 var(--fs-13) var(--font-ui); outline: none; }
+.ca-person { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-top: 1px solid var(--line); }
+.ca-people > .ca-person:first-child { border-top: 0; }
+.ca-face { flex: none; width: 30px; height: 30px; border-radius: var(--av-radius, 8px); overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 20%, var(--fill)); color: var(--c); font: 700 var(--fs-12) var(--font-ui); }
+.ca-face img { width: 100%; height: 100%; object-fit: cover; }
+.ca-person-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ca-person-name { display: flex; align-items: center; gap: 6px; font: 600 var(--fs-13) var(--font-ui); }
+.ca-person-sub { font-size: var(--fs-12); color: var(--text-dimmer); }
+.ca-role { padding: 0 6px; height: 17px; border-radius: var(--r-sm, 6px); border: 1px solid var(--line-strong); color: var(--text-dim); font: 600 10.5px/15px var(--font-ui); }
+.ca-person-acts { display: flex; align-items: center; gap: 2px; }
+.ca-person-acts .k-btn i { font-size: 13px; margin-left: 2px; }
+.ca-person-acts .ca-danger:hover { color: var(--danger, #e5484d); }
+.ca-quiet { margin: 6px 0; font-size: var(--fs-13); color: var(--text-dimmer); }
+@media (max-width: 760px) {
+  .ca-cols { grid-template-columns: 1fr; grid-template-rows: 40% 60%; }
+  .ca-side { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+/* ══ FEED SPACING (2026-11-21, the owner: "feed padding/spacing needs some
+   love. its inconsistent depending on post size/if theres replies or not")
+   One rhythm for every post, whatever's in it: 14px above and below, the
+   name, 2px, the words (one size: a one-liner isn't bigger any more), then
+   10px before anything attached (a picture, a song, a video, a link), 8px
+   before the footer, 10px before the replies. Replies hang off a thread
+   line on the left instead of a hairline across, and the reply box shows
+   only when you press Reply (or are halfway through one), not under every
+   post with replies. Later than every older Feed rule, so it wins. */
+#feedList .feed-post { padding: 14px 12px; gap: 12px; }
+#feedList .feed-post-body > .feed-post-head { min-height: 20px; }
+#feedList .feed-post-text,
+#feedList .feed-post.is-shout .feed-post-text { margin: 2px 0 0; font-size: var(--fs-14); font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+#feedList .feed-post-body > :is(.feed-post-image, .feed-post-image-ph, .feed-post-song, .feed-post-video, .feed-yt, .feed-embed, .feed-link) { margin-top: 10px; margin-bottom: 0; }
+#feedList .feed-post-body > .feed-post-head + :is(.feed-post-image, .feed-post-image-ph, .feed-post-song, .feed-post-video) { margin-top: 6px; }
+#feedList .feed-post-footer { margin: 8px 0 0 -6px; min-height: 0; }
+#feedList .feed-post-replies.has-replies,
+#feedList .feed-post-replies.replying {
+  margin-top: 10px; padding: 0 0 0 12px; border-top: 0;
+  border-left: 2px solid var(--line);
+}
+#feedList .feed-post-replies.has-replies::before { display: none; }
+#feedList .feed-post-replies .k-com:first-child .k-com-in { padding-top: 2px; }
+#feedList .feed-post-replies .k-com:last-of-type .k-com-in { padding-bottom: 2px; }
+#feedList .feed-post-replies:not(.replying) .feed-post-reply-composer { display: none; }
+#feedList .feed-post-replies.replying .feed-post-reply-composer { margin-top: 8px; }
+#feedList .feed-post-replies:not(.has-replies) .feed-post-reply-composer { margin-top: 0; }

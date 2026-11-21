@@ -251,6 +251,8 @@ function openSettings() {
     sfxToggle:        'sfxEnabled',
     notifSoundToggle: 'notifSound',
     loginSongToggle:  'loginSong',
+    popMessagesToggle: 'popMessages',
+    popStickyToggle:  'popSticky',
   };
   Object.entries(toggleMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -607,7 +609,7 @@ document.querySelectorAll('.s-toggle').forEach(toggle => {
     // Map toggle id back to settings key
     const map = {
       sfxToggle: 'sfxEnabled', notifSoundToggle: 'notifSound',
-      loginSongToggle: 'loginSong',
+      loginSongToggle: 'loginSong', popMessagesToggle: 'popMessages', popStickyToggle: 'popSticky',
     };
     const key = map[toggle.id];
     if (key) { _settings[key] = toggle.classList.contains('on'); saveSettings(); applySettings(); }

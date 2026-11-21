@@ -344,6 +344,15 @@
       if (p.id <= _mentionFloor || _mentionNotified.has(p.id)) return;
       _mentionNotified.add(p.id);
       const text = String(p.text || '').replace(/[#>*_~`|=\[\]()!-]+/g, ' ').replace(/\s+/g, ' ').trim();
+      // In the page too, while it's the window you're in (the desktop
+      // notification covers the rest). Do not disturb holds both.
+      if (document.hasFocus() && !document.hidden && klabStatus?.() !== 'dnd') {
+        showToast({ title: `${p.username} mentioned you`, body: text.length > 140 ? text.slice(0, 140) + '…' : text }, toastPerson(p.username), {
+          sound: 'mention', from: p.username, group: 'feed-' + p.id, sticky: !!_settings.popSticky,
+          onClick: () => window.klabFeedFocus?.(p.id),
+          actions: [{ label: 'Open', icon: 'ti-chevron-right', run: () => window.klabFeedFocus?.(p.id) }],
+        });
+      }
       window.klabDesktopNotify?.({
         title: `${p.username} mentioned you`,
         body: text.length > 160 ? text.slice(0, 160) + '…' : text,

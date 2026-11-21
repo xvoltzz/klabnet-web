@@ -412,24 +412,13 @@ function dismissUpdateFor(version) {
 function showUpdateBanner(newVersion) {
   if (document.getElementById('updateBanner')) return;
   if (newVersion && updateDismissedFor(newVersion)) return;
-  // Lives in the header's toast stack (top right) rather than pinned to
-  // the bottom centre, where it sat directly over the player dock and got
-  // in the way of anyone listening to music.
-  const host = document.getElementById('toastFlyout') || document.body;
-  const el = document.createElement('div');
-  el.id = 'updateBanner';
-  el.className = 'update-banner';
-  el.innerHTML =
-    '<i class="ti ti-sparkles"></i>' +
-    '<span>A new version is available.</span>' +
-    '<button type="button" id="updateBannerReload">Reload</button>' +
-    '<button type="button" class="update-banner-close" id="updateBannerClose" title="Dismiss" aria-label="Dismiss"><i class="ti ti-x"></i></button>';
-  host.appendChild(el);
-  document.getElementById('updateBannerReload').addEventListener('click', () => location.reload());
-  document.getElementById('updateBannerClose').addEventListener('click', () => {
-    if (newVersion) dismissUpdateFor(newVersion);
-    el.remove();
+  // A notification in the toast stack that stays until it's dealt with.
+  const t = showToast({ title: 'A new version is ready', body: 'Reload to get it.' }, 'ti-sparkles', {
+    note: true, sticky: true,
+    actions: [{ label: 'Reload', icon: 'ti-refresh', run: () => location.reload() }],
+    onClose: () => { if (newVersion) dismissUpdateFor(newVersion); },
   });
+  if (t) t.id = 'updateBanner';
 }
 setInterval(checkForUpdate, UPDATE_CHECK_MS);
 // On return too, but not for every alt-tab: at most once a minute.
@@ -461,6 +450,8 @@ let _settings = {
   sfxEnabled:    true,
   sfxVolume:     0.7,
   notifSound:    true,
+  popMessages:   true,    // a toast for a new message (js/08-chat.js notifyNewMessage)
+  popSticky:     false,   // …that stays until it's closed
   loginSong:     true,
   desktopNotif:  false,   // per device; turning it on asks the browser
   awayStatus:    true,    // per device: tell others when you've stepped away (js/11-presence.js)

@@ -126,6 +126,9 @@
     if (a.songCount) h += row({ act: 'post', data: a.songs[0].postId, icon: 'ti-music', html: '<b>' + klabCount(a.songCount, 'song') + '</b> shared',
       sub: a.songs.slice(0, 3).map(s => esc(s.title) + (s.artist ? ' · ' + esc(s.artist) : '')).join(', ') });
     for (const p of a.playlists || []) h += row({ act: 'playlist', data: p.id, icon: 'ti-playlist', html: who(p.who) + ' featured a playlist', sub: esc(p.name) });
+    // Admins: rooms people made on Matrix (klabnet-api routers/chat_admin.py).
+    for (const r of a.rooms || []) h += row({ act: 'chatroom', data: r.id, u: r.who, html: who(r.who) + ' made ' + (r.kind === 'space' ? 'a space, ' : '') + '<b>' + esc((r.kind === 'space' ? '' : '#') + (r.name || 'a room')) + '</b>',
+      sub: r.joinRule === 'public' ? 'Anyone on klab can join' : r.joinRule === 'knock' ? 'Ask to join' : 'Invite only', at: r.at, fresh: r.at > seen });
     for (const s of a.stations || []) h += row({ act: 'radio', data: s.id, icon: 'ti-radio', html: 'New station: <b>' + esc(s.name) + '</b>', sub: (s.frequency ? s.frequency.toFixed(1) + ' FM · ' : '') + 'by ' + esc(s.who) });
     return h;
   }
@@ -153,6 +156,7 @@
     else if (act === 'video') window.klabOpenVideo?.(+d);
     else if (act === 'clips') { if (window.klabClips) window.klabClips.show(); else setActiveTab('videos'); }
     else if (act === 'call') { if (window.klabCalls) window.klabCalls.dial(d); }
+    else if (act === 'chatroom') window.klabChatAdmin?.open(d);
     else if (act === 'week') { const [w, l] = String(d).split('|'); window.klabOpenWeek?.(w, l); }
     else if (act === 'playlist') { setActiveTab('music'); setTimeout(() => window.openPlaylistPage?.(d), 60); }
     else if (act === 'radio') { setActiveTab('music'); setTimeout(() => { document.querySelector('.music-nav .picker-tab[data-tab="radio"]')?.click(); window.klabRadio?.tune?.(d); }, 60); }

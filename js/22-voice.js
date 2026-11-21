@@ -544,7 +544,10 @@
     if (stage.open) { paintStage(); return; }
     // Do not disturb: no sound (the toast still says so: you're in the call).
     if ((typeof klabStatus === 'function' ? klabStatus() : '') !== 'dnd') sfx('notify');
-    showToast(p.identity + ' is sharing their screen', 'ti-screen-share', { action: { label: 'Watch', run: () => openStage(p.identity) } });
+    showToast({ title: p.identity + ' is sharing their screen', body: joined?.name ? 'In ' + joined.name : 'In your voice channel' }, toastPerson(p.identity), {
+      silent: true, group: 'share:' + p.identity,
+      actions: [{ label: 'Watch', icon: 'ti-screen-share', run: () => openStage(p.identity) }],
+    });
   }
 
   // ── Watching: the stage ──

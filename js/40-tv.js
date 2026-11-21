@@ -120,7 +120,7 @@
       delete reminds[id];
       if (r.start < t - 600) continue;
       const watch = () => openChannel(r.channel);
-      showToast('“' + r.title + '” is on now, channel ' + r.number, 'ti-device-tv', { action: { label: 'Watch', run: watch }, ms: 15000 });
+      showToast({ title: r.title, body: 'On now, channel ' + r.number }, 'ti-device-tv', { note: true, ms: 15000, onClick: watch, actions: [{ label: 'Watch', icon: 'ti-player-play', run: watch }] });
       window.klabDesktopNotify?.({ title: 'On now on channel ' + r.number, body: r.title, tag: 'tv-' + id, onClick: watch });
     }
     saveReminds();

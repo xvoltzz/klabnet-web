@@ -3493,6 +3493,8 @@ document.addEventListener('visibilitychange', maybeReadActiveChatRoom);
 
 function markRoomRead(roomId) {
   if (_chatUnreadRooms.delete(roomId)) updateSocialUnreadBadge();
+  // Read here (or on another device): its pop-up has done its job.
+  window.klabToasts?.dismissGroup('chat:' + roomId);
 }
 
 // Toast for an incoming message the user isn't already looking at —
@@ -3567,19 +3569,32 @@ function notifyNewMessage(event, room) {
   // actually read (a name plus a message body) than the usual one-line
   // status toasts, and is more likely to arrive while you're looking
   // elsewhere on the page.
-  const where = isDm ? '' : ` in ${room.name || 'a channel'}`;
   desktopNotifyMessage(event, room, isDm);
-  showToast({ title: `${senderName}${where}`, body: body.length > 90 ? body.slice(0, 90) + '…' : body },
-    toastPerson(mxIdToUsername(senderId)), TOAST_DEFAULT_MS * 2, avatarUrl,
-    () => openChatRoom(room.roomId),
+  // Settings → Notifications → Message pop-ups off: unread and the sound
+  // (the badge, the bell and Chat say where), no card.
+  if (_settings.popMessages === false) { SFX && SFX.play(isDm ? 'dm' : (mentionsMe(body) ? 'mention' : 'message'), mxIdToUsername(senderId)); return; }
+  const roomId = room.roomId;
+  const short = body.length > 140 ? body.slice(0, 140) + '…' : body;
+  // One card a conversation: a burst folds into it with a count. A DM is
+  // titled by the person; a channel by its name, with who said it.
+  showToast({ title: isDm ? senderName : '#' + (room.name || 'channel').replace(/^#/, ''), body: isDm ? short : senderName + ': ' + short },
+    toastPerson(mxIdToUsername(senderId)), null, avatarUrl,
+    () => openChatRoom(roomId),
     // Quick reply straight from the notification, threaded to the message.
     // The sound is the sender's own motif: low and warm for a DM, with a
     // sparkle when a channel message mentions you.
     { sound: isDm ? 'dm' : (mentionsMe(body) ? 'mention' : 'message'), from: mxIdToUsername(senderId),
-      onReply: text => MatrixChat.client.sendMessage(room.roomId, {
+      group: 'chat:' + roomId, sticky: !!_settings.popSticky,
+      onReply: text => MatrixChat.client.sendMessage(roomId, {
         msgtype: 'm.text', body: text,
         'm.relates_to': { 'm.in_reply_to': { event_id: event.getId() } },
-      }) });
+      }).then(() => { markRoomRead(roomId); updateChannelUnreadDots?.(); }),
+      actions: [{ label: 'Mark read', icon: 'ti-check', run: () => { markRoomRead(roomId); updateChannelUnreadDots?.(); } }],
+      menu: () => [
+        { label: 'Mark read', icon: 'ti-check', action: () => { markRoomRead(roomId); updateChannelUnreadDots?.(); } },
+        { label: isDm ? 'Mute this conversation' : 'Mute this channel', icon: 'ti-bell-off', action: () => { setChatRoomMuted(roomId, true); window.klabToasts?.dismissGroup('chat:' + roomId); showToast('Muted. Unmute it from its right-click menu in Chat', 'ti-bell-off', { silent: true }); } },
+        { label: 'Turn off message pop-ups', icon: 'ti-message-off', action: () => { _settings.popMessages = false; saveSettings(); window.klabToasts?.dismissGroup('chat:' + roomId); showToast('Message pop-ups off. Turn them back on in Settings', 'ti-message-off', { silent: true }); } },
+      ] });
 }
 
 // Jumps to the Chat tab with a specific room selected — the notification

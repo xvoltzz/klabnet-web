@@ -200,7 +200,10 @@
     } else if (c.from === me()) {
       if (c.outcome !== 'cancelled') { sfx('hangup'); showToast((ENDED[c.outcome] || (x => 'The call to ' + x + ' ended'))(u), 'ti-phone-off', { action: { label: 'Message', run: () => message(u) } }); }
     } else if (c.outcome === 'cancelled' || c.outcome === 'missed') {
-      showToast('Missed call from ' + c.from, 'ti-phone-x', { action: { label: 'Call back', run: () => dial(c.from) } });
+      showToast({ title: 'Missed call', body: 'From ' + c.from }, toastPerson(c.from), {
+        group: 'call:' + c.from, onClick: () => dial(c.from),
+        actions: [{ label: 'Call back', icon: 'ti-phone', run: () => dial(c.from) }, { label: 'Message', icon: 'ti-message-circle', run: () => message(c.from) }],
+      });
     }
     rungHere.delete(c.id);
     setTimeout(loadLog, 400);

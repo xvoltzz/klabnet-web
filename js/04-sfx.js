@@ -467,8 +467,9 @@ const _origShowToast = showToast;
 // A toast can name its own sound (opts.sound, opts.from): chat messages
 // play the sender's motif instead of the generic chime.
 showToast = function(...args) {
-  const o = args[5] || {};
-  SFX.play(o.sound || 'notify', o.from);
+  // The options are the sixth argument, or the third in the short form.
+  const o = args[5] || (args[2] && typeof args[2] === 'object' ? args[2] : {});
+  if (!o.silent) SFX.play(o.sound || 'notify', o.from);
   return _origShowToast(...args);
 };
 
