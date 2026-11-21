@@ -701,8 +701,13 @@
     });
     el.addEventListener('click', () => togglePlay());
     el.addEventListener('dblclick', () => toggleFull());
-    box.addEventListener('pointermove', wake);
-    box.addEventListener('pointerleave', () => { clearTimeout(vw?.idleT); if (vw) vw.idleT = setTimeout(() => idle(), 600); });
+    // (#clipVp stays for the viewer's life and each clip is mounted into
+    // it: these go on once, not once per clip.)
+    if (!box._wired) {
+      box._wired = true;
+      box.addEventListener('pointermove', wake);
+      box.addEventListener('pointerleave', () => { clearTimeout(vw?.idleT); if (vw) vw.idleT = setTimeout(() => idle(), 600); });
+    }
     const vol = box.querySelector('.vp-vol-range');
     vol.value = el.muted ? 0 : el.volume;
     vol.addEventListener('input', () => { el.volume = +vol.value; el.muted = +vol.value === 0; prefs.volume = el.volume; prefs.muted = el.muted; savePrefs(); });
@@ -729,6 +734,8 @@
       if (!Hls.isSupported()) { el.src = c.hls; el.addEventListener('loadedmetadata', () => autoplay(el), { once: true }); return; }
       let bw = 0;
       try { bw = JSON.parse(localStorage.getItem('klabnet_video') || '{}').bw || 0; } catch {}
+      // (Two switches back to the stream while hls.js loaded: one instance.)
+      if (vw.hls) { try { vw.hls.destroy(); } catch {} vw.hls = null; }
       const hl = new Hls({ capLevelToPlayerSize: false, startPosition: start > 0 ? start : -1, maxBufferLength: 30,
         abrEwmaDefaultEstimate: bw > 0 ? bw : 8e6, ...(level >= 0 ? { startLevel: level } : {}) });
       vw.hls = hl;
@@ -754,10 +761,14 @@
     const el = vw.video, mine = vw;
     vw.src = 'original';
     if (vw.hls) { try { vw.hls.destroy(); } catch {} vw.hls = null; }
+    const my = mine.origSeq = (mine.origSeq || 0) + 1;
+    // (Back to the stream before the file's metadata came: these stay on
+    // the element and must not seek or play the stream.)
+    const still = () => vw === mine && vw.video === el && vw.src === 'original' && mine.origSeq === my;
     el.src = c.original.url;
-    el.addEventListener('loadedmetadata', () => { if (start > 0) el.currentTime = start; autoplay(el); }, { once: true });
+    el.addEventListener('loadedmetadata', () => { if (!still()) return; if (start > 0) el.currentTime = start; autoplay(el); }, { once: true });
     el.addEventListener('error', () => {
-      if (vw !== mine || vw.video !== el || vw.src !== 'original') return;
+      if (!still()) return;
       showToast('The original won’t play here. Back to the stream', 'ti-alert-triangle');
       prefs.original = false; savePrefs();
       el.removeAttribute('src'); try { el.load(); } catch {}

@@ -90,6 +90,9 @@ playSong = async function(song) {
   await started;
   // Skipped before it ever started: it wasn't played.
   if (song && playerState.currentSong !== song) return;
+  // A remote stands in for the device playing it, which counts it itself:
+  // counting here too put each song in history twice (two tabs).
+  if (window.klabSession?.mirror) return;
   addToPlayHistory(song);
 };
 
@@ -546,10 +549,13 @@ playerState.audio.addEventListener('timeupdate', refreshTimeDisplay);
     // Carrying on fetched the skipped song's lyrics and showed them until
     // the new one had buffered.
     if (song && playerState.currentSong !== song) return;
-    _currentSongId = null; // invalidate cache for new song
     // Fetched when they'll be seen; opening the full player loads them.
     // Not awaited: everything after playSong (the party's tick, Next) waited
     // on LRCLIB, up to two 8s lookups.
+    // Not by clearing _currentSongId first: the full player opened while
+    // the song buffered has already started this song's lyrics, and
+    // clearing it fetched them a second time over the first ("Searching…"
+    // again). A song's lyrics don't change, so the same id is kept.
     if (lyricsVisible()) loadLyrics(song).then(() => { if (_isSynced && playerState.currentSong === song) startSync(); }, () => {});
   };
 

@@ -531,8 +531,10 @@
     fn(S.work);
     paint();
   }
-  function undo() { if (!S.hist.length) return; S.fut.push(clone(S.work)); S.work = S.hist.pop(); paint(); }
-  function redo() { if (!S.fut.length) return; S.hist.push(clone(S.work)); S.work = S.fut.pop(); paint(); }
+  // A selection points into the ranges by index: after undo/redo it may
+  // name a different one, so it goes.
+  function undo() { if (!S.hist.length) return; S.fut.push(clone(S.work)); S.work = S.hist.pop(); S.sel = null; paint(); }
+  function redo() { if (!S.fut.length) return; S.hist.push(clone(S.work)); S.work = S.fut.pop(); S.sel = null; paint(); }
 
   // ── The page ──
   function render() {
@@ -614,7 +616,7 @@
     v.addEventListener('seeked', () => { paintPlayhead(); paintScreen(); });
     v.addEventListener('loadedmetadata', () => fitStage());
     v.addEventListener('click', () => { if (!S.tool && S.tab !== 'annotations' && S.tab !== 'end') togglePlay(); });
-    S.ro = new ResizeObserver(() => { fitStage(); paintTimeline(); });
+    S.ro = new ResizeObserver(() => { if (!S) return; S.tlW = $('stTl')?.clientWidth || 0; fitStage(); paintTimeline(); });
     S.ro.observe(S.root.querySelector('.st-screen'));
     S.ro.observe(S.root.querySelector('.st-tl'));
   }
@@ -641,7 +643,7 @@
     const e = S.work.edit;
     const muted = e.muteAll || normRanges(e.mute, S.D).some(([a, b]) => t >= a && t < b);
     const g = muted ? 0 : Math.pow(10, (e.gain || 0) / 20);
-    if (S.gainNode) S.gainNode.gain.value = g;
+    if (S.gainNode) { S.gainNode.gain.value = g; if (S.video.muted) S.video.muted = false; }
     else S.video.muted = muted;
   }
   function togglePlay() {
@@ -774,8 +776,8 @@
   // ── The timeline ──
   const PAD = 12;
   function pps() {
-    const tl = $('stTl');
-    const w = (tl ? tl.clientWidth : 800) - PAD * 2;
+    if (!S.tlW) S.tlW = $('stTl')?.clientWidth || 0;
+    const w = (S.tlW || 800) - PAD * 2;
     return Math.max(1, w / Math.max(1, S.D)) * S.zoom;
   }
   const x2t = (tl, clientX) => clamp((clientX - tl.getBoundingClientRect().left + tl.scrollLeft - PAD) / pps(), 0, S.D);
@@ -811,9 +813,14 @@
     let last = 0;
     for (const [a, b] of m.keeps) { if (a > last + 0.01) cuts.push([last, a]); last = b; }
     if (last < S.D - 0.01) cuts.push([last, S.D]);
-    let h = '<div class="st-ruler">' + ticks() + '</div>' +
+    // The ruler and the filmstrip depend only on the scale: kept as they are
+    // between redraws (thousands of nodes when zoomed in on a long video).
+    const key = p.toFixed(4) + '|' + S.D + '|' + (S.j.source.storyboard?.url || '');
+    const oldRuler = inn.querySelector(':scope > .st-ruler'), oldFilm = inn.querySelector('.st-film');
+    const same = S.tlKey === key && oldRuler && oldFilm;
+    let h = '<div class="st-ruler">' + (same ? '' : ticks()) + '</div>' +
       '<div class="st-track">' +
-        '<div class="st-film">' + film() + '</div>' +
+        '<div class="st-film">' + (same ? '' : film()) + '</div>' +
         '<div class="st-wave' + (S.j.source.wave ? '' : ' none') + '"' + (S.j.source.wave ? ' style="left:' + PAD + 'px;width:' + (S.D * p).toFixed(1) + 'px;background-image:url(&quot;' + esc(S.j.source.wave) + '&quot;)"' : '') + '>' +
           (S.j.source.wave ? '' : '<span>' + (S.j.source.audio === false ? 'No sound' : 'Waveform coming…') + '</span>') + '</div>' +
         (e.muteAll ? '<span class="st-mute all" style="' + L(0, S.D) + '"></span>' : '') +
@@ -838,6 +845,8 @@
     }
     h += '<span class="st-playhead" id="stPlayhead"><i></i></span>';
     inn.innerHTML = h;
+    if (same) { inn.querySelector(':scope > .st-ruler').replaceWith(oldRuler); inn.querySelector('.st-film').replaceWith(oldFilm); }
+    S.tlKey = key;
     inn.style.width = (S.D * p + PAD * 2).toFixed(1) + 'px';
     paintPlayhead();
   }
@@ -880,9 +889,17 @@
       if (e.shiftKey && S.sel && (S.sel.kind === 'range' || S.sel.kind === 'seg')) { drag.t0 = Math.abs(t - S.sel.a) < Math.abs(t - S.sel.b) ? S.sel.b : S.sel.a; }
       seek(t);
     });
+    // Pointer events come faster than frames (and coalesce badly): the
+    // latest position is applied once per frame, and flushed on release.
+    let moveX = null, moveRaf = 0;
+    const flushMove = () => { cancelAnimationFrame(moveRaf); moveRaf = 0; if (moveX != null && drag && S) { const x = moveX; moveX = null; dragTo(x); } moveX = null; };
     tl.addEventListener('pointermove', e => {
       if (!drag) return;
-      const t = x2t(tl, e.clientX);
+      moveX = e.clientX;
+      if (!moveRaf) moveRaf = requestAnimationFrame(flushMove);
+    });
+    function dragTo(clientX) {
+      const t = x2t(tl, clientX);
       if (drag.kind === 'trim') {
         const m = map();
         const k = m.keeps;
@@ -914,9 +931,10 @@
         seek(t);
         paintTimeline(); paintSide();
       }
-    });
+    }
     const end = () => {
-      if (!drag) return;
+      flushMove();
+      if (!drag || !S) { drag = null; return; }
       const d = drag;
       drag = null;
       if (d.kind === 'sel' && !d.moved && !d.shift) { if (S.sel && (S.sel.kind === 'range' || S.sel.kind === 'seg')) { S.sel = null; } }
@@ -1033,7 +1051,7 @@
     const t = now();
     const s = S.sel && (S.sel.kind === 'range' || S.sel.kind === 'seg') ? S.sel : { a: t, b: Math.min(S.D, t + 5) };
     if (side === 'in') S.sel = { kind: 'range', a: Math.min(t, s.b - 0.1), b: s.b };
-    else S.sel = { kind: 'range', a: s.a, b: Math.max(t, s.a + 0.1) };
+    else S.sel = { kind: 'range', a: Math.min(s.a, S.D - 0.1), b: Math.min(S.D, Math.max(t, s.a + 0.1)) };
     paint();
   }
   async function saveClip() {
@@ -1362,16 +1380,20 @@
     el.querySelector('#stMuteAll')?.addEventListener('change', e => change(w => { w.edit.muteAll = e.target.checked; }));
     const gain = el.querySelector('#stGain');
     if (gain) {
-      gain.addEventListener('pointerdown', () => { S.hist.push(clone(S.work)); S.fut = []; });
-      gain.addEventListener('input', () => { S.work.edit.gain = +gain.value; $('stGainV').textContent = (gain.value > 0 ? '+' : '') + gain.value + ' dB'; applyAudio(now()); paintStatus(); });
-      gain.addEventListener('change', () => paint());
+      // One undo step per change, by pointer or by keyboard: the state
+      // before the first input of it.
+      let gainBefore = null;
+      gain.addEventListener('input', () => { if (!gainBefore) gainBefore = clone(S.work); S.work.edit.gain = +gain.value; $('stGainV').textContent = (gain.value > 0 ? '+' : '') + gain.value + ' dB'; applyAudio(now()); paintStatus(); });
+      gain.addEventListener('change', () => { if (gainBefore) { S.hist.push(gainBefore); S.fut = []; gainBefore = null; } paint(); });
     }
     el.querySelector('#stPrevCuts')?.addEventListener('change', e => { S.previewCuts = e.target.checked; paintPlayhead(); });
     el.querySelector('[data-sw-custom]')?.addEventListener('change', e => change(w => { const a = w.anns.find(x => x.id === S.selAnn); if (a) a.style = { ...(a.style || {}), bg: e.target.value, fg: '' }; }));
     const txt = el.querySelector('#stAnnText');
     if (txt) {
-      txt.addEventListener('focus', () => { S.hist.push(clone(S.work)); S.fut = []; }, { once: true });
-      txt.addEventListener('input', () => { const a = S.work.anns.find(x => x.id === S.selAnn); if (a) { a.text = txt.value; paintScreen(); paintStatus(); } });
+      // An undo step once something's typed, not on merely focusing.
+      let txtBefore = null, txtPushed = false;
+      txt.addEventListener('focus', () => { txtBefore = clone(S.work); });
+      txt.addEventListener('input', () => { if (!txtPushed && txtBefore) { txtPushed = true; S.hist.push(txtBefore); S.fut = []; } const a = S.work.anns.find(x => x.id === S.selAnn); if (a) { a.text = txt.value; paintScreen(); paintStatus(); } });
       txt.addEventListener('change', () => paintTimeline());
     }
     const tf = (id, fn) => el.querySelector('#' + id)?.addEventListener('change', e => { const t = parseTime(e.target.value); if (t == null) { e.target.classList.add('bad'); return; } fn(t); });
@@ -1516,9 +1538,11 @@
       if (c) h = '<div class="vp-cards st-cardprev"><div class="vp-teaser on"><span>' + esc(c.teaser || cardWordsFor(c)) + '</span></div></div>';
       void m;
     }
-    if (lay.innerHTML !== h) lay.innerHTML = h;
+    // (Compared with what was written last: the DOM serialises <img />,
+    // <polygon/> and escapes differently, so comparing with innerHTML
+    // rewrote the layer on every frame while playing.)
+    if (lay._h !== h) { lay._h = h; lay.innerHTML = h; refreshFacesIn(lay); }
     lay.classList.toggle('drawing', !!S.tool);
-    refreshFacesIn(lay);
   }
   function cardWordsFor(c) {
     const t = c.target || {};
@@ -1671,7 +1695,8 @@
   }
   async function save(o) {
     const retry = !!S && !dirty() && S.j.render?.state === 'failed';
-    if (!S || (!dirty() && !retry)) return;
+    if (!S || S.saving || (!dirty() && !retry)) return;
+    const st = S; // (the studio this save is for: another may open meanwhile)
     const out = forServer();
     const bad = problems(out);
     if (bad) { showToast(bad, 'ti-alert-triangle'); return; }
@@ -1682,35 +1707,50 @@
         (lose.length ? ' ' + lose.join(' and ') + (lose.length > 1 || out.dropped.anns + out.dropped.cards > 1 ? ' fall' : ' falls') + ' in removed parts and will go.' : '');
       if (!(await showConfirmDialog(eDirty ? 'Save this edit?' : 'Save changes?', body.trim(), 'Save', { danger: false }))) return;
     }
+    if (S !== st || st.saving) return;
+    // What's being sent: changes made while it's on its way stay unsaved.
+    const sent = clone(S.work);
+    const outNow = forServer();
+    if (JSON.stringify(outNow) !== JSON.stringify(out)) { showToast('Something changed: press Save again', 'ti-alert-triangle'); return; }
+    st.saving = true;
     const btn = $('stSave');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       if (eDirty) {
-        const j = await getJSON(API + '/' + S.id + '/studio/edit', json('PUT', { edit: out.edit }), 20000);
-        S.j.render = j.render; S.j.edit = j.edit;
+        const j = await getJSON(API + '/' + st.id + '/studio/edit', json('PUT', { edit: out.edit }), 20000);
+        st.j.render = j.render; st.j.edit = j.edit;
       }
       const tasks = [];
-      const sv = S.saved;
-      const sm = makeMap(sv.edit, S.D);
+      const sv = st.saved;
+      const sm = makeMap(sv.edit, st.D);
       const savedOut = { anns: sv.anns.map(a => ({ ...a, start: +sm.s2e(a.start, true).toFixed(2), end: +sm.s2e(a.end, true).toFixed(2) })), cards: sv.cards.map(c => ({ ...c, at: +sm.s2e(c.at, true).toFixed(2) })) };
       const strip = list => list.map(({ counts, ...x }) => x);
-      if (eDirty || JSON.stringify(out.anns) !== JSON.stringify(savedOut.anns)) tasks.push(getJSON(API + '/' + S.id + '/annotations', json('PUT', { annotations: out.anns }), 15000));
-      if (eDirty || JSON.stringify(out.cards) !== JSON.stringify(savedOut.cards)) tasks.push(getJSON(API + '/' + S.id + '/cards', json('PUT', { cards: strip(out.cards.map(c => c.poll ? { ...c, poll: { question: c.poll.question, options: c.poll.options.filter(Boolean) } } : c)) }), 15000));
-      if (JSON.stringify(out.end) !== JSON.stringify(sv.end)) tasks.push(getJSON(API + '/' + S.id + '/endscreen', json('PUT', { endscreen: out.end }), 15000));
+      if (eDirty || JSON.stringify(out.anns) !== JSON.stringify(savedOut.anns)) tasks.push(getJSON(API + '/' + st.id + '/annotations', json('PUT', { annotations: out.anns }), 15000));
+      if (eDirty || JSON.stringify(out.cards) !== JSON.stringify(savedOut.cards)) tasks.push(getJSON(API + '/' + st.id + '/cards', json('PUT', { cards: strip(out.cards.map(c => c.poll ? { ...c, poll: { question: c.poll.question, options: c.poll.options.filter(Boolean) } } : c)) }), 15000));
+      if (JSON.stringify(out.end) !== JSON.stringify(sv.end)) tasks.push(getJSON(API + '/' + st.id + '/endscreen', json('PUT', { endscreen: out.end }), 15000));
       await Promise.all(tasks);
-      // What was dropped is gone from the working copy too.
-      S.work.anns = S.work.anns.filter(a => { const m = map(); return m.s2e(a.end, true) - m.s2e(a.start, true) >= 0.2; });
-      S.work.cards = S.work.cards.filter(c => !map().cut(c.at));
-      S.work.edit.keep = normRanges(S.work.edit.keep, S.D);
-      S.work.edit.mute = normRanges(S.work.edit.mute, S.D);
-      S.saved = clone(S.work);
+      if (S !== st) return; // (left the studio meanwhile: it's saved all the same)
+      // What was dropped is gone from what's saved (and the working copy, if
+      // nothing changed while saving).
+      const m = makeMap(sent.edit, st.D);
+      const tidy = w => {
+        w.anns = w.anns.filter(a => m.s2e(a.end, true) - m.s2e(a.start, true) >= 0.2);
+        w.cards = w.cards.filter(c => !m.cut(c.at));
+        w.edit.keep = normRanges(w.edit.keep, st.D);
+        w.edit.mute = normRanges(w.edit.mute, st.D);
+        return w;
+      };
+      const untouched = JSON.stringify(st.work) === JSON.stringify(sent);
+      st.saved = tidy(clone(sent));
+      if (untouched) st.work = clone(st.saved);
       SFX && SFX.play('star');
       showToast(eDirty ? 'Saved. Rendering your edit now; it plays as it was until then' : 'Saved', 'ti-check');
       if (eDirty) pollRender();
     } catch (e) {
       showToast('Couldn’t save: ' + klabCap(e.message), 'ti-alert-triangle');
     } finally {
-      if (S && $('stSave')) { $('stSave').textContent = 'Save'; paint(); }
+      st.saving = false;
+      if (S === st && $('stSave')) { $('stSave').textContent = 'Save'; paint(); }
     }
   }
   async function revert() {

@@ -175,7 +175,7 @@ window.klabBrowse = (function() {
   let geom = null;
   let songsOff = null; // stops the songs list's scroll and resize watchers
 
-  function render(tab) {
+  function render(tab, keepScroll) {
     if (pickerTab !== tab) return;
     closeMenu();
     drawBar(tab);
@@ -183,6 +183,7 @@ window.klabBrowse = (function() {
     rail.unmount();
     songsOff?.(); songsOff = null;
     geom = null;
+    const top = pickerList.scrollTop;
     pickerList.scrollTop = 0;
     if (!shown.length) {
       const any = itemsOf(tab).length;
@@ -197,7 +198,24 @@ window.klabBrowse = (function() {
       geom = { top: i => items[i]?.offsetTop ?? 0, row: i => items[i] || null };
     } else renderSongs(shown);
     rail.mount(tab, shown);
+    if (keepScroll) pickerList.scrollTop = top;
   }
+  // With Favorites on, a heart taken off (or put on) changes what the list
+  // should hold: redrawn where you were, a beat after the last change.
+  let favT = 0;
+  const favSync = window._favViewSync;
+  window._favViewSync = () => {
+    favSync?.();
+    const tab = barTab;
+    if (!tab || pickerTab !== tab || !filters[tab].fav) return;
+    clearTimeout(favT);
+    favT = setTimeout(() => {
+      if (barTab !== tab || pickerTab !== tab || !filters[tab].fav) return;
+      const a = document.activeElement, typing = a?.matches?.('.browse-find input');
+      render(tab, true);
+      if (typing) bar.querySelector('.browse-find input')?.focus({ preventScroll: true });
+    }, 300);
+  };
 
   // Songs: every row the same height, so only the ones on screen (and a
   // screen's worth either side) exist; the rest is empty space of the
@@ -211,17 +229,33 @@ window.klabBrowse = (function() {
     lbl.id = '_songsLbl';
     lbl.textContent = `All Songs (${sorted.length})`;
     const vl = document.createElement('div');
-    vl.className = 'vsongs';
     pickerList.append(lbl, vl);
+    const v = virtualSongs(vl, sorted);
+    songsOff = v.off;
+    geom = { top: i => vl.offsetTop + i * v.rowH, row: v.row };
+  }
+
+  // A list of songs where only the rows on screen (and a dozen either side)
+  // exist: every row is the same height, absolutely placed in a box as tall
+  // as all of them. Songs (7,000) and Favorites (up to 2,000) use it; the
+  // rows are renderSongItem's, so clicks, hearts and menus work as anywhere.
+  // Returns { off, row(i), rowH }; off() stops its scroll and resize watchers.
+  function virtualSongs(vl, sorted) {
+    vl.className = 'vsongs';
+    vl.replaceChildren();
+    if (!sorted.length) return { off() {}, row: () => null, rowH: 0 };
     renderSongItem(sorted[0], vl);
     const GAP = 2; // .picker-list's gap
     const rowH = vl.firstElementChild.offsetHeight + GAP;
     vl.replaceChildren();
     vl.style.height = (sorted.length * rowH - GAP) + 'px';
     const live = new Map();
+    // Where the box starts inside the scrolling list (it may sit under a
+    // head of its own, not straight in pickerList).
+    const offset = () => vl.getBoundingClientRect().top - pickerList.getBoundingClientRect().top + pickerList.scrollTop;
     const draw = () => {
       if (!vl.isConnected) return;
-      const from = pickerList.scrollTop - vl.offsetTop, h = pickerList.clientHeight;
+      const from = pickerList.scrollTop - offset(), h = pickerList.clientHeight;
       const first = Math.max(0, Math.floor(from / rowH) - 12);
       const last = Math.min(sorted.length - 1, Math.ceil((from + h) / rowH) + 12);
       for (const [i, el] of live) if (i < first || i > last) { el.remove(); live.delete(i); }
@@ -240,10 +274,10 @@ window.klabBrowse = (function() {
     pickerList.addEventListener('scroll', onScroll, { passive: true });
     const ro = new ResizeObserver(draw);
     ro.observe(pickerList);
-    songsOff = () => { pickerList.removeEventListener('scroll', onScroll); ro.disconnect(); };
     draw();
-    geom = { top: i => vl.offsetTop + i * rowH, row: i => { draw(); return live.get(i) || null; } };
+    return { off: () => { pickerList.removeEventListener('scroll', onScroll); ro.disconnect(); }, row: i => { draw(); return live.get(i) || null; }, rowH };
   }
+  window.klabVirtualSongs = virtualSongs;
 
   // ── The rail ──
   // Which letter an item files under, by what the list is sorted on.

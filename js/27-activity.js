@@ -159,6 +159,8 @@
         if (!r.ok) { failed = r.status || 1; return; }
         data = await r.json();
         gotAt = performance.now();
+        // One per song per person: a page left open for days kept them all.
+        if (askedEnd.size > 200) askedEnd.clear();
         failed = 0;
       } catch (e) { failed = failed || 1; }
       finally { loading = null; }

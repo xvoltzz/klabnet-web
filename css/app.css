@@ -10846,7 +10846,7 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 /* ── Favorites, the hub ── */
 #pickerList.fav-hub { display: block; }
 #pickerList.fav-hub > .mh-section { margin-bottom: 10px; }
-.fav-songs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-top: 14px; flex-wrap: wrap; }
+.fav-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 8px; flex-wrap: wrap; }
 /* Favorites' switch: Songs / Albums / Artists (/ Playlists), with counts. */
 #pickerList.fav-hub > .fav-seg { display: inline-flex; margin: 4px 0 6px; }
 .fav-seg .k-count { margin-left: 6px; opacity: .6; font-variant-numeric: tabular-nums; }
@@ -10855,7 +10855,10 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .fav-grid > .mh-card { width: auto; }
 .fav-empty-kind { padding: 40px 0; }
 .fav-songs-head .picker-section-label { padding-bottom: 8px; }
-.fav-songs-actions { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
+.fav-songs-actions { display: flex; align-items: center; gap: 8px; }
+.fav-find-x { flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-dimmer); cursor: pointer; }
+.fav-find-x:hover { color: var(--text); background: var(--fill-hover); }
+.fav-find .fav-find-x i { font-size: 13px; color: inherit; }
 .fav-find { height: var(--h-sm); width: 200px; display: flex; align-items: center; gap: 7px; padding: 0 10px; }
 .fav-find i { font-size: 14px; color: var(--text-dimmer); }
 .fav-find input { flex: 1; min-width: 0; border: none; background: none; outline: none; color: var(--text); font: 500 13px var(--font-ui); }

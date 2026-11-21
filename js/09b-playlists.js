@@ -520,21 +520,42 @@ async function plRenderPage(ctx, id) {
   }
   function clearMarks() { tracks.querySelectorAll('.pl-drop-before, .pl-drop-after, .pl-dragging').forEach(r => r.classList.remove('pl-drop-before', 'pl-drop-after', 'pl-dragging')); }
 
-  async function move(from, to) {
-    const before = [...songs];
+  // Moves go out one at a time, and only the newest order: two quick
+  // drags were two requests in flight that could land in either order,
+  // leaving the server on the first while the page showed the second (and
+  // the first failing put back an order from before the second).
+  let orderLine = Promise.resolve(), orderSeq = 0, orderBase = null;
+  const keepPlace = () => {
     const now = playerState.currentSong;
-    songs.splice(to, 0, songs.splice(from, 1)[0]);
     // What's playing keeps its place in the queue it's playing from.
     if (playerState.playlist === songs && now) { const at = songs.indexOf(now); if (at >= 0) playerState.playlistIndex = at; }
+  };
+  function move(from, to) {
+    if (!orderBase) orderBase = [...songs];
+    songs.splice(to, 0, songs.splice(from, 1)[0]);
+    keepPlace();
     SFX && SFX.play('click');
     recount(); drawHead(); drawTracks();
-    try { await plReorder(pl.id, songs.map(s => s.id)); }
-    catch (e) {
-      showToast(e.message, 'ti-alert-triangle');
-      songs.splice(0, songs.length, ...before);
-      recount();
-      if (root.isConnected) { drawHead(); drawTracks(); }
-    }
+    const seq = ++orderSeq;
+    orderLine = orderLine.then(async () => {
+      if (seq !== orderSeq) return; // a later move sends the order with this one in it
+      try {
+        await plReorder(pl.id, songs.map(s => s.id));
+        if (seq === orderSeq) orderBase = null;
+      } catch (e) {
+        if (seq !== orderSeq) return;
+        showToast(e.message, 'ti-alert-triangle');
+        // Back to the server's order, without songs taken out meanwhile.
+        const base = orderBase || [];
+        orderBase = null;
+        const back = base.filter(x => songs.includes(x));
+        songs.splice(0, songs.length, ...back, ...songs.filter(x => !back.includes(x)));
+        keepPlace();
+        recount();
+        if (root.isConnected) { drawHead(); drawTracks(); }
+      }
+    });
+    return orderLine;
   }
 
   // ── Find songs to add ──

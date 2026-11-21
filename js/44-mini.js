@@ -186,8 +186,16 @@
     cur = null;
     const r = to.getBoundingClientRect();
     flipTo(r, () => {
+      // Taken into the corner again during the flip: it stays there.
+      if (cur && cur.el === c.el) return;
       c.el.classList.remove('in-mini');
-      to.replaceWith(c.el);
+      if (to.isConnected) to.replaceWith(c.el);
+      else {
+        // The page it was going back to went meanwhile: it stops, as ✕ does,
+        // rather than playing on detached.
+        try { c.close?.(); } catch (e) { console.warn('mini:', e); }
+        if (c.el.parentNode === slot) c.el.remove();
+      }
       if (!cur) host.hidden = true;
     });
     return true;

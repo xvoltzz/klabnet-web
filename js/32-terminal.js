@@ -412,6 +412,7 @@
 
   function key(e) {
     e.stopPropagation();
+    if (e.isComposing) return; // an IME's Enter picks its candidate, not a row
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     if ((e.key === 'Tab' || (e.key === 'ArrowRight' && input.selectionStart === input.value.length)) && ghost.textContent) {
       e.preventDefault();

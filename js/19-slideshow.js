@@ -290,6 +290,7 @@
 
   // ── Keys ──
   window.addEventListener('keydown', e => {
+    if (klabLayers.top()?.kind !== 'slideshow') return; // a menu or dialog over it has the keys
     if (!isOpen || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
     if (k === ' ' || k === 'k') setPaused(!paused);

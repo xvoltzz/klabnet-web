@@ -719,19 +719,25 @@
       hls.attachMedia(el);
     }).catch(e => showToast('Couldn’t start the player: ' + e.message, 'ti-alert-triangle'));
   }
+  let origSeq = 0;
   function startOriginal(v, start, autoplay) {
     const el = video;
     srcKind = 'original';
+    const my = ++origSeq;
+    // (Back to the ladder before the file's metadata came: this one's
+    // listeners stay on the element and must not seek or play the ladder.)
+    const still = () => el === video && srcKind === 'original' && my === origSeq;
     if (hls) { saveBw(); try { hls.destroy(); } catch {} hls = null; }
     el.src = v.original.url;
     el.addEventListener('loadedmetadata', () => {
+      if (!still()) return;
       if (start > 0) { try { el.currentTime = start; } catch {} }
       paint();
       if (autoplay) el.play().catch(() => player?.classList.add('paused'));
     }, { once: true });
     // A file this browser turns out not to play: back to the ladder.
     el.addEventListener('error', () => {
-      if (el !== video || srcKind !== 'original') return;
+      if (!still()) return;
       showToast('The original won’t play here. Back to the stream', 'ti-alert-triangle');
       prefs.original = false; savePrefs();
       el.removeAttribute('src'); try { el.load(); } catch {}

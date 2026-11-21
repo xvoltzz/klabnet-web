@@ -978,7 +978,10 @@ function setMusicViewTitle(tab, title) {
 window.setMusicViewTitle = setMusicViewTitle;
 // Straight from the sidebar too: some views (Requests) load through their
 // own wrapper around loadPickerTab and never reach the one above.
-document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.addEventListener('click', () => setMusicViewTitle(t.dataset.tab)));
+// Capture, so it runs before the row's own handler draws the view: a view
+// that sets its count as it draws (Favorites, Playlists) kept losing it to
+// this running after.
+document.querySelectorAll('.picker-tab[data-tab]').forEach(t => t.addEventListener('click', () => setMusicViewTitle(t.dataset.tab), true));
 (function() {
   const list = document.getElementById('pickerList');
   const sub = document.getElementById('musicViewSub');

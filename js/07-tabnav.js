@@ -1652,8 +1652,28 @@ async function offerAppUpdate(current) {
     const empty = ![...tray.children].some(c => c.offsetWidth > 0 && getComputedStyle(c).visibility !== 'hidden');
     if (tray.classList.contains('is-empty') !== empty) tray.classList.toggle('is-empty', empty);
   };
-  new MutationObserver(() => requestAnimationFrame(sync)).observe(tray, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
-  new MutationObserver(() => requestAnimationFrame(sync)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  addEventListener('resize', sync);
+  // One frame per burst, and only for changes that can show or hide a
+  // child: the tray's own children (and what's added or taken away), or
+  // something deeper being hidden. Deeper class/style changes (voice's
+  // speaking ring on the mic, the recap's count, the peek's bars) can't
+  // empty the tray, and used to cost a layout read each, many a second
+  // while someone talked.
+  let queued = false;
+  const later = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; sync(); }); } };
+  const NOISY = new Set(['speaking', 'is-playing', 'is-empty']);
+  const onlyNoise = r => {
+    if (r.attributeName !== 'class') return false;
+    const was = new Set((r.oldValue || '').split(/\s+/).filter(Boolean));
+    const now = new Set(r.target.classList);
+    for (const c of was) if (!now.has(c) && !NOISY.has(c)) return false;
+    for (const c of now) if (!was.has(c) && !NOISY.has(c)) return false;
+    return true;
+  };
+  new MutationObserver(recs => {
+    if (recs.some(r => r.type === 'childList' || r.attributeName === 'hidden'
+      || ((r.target === tray || r.target.parentNode === tray) && !onlyNoise(r)))) later();
+  }).observe(tray, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'hidden', 'style'] });
+  new MutationObserver(later).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', later);
   sync();
 })();

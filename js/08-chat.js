@@ -219,7 +219,14 @@ const MatrixChat = (function () {
     // to reach PREPARED. With it, only members with visible timeline
     // events sync eagerly; the rest load on demand (opening a room,
     // needing a read receipt's sender, etc).
-    await client.startClient({ initialSyncLimit: 50, lazyLoadMembers: true });
+    try { await client.startClient({ initialSyncLimit: 50, lazyLoadMembers: true }); }
+    catch (e) {
+      // A client that never started mustn't stay as the one in use: a retry
+      // would make a second beside it.
+      try { client.stopClient(); } catch (_) {}
+      client = null;
+      throw e;
+    }
     return client;
   }
 
@@ -753,6 +760,9 @@ function renderChannelList() {
     if (_lastChannelListKey !== '') {
       _lastChannelListKey = '';
       list.innerHTML = '<div class="chat-channel-empty">No channels yet — use the buttons above to browse or create one.</div>';
+      // The DMs' list too: it kept the rows of rooms that were gone.
+      const dl = document.getElementById('chatDmList');
+      if (dl) dl.innerHTML = '';
     }
     _chatActiveRoomId = null;
     renderTimeline();
@@ -3116,7 +3126,9 @@ async function openProfileModal() {
         // while still telling the user "Profile updated".
         throw new Error(err?.error || 'Couldn’t save your profile');
       }
-      const saved = await pr.json();
+      // A lapsed sign-in answers with the login page (200, HTML): said so,
+      // not "Unexpected token '<'".
+      const saved = await pr.json().catch(() => { throw new Error('Couldn’t save your profile. Reload the page and try again'); });
       _profiles.set(myUsername, { chat_color: saved.chat_color, bio: saved.bio, banner_mxc: saved.banner_mxc });
 
       closeChatModal(profileGen);
@@ -3962,7 +3974,24 @@ function ensureChatLoaded() {
     // The boot overlay waits on this specifically because it's the same
     // reconnect race that used to make feed images/avatars silently never
     // show up until something else happened to trigger a re-render.
-    MatrixChat.login().then(showChatApp).catch(e => console.warn('[chat] silent reconnect failed', e)).finally(() => window.KLAB_BOOT?.mark('matrix'));
+    // A failure here (the SDK's CDN or the homeserver unreachable: the
+    // desktop app started at login before the network was up, a blip) used
+    // to leave chat on Connect for the rest of the page's life, which can
+    // be days. Tried again while the session is still there: soon, then
+    // less often, and the moment the browser says it's back online.
+    let wait = 15000, retryT = 0;
+    const attempt = () => {
+      clearTimeout(retryT); retryT = 0;
+      if (MatrixChat.client || !MatrixChat.hasSession()) return Promise.resolve();
+      return MatrixChat.login().then(() => { removeEventListener('online', attempt); showChatApp(); }).catch(e => {
+        console.warn('[chat] silent reconnect failed', e);
+        if (MatrixChat.client || !MatrixChat.hasSession()) return;
+        clearTimeout(retryT); retryT = setTimeout(attempt, wait);
+        wait = Math.min(wait * 2, 5 * 60000);
+      });
+    };
+    addEventListener('online', attempt);
+    attempt().finally(() => window.KLAB_BOOT?.mark('matrix'));
     return;
   }
   // First time ever connecting — login() needs a real SSO popup (see

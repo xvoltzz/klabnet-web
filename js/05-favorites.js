@@ -211,15 +211,23 @@ function _favRedrawSoon() {
   _favRedrawT = setTimeout(() => {
     if (pickerTab !== 'favorites' || _favSigNow() === _favSig) return;
     const top = pickerList.scrollTop;
+    // Unhearting a song while typing in the filter mustn't throw you out
+    // of the box: the redraw puts the cursor back where it was.
+    const a = document.activeElement, typing = a?.matches?.('.fav-find input') ? [a.selectionStart, a.selectionEnd] : null;
     renderFavoritesView(true);
     pickerList.scrollTop = top;
+    if (typing) {
+      const i = pickerList.querySelector('.fav-find input');
+      if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(typing[0], typing[1]); } catch (e) {} }
+    }
   }, 250);
 }
 window._favViewSync = () => { if (typeof pickerTab !== 'undefined' && pickerTab === 'favorites') _favRedrawSoon(); };
 window.addEventListener('klab:playlists', () => window._favViewSync());
 
-let _favFind = '';
+let _favFind = '', _favVirtualOff = null;
 function renderFavoritesView(redraw) {
+  _favVirtualOff?.(); _favVirtualOff = null;
   _favSig = _favSigNow();
   const songs = getFavorites(), albums = klabFavAlbums.list(), artists = klabFavArtists.list();
   const pls = (window.klabPlaylists?.mine() || []).filter(p => p.saved && !p.mine);
@@ -277,12 +285,13 @@ function renderFavoritesView(redraw) {
   const sorted = applySort(songs, 'favorites');
   const head = document.createElement('div');
   head.className = 'fav-songs-head';
-  head.innerHTML = `<div></div>
-    <div class="fav-songs-actions">
-      <label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"></label>
-      <button type="button" class="k-btn sm" data-fav-shuffle><i class="ti ti-arrows-shuffle"></i>Shuffle</button>
+  // Play and Shuffle first, like an album's or a playlist's page; the
+  // filter at the other end.
+  head.innerHTML = `<div class="fav-songs-actions">
       <button type="button" class="k-btn sm primary" data-fav-play><i class="ti ti-player-play-filled"></i>Play</button>
-    </div>`;
+      <button type="button" class="k-btn sm" data-fav-shuffle><i class="ti ti-arrows-shuffle"></i>Shuffle</button>
+    </div>
+    <label class="k-field-box fav-find"><i class="ti ti-list-search"></i><input type="text" placeholder="Filter songs" aria-label="Filter favorite songs" autocomplete="off" spellcheck="false"><button type="button" class="fav-find-x" title="Clear" aria-label="Clear the filter" hidden><i class="ti ti-x"></i></button></label>`;
   const box = document.createElement('div');
   box.className = 'fav-songs';
   const input = head.querySelector('input');
@@ -292,15 +301,33 @@ function renderFavoritesView(redraw) {
     const words = fold(_favFind).split(/\s+/).filter(Boolean);
     return words.length ? sorted.filter(s => { const h = fold(`${s.title} ${s.artist} ${s.album}`); return words.every(w => h.includes(w)); }) : sorted;
   };
+  // Up to 2,000 songs: drawn as a virtual list (only the rows on screen
+  // exist; js/26-browse.js), where all of them took ~40,000 elements.
   const draw = () => {
     const list = shown();
     pickerSongs = list;
+    _favVirtualOff?.(); _favVirtualOff = null;
     box.textContent = '';
-    if (!list.length) box.innerHTML = '<div class="picker-empty">No favorite songs match.</div>';
-    else renderSongItems(list, box);
+    if (!list.length) { box.innerHTML = '<div class="picker-empty">No favorite songs match.</div>'; return; }
+    if (window.klabVirtualSongs && list.length > 60) {
+      const vl = document.createElement('div');
+      box.appendChild(vl);
+      _favVirtualOff = window.klabVirtualSongs(vl, list).off;
+    } else renderSongItems(list, box);
   };
-  input.addEventListener('input', () => { _favFind = input.value; draw(); });
-  input.addEventListener('keydown', e => { if (e.key === 'Escape' && input.value) { e.stopPropagation(); input.value = ''; _favFind = ''; draw(); } });
+  const clearX = head.querySelector('.fav-find-x');
+  clearX.hidden = !_favFind;
+  // Drawn a beat after typing stops (2,000 favourites is a lot of rows to
+  // redraw on every key).
+  let typingT = 0;
+  const set = (v, now) => {
+    _favFind = v; clearX.hidden = !v;
+    clearTimeout(typingT);
+    if (now) draw(); else typingT = setTimeout(draw, songs.length > 300 ? 140 : 0);
+  };
+  input.addEventListener('input', () => set(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Escape' && input.value) { e.stopPropagation(); input.value = ''; set('', true); } });
+  clearX.addEventListener('click', e => { e.preventDefault(); input.value = ''; set('', true); input.focus(); });
   head.querySelector('[data-fav-play]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l); SFX && SFX.play('click'); } });
   head.querySelector('[data-fav-shuffle]').addEventListener('click', () => { const l = shown(); if (l.length) { playSongList(l, { shuffle: true }); SFX && SFX.play('click'); } });
   pickerList.append(head, box);
@@ -310,7 +337,7 @@ function renderFavoritesView(redraw) {
 
 const _origLoadPickerTab2 = loadPickerTab;
 loadPickerTab = async function(tab) {
-  if (tab !== 'favorites') pickerList.classList.remove('fav-hub');
+  if (tab !== 'favorites') { pickerList.classList.remove('fav-hub'); _favVirtualOff?.(); _favVirtualOff = null; }
   if (tab === 'favorites') {
     pickerTab = tab;
     // Bump the shared race-guard token used by every other tab (random/
@@ -345,7 +372,18 @@ function klabShuffleOrder(rebuild) {
     if (at > 0) { o.splice(at, 1); o.unshift(playerState.playlistIndex); }
     playerState.shuffleOrder = o;
     playerState._shuffleOf = pl;
+  } else {
+    // A song picked from the same list while shuffling (not reached by the
+    // order): it moves to right after where the order had got to, so what
+    // was still to come stays to come. Before, everything between the old
+    // place and the pick's place in the order was skipped.
+    const cur = playerState.playlistIndex, last = playerState._shuffleCur;
+    if (last != null && last !== cur && o.includes(last)) {
+      const a = o.indexOf(cur);
+      if (a >= 0) { o.splice(a, 1); o.splice(o.indexOf(last) + 1, 0, cur); }
+    }
   }
+  playerState._shuffleCur = playerState.playlistIndex;
   return o;
 }
 // What comes after the song playing, as indexes into the playlist, in the

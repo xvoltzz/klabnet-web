@@ -106,7 +106,7 @@ try {
   await ev(`document.getElementById('plEditSave').click()`);
   await until(`!T.modal() && document.querySelector('#apScroll .ap-hero-name')`);
   check('created, and its page opens', await ev(`T.hero().name === 'Road trip' && T.hero().kicker === 'Private playlist'`), await ev(`T.hero()`));
-  check('it is in the sidebar, lit', await ev(`T.sidebar()[0] === 'Road trip | 0 songs' && document.querySelector('.music-playlist-row.active .music-playlist-row-name')?.textContent === 'Road trip' && !document.querySelector('.picker-tab.active')`), await ev(`T.sidebar()`));
+  check('it is in the sidebar, lit', await ev(`T.sidebar()[0] === 'Road trip | 0 songs' && document.querySelector('.music-playlist-row.active .music-playlist-row-name')?.textContent === 'Road trip' && !document.querySelector('.music-nav .picker-tab.active')`), await ev(`T.sidebar()`));
   const id = await ev(`_pls[0].id`);
 
   // ── Songs: find, add, reorder, remove ──
@@ -202,8 +202,9 @@ try {
 
   // ── Add to playlist, from a song ──
   await ev(`document.querySelector('[data-tab="songs"]').click()`);
-  await until(`document.querySelector('#pickerList .picker-item [data-add-pl]')`);
-  await ev(`document.querySelector('#pickerList .picker-item [data-add-pl]').click()`);
+  // Song rows' Add to playlist is in their menu now (klabSongActsHTML): the flow itself.
+  await until(`document.querySelector('#pickerList .picker-item')?._song`);
+  await ev(`void addSongToPlaylistFlow(document.querySelector('#pickerList .picker-item')._song)`);
   await until(`document.querySelectorAll('#choiceDialogList .chat-modal-row').length >= 2`);
   check('the chooser offers a new one and yours, not alice\'s closed one', await ev(`[...document.querySelectorAll('#choiceDialogList .chat-modal-row-name')].map(n => n.textContent).join() === 'New playlist…,Road trip 🚗'`), await ev(`[...document.querySelectorAll('#choiceDialogList .chat-modal-row-name')].map(n => n.textContent)`));
   await ev(`document.querySelectorAll('#choiceDialogList .chat-modal-row')[1].click()`);

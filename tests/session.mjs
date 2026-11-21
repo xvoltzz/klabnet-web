@@ -196,7 +196,7 @@ try {
   check('queued on B: in A\'s queue', await until(a, `queue.length === 1 && queue[0].id === 'sess-test-5'`), (await st(a)).queue);
   await a.ev(`addToQueue(${JSON.stringify(song(1))})`);
   check('queued on A: in B\'s queue', await until(b, `queue.length === 2 && queue[1].id === 'sess-test-1'`), (await st(b)).queue);
-  check('B\'s queue count shows it', await b.ev(`document.getElementById('queueCount').textContent`) === '(2)');
+  check('B\'s queue count shows it', await b.ev(`document.getElementById('dockQueueN').textContent`) === '2');
   await b.ev(`(() => { queue.splice(0, 1); updateQueueBadge(); })()`);
   check('removed on B: gone from A', await until(a, `queue.length === 1 && queue[0].id === 'sess-test-1'`), (await st(a)).queue);
   await b.ev(`nextSong()`);

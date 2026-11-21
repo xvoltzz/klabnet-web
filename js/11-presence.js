@@ -313,7 +313,9 @@
     const d = window.klabnetDesktop;
     if (d && d.idle) {
       try {
-        const r = await d.idle();
+        // A bridge that never answers mustn't hold the beat (and so you
+        // being online) with it.
+        const r = await Promise.race([d.idle(), new Promise(res => setTimeout(res, 2000))]);
         if (r && typeof r.seconds === 'number') return known(Math.min(Math.round(r.seconds), pageAgo()), r.lockedFor);
       } catch (e) {}
     }
@@ -1027,11 +1029,18 @@
     } catch(e) {}
   }
 
+  // Polls can overlap (the 8s interval, a beat's own fetch, a slow body):
+  // only the newest one asked may draw, or an older answer landing late
+  // puts back people who've gone.
+  let _presSeq = 0;
   async function fetchPresence() {
+    const seq = ++_presSeq;
     try {
       const r = await fetchTimeout(API, {}, 6000);
+      if (seq !== _presSeq) return;
       if (!r.ok) return;
       const data = await r.json();
+      if (seq !== _presSeq) return;
       // Arrives with the very first poll, unlike the Matrix-derived roster
       // it replaces — that one couldn't produce anything until the SDK had
       // downloaded, logged in and finished an initial sync.
@@ -1048,7 +1057,7 @@
       // A single timed-out/failed poll shouldn't blank out everyone who was
       // online a moment ago — keep showing the last-known roster and let
       // the next successful poll (8s away) correct it.
-      renderList(_lastOthers);
+      if (seq === _presSeq) renderList(_lastOthers);
     } finally {
       window.KLAB_BOOT?.mark('presence');
     }

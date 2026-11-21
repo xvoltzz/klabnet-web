@@ -20,7 +20,7 @@
   const audio = new Audio();
   audio.preload = 'auto';
   audio.loop = true;
-  let stations = [], loadedAt = 0, offset = 0, offsetAt = 0, tuned = null, tuning = null, drift = 0, settleUntil = 0;
+  let stations = [], loadedAt = 0, offset = 0, offsetAt = 0, tuned = null, tuning = null, drift = 0, settleUntil = 0, tuneSeq = 0;
   // The file the element has (without its #t=), and how the browser's idea
   // of its length compares with ours: phones estimate a long VBR mp3's
   // length from its size and seek by that, so a position is scaled to it.
@@ -83,6 +83,11 @@
       const d = await r.json();
       stations = d.stations || [];
       loadedAt = Date.now();
+      // The station playing had its mix replaced: the old file is gone from
+      // the server (its seeks fail) and the new length is wrong for it, so
+      // it tunes in again on the new one.
+      const cur = tuned && byId(tuned);
+      if (cur && loadedUrl && cur.audio !== loadedUrl && !audio.paused) setTimeout(() => { if (tuned === cur.id) { const id = tuned; tuned = null; tune(id, { fromDial: true }); } }, 0);
       // The list's own clock is good enough until the proper one's in.
       if (!offsetAt) offset = d.now * 1000 - Date.now();
     } catch (e) { return null; }
@@ -142,6 +147,10 @@
     if (tuned === id && !audio.paused) { volume(); paintNow(); return; }
     if (tuning === id) return;
     tuning = id;
+    // Each try is its own: a play() that was cut short by off() and a
+    // tune to the same station again rejected as this one and turned the
+    // new one off ("Couldn't start the radio: interrupted").
+    const my = ++tuneSeq;
     pauseMusicHere();
     if (!opts.fromDial) staticBurst();
     // The list's clock does until the proper one's in; waiting for it here
@@ -163,11 +172,13 @@
     settleUntil = performance.now() + 4000;
     try { await audio.play(); }
     catch (e) {
+      if (my !== tuneSeq) return;
       if (tuning === id) tuning = null;
-      if (tuned !== id) return;
+      if (tuned !== id || e?.name === 'AbortError') return;
       showToast?.('Couldn’t start the radio: ' + (e.message || 'blocked'), 'ti-radio');
       off(); return;
     }
+    if (my !== tuneSeq) return;
     if (tuning === id) tuning = null;
     if (tuned !== id) return;
     clearInterval(drift);
@@ -200,9 +211,14 @@
   // up to 3% faster or slower, and past that it jumps. A jump that doesn't
   // land counts as a miss; after three in a row it stays where it is for a
   // minute, so a phone that can't seek plays on instead of starting over.
+  let clockAskedAt = 0;
   function keepInSync() {
     const s = byId(tuned);
     if (!s || audio.paused || audio.seeking || audio.readyState < 3) return;
+    // Left on one station for hours (the app's window is never hidden, so
+    // the visibility re-sync never came): the clocks are asked again every
+    // ten minutes, and a failed ask isn't repeated every second.
+    if (Date.now() - offsetAt > 10 * 60e3 && Date.now() - clockAskedAt > 60e3) { clockAskedAt = Date.now(); syncClock(); }
     const len = elLen(s), target = elPos(s);
     let d = audio.currentTime - target;
     if (d > len / 2) d -= len; else if (d < -len / 2) d += len;
@@ -887,8 +903,11 @@
       try {
         const r = await fetchTimeout(API + '/' + encodeURIComponent(id) + '/chat?after=' + chat.last, { cache: 'no-store' }, 6000);
         if (chat.id !== id) return;
-        if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) { chat.off = true; paintChat(true); return; }
-        if (!r.ok) return;
+        if (r.status === 404 || r.status === 405) { chat.off = true; paintChat(true); return; }
+        // A proxy's 502 page or a sign-in page is a bad moment, not an API
+        // without chat: it said "needs the latest klabnet-api" until you
+        // changed station.
+        if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return;
         const got = (await r.json()).messages || [];
         if (got.length) add(got);
         else if (!chat.msgs.length && !chat.shown) paintChat();

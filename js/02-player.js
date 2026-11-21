@@ -1407,6 +1407,9 @@ function openFS() {
   // Pick up the artwork updateFSUI() skipped while this was closed. The
   // class goes on first, so the call below sees an open panel and proceeds.
   if (_fsArtPending) updateFSUI(_fsArtPending);
+  // Its bar and clock were only kept while it was open: a paused song
+  // showed where it was when the player last closed (or 0:00).
+  window._syncFSProgress?.();
 }
 function closeFS() { document.getElementById('fsPlayer').classList.remove('open'); }
 
@@ -1734,7 +1737,10 @@ async function klabRestorePlayer() {
   if (go) { try { d = JSON.parse(localStorage.getItem(PLAYER_SAVE_KEY)); } catch (e) {} }
   if (d?.song?.id) {
     playerState.playlist = Array.isArray(d.playlist) && d.playlist.length ? d.playlist : [d.song];
-    const i = playerState.playlist.findIndex(x => x.id === d.song.id);
+    // Its saved place first: a list with the song in it twice (a playlist,
+    // repeat-all rounds) came back at the first one, and Next replayed
+    // what had already played.
+    const i = playerState.playlist[d.index]?.id === d.song.id ? d.index : playerState.playlist.findIndex(x => x.id === d.song.id);
     playerState.playlistIndex = i >= 0 ? i : Math.min(d.index || 0, playerState.playlist.length - 1);
     if (Array.isArray(d.queue) && !queue.length) queue = d.queue;
     if (d.shuffle && !_shuffleOn) { _shuffleOn = true; syncShuffleBtns(); }
