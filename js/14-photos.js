@@ -377,7 +377,7 @@
     await loadGames();
     klabMenu.at(btn, [
       { section: 'Game' },
-      { label: 'All games', icon: 'ti-device-gamepad-2', checked: !game, action: () => setGame('') },
+      { label: 'All games', icon: 'ti-screenshot', checked: !game, action: () => setGame('') },
       ...(games.length ? ['-'] : []),
       ...games.map(g => ({ label: g.name, hint: String(g.count), checked: game.toLowerCase() === g.name.toLowerCase(), action: () => setGame(g.name) })),
     ], { align: 'end' });
@@ -750,7 +750,7 @@
       : `Posted ${esc(new Date(post.created.replace(' ', 'T') + 'Z').toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }))}`;
     $('phCaption').innerHTML = window.klabMentionsHTML ? klabMentionsHTML(post.text) : esc(post.text || '');
     $('phTags').innerHTML = (post.kind === 'screenshot' && post.game
-        ? '<button type="button" class="ph-game-chip" data-ph-game="' + esc(post.game) + '" title="All screenshots of ' + esc(post.game) + '"><i class="ti ti-device-gamepad-2"></i>' + esc(post.game) + '</button> ' : '') +
+        ? '<button type="button" class="ph-game-chip" data-ph-game="' + esc(post.game) + '" title="All screenshots of ' + esc(post.game) + '"><i class="ti ti-screenshot"></i>' + esc(post.game) + '</button> ' : '') +
       (post.tags?.length ? '<span>with</span> ' + post.tags.map(nameHTML).join('<span>,</span> ') : '');
 
     // The slot stays even without a song, so every post has the same shape.
