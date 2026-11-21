@@ -736,7 +736,9 @@
     const el = $('stStatus'), r = S.j.render || {};
     const save = $('stSave');
     const d = dirty();
-    save.disabled = !d;
+    // A render that failed can be tried again as it is (Save sends it again).
+    save.disabled = !d && r.state !== 'failed';
+    save.title = !d && r.state === 'failed' ? 'Try rendering the edit again' : '';
     let html = '';
     if (r.state === 'rendering') html = '<span class="vid-spin"></span>Rendering your edit · ' + Math.round((r.progress || 0) * 100) + '%';
     else if (r.state === 'queued') html = '<span class="vid-spin"></span>Waiting to render';
@@ -1664,11 +1666,12 @@
     return '';
   }
   async function save(o) {
-    if (!S || !dirty()) return;
+    const retry = !!S && !dirty() && S.j.render?.state === 'failed';
+    if (!S || (!dirty() && !retry)) return;
     const out = forServer();
     const bad = problems(out);
     if (bad) { showToast(bad, 'ti-alert-triangle'); return; }
-    const eDirty = editDirty();
+    const eDirty = editDirty() || retry;
     if (!(o && o.sure) && (eDirty || out.dropped.anns || out.dropped.cards)) {
       const lose = [out.dropped.anns ? klabCount(out.dropped.anns, 'annotation') : '', out.dropped.cards ? klabCount(out.dropped.cards, 'card') : ''].filter(Boolean);
       const body = (eDirty ? (out.edit ? 'The video is made again from your upload with this edit (' + fine(out.len) + '). The current version plays until it’s done.' : 'The video is made again from your upload as it came. The current version plays until it’s done.') : '') +

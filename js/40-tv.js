@@ -1033,9 +1033,14 @@
       if (!Hls.isSupported()) { d.el.src = item.hls; return; }
       const h = new Hls({ capLevelToPlayerSize: true, startPosition: start, maxBufferLength: 20 });
       d.hls = h;
+      // Retried with a growing wait (not in a tight loop: a sign-in that ran
+      // out makes every segment fail), reset once a segment comes in.
+      let fails = 0;
+      h.on(Hls.Events.FRAG_LOADED, () => { fails = 0; });
       h.on(Hls.Events.ERROR, (_, e) => {
         if (!e.fatal) return;
-        if (e.type === Hls.ErrorTypes.NETWORK_ERROR) h.startLoad();
+        fails++;
+        if (e.type === Hls.ErrorTypes.NETWORK_ERROR) setTimeout(() => { try { h.startLoad(); } catch {} }, Math.min(30000, 500 * 2 ** fails));
         else if (e.type === Hls.ErrorTypes.MEDIA_ERROR) h.recoverMediaError();
       });
       h.loadSource(item.hls);
@@ -1668,14 +1673,35 @@
     });
     $('tvName').focus();
 
-    // The file, with a bar (XHR: a long file can be big).
-    function upload(id, f) {
+    // The file, with a bar. In parts when the API takes them (Videos'
+    // upload sessions, window.klabVideoParts: a big file, a dropped link),
+    // else the single POST (XHR: a long file can be big).
+    async function upload(id, f) {
+      const title = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim().slice(0, 100);
+      const bar = $('tvProg');
+      const show = (frac) => {
+        if (!bar.isConnected) return;
+        bar.hidden = false;
+        bar.querySelector('b').style.transform = 'scaleX(' + frac.toFixed(3) + ')';
+        bar.querySelector('span').textContent = frac < 1 ? 'Uploading ' + Math.round(frac * 100) + '%' : 'Saving…';
+      };
+      if (window.klabVideoParts) {
+        const p = window.klabVideoParts(f, show);
+        xhr = { readyState: 1, abort: () => p.stop() };
+        const r = await p;
+        xhr = null;
+        if (r.ok && r.sid) {
+          const fd = new FormData();
+          fd.append('upload', r.sid); fd.append('title', title);
+          return getJSON(API + '/' + encodeURIComponent(id) + '/upload', { method: 'POST', body: fd }, 600000);
+        }
+        if (!r.legacy) throw new Error(r.error || 'the upload didn’t get through');
+      }
       return new Promise((resolve, reject) => {
         const fd = new FormData();
         fd.append('file', f);
-        fd.append('title', f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim().slice(0, 100));
+        fd.append('title', title);
         xhr = new XMLHttpRequest();
-        const bar = $('tvProg');
         xhr.open('POST', API + '/' + encodeURIComponent(id) + '/upload');
         xhr.responseType = 'json';
         xhr.upload.onprogress = e => {

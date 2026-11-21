@@ -199,7 +199,7 @@
     if (!SORTS.some(s => s.key === v.sort)) v.sort = 'new';
     if (!showing()) setActiveTab('videos');
     const inPlace = !!op.inPlace && !!view && !!root && page.contains(root) && (view.user || '') === (v.user || '');
-    if (!inPlace) take();
+    if (!inPlace) take(); else hoverStop();
     view = v;
     setRow(!v.user || v.user === me());
     if (!op.quiet) record(v);
@@ -328,7 +328,7 @@
   }
   function hoverPlay(c) {
     const h = hov;
-    if (!h || !h.card.isConnected) return;
+    if (!h || !h.card.isConnected || !showing()) return;
     const thumb = h.card.querySelector('.clip-thumb');
     const el = document.createElement('video');
     el.className = 'clip-hov';
@@ -632,10 +632,21 @@
         '<div class="vp-wait-tx">' + (c.status === 'failed'
           ? '<i class="ti ti-alert-triangle"></i><b>Couldn’t make this clip</b><span>' + esc(c.error || 'The file may be damaged or in a format ffmpeg can’t read.') + '</span>'
           : '<span class="vid-spin"></span><b>Processing</b><span>' + Math.round((c.progress || 0) * 100) + '% · it plays here once it’s done</span>') + '</div></div>';
-      if (c.status === 'processing') vw.waitT = setTimeout(async () => {
-        const id = c.id;
-        try { const n = await getJSON(API + '/' + id, null, 8000); if (vw && vw.c.id === id) { vw.list[vw.i] = n; vw.c = n; mountClip(); } } catch (e) { if (vw && vw.c.id === id) mountClip(); }
-      }, 4000);
+      // Until it's made: only the percentage changes (remounting would
+      // redraw the side and lose a comment being typed).
+      const id = c.id;
+      const wait = () => {
+        if (!vw || vw.c.id !== id) return;
+        vw.waitT = setTimeout(async () => {
+          let n = null;
+          try { n = await getJSON(API + '/' + id, null, 8000); } catch (e) {}
+          if (!vw || vw.c.id !== id) return;
+          if (n && n.status !== 'processing') { vw.list[vw.i] = n; vw.c = n; mountClip(); return; }
+          if (n) { Object.assign(vw.c, n); const tx = box.querySelector('.vp-wait-tx span:last-child'); if (tx) tx.textContent = Math.round((n.progress || 0) * 100) + '% · it plays here once it’s done'; }
+          wait();
+        }, 4000);
+      };
+      if (c.status === 'processing') wait();
       return;
     }
     box.innerHTML =
@@ -1176,7 +1187,10 @@
     let ok = 0, left = items.length;
     for (const it of items) {
       upQueue = upQueue.then(async () => {
-        const r = await window.klabVideoUpload(it.file, { title: it.title, published: it.published, quiet: true, fields: { kind: 'clip', game: it.game } });
+        let r;
+        try { r = await window.klabVideoUpload(it.file, { title: it.title, published: it.published, quiet: true, fields: { kind: 'clip', game: it.game } }); }
+        catch (e) { r = { ok: false, error: e?.message || 'it didn’t get through' }; }
+        r = r || { ok: false, error: 'it didn’t get through' };
         left--;
         if (r.ok) { ok++; if (view && showing() && !vw) show(view, { quiet: true, inPlace: true }); }
         else if (!r.aborted) showToast('Couldn’t upload “' + it.title + '”: ' + r.error, 'ti-alert-triangle');
@@ -1186,7 +1200,7 @@
           showToast((ok > 1 ? ok + ' clips are up.' : '“' + it.title + '” is up.') + ' Ready to watch in a minute', 'ti-scissors', 6000, null, null,
             { action: { label: 'Your clips', run: () => show({ user: me() }) } });
         }
-      });
+      }).catch(() => {});
     }
   }
 

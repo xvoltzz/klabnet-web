@@ -688,10 +688,23 @@
         paintQuality(); if (autoplay) el.play().catch(() => box.classList.add('paused')); paint();
       });
       hls.on(Hls.Events.LEVEL_SWITCHED, paintQuality);
+      // A fatal error is retried a few times, not forever: a sign-in that
+      // ran out (every segment a redirect) used to restart loading in a
+      // tight loop for as long as the page stayed open.
+      let recoveries = 0;
+      const me = hls;
+      hls.on(Hls.Events.FRAG_LOADED, () => { recoveries = 0; });
       hls.on(Hls.Events.ERROR, (_, d) => {
-        if (!d.fatal) return;
-        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-        else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        if (!d.fatal || hls !== me) return;
+        if (++recoveries > 4) {
+          try { me.destroy(); } catch {}
+          if (hls === me) hls = null;
+          showToast('This video stopped loading. Reload klabnet if it keeps happening', 'ti-alert-triangle');
+          box?.classList.add('paused');
+          return;
+        }
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) setTimeout(() => { if (hls === me) me.startLoad(); }, 1000 * recoveries);
+        else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) me.recoverMediaError();
         else { showToast('This video won’t play', 'ti-alert-triangle'); }
       });
       hls.loadSource(src);
@@ -1387,7 +1400,7 @@
         const u = uploads.find(x => x.key === b.dataset.upStop);
         if (!u) return;
         if (!(await showConfirmDialog('Stop this upload?', '“' + u.title + '” won’t be uploaded.', 'Stop upload'))) return;
-        u.xhr.abort();
+        u.stop();
       });
     }
     upsEl.hidden = !uploads.length;
@@ -1396,60 +1409,204 @@
       return '<div class="vid-up-row" title="' + esc(u.title) + '"><i class="ti ti-upload"></i>' +
         '<span class="vid-up-tx"><span class="vid-up-name">' + esc(u.title) + '</span>' +
         '<span class="vid-up-bar"><b style="transform:scaleX(' + u.f.toFixed(3) + ')"></b></span>' +
-        '<span class="vid-up-pct">' + (u.f < 1 ? pct + '%' : 'Saving…') + '</span></span>' +
+        '<span class="vid-up-pct">' + (u.note || (u.f < 1 ? pct + '%' : 'Saving…')) + '</span></span>' +
         '<button type="button" class="k-icon sm" data-up-stop="' + u.key + '" title="Stop upload" aria-label="Stop upload"><i class="ti ti-x"></i></button></div>';
     }).join('');
   }
   // opts (js/42-clips.js's uploads): fields (more form fields: kind, game)
-  // and quiet (no toasts; the caller says). Resolves { ok, video, error }.
+  // and quiet (no toasts; the caller says). Resolves { ok, video, error }
+  // (video can be null: made, but its answer was lost); never rejects.
+  //
+  // It goes up in parts (klabnet-api's /uploads sessions, PART at a time),
+  // so no proxy body limit or the server's temporary folder matters, a
+  // dropped part is sent again from where the server says it got to, and
+  // the same file picked again after a reload carries on (RESUME_KEY). An
+  // API without sessions gets the single POST it always had.
+  const UP = API + '/uploads';
+  const PART = 32 * 1048576;
+  const RESUME_KEY = 'klabnet_video_uploads';
+  const fileKey = f => [f.name, f.size, f.lastModified].join('|');
+  const resumes = {
+    all() { try { return JSON.parse(localStorage.getItem(RESUME_KEY) || '{}') || {}; } catch { return {}; } },
+    get(k) { const r = this.all()[k]; return r && Date.now() - r.at < 36 * 3600e3 ? r.id : null; },
+    set(k, id) { const m = this.all(); if (id) m[k] = { id, at: Date.now() }; else delete m[k]; try { localStorage.setItem(RESUME_KEY, JSON.stringify(m)); } catch {} },
+  };
+  const EXPIRED = 'Your sign-in expired. Reload klabnet, then upload it again (it carries on where it stopped)';
+  // One request: { status, json, html (the answer wasn't ours: a sign-in
+  // page, a proxy's error page), net, aborted }.
+  function xreq(u, method, url, body, onProgress) {
+    return new Promise(res => {
+      const x = new XMLHttpRequest();
+      u.cur = x;
+      x.open(method, url);
+      if (body instanceof Blob) x.setRequestHeader('content-type', 'application/octet-stream');
+      else if (body && !(body instanceof FormData)) { x.setRequestHeader('content-type', 'application/json'); body = JSON.stringify(body); }
+      if (onProgress) x.upload.onprogress = e => onProgress(e.loaded, e.lengthComputable ? e.total : 0);
+      x.onload = () => {
+        let json = null;
+        try { json = JSON.parse(x.responseText); } catch {}
+        let away = false;
+        try { away = !!x.responseURL && !new URL(x.responseURL, location.href).pathname.startsWith('/api/'); } catch {}
+        res({ status: x.status, json: away ? null : json, html: away || !json });
+      };
+      x.onerror = () => res({ status: 0, net: true });
+      x.onabort = () => res({ status: 0, aborted: true });
+      x.send(body ?? null);
+    });
+  }
+  // Was that the sign-in running out? (A redirect to Authentik shows up
+  // as a network error on an XHR: it's cross-origin.)
+  async function signedOut() {
+    try {
+      const r = await fetch(API + '?limit=1', { redirect: 'manual', cache: 'no-store', credentials: 'same-origin' });
+      if (r.type === 'opaqueredirect' || r.status === 401) return true;
+      if (!(r.headers.get('content-type') || '').includes('json')) return true;
+    } catch {}
+    return false;
+  }
+  async function failWhy(r) {
+    if (r.aborted) return '';
+    if (r.status === 401 || ((r.status >= 200 && r.status < 400) && r.html)) return EXPIRED;
+    if (r.status === 413) return r.json?.error ? klabCap(r.json.error) : 'It’s too big for the server’s upload limit (ask whoever runs klabnet)';
+    if (r.status === 0 || r.net) return (await signedOut()) ? EXPIRED : 'The connection dropped';
+    if (r.json?.error) return klabCap(r.json.error);
+    if ([502, 503, 504].includes(r.status)) return 'The server didn’t answer (it may be restarting)';
+    if (r.html) return (await signedOut()) ? EXPIRED : 'The server answered with error ' + r.status;
+    return 'Error ' + r.status;
+  }
+  // Worth sending again: the link, a busy or restarting server.
+  const retryable = r => r.net || r.status === 0 || r.status === 408 || r.status === 429 || r.status >= 500 && r.status !== 507 || r.status === 409;
+  const pause = (u, ms) => new Promise(res => { const t = setTimeout(res, ms); u.wake = () => { clearTimeout(t); res(); }; });
+
+  async function sendInParts(u, file, fields, finish = true) {
+    const key = fileKey(file);
+    let sid = resumes.get(key), have = 0;
+    if (sid) {
+      const r = await xreq(u, 'GET', UP + '/' + sid);
+      if (r.status === 200 && r.json && r.json.size === file.size) have = r.json.received || 0;
+      else { sid = null; resumes.set(key, null); }
+    }
+    if (!sid) {
+      const r = await xreq(u, 'POST', UP, { name: file.name, size: file.size, ...fields });
+      if (r.status === 404 || r.status === 405) return { legacy: true };
+      if (r.status !== 200 || !r.json?.id) return { ok: false, aborted: r.aborted, error: await failWhy(r) };
+      sid = r.json.id;
+      resumes.set(key, sid);
+    }
+    u.sid = sid;
+    const progress = n => {
+      u.f = Math.min(1, n / file.size);
+      u.onProgress?.(u.f);
+      if (!u.paintT) u.paintT = setTimeout(() => { u.paintT = 0; paintUploads(); }, 200);
+    };
+    progress(have);
+    let tries = 0, last = null;
+    const giveUp = async r => ({ ok: false, aborted: !!r.aborted, error: await failWhy(r), retry: true });
+    while (have < file.size) {
+      if (u.stopped) return { ok: false, aborted: true };
+      const from = have;
+      const r = await xreq(u, 'PUT', UP + '/' + sid + '?offset=' + from, file.slice(from, Math.min(file.size, from + PART)), n => progress(from + n));
+      if (r.aborted || u.stopped) return { ok: false, aborted: true };
+      if (r.status === 200 && r.json && typeof r.json.received === 'number') {
+        have = r.json.received;
+        if (have > from) tries = 0;
+        else if (++tries > 6) return giveUp(r);
+        continue;
+      }
+      if (r.status === 404) { resumes.set(key, null); return { ok: false, error: 'The server lost this upload (it was too long ago). Try again', retry: true }; }
+      if (r.status === 409 && typeof r.json?.received === 'number' && r.json.received !== from) { have = r.json.received; continue; }
+      last = r;
+      if (!retryable(r) || r.html && r.status < 500 || ++tries > 6) return giveUp(r);
+      u.note = 'Retrying…'; paintUploads();
+      await pause(u, Math.min(30000, 1500 * 2 ** (tries - 1)));
+      u.note = '';
+      if (u.stopped) return { ok: false, aborted: true };
+      const s = await xreq(u, 'GET', UP + '/' + sid);
+      if (s.status === 200 && s.json) have = s.json.received || 0;
+      else if (s.status === 404) { resumes.set(key, null); return { ok: false, error: 'The server lost this upload. Try again', retry: true }; }
+    }
+    // All there: made into a video. Its answer can be lost too; then the
+    // session being gone means it was made.
+    u.f = 1; paintUploads();
+    if (!finish) { resumes.set(key, null); return { ok: true, sid }; }
+    for (let i = 0; ; i++) {
+      const r = await xreq(u, 'POST', UP + '/' + sid + '/done', fields);
+      if (r.status === 200 && r.json?.id) { resumes.set(key, null); return { ok: true, video: r.json }; }
+      if (r.aborted) return { ok: false, aborted: true };
+      if (r.status === 409 && typeof r.json?.received === 'number') return { ok: false, error: 'It didn’t all arrive. Try again', retry: true };
+      if (r.status === 404 && i > 0) { resumes.set(key, null); return { ok: true, video: null }; }
+      if (!retryable(r) || i >= 4) { if (!retryable(r)) resumes.set(key, null); return { ok: false, error: await failWhy(r), retry: retryable(r) }; }
+      await pause(u, 2000 * (i + 1));
+    }
+  }
+
+  // The single POST (an API from before upload sessions).
+  async function sendWhole(u, file, fields) {
+    const fd = new FormData();
+    fd.append('file', file);
+    for (const [k, val] of Object.entries(fields)) if (val) fd.append(k, val);
+    const r = await xreq(u, 'POST', API, fd, (n, total) => { if (total) { u.f = n / total; if (!u.paintT) u.paintT = setTimeout(() => { u.paintT = 0; paintUploads(); }, 200); } });
+    if (r.status >= 200 && r.status < 300 && r.json?.id) return { ok: true, video: r.json };
+    if ((r.status === 404 || r.status === 405) && r.json) server = false;
+    return { ok: false, aborted: r.aborted, error: await failWhy(r) };
+  }
+
   function startUpload(file, title, description, published, opts) {
     const o = opts || {};
-    const fd = new FormData();
-    fd.append('file', file); fd.append('title', title); fd.append('description', description);
-    if (published) fd.append('published', published);
-    for (const [k, val] of Object.entries(o.fields || {})) fd.append(k, val);
-    const xhr = new XMLHttpRequest();
-    const u = { key: Math.random().toString(36).slice(2), title, f: 0, xhr };
+    const fields = { title, description, published: published || '', ...(o.fields || {}) };
+    const u = { key: Math.random().toString(36).slice(2), title, f: 0, note: '', paintT: 0 };
+    u.stop = () => {
+      u.stopped = true;
+      try { u.cur?.abort(); } catch {}
+      u.wake?.();
+      if (u.sid) { fetch(UP + '/' + u.sid, { method: 'DELETE', keepalive: true }).catch(() => {}); resumes.set(fileKey(file), null); }
+    };
     uploads.push(u);
     paintUploads();
-    if (!o.quiet) showToast('Uploading “' + title + '”. You can keep browsing', 'ti-upload');
-    let settle;
-    const result = new Promise(r => { settle = r; });
-    const done = () => { uploads.splice(uploads.indexOf(u), 1); paintUploads(); };
-    let paintT = 0;
-    xhr.open('POST', API);
-    xhr.responseType = 'json';
-    xhr.upload.onprogress = e => {
-      if (!e.lengthComputable) return;
-      u.f = e.loaded / e.total;
-      if (!paintT) paintT = setTimeout(() => { paintT = 0; paintUploads(); }, 200);
-    };
-    xhr.onload = () => {
-      done();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const v = xhr.response;
-        cache.set(v.id, v);
-        settle({ ok: true, video: v });
-        if (o.quiet) return;
-        SFX && SFX.play('star');
-        showToast('“' + title + '” is up. It’ll be ready to watch in a few minutes', 'ti-movie', 6000, null, null,
-          { action: { label: 'Your videos', run: () => { if (!showing()) setActiveTab('videos'); showList({ kind: 'mine' }); } } });
-        if (showing() && ['mine', 'home'].includes(view.kind)) showList(view, { quiet: true });
-      } else {
-        if (xhr.status === 404 || xhr.status === 405) server = false;
-        settle({ ok: false, error: klabCap(xhr.response?.error) || 'error ' + xhr.status });
-        if (o.quiet) return;
-        showToast('Couldn’t upload “' + title + '”: ' + (klabCap(xhr.response?.error) || 'error ' + xhr.status), 'ti-alert-triangle');
+    if (!o.quiet && !o.again) showToast('Uploading “' + title + '”. You can keep browsing', 'ti-upload');
+    return (async () => {
+      let res;
+      try {
+        res = await sendInParts(u, file, fields);
+        if (res.legacy) res = await sendWhole(u, file, fields);
+      } catch (e) {
+        res = { ok: false, error: e?.message || 'it didn’t get through' };
       }
-    };
-    xhr.onerror = () => { done(); settle({ ok: false, error: 'it didn’t get through' }); if (!o.quiet) showToast('The upload of “' + title + '” didn’t get through', 'ti-alert-triangle'); };
-    xhr.onabort = () => { done(); settle({ ok: false, aborted: true }); showToast('Upload stopped', 'ti-x'); };
-    xhr.send(fd);
-    return result;
+      clearTimeout(u.paintT);
+      uploads.splice(uploads.indexOf(u), 1);
+      paintUploads();
+      if (res.ok) {
+        if (res.video) cache.set(res.video.id, res.video);
+        if (!o.quiet) {
+          SFX && SFX.play('star');
+          showToast('“' + title + '” is up. It’ll be ready to watch in a few minutes', 'ti-movie', 6000, null, null,
+            { action: { label: 'Your videos', run: () => { if (!showing()) setActiveTab('videos'); showList({ kind: 'mine' }); } } });
+        }
+        if (showing() && ['mine', 'home'].includes(view.kind)) showList(view, { quiet: true });
+      } else if (res.aborted || u.stopped) {
+        if (!o.quiet) showToast('Upload stopped', 'ti-x');
+        res = { ok: false, aborted: true };
+      } else if (!o.quiet) {
+        // Stays up until dismissed: a long upload that failed shouldn't
+        // vanish in a few seconds while nobody was looking.
+        showToast('Couldn’t upload “' + title + '”: ' + res.error, 'ti-alert-triangle', res.retry ? 30000 : 15000, null, null,
+          res.retry ? { action: { label: 'Try again', run: () => startUpload(file, title, description, published, { ...o, again: true }) } } : undefined);
+      }
+      return { ok: !!res.ok, video: res.video || null, error: res.error, aborted: !!res.aborted };
+    })();
   }
   // For Clips (js/42-clips.js): the same background uploads, and the
   // video's own Share and Save to playlist.
   window.klabVideoUpload = (file, o) => startUpload(file, o.title, o.description || '', o.published || '', o);
+  // Only the parts (js/40-tv.js's upload into a channel, which finishes
+  // it itself): { ok, sid } | { legacy: true } | { ok: false, error }.
+  // The returned promise has .stop().
+  window.klabVideoParts = (file, onProgress) => {
+    const u = { f: 0, note: '', paintT: 0, onProgress };
+    const p = sendInParts(u, file, {}, false).catch(e => ({ ok: false, error: e?.message || 'it didn’t get through' }));
+    p.stop = () => { u.stopped = true; try { u.cur?.abort(); } catch {} u.wake?.(); if (u.sid) fetch(UP + '/' + u.sid, { method: 'DELETE', keepalive: true }).catch(() => {}); };
+    return p;
+  };
   window.klabVideoShare = v => shareDialog(v);
   window.klabVideoSave = (v, anchor, e) => saveMenu(v, e, anchor);
   addEventListener('beforeunload', e => { if (uploads.length) { e.preventDefault(); e.returnValue = ''; } });

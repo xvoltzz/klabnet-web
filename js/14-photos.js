@@ -179,6 +179,7 @@
     if (loadingOlder || !hasOlder || !cursor) return;
     loadingOlder = true;
     const g = gen;
+    let failed = true;
     // A deadline over the body too: a page that stalled halfway held
     // loadingOlder for good, and no older photos ever loaded again.
     const ctrl = new AbortController();
@@ -200,8 +201,15 @@
         applyPosts(next, { keepSelection: true });
       } else if (!items.length) showEmpty();
       renderViewHead();
-    } catch (e) { /* the next scrub to the left edge retries */ }
-    finally { clearTimeout(deadline); if (g === gen) { loadingOlder = false; topUp(); } }
+      failed = false;
+    } catch (e) { failed = true; /* the next scrub to the left edge retries */ }
+    finally {
+      clearTimeout(deadline);
+      // Your photos / Tagged crawl on for more; after a failure only after
+      // a pause (a 502 or a lapsed sign-in answers at once, and this asked
+      // again straight away, forever).
+      if (g === gen) { loadingOlder = false; if (failed) setTimeout(() => { if (g === gen) topUp(); }, 10000); else topUp(); }
+    }
   }
 
   // Swap in a new post list. The strip only rebuilds when the set of
