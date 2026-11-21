@@ -53,13 +53,17 @@ function retypePrompt(target) {
   if (from === target || window._klabTermJump || !(window.klabMotionOk?.() ?? true)) { promptEl.textContent = target; return; }
   let keep = 0;
   while (keep < from.length && keep < target.length && from[keep] === target[keep]) keep++;
-  let cur = from;
+  let cur = from, erasing = true;
   const step = () => {
-    if (cur.length > keep) {
+    // Erase down to where the paths part, then type; never both (typing a
+    // letter past `keep` mustn't send it back to erasing: that flickered
+    // forever between "KLABNET/" and "KLABNET/m").
+    if (erasing && cur.length > keep) {
       cur = cur.slice(0, -1);
       promptEl.textContent = cur;
       _retypeTimer = setTimeout(step, 16);
     } else if (cur.length < target.length) {
+      erasing = false;
       cur = target.slice(0, cur.length + 1);
       promptEl.textContent = cur;
       _retypeTimer = setTimeout(step, 22 + Math.random() * 16);
