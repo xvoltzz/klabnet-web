@@ -34,7 +34,25 @@ function fetchTimeout(url, opts, ms) {
     else if (opts.signal.aborted) ctrl.abort();
     else opts.signal.addEventListener('abort', () => ctrl.abort(), { once: true });
   }
-  return fetch(url, { ...(opts || {}), signal }).finally(() => clearTimeout(t));
+  // The timer above stops when the headers arrive. A body that then stalls
+  // (a proxy that sent its headers and nothing more, a dropped link) left
+  // every `await r.json()` after this waiting forever, and whatever was
+  // waiting on it (a poll's busy flag, the shared player's command line,
+  // the session's connect) stuck with it. So reading the body as JSON or
+  // text gets a deadline of its own; abort() makes it reject.
+  const bodyMs = Math.max(15000, (ms || 10000) * 2);
+  return fetch(url, { ...(opts || {}), signal }).then(r => {
+    clearTimeout(t);
+    for (const k of ['json', 'text']) {
+      const read = r[k];
+      if (typeof read !== 'function') continue;
+      r[k] = function() {
+        const bt = setTimeout(() => ctrl.abort(), bodyMs);
+        return read.call(r).finally(() => clearTimeout(bt));
+      };
+    }
+    return r;
+  }, err => { clearTimeout(t); throw err; });
 }
 
 // Shared by Feed and Home so the same post has the same age on both.
@@ -512,13 +530,13 @@ window.klabLayers = klabLayers;
 // scroll, a resize, the window losing focus, changing page, and anything
 // opening over it (the full player, the album page, a dialog).
 const klabMenu = (() => {
-  let menu = null, anchorEl = null, popLayer = null, hideTimer = 0;
+  let menu = null, anchorEl = null, popLayer = null, hideTimer = 0, openedOn = null;
   const isOpen = () => !!menu && menu.classList.contains('visible');
   function close() {
     if (!isOpen()) return;
     menu.classList.remove('visible');
     anchorEl?.setAttribute?.('aria-expanded', 'false');
-    anchorEl = null;
+    anchorEl = null; openedOn = null;
     const p = popLayer; popLayer = null; p?.();
   }
 
@@ -533,7 +551,14 @@ const klabMenu = (() => {
     // Capture, so another right-click closes this one before whatever
     // handler it hits opens the next menu.
     document.addEventListener('contextmenu', e => { if (!menu.contains(e.target)) close(); }, true);
-    addEventListener('scroll', e => { if (e.target !== menu) close(); }, true);
+    // Only a scroll that moves what it was opened on: any scroll anywhere
+    // (the lyrics gliding to the next line, a chat jumping to a new
+    // message) closed a menu that had nothing to do with it.
+    addEventListener('scroll', e => {
+      if (e.target === menu || !isOpen()) return;
+      const t = e.target, on = openedOn;
+      if (!on || !on.isConnected || t === document || t === document.documentElement || (t.contains && t.contains(on))) close();
+    }, true);
     addEventListener('resize', close);
     addEventListener('blur', close);
     addEventListener('hashchange', close);
@@ -657,6 +682,7 @@ const klabMenu = (() => {
       x = r.left + 16; y = r.top + Math.min(r.height, 28);
     }
     const { w, h, z } = show(list);
+    openedOn = e.target?.nodeType === 1 ? e.target : null;
     const vw = innerWidth / z, vh = innerHeight / z;
     let left = x / z, top = y / z;
     // Like a native menu: flip to the other side of the pointer rather
@@ -676,7 +702,7 @@ const klabMenu = (() => {
     const list = tidy(items);
     if (!list.some(it => it.action)) return false;
     const { w, h, z } = show(list);
-    anchorEl = anchor;
+    anchorEl = anchor; openedOn = anchor;
     anchor.setAttribute('aria-expanded', 'true');
     const r = anchor.getBoundingClientRect(), gap = opts.gap ?? 6;
     const vw = innerWidth / z, vh = innerHeight / z;

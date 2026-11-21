@@ -194,6 +194,9 @@
   // Mentions are baked into the HTML, and who counts as a person changes
   // when the roster arrives (after the first posts, on a slow start).
   window.addEventListener('klab:people', () => cache.clear());
+  // So are custom emoji: a post rendered before its :name: was known kept
+  // the plain text, and every later redraw of that post brought it back.
+  window.addEventListener('klab:emoji', () => cache.clear());
   window.klabMarkdown = function(raw, me, opts) {
     const inline = !!(opts && opts.inline);
     const key = (inline ? 'i' : 'b') + (me || '') + '\u0000' + raw;

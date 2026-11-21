@@ -1709,7 +1709,9 @@
   previewBtnEl.addEventListener('click', () => setPreview(!_previewOn));
   expandBtnEl.addEventListener('click', () => setExpanded(!composerEl.classList.contains('expanded')));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && composerEl.classList.contains('expanded')) { e.preventDefault(); setExpanded(false); textEl.focus(); }
+    // Only when nothing is open over it (a menu, a dialog): that layer's
+    // Escape is its own, and one press closes one thing.
+    if (e.key === 'Escape' && composerEl.classList.contains('expanded') && !e.defaultPrevented && !window.klabLayers?.top()) { e.preventDefault(); setExpanded(false); textEl.focus(); }
   });
   composerScrimEl.addEventListener('click', () => setExpanded(false));
   // A draft survives a reload or a closed tab.

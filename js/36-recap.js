@@ -41,9 +41,14 @@
       try {
         const since = Math.min(seen, now() - DAY);
         const r = await fetchTimeout('/api/posts/recap?since=' + Math.floor(since), {}, 10000);
-        if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) { missing = true; return; }
-        if (!r.ok) return;
-        data = await r.json();
+        if (r.status === 404 || r.status === 405) { missing = true; return; }
+        // A proxy's 502 page or a sign-in bounce: not "needs the latest
+        // klabnet-api", just not an answer this time.
+        if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return;
+        // The body has its own deadline (fetchTimeout's stops at the
+        // headers): a stalled one held `loading` forever, and every later
+        // load() got that same promise back, so the bell never updated again.
+        data = await Promise.race([r.json(), new Promise((_, no) => setTimeout(() => no(new Error('timed out')), 10000))]);
         missing = false;
       } catch (e) {} finally { loading = null; }
     })();

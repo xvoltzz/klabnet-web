@@ -75,6 +75,8 @@
       }
     });
     if (panel) { built = ''; if (isOpen()) render(); }
+    // Feed's markdown cache holds HTML emojified with the old list.
+    window.dispatchEvent(new Event('klab:emoji'));
   }
 
   function img(e) {

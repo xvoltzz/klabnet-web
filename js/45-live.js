@@ -75,8 +75,10 @@
     const t = setTimeout(() => ctrl.abort(), ms || 10000);
     try {
       const r = await fetch(url, { cache: 'no-store', ...(opts || {}), signal: ctrl.signal });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { const e = new Error(j.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      // Not JSON (a sign-in page, a proxy's error page): no answer, not an empty one.
+      const j = await r.json().catch(() => null);
+      if (!r.ok) { const e = new Error(j?.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!j || typeof j !== 'object') { const e = new Error('no answer (' + r.status + ')'); e.status = 0; throw e; }
       return j;
     } finally { clearTimeout(t); }
   }
@@ -119,8 +121,12 @@
   }
   function schedule() {
     clearTimeout(pollT);
-    const fast = showing() && view && root?.isConnected;
-    pollT = setTimeout(() => { if (!document.hidden || fast) poll().finally(schedule); else schedule(); }, fast ? 5000 : 20000);
+    // (A hidden tab asks every 20s only for "Tell me when someone goes
+    // live", which is for when klabnet isn't in front; otherwise not at
+    // all, even on the Live page, where the 5s poll used to run on in the
+    // background. Coming back asks at once.)
+    const fast = showing() && view && root?.isConnected && !document.hidden;
+    pollT = setTimeout(() => { if (!document.hidden || notifyOn()) poll().finally(schedule); else schedule(); }, fast ? 5000 : 20000);
   }
   function paintRow() {
     if (!row) return;
@@ -333,7 +339,9 @@
   let room = null, track = null, audioTrack = null, phase = 'idle', joinSeq = 0, lastError = '', retryT = 0;
   let held = false, blocked = false;
   const prefs = (() => { try { return JSON.parse(localStorage.getItem('klabnet_video') || '{}'); } catch { return {}; } })();
-  const savePrefs = () => { try { localStorage.setItem('klabnet_video', JSON.stringify(prefs)); } catch {} };
+  // klabnet_video is Videos' too (speed, Original, bandwidth): only the
+  // volume is ours, merged in, so a stale copy here can't undo those.
+  const savePrefs = () => { try { const all = JSON.parse(localStorage.getItem('klabnet_video') || '{}') || {}; all.volume = prefs.volume; all.muted = prefs.muted; localStorage.setItem('klabnet_video', JSON.stringify(all)); } catch {} };
   function loadLib() {
     if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
     return libP ||= new Promise((resolve, reject) => {
@@ -519,11 +527,16 @@
     const jb = r.jitterBufferEmittedCount ? r.jitterBufferDelay / r.jitterBufferEmittedCount : 0;
     return { width: r.frameWidth || 0, height: r.frameHeight || 0, fps: Math.round(r.framesPerSecond || 0), bps: Math.max(0, bps), behind: jb + rtt / 2 };
   }
+  let qSeq = 0;
   async function paintQuality() {
     clearTimeout(qT);
+    // Each track subscribing calls this; only the newest call keeps the
+    // 2s loop going (two awaiting at once used to leave two loops).
+    const my = ++qSeq;
     const el = $('lvQ');
     if (!el || !track) { if (el) el.textContent = ''; return; }
     const q = document.hidden ? null : await stats(track);
+    if (my !== qSeq) return;
     if (q && q.width && $('lvQ')) {
       el.textContent = q.width + '×' + q.height + ' · ' + q.fps + ' fps' +
         (q.bps ? ' · ' + (q.bps >= 1e6 ? (q.bps / 1e6).toFixed(1) + ' Mbps' : Math.round(q.bps / 1e3) + ' kbps') : '') +
@@ -551,7 +564,9 @@
   async function loadChat() {
     clearTimeout(chatT);
     const u = chat.user;
-    if (!u || view?.kind !== 'watch' || view.user !== u) return;
+    // (Not while parked off Videos: coming back to the tab used to start
+    // the 2s chat poll again for a stream nobody's watching.)
+    if (!u || view?.kind !== 'watch' || view.user !== u || view.parked) return;
     if (!document.hidden && !chat.busy) {
       chat.busy = true;
       try {

@@ -75,9 +75,11 @@
     const t = setTimeout(() => ctrl.abort(), ms || 15000);
     try {
       const r = await fetch(url, { ...(opts || {}), signal: ctrl.signal });
-      const j = await r.json().catch(() => ({}));
+      // Not JSON (a sign-in page, a proxy's error page): no answer, not an empty one.
+      const j = await r.json().catch(() => null);
       if (r.status === 404 && url.startsWith(API) && !url.slice(API.length).match(/^\/\d/)) server = false;
-      if (!r.ok) { const e = new Error(j.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!r.ok) { const e = new Error(j?.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!j || typeof j !== 'object') { const e = new Error('no answer (' + r.status + ')'); e.status = 0; throw e; }
       if (url.startsWith(API)) server = true;
       return j;
     } finally { clearTimeout(t); }
@@ -320,7 +322,10 @@
   let procTimer = 0;
   function watchProcessing() {
     clearTimeout(procTimer);
-    const ids = [...page.querySelectorAll('.vid-card.processing')].map(c => +c.dataset.vidId).filter(id => cache.get(id)?.status === 'processing');
+    const ids = [...page.querySelectorAll('.vid-card.processing')].map(c => +c.dataset.vidId).filter(id => cache.get(id)?.status === 'processing')
+      // A big import shows hundreds processing: ask about the first few
+      // (one at a time, every 4s); the rest move up as those finish.
+      .slice(0, 8);
     if (!ids.length || !showing()) return;
     procTimer = setTimeout(async () => {
       for (const id of ids) {
@@ -678,6 +683,9 @@
     loadHls().then(Hls => {
       if (el !== video || srcKind !== 'hls') return;
       if (!Hls.isSupported()) { el.src = src; el.addEventListener('loadedmetadata', begin, { once: true }); return; }
+      // Two switches back to the ladder while hls.js was still loading
+      // both land here: one instance, not two on the same element.
+      if (hls) { try { hls.destroy(); } catch {} hls = null; }
       // Not capped to the player's size (people here care about the
       // bitrate), and starting from the last speed this device measured.
       hls = new Hls({ capLevelToPlayerSize: false, startPosition: start > 0 ? start : -1, maxBufferLength: 30,

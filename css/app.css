@@ -4331,6 +4331,9 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .term-input), textarea, select):focus:not(:is(.k-field-box, .feed-composer, .chat-modal-search, .picker-search, .soc-search, .ph-tags-box, .chat-search, .chat-composer-row, .browse-find, .emo-search, .gif-search) *) {
   border-color: var(--focus-line) !important; box-shadow: var(--focus-ring) !important;
 }
+/* A dialog or sheet takes focus itself when it opens (so Tab starts
+   inside it): that's not something to ring. */
+:is([role="dialog"], [role="alertdialog"], .add-app-modal, .settings-modal, .wk-sheet):focus { outline: none; }
 /* The prompt is typed into in place, with no box at all. */
 .term-input:focus { box-shadow: none !important; }
 .k-btn:focus-visible, .k-icon:focus-visible, .k-chip:focus-visible, .k-switch:focus-visible, .s-toggle:focus-visible, .k-seg button:focus-visible {
@@ -11072,6 +11075,16 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 #feedList .feed-post-act .tmoji, #feedList .feed-post-act { font-size: 14px; line-height: 1; }
 #feedList .feed-post-act.feed-post-delete:hover { color: var(--danger); background: var(--danger-fill); }
 .chat-msg-actions.k-toolbar .chat-msg-star-btn.on { color: var(--text); }
+/* A message's toolbar shows only while you point at the message or a key
+   is in it (.k-toolbar's display came later and kept it always on). */
+.chat-msg-actions.k-toolbar { display: none; }
+.chat-msg:hover .chat-msg-actions.k-toolbar,
+.chat-msg-actions.k-toolbar:focus-within,
+.chat-msg.show-actions .chat-msg-actions.k-toolbar { display: inline-flex; }
+@media (max-width: 760px) and (pointer: coarse) {
+  .chat-msg:hover .chat-msg-actions.k-toolbar { display: none; }
+  .chat-msg.show-actions .chat-msg-actions.k-toolbar { display: inline-flex; }
+}
 /* Phones can't point (C1): the post's buttons sit in its head row, at its
    end, so they never cover the text; no emoji there. */
 @media (max-width: 760px) and (pointer: coarse) {
@@ -12876,7 +12889,7 @@ html[data-fx="low"] .vp-card-i.pulse { animation: none; }
    sheet, the card in the corner while one's on, and the dialer. House
    parts throughout; nothing loops (the call's timer is text). */
 .ct-page { padding-bottom: 32px; }
-.ct-head .ct-views button { display: inline-flex; align-items: center; gap: 6px; }
+.ct-head .ct-views button:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; }
 .ct-missed { min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--danger); color: #fff; font: 700 10px/16px var(--font-ui); text-align: center; }
 .ct-find { margin: 0 0 10px; max-width: 520px; }
 .ct-label { margin: 18px 8px 6px; }
@@ -12979,28 +12992,171 @@ body:not(.player-hidden) .cl-card { bottom: calc(var(--dock-h, 76px) + 24px); }
   .ct-head .k-page-actions { width: 100%; margin-left: 0; }
 }
 
-/* ═══ HOME, MINIMAL (2026-11-20) ═══
-   js/33-plaza.js: a greeting, who's online (Contacts' rows, with the
-   button for what they're in), and Together (js/25-social.js's cards).
-   This week is a sheet now (.wk-sheet), the changelog Settings → About →
-   What's new (.hp-sheet). */
-.hp-hello { margin: 0 0 28px 4px; }
-.hp-online { margin-bottom: 34px; }
-.hp-online .wk-head { padding-bottom: 6px; }
-.hp-on .ct-row { min-height: 50px; }
-.ct-join { flex: none; }
-.hp-empty.k-empty { padding: 22px 20px; align-items: flex-start; text-align: left; }
-/* Home lists who's listening already: Together's own list of it stays out. */
+/* ═══ HOME, THE DESK (2026-11-20, evening) ═══
+   js/33-plaza.js. "reaaaallly boring… a bit more of a desktopy feel": a
+   head (greeting, date, an LCD clock), Now playing, then two columns:
+   Together and what's new (albums, videos, photos) on the left; Online,
+   Unread, From the feed and This week on the right, split by a hairline.
+   No boxes behind things: rows with hairlines, names that underline on
+   hover, covers and posters as the only tiles. This week is a sheet
+   (.wk-sheet), the changelog Settings → About → What's new (.hp-sheet). */
+.hp { max-width: 1280px; padding: clamp(22px, 5vh, 52px) 28px 56px; }
+.hp-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0 0 22px; }
+.hp-top-tx { min-width: 0; }
+.hp-hello { margin: 0; }
+.hp-date { margin-top: 6px; font: 500 var(--fs-13) var(--font-ui); color: var(--text-dim); }
+/* The clock: lit segments over the unlit ones, like an old LCD. */
+.hp-clock { position: relative; display: inline-flex; align-items: flex-start; flex: none; font: 700 44px/1 'DSEG7', var(--font-mono, monospace); letter-spacing: .02em; color: var(--text); user-select: none; }
+.hp-clock-ghost { position: absolute; left: 0; top: 0; color: var(--text); opacity: .06; }
+.hp-clock-now { position: relative; text-shadow: 0 0 18px rgba(var(--accent-rgb), .25); }
+.hp-clock-ap { margin: 2px 0 0 8px; font: 700 var(--fs-11)/1 var(--font-ui); letter-spacing: .12em; color: var(--text-dimmer); }
+html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; }
+
+/* Now playing: one row on a hairline panel; the bar is a transform. */
+.hp-now { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 10px 14px 10px 10px; margin-bottom: 30px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--fill); }
+.hp-now-art { flex: none; width: 56px; height: 56px; padding: 0; border: 0; border-radius: var(--r-md); overflow: hidden; background: var(--fill-hover); color: var(--text-dimmer); display: grid; place-items: center; font-size: 22px; cursor: pointer; box-shadow: var(--elev-1); }
+.hp-now-art.idle, span.hp-now-art { cursor: default; box-shadow: none; }
+.hp-now-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hp-now-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hp-now-t { font: 650 var(--fs-15, 15px) var(--font-ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-now-a { font-size: var(--fs-13); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-now-bar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.hp-now-time { flex: none; min-width: 74px; font: 500 var(--fs-11) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dimmer); }
+.hp-now-track { flex: 1; max-width: 420px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.hp-now-track b { display: block; height: 100%; background: var(--text); transform-origin: left; transform: scaleX(0); }
+.hp-now.playing .hp-now-track b { background: rgb(var(--accent-rgb)); }
+.hp-now-btns { flex: none; display: flex; align-items: center; gap: 4px; }
+.hp-now-btns .k-btn + .k-btn { margin-left: 4px; }
+.hp-now-play { background: var(--text); color: var(--bg); }
+.hp-now-play:hover { background: var(--text); color: var(--bg); opacity: .9; }
+.hp-jump { display: flex; gap: 6px; flex: none; }
+.hp-jump-a { width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-hover); cursor: pointer; transition: transform var(--m-fast) var(--m-ease); }
+.hp-jump-a img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hp-jump-a:hover { transform: translateY(-2px); }
+
+/* Links in running text: plain until pointed at, then underlined. */
+.hp-link { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.hp-link:hover, .hp-link:focus-visible { color: var(--text); text-decoration: underline; outline: none; }
+.hp-link i { font-size: 14px; }
+.hp-dot { margin: 0 6px; color: var(--text-dimmer); }
+
+/* The two columns. */
+.hp-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 0 36px; align-items: start; }
+.hp-side { padding-left: 28px; border-left: 1px solid var(--line); min-width: 0; }
+.hp-main { min-width: 0; }
+.hp-shelf { margin-bottom: 30px; }
+.hp-shelf[hidden] { display: none; }
+.hp-head { display: flex; align-items: baseline; gap: 8px; min-height: 22px; padding: 0 2px 10px; }
+.hp-n { font: 600 var(--fs-11) var(--font-ui); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.hp-see { margin-left: auto; display: inline-flex; align-items: center; gap: 1px; padding: 0; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); cursor: pointer; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.hp-see i { font-size: 13px; transition: transform var(--m-fast) var(--m-ease); }
+.hp-see:hover, .hp-see:focus-visible { color: var(--text); text-decoration: underline; outline: none; }
+.hp-see:hover i { transform: translateX(2px); }
+.hp-quiet { padding: 4px 2px; font-size: var(--fs-13); color: var(--text-dimmer); }
+
+/* Together, on Home: its head is ours; nothing in a dashed box. */
+.hp-together { margin-bottom: 30px; }
+.hp-together .tg-head { padding: 0 2px 10px; }
 .hp-together .tg-listen, .hp-together .tg-listen-label { display: none !important; }
+.hp-together .tg-empty.k-empty { padding: 4px 2px; border: 0; border-radius: 0; align-items: flex-start; text-align: left; font-size: var(--fs-13); color: var(--text-dimmer); }
+.hp-together .tg-empty.k-empty > i, .hp-together .tg-empty .ti:first-child:not(.k-btn i) { display: none; }
+.hp-together .tg-empty .tg-start { justify-content: flex-start; margin-top: 10px; }
+
+/* New music: covers in one row that fits (no sideways scroll). */
+#hpAlbums .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 14px; overflow: hidden; }
+.hp-album { display: flex; flex-direction: column; min-width: 0; padding: 0; border: 0; background: none; text-align: left; color: var(--text); cursor: pointer; }
+.hp-album-art { position: relative; aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; background: var(--fill); box-shadow: 0 6px 18px var(--shadow-30); }
+.hp-album-art img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease; }
+.hp-album-art img.loaded { opacity: 1; }
+.hp-album-play { position: absolute; }
+.hp-album:hover .hp-album-play, .hp-album:focus-visible .hp-album-play { opacity: 1; transform: none; }
+.hp-album-t { margin-top: 8px; font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.hp-album-a, .hp-album-w { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-album-w { color: var(--text-dimmer); font-size: var(--fs-11); }
+.hp-album:hover .hp-album-t { text-decoration: underline; }
+
+/* New videos: Videos' own cards, four across. */
+#hpVideos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px 14px; }
+#hpVideos .vid-card { width: auto; }
+
+/* New photos: square tiles, one row. */
+#hpPhotos .hp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; gap: 0 6px; overflow: hidden; }
+.hp-photo { aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--r-sm); overflow: hidden; background: var(--fill); cursor: pointer; }
+.hp-photo img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity var(--m-med) ease, transform var(--m-med) var(--m-ease); }
+.hp-photo img.loaded { opacity: 1; }
+.hp-photo:hover img { transform: scale(1.04); }
+
+/* The side column's rows: hairlines between, no boxes. */
+.hp-online .ct-list { margin: 0 -8px; }
+.hp-on .ct-row { min-height: 46px; }
+/* The side column is narrow: what they're in is an icon (its name is the
+   title), so the name and the song keep the room. */
+.hp-side .ct-join { padding: 0; width: var(--h-sm, 30px); justify-content: center; }
+.hp-side .ct-join > span { display: none; }
+/* Its Message/Call/… float over the row's end as the house hover toolbar,
+   so they don't hold the row's room while hidden. */
+.hp-side .ct-row { position: relative; }
+.hp-side .ct-acts { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 2px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-pop); box-shadow: var(--elev-1); pointer-events: none; }
+.hp-side .ct-row:hover .ct-acts, .hp-side .ct-row:focus-within .ct-acts { pointer-events: auto; }
+@media (hover: none) { .hp-side .ct-acts { position: static; transform: none; border: 0; background: none; box-shadow: none; pointer-events: auto; } }
+.hp-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 9px 2px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; color: var(--text); cursor: pointer; font: inherit; }
+.hp-list > .hp-row:first-child { border-top: 0; padding-top: 2px; }
+.hp-face { flex: none; width: 28px; height: 28px; border-radius: var(--av-radius, 8px); overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c, var(--text)) 18%, var(--fill)); color: var(--c, var(--text)); font: 700 var(--fs-12) var(--font-ui); }
+.hp-face.hash { background: var(--fill); color: var(--text-dim); }
+.hp-face img { width: 100%; height: 100%; object-fit: cover; }
+.hp-row-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hp-row-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.hp-row-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.hp-when { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); font-variant-numeric: tabular-nums; }
+.hp-row-text { font-size: var(--fs-13); line-height: 1.4; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-row-text.two { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.hp-row-meta { display: flex; gap: 12px; margin-top: 2px; font-size: var(--fs-11); color: var(--text-dimmer); }
+.hp-row-meta i { margin-right: 3px; }
+.hp-row:hover .hp-row-name, .hp-row:focus-visible .hp-row-name { text-decoration: underline; }
+.hp-row:hover .hp-row-text { color: var(--text); }
+.hp-row:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--line-strong); border-radius: var(--r-sm); }
+.hp-week { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; padding: 2px; border: 0; background: none; text-align: left; font: inherit; color: var(--text-dim); cursor: pointer; }
+.hp-week-tx { font-size: var(--fs-13); line-height: 1.5; }
+.hp-week-tx b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.hp-week .hp-link { font-size: var(--fs-12); color: var(--text-dimmer); }
+.hp-week:hover .hp-link { color: var(--text); text-decoration: underline; }
+
+.ct-join { flex: none; }
 .add-app-modal.wk-sheet { position: relative; width: min(720px, calc(100vw - 2rem)); max-height: 86vh; overflow-y: auto; scrollbar-width: none; padding-top: 26px; }
 .wk-sheet-close { position: absolute; top: 14px; right: 14px; z-index: 1; }
 .wk-sheet .wk-head { padding-right: 40px; }
 .add-app-modal.hp-sheet { width: min(680px, calc(100vw - 2rem)); max-height: 86vh; }
 .hp-sheet .hp-log { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
 .hp-sheet .hp-foot { margin-top: 0; }
+
+/* A narrower window: one column, the side's lists after the main's. */
+@media (max-width: 1180px) {
+  .hp-cols { grid-template-columns: minmax(0, 1fr); }
+  .hp-side { padding-left: 0; border-left: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 32px; }
+}
+@media (max-width: 760px) {
+  .hp { padding: 18px 14px 40px; }
+  .hp-clock { font-size: 30px; }
+  .hp-jump { display: none; }
+  .hp-now { flex-wrap: wrap; }
+}
 @media (max-width: 760px) and (pointer: coarse) {
   .hp-on .ct-acts :is([data-ct="share"], [data-ct="more"]) { display: none; }
   .hp-on .ct-join > span { display: none; }
   .hp-together .tg-head { flex-wrap: wrap; }
   .hp-together .soc-start { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-left: 0; }
+  /* A phone has its own clock and the mini player. */
+  .hp-clock, .hp-now { display: none; }
+  .hp-top { margin-bottom: 26px; }
 }
+
+/* ═══ HIDDEN MEANS HIDDEN (2026-11-20) ═══
+   The house classes (.k-btn, .k-label, .k-toolbar…) set display, and any
+   author rule beats the browser's own [hidden] { display: none }, so an
+   element the code hid kept showing (Videos' "Latest" over its empty
+   state, Contacts' Dialer). This is last in the file, so it wins over every
+   class rule of the same weight. Not !important: the menus' exit fades
+   (display transitioned discretely) still run. */
+[hidden] { display: none; }
+/* Segment buttons are styled by a heavier rule; a hidden one still hides. */
+.k-seg > [hidden], .k-toolbar > [hidden], .card-acts > [hidden] { display: none; }

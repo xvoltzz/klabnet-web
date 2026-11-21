@@ -46,8 +46,15 @@
     const r = await fetchTimeout(BASE + path, {
       method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store',
     }, 8000);
-    const d = /json/.test(r.headers.get('content-type') || '') ? await r.json().catch(() => ({})) : {};
+    const json = /json/.test(r.headers.get('content-type') || '');
+    // fetchTimeout's clock stops at the headers: a body that stalls would
+    // leave this (and a ring, an answer, a hang-up) waiting forever.
+    const d = json ? await Promise.race([r.json().catch(() => ({})), new Promise(res => setTimeout(() => res(null), 8000))]) : {};
+    if (d === null) { const e = new Error('klabnet isn’t answering'); e.status = 0; throw e; }
     if (!r.ok) { const e = new Error(d.error || 'that didn’t work'); e.status = r.status; e.data = d; throw e; }
+    // A 200 that isn't JSON is a sign-in page (an expired session followed
+    // through Authentik's redirect), not an answer.
+    if (!json) { const e = new Error('your sign-in expired. Reload klabnet'); e.status = 0; throw e; }
     return d;
   }
 
@@ -78,13 +85,22 @@
 
   // ── The line in: a stream per page ──
   let es = null, retry = 0, retryT = 0, connected = false;
+  // A line that died without telling (a laptop asleep, a dropped Wi-Fi):
+  // the API sends a ping every 15s, so one silent for 50s is dead. Only
+  // once a ping's been heard (an API from before pings sends none).
+  let heardAt = 0, pings = false;
+  const STALE = 50e3;
+  const stale = () => !!es && pings && Date.now() - heardAt > STALE;
+  setInterval(() => { if (enabled && stale()) connect(); }, 20e3);
   function connect() {
     clearTimeout(retryT);
     if (es) { try { es.close(); } catch (e) {} es = null; }
     if (!enabled) return;
+    heardAt = Date.now();
     es = new EventSource(BASE + '/stream?device=' + encodeURIComponent(KLAB_DEVICE));
-    es.addEventListener('hello', e => { connected = true; retry = 0; let d = {}; try { d = JSON.parse(e.data); } catch (x) {} apply(d.call, true); });
-    es.addEventListener('call', e => { let d = {}; try { d = JSON.parse(e.data); } catch (x) {} if (d.call) apply(d.call); });
+    es.addEventListener('ping', () => { pings = true; heardAt = Date.now(); });
+    es.addEventListener('hello', e => { heardAt = Date.now(); connected = true; retry = 0; let d = {}; try { d = JSON.parse(e.data); } catch (x) {} apply(d.call, true); });
+    es.addEventListener('call', e => { heardAt = Date.now(); let d = {}; try { d = JSON.parse(e.data); } catch (x) {} if (d.call) apply(d.call); });
     es.onerror = () => {
       connected = false;
       // A stream that can't come back by itself (a sign-in bounce, the API
@@ -127,6 +143,8 @@
         if (!declinedDnd.has(c.id)) { declinedDnd.add(c.id); api('POST', '/' + c.id + '/decline', { reason: 'dnd' }).catch(() => {}); }
         return;
       }
+      // Heard again (the stream reconnecting says hello): already ringing.
+      if (rungHere.has(c.id)) { if (!ignored.has(c.id)) { openIncoming(c); startRing(); } return; }
       rungHere.add(c.id);
       if (!ignored.has(c.id)) openIncoming(c);
       startRing();
@@ -151,6 +169,9 @@
       // Rung here, taken somewhere else.
       if (incomingFor === c.id) showToast('Answered on your other device', 'ti-phone');
       closeIncoming();
+      // Not this device's call any more: its end isn't this device's to tell
+      // ("alice hung up" on a page that was never in it).
+      rungHere.delete(c.id);
     }
   }
 
@@ -553,7 +574,7 @@
     connect();
   }
   // Back from sleep: the stream may have died without telling.
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && enabled && !es) connect(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && enabled && (!es || stale())) connect(); });
   window.addEventListener('klab:people', () => loadExts());
   setTimeout(start, 800);
 })();

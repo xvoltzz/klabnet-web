@@ -117,8 +117,10 @@
     html += '</div>';
     // Every 10s the same page came back, and rebuilding it lost focus and
     // hover and made the covers blink. step() moves the bars between.
-    // (Compared without the running times and bars, which always differ.)
-    const same = html.replace(/act-t-at">[^<]*|width:[\d.]+%/g, '');
+    // (Compared without the running times and bars, which always differ:
+    // the bars are a scaleX now, and matching the old width:% let every
+    // poll with anyone playing rebuild the whole page.)
+    const same = html.replace(/act-t-at">[^<]*|scaleX\([\d.]+\)/g, '');
     if (same === lastHTML && list.querySelector('.act-page')) { step(); return; }
     lastHTML = same;
     list.innerHTML = html;

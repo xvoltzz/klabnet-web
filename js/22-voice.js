@@ -87,6 +87,11 @@
     });
   }
 
+  // fetchTimeout's clock stops when the headers arrive: a body that stalls
+  // mid-way would leave r.json() waiting forever (and with it `polling`,
+  // so the list never refreshed again, or a join stuck on Joining…).
+  const jsonBy = (r, ms) => Promise.race([r.json(), new Promise((_, no) => setTimeout(() => no(new Error('timed out')), ms || 8000))]);
+
   // ── Who's where: asked of the API every few seconds ──
   let pollTimer = 0, polling = false;
   async function refresh() {
@@ -98,7 +103,7 @@
       // an answer (a blip, a sign-in bounce) keeps what was last known.
       if (r.status === 404) info = OFF;
       else if (r.ok) {
-        const d = await r.json();
+        const d = await jsonBy(r, 6000);
         if (d && Array.isArray(d.channels)) info = d;
       }
     } catch (e) {}
@@ -477,7 +482,14 @@
         // The screen's own sound is music and games, not speech.
         audioPreset: LK.AudioPresets?.musicHighQualityStereo, dtx: false, red: false, forceStereo: true,
       });
-      if (room !== r) return;
+      if (room !== r) {
+        // Left (or switched) while the picker was open: the capture it just
+        // started must not keep running with nowhere to go.
+        [LK.Track.Source.ScreenShare, LK.Track.Source.ScreenShareAudio].forEach(src => {
+          try { r.localParticipant.getTrackPublication(src)?.track?.stop(); } catch (e) {}
+        });
+        return;
+      }
       sfx('success');
       showToast('Sharing your screen · ' + MODE_NAMES[S.shareMode].toLowerCase(), 'ti-screen-share');
     } catch (e) {
@@ -834,12 +846,17 @@
   }
   const qualityText = q => !q || !q.width ? '' : q.width + '×' + q.height + ' · ' + q.fps + ' fps' +
     (q.bps ? ' · ' + (q.bps >= 1e6 ? (q.bps / 1e6).toFixed(1) + ' Mbps' : Math.round(q.bps / 1e3) + ' kbps') : '');
-  let qTimer = 0;
+  let qTimer = 0, qSeq = 0;
   async function paintQuality() {
     clearTimeout(qTimer);
     if (!stage.open) return;
+    // openStage() on a stage that's already open calls this again while an
+    // earlier one is still awaiting its stats: only the newest carries on,
+    // or each such call left one more 2s getStats loop running.
+    const seq = ++qSeq;
     const t = leadTile();
     const q = t?.track && !document.hidden ? await qualityOf(t.track) : null;
+    if (seq !== qSeq) return;
     const el = stage.el.querySelector('.vs-q');
     if (stage.open) el.textContent = qualityText(q);
     qTimer = setTimeout(paintQuality, 2000);
@@ -913,6 +930,10 @@
   function reset() {
     // Out of a call's room, for whatever reason: js/46-calls.js hangs up.
     if (joined?.call) { const id = joined.callId; setTimeout(() => window.dispatchEvent(new CustomEvent('klab:call-left', { detail: { id } })), 0); }
+    // A microphone still being published (publishMic is awaiting LiveKit)
+    // is let go of now, not whenever that round trip settles: it may never
+    // settle on a room that's gone, and the mic would stay open.
+    try { pendingMic?.stop(); } catch (e) {}
     room = null; joined = null; phase = 'idle';
     pttHeld = false; deafened = false; micProblem = ''; needsClick = false;
     speaking = new Set(); volOpen = ''; lastAttrs = '';
@@ -996,12 +1017,15 @@
     const ch = call ? { id: 'call:' + call.id, name: call.with, call: true, callId: call.id, with: call.with }
       : info.channels.find(c => c.id === id);
     if (ch && opts?.watch && room && joined?.id === id && phase !== 'joining') { openStage(); return; }
-    if (!ch || phase === 'joining' || (room && joined?.id === ch.id)) return;
+    if (!ch || (joined?.id === ch.id && (room || phase === 'joining'))) return;
+    // A channel still joining waits its turn; an answered call doesn't (it
+    // was silently dropped, and the call sat on "Connecting…" with no sound).
+    if (phase === 'joining' && !call) return;
     // One at a time: leaving a call for a channel asks first.
     if (!call && room && joined?.call && !opts?.force) {
       if (!(await window.klabCalls?.confirmSwitch?.('channel', ch.name))) return;
     }
-    if (room) await leave({ quiet: true });
+    if (room || joined) await leave({ quiet: true });
     const seq = ++joinSeq;
     joined = call ? { ...ch } : { id: ch.id, name: ch.name };
     phase = 'joining';
@@ -1013,7 +1037,7 @@
         call ? call.token() : fetchTimeout('/api/voice/token', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: id }),
         }, 8000).then(async res => {
-          const d = await res.json().catch(() => ({}));
+          const d = await jsonBy(res).catch(e => (/timed out/.test(e.message) ? Promise.reject(e) : {}));
           if (!res.ok || !d.token) throw new Error(d.error || 'the server said no');
           return d;
         }),
@@ -1098,7 +1122,7 @@
   const api = (method, path, body) => fetchTimeout(path, {
     method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
   }, 8000).then(async r => {
-    const d = await r.json().catch(() => ({}));
+    const d = await jsonBy(r).catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'that didn’t work');
     return d;
   });

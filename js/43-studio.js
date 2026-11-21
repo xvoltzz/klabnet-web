@@ -56,8 +56,10 @@
     const t = setTimeout(() => ctrl.abort(), ms || 15000);
     try {
       const r = await fetch(url, { ...(opts || {}), signal: ctrl.signal });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { const e = new Error(j.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      // Not JSON (a sign-in page, a proxy's error page): no answer, not an empty one.
+      const j = await r.json().catch(() => null);
+      if (!r.ok) { const e = new Error(j?.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!j || typeof j !== 'object') { const e = new Error('no answer (' + r.status + ')'); e.status = 0; throw e; }
       return j;
     } finally { clearTimeout(t); }
   }
@@ -165,7 +167,8 @@
   function follow(link, video) {
     if (!link) return;
     if (link.kind === 'time') { if (video) { video.currentTime = link.t; video.play().catch(() => {}); } return; }
-    if (link.kind === 'url') { window.open(link.url, '_blank', 'noopener,noreferrer'); return; }
+    // (The API keeps only http(s) addresses; checked here too, never javascript:.)
+    if (link.kind === 'url') { if (/^https?:\/\//i.test(link.url || '')) window.open(link.url, '_blank', 'noopener,noreferrer'); return; }
     SFX && SFX.play('nav');
     if (link.kind === 'video') window.klabOpenVideo?.(link.id, link.t || 0);
     else if (link.kind === 'channel') window.klabOpenChannel?.(link.user);
@@ -440,7 +443,7 @@
   // ══ The Studio ══
   const TABS = [['edit', 'Edit'], ['annotations', 'Annotations'], ['cards', 'Cards'], ['end', 'End screen'], ['details', 'Details']];
   let S = null; // the studio's state
-  let restoring = false;
+  let restoring = false, openSeq = 0;
 
   function record(desc) { if (!restoring) window.klabNav?.push({ tab: 'videos', kind: 'studio', ...desc }); }
 
@@ -455,19 +458,20 @@
     window.klabVideosLeave?.('studio');
     leaveStudio();
     if (!o.quiet) record({ id, view: o.tab || 'edit' });
+    const my = ++openSeq; // two opened quickly: the last one asked for wins
     page.innerHTML = '<div class="st st-loading"><div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading the studio…</div></div></div>';
     const panel = page.closest('.tab-panel');
     if (panel) panel.scrollTop = 0;
     let j;
     try { j = await getJSON(API + '/' + id + '/studio'); }
     catch (e) {
-      if (!page.querySelector('.st-loading')) return;
+      if (my !== openSeq || !page.querySelector('.st-loading')) return;
       page.innerHTML = '<div class="k-empty vid-empty"><i class="ti ti-movie-off"></i><div>' + (e.status === 403 ? 'Only the video’s owner can open its studio.' : e.status === 409 ? 'This video is still being made. Its studio opens once it’s ready.' : e.status === 404 ? (e.message === 'not found' ? 'That video’s gone.' : 'The studio needs the latest klabnet-api.') : 'Couldn’t open the studio.') + '</div>' +
         '<button type="button" class="k-btn" data-st="back"><i class="ti ti-arrow-left"></i><span>Back</span></button></div>';
       page.querySelector('[data-st="back"]')?.addEventListener('click', () => { if (!window.klabNav?.back()) window.klabOpenVideo?.(id); });
       return;
     }
-    if (!page.querySelector('.st-loading')) return;
+    if (my !== openSeq || !page.querySelector('.st-loading')) return;
     start(j, o.tab || 'edit');
   }
   window.klabOpenStudio = (id, tab) => openStudio(id, { tab });
@@ -1717,6 +1721,7 @@
   }
   // The render, until it's done (only while the studio's showing).
   function pollRender() {
+    if (!S) return; // (left while a poll was in flight)
     clearTimeout(S.pollT);
     const id = S.id;
     S.pollT = setTimeout(async () => {
@@ -1739,8 +1744,10 @@
           if (S.hls) { try { S.hls.destroy(); } catch {} S.hls = null; }
           const old = S.video;
           const v = document.createElement('video');
-          v.playsInline = true; v.preload = 'auto';
+          v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'use-credentials';
           old.replaceWith(v);
+          // mountPreview makes its own observer: the old one goes.
+          S.ro?.disconnect();
           try { old.removeAttribute('src'); old.load(); } catch {}
           S.gainNode = null; try { S.actx?.close(); } catch {} S.actx = null;
           mountPreview(t);

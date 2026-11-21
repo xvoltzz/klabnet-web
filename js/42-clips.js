@@ -80,8 +80,10 @@
     const t = setTimeout(() => ctrl.abort(), ms || 15000);
     try {
       const r = await fetch(url, { ...(opts || {}), signal: ctrl.signal });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { const e = new Error(j.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      // Not JSON (a sign-in page, a proxy's error page): no answer, not an empty one.
+      const j = await r.json().catch(() => null);
+      if (!r.ok) { const e = new Error(j?.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!j || typeof j !== 'object') { const e = new Error('no answer (' + r.status + ')'); e.status = 0; throw e; }
       return j;
     } finally { clearTimeout(t); }
   }
@@ -303,7 +305,7 @@
           const i = list.findIndex(x => x.id === id);
           if (i < 0) continue;
           list[i] = c;
-          page.querySelectorAll('.clip-card[data-clip-id="' + id + '"]').forEach(el => { el.outerHTML = cardHTML(c, { noUser: !!view?.user, noGame: !!view?.game }); });
+          page.querySelectorAll('.clip-card[data-clip-id="' + id + '"]').forEach(el => { if (hov?.card === el) hoverStop(); el.outerHTML = cardHTML(c, { noUser: !!view?.user, noGame: !!view?.game }); });
           if (vw && vw.c.id === id && c.status !== 'processing') { vw.list[vw.i] = c; mountClip(); }
         } catch (e) {}
       }
@@ -732,9 +734,15 @@
       vw.hls = hl;
       hl.on(Hls.Events.MANIFEST_PARSED, () => { if (level >= 0) hl.currentLevel = level; paintQuality(); autoplay(el); });
       hl.on(Hls.Events.LEVEL_SWITCHED, paintQuality);
+      // Retried a few times with a growing wait, not at once forever: a
+      // sign-in that ran out fails every segment, and an instant startLoad
+      // looped as fast as the network answered.
+      let fails = 0;
+      hl.on(Hls.Events.FRAG_LOADED, () => { fails = 0; });
       hl.on(Hls.Events.ERROR, (_, d) => {
-        if (!d.fatal) return;
-        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hl.startLoad();
+        if (!d.fatal || vw?.hls !== hl) return;
+        if (++fails > 4) { try { hl.destroy(); } catch {} if (vw?.hls === hl) vw.hls = null; showToast('This clip stopped loading', 'ti-alert-triangle'); return; }
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) setTimeout(() => { if (vw?.hls === hl) hl.startLoad(); }, 1000 * fails);
         else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hl.recoverMediaError();
         else showToast('This clip won’t play', 'ti-alert-triangle');
       });

@@ -15,30 +15,35 @@
   let vids = null;
   async function loadVideos() {
     if (vids && vids.who === who) return;
-    const mine = seq, u = who;
-    vids = { who: u, list: null };
+    const mine = seq, u = who, box = { who: u, list: null };
+    vids = box;
     try {
       const r = await fetchTimeout('/api/posts/videos?limit=24&user=' + encodeURIComponent(u), {}, 10000);
       const j = r.ok ? await r.json() : null;
-      if (mine !== seq || vids.who !== u) return;
+      if (mine !== seq || vids !== box) { forget(); return; }
       vids.list = j ? (j.videos || []).filter(v => v.status === 'ready') : [];
       vids.total = j?.total || 0;
-    } catch { if (mine === seq) vids.list = []; }
+    } catch { if (mine === seq && vids === box) vids.list = []; else forget(); }
     if (mine === seq && pane === 'videos') paint();
+    // Closed (or someone else opened) while it loaded: a list left at null
+    // read as "still loading" and was never asked for again, so reopening
+    // them sat on "Loading…" for the rest of the session.
+    function forget() { if (vids === box && box.list == null) vids = null; }
   }
   // Their clips (js/42-clips.js), the same way.
   let clips = null;
   async function loadClips() {
     if (clips && clips.who === who) return;
-    const mine = seq, u = who;
-    clips = { who: u, list: null };
+    const mine = seq, u = who, box = { who: u, list: null };
+    clips = box;
     try {
       const j = await window.klabClips?.forUser(u);
-      if (mine !== seq || clips.who !== u) return;
+      if (mine !== seq || clips !== box) { forget(); return; }
       clips.list = (j?.clips || []).filter(c => c.status === 'ready');
       clips.total = j?.total || 0;
-    } catch { if (mine === seq) clips.list = []; }
+    } catch { if (mine === seq && clips === box) clips.list = []; else forget(); }
     if (mine === seq && pane === 'clips') paint();
+    function forget() { if (clips === box && box.list == null) clips = null; }
   }
 
   const when = s => s ? new Date(String(s).replace(' ', 'T') + (/[Z+]/.test(s) ? '' : 'Z')) : null;

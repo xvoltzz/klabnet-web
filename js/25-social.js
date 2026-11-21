@@ -245,15 +245,20 @@
     async function load() {
       if (loading) return loading;
       loading = (async () => {
+        // The deadline covers the body too: fetchTimeout's stops at the
+        // headers, and a body that stalled left `loading` set for good, so
+        // Together never refreshed again until a reload.
+        const ctrl = new AbortController();
+        const dl = setTimeout(() => ctrl.abort(), 10000);
         try {
-          const r = await fetchTimeout('/api/posts/rooms', { cache: 'no-store' }, 8000);
+          const r = await fetchTimeout('/api/posts/rooms', { cache: 'no-store', signal: ctrl.signal }, 8000);
           if (r.status === 404 || r.status === 405 || !/json/.test(r.headers.get('content-type') || '')) { failed = 404; return; }
           if (!r.ok) { failed = r.status || 1; return; }
           data = await r.json();
           gotAt = performance.now();
           failed = 0;
         } catch (e) { failed = failed || 1; }
-        finally { loading = null; }
+        finally { clearTimeout(dl); loading = null; }
       })().then(render);
       return loading;
     }

@@ -148,23 +148,8 @@
   // Photos' views, on a phone (Timeline / Yours / Tagged).
   slidingPill(document.getElementById('phViews'), 'button[aria-pressed="true"]', 'motion-pill-music', 'button');
 
-  // ── Music views ──
-  // Fade the whole list in when its content is replaced (a new view), not
-  // when rows are appended to it (infinite scroll) and not for the
-  // "loading…" placeholder.
-  const list = document.getElementById('pickerList');
-  if (list) {
-    let firstSeen = null, queued = false;
-    const check = () => {
-      queued = false;
-      const first = list.firstElementChild;
-      if (!first || first === firstSeen) return;
-      const replaced = !firstSeen || !firstSeen.isConnected;
-      firstSeen = first;
-      if (replaced && !first.classList.contains('picker-empty')) fadeUp(list, { dy: 6, duration: 260 });
-    };
-    new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(check); } }).observe(list, { childList: true });
-  }
+  // ── Music views ── fade in through klabEnter ("VIEWS ARRIVING" in
+  // js/28-radio.js); a second fade here made each view arrive twice.
 
   // ── Album / artist pages ──
   const ap = document.getElementById('apPanel');

@@ -40,8 +40,10 @@
     document.body.appendChild(el);
     el.querySelector('.klab-ocean-x').addEventListener('click', close);
     document.addEventListener('keydown', onKey, true);
-    try { await load(); } catch { close(); window.klabTerminal?.say?.('sharks: couldn’t load the ocean'); return; }
-    if (!el) return;
+    const mine = el;
+    try { await load(); } catch { if (el === mine) close(); window.klabTerminal?.say?.('sharks: couldn’t load the ocean'); return; }
+    // Closed, or closed and opened again, while it loaded: that open makes its own.
+    if (el !== mine || engine) return;
     engine = new window.KlabOcean(el.querySelector('canvas'));
     requestAnimationFrame(() => el?.classList.add('in'));
     mo = new MutationObserver(sync);

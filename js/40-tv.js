@@ -65,9 +65,11 @@
     const t = setTimeout(() => ctrl.abort(), ms || 15000);
     try {
       const r = await fetch(url, { ...(opts || {}), signal: ctrl.signal });
-      const j = await r.json().catch(() => ({}));
+      // Not JSON (a sign-in page, a proxy's error page): no answer, not an empty one.
+      const j = await r.json().catch(() => null);
       if (url === API && (r.status === 404 || r.status === 405)) server = false;
-      if (!r.ok) { const e = new Error(j.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!r.ok) { const e = new Error(j?.error || 'failed (' + r.status + ')'); e.status = r.status; throw e; }
+      if (!j || typeof j !== 'object') { const e = new Error('no answer (' + r.status + ')'); e.status = 0; throw e; }
       if (url.startsWith(API)) server = true;
       return j;
     } finally { clearTimeout(t); }
@@ -958,7 +960,9 @@
   let osdProg = '';
   let loopT = 0, settleUntil = 0, misses = 0, calmUntil = 0, held = false, blocked = false;
   const prefs = (() => { try { return JSON.parse(localStorage.getItem('klabnet_video') || '{}'); } catch { return {}; } })();
-  const savePrefs = () => { try { localStorage.setItem('klabnet_video', JSON.stringify(prefs)); } catch {} };
+  // klabnet_video is Videos' too (speed, Original, bandwidth): only the
+  // volume is ours, merged in, so a stale copy here can't undo those.
+  const savePrefs = () => { try { const all = JSON.parse(localStorage.getItem('klabnet_video') || '{}') || {}; all.volume = prefs.volume; all.muted = prefs.muted; localStorage.setItem('klabnet_video', JSON.stringify(all)); } catch {} };
   let hlsLoading = null;
   function loadHls() {
     if (window.Hls) return Promise.resolve(window.Hls);

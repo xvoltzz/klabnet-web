@@ -388,7 +388,10 @@ async function fetchProfiles() {
 // latter), and always hashes the *username* for the fallback so the same
 // person gets the same auto-color in chat as in the feed/presence rail.
 function profileColor(usernameOrMxId) {
-  const username = usernameOrMxId.startsWith('@') ? mxIdToUsername(usernameOrMxId) : usernameOrMxId;
+  // Called from everywhere with whatever name a row has; a missing one
+  // (an API row without a username) threw and took the whole render with it.
+  const s = String(usernameOrMxId || '');
+  const username = s.startsWith('@') ? mxIdToUsername(s) : s;
   const color = _profiles.get(username)?.chat_color;
   return (color && _HEX_COLOR_RE.test(color)) ? color : chatNameColor(username);
 }
@@ -3780,6 +3783,9 @@ function showChatApp() {
       _chatImageBytes.clear(); _chatImageBytesTotal = 0; _chatImageFailedAt.clear();
       _timelineSnapshot = null; _lastTimelineRenderKey = null; _lastTimelineQuick = ''; _typingRenderedRoomId = null; _chatHeadHTML = '';
       _dmInviteTried.clear(); _dmInviteRetryAt.clear(); _dmBookkeepingChecked.clear();
+      // Connecting again (maybe as someone else) joins #klabnet again.
+      _klabnetJoinAttempted = false;
+      _chatFromId.clear(); _newSince = null; _newBelow = 0;
       // Nothing can be read while signed out, so the tab title and badge
       // shouldn't keep counting; reconnecting seeds them from the server.
       _chatUnreadRooms.clear();

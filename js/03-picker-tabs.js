@@ -626,10 +626,17 @@ window.klabQueuePop = (() => {
     const done = () => {
       el.classList.remove('q-dragging');
       d.rows.forEach(x => { x.style.transform = ''; x.classList.remove('q-shift', 'lifted', 'settling'); });
-      const moved = commit && d.to !== d.from;
+      // By song, not by the rows' indexes: the queue can have changed under
+      // the drag (a queued song came on and was shifted off the front, a
+      // remote's echo), and the old slots then moved the wrong song.
+      const s = d.r._song, at = queue.indexOf(s);
+      const moved = commit && d.to !== d.from && at >= 0;
       if (moved) {
-        const [s] = queue.splice(d.from, 1);
-        queue.splice(d.to, 0, s);
+        const anchor = d.rows[d.to]?._song;
+        queue.splice(at, 1);
+        let to = anchor ? queue.indexOf(anchor) : -1;
+        to = to < 0 ? Math.min(d.to, queue.length) : to + (d.to > d.from ? 1 : 0);
+        queue.splice(to, 0, s);
         stale = false;
         _queueChanged(); // draws it again, in the new order
         SFX && SFX.play('click');

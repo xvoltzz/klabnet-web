@@ -85,7 +85,9 @@ const SFX = (() => {
   ['click', 'keydown', 'mousedown', 'pointerdown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true, capture: true }));
   function _resumeOnMove() {
     if (!ctx) return;
-    if (ctx.state === 'suspended') { ctx.resume(); return; }
+    // Through getCtx(), which arms the sleep: a bare resume() here woke a
+    // context the sleep had put down and left it running for good.
+    if (ctx.state === 'suspended') { getCtx(); return; }
     if (ctx.state === 'running') document.removeEventListener('mousemove', _resumeOnMove);
   }
   document.addEventListener('mousemove', _resumeOnMove, { passive: true });

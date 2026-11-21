@@ -39,11 +39,22 @@
   }
   async function call(method, path, body) {
     const sent = Date.now();
-    const r = await fetchTimeout(API + path, {
-      method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined,
-    }, 6000);
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { const e = new Error(j.error || 'status ' + r.status); e.status = r.status; throw e; }
+    // The deadline covers the body too: a reply that stalls halfway would
+    // otherwise leave `polling` set and the room never asked again.
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    let r, j;
+    try {
+      r = await fetch(API + path, {
+        method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      });
+      j = await r.json().catch(() => null);
+    } finally { clearTimeout(t); }
+    if (!r.ok) { const e = new Error(j?.error || 'status ' + r.status); e.status = r.status; throw e; }
+    // An aborted body, or a sign-in page in place of JSON (an expired
+    // session): not an answer, or a poll would read it as "you left".
+    if (!j || typeof j !== 'object') throw new Error('no answer');
     clock(j.now, Date.now(), sent);
     return j;
   }
