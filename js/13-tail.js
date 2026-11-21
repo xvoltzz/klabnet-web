@@ -397,7 +397,7 @@ function sampleImageColor(imgUrl) {
   }
 
   function loading() {
-    scroll.innerHTML = '<div class="ap-loading"><i class="ti ti-loader loading-spinner"></i> Loading…</div>';
+    scroll.innerHTML = '<div class="ap-loading" data-wait><i class="ti ti-loader loading-spinner"></i> Loading…</div>';
   }
 
   // ── Track row builder ────────────────────

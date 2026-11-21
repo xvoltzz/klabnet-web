@@ -50,22 +50,13 @@
   //     found first, on repeat, what's new, most reacted), any week back
   //     with ‹ ›, every line something to react to and reply under
   //     (GET /api/posts/week, routers/week.py).
-  //   · Unread messages, then a few posts from the Feed.
-  // (Social's Browse page is gone: these are built detached, see the foot.)
-  const body = $('socHomeBody') || document.createElement('div'), sub = $('socHomeSub') || document.createElement('span');
+  // (Social's Browse page is gone: Together is on Home, This week a sheet.)
   const me = () => window.KLAB_USER?.username || '';
   let active = false;
-  const apiTime = s => {
-    if (!s) return 0;
-    const str = String(s);
-    return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(' ', 'T') + 'Z').getTime() || 0;
-  };
   const mmss = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const ndArt = (id, px) => id && typeof ND_URL !== 'undefined' ? ND_URL + '/rest/getCoverArt?id=' + encodeURIComponent(id) + '&size=' + klabArtSize(px) + '&' + subsonicParams() : '';
-  const plCover = id => '/api/music-requests/playlists/covers/' + encodeURIComponent(id) + '/s';
   const photoFile = (id, size) => `/api/posts/photos/files/${encodeURIComponent(id)}/${size}?v=2`;
   const color = u => (typeof profileColor === 'function' ? profileColor(u) : 'var(--text)');
-  const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   function names(list, max) {
     const l = (list || []).filter(Boolean);
     max = max || 3;
@@ -84,28 +75,16 @@
     return (h >= 10 ? Math.round(h) : h) + (h === 1 ? ' hour' : ' hours');
   }
   const songOf = x => klabCleanSong({ id: x.songId, title: x.song, artist: x.artist, album: x.album, coverArt: x.coverArt });
-  const label = (text, cls) => { const el = document.createElement('div'); el.className = 'k-label soc-label' + (cls ? ' ' + cls : ''); el.textContent = text; return el; };
-  function shelfHead(text, go) {
-    const el = document.createElement('div');
-    el.className = 'soc-shelf-head';
-    el.innerHTML = '<span class="k-label"></span><button type="button" class="soc-see-all">See all<i class="ti ti-chevron-right"></i></button>';
-    el.firstChild.textContent = text;
-    el.lastChild.addEventListener('click', () => { SFX?.play('nav'); go(); });
-    return el;
-  }
+
 
   // ══ Together ══
   const together = (() => {
     const wrap = document.createElement('section');
     wrap.className = 'tg';
     wrap.hidden = true; // until there's a room to show
-    wrap.innerHTML = '<div class="wk-head tg-head"><span class="k-label">Together</span><span class="wk-range tg-count"></span><span class="soc-start"></span></div>' +
-      '<div class="tg-rooms" role="list" aria-label="Rooms"></div>' +
-      '<div class="tg-empty" hidden></div>' +
-      '<div class="k-label soc-label tg-listen-label" hidden>Listening now</div><div class="tg-listen" role="list" hidden></div>';
-    const roomsEl = wrap.querySelector('.tg-rooms'), emptyEl = wrap.querySelector('.tg-empty');
-    const listenEl = wrap.querySelector('.tg-listen'), listenLabel = wrap.querySelector('.tg-listen-label');
-    const startEl = wrap.querySelector('.soc-start'), countEl = wrap.querySelector('.tg-count');
+    wrap.innerHTML = '<div class="wk-head tg-head"><span class="k-label">Together</span><span class="wk-range tg-count"></span></div>' +
+      '<div class="tg-rooms" role="list" aria-label="Rooms"></div>';
+    const roomsEl = wrap.querySelector('.tg-rooms'), countEl = wrap.querySelector('.tg-count');
     let data = null, gotAt = 0, failed = 0, lastKey = '', loading = null;
     const elapsed = () => (performance.now() - gotAt) / 1000;
     // Where a song (or a watch party) is now: as of the answer, running on.
@@ -115,12 +94,6 @@
       return n.duration ? Math.min(p, n.duration) : p;
     };
 
-    // Start something: the same three ways in, whether or not anything's on.
-    const startHTML = () =>
-      '<button type="button" class="k-btn sm" data-start="listen"><i class="ti ti-headphones"></i><span>Start a listening party</span></button>' +
-      (window.klabRooms ? '<button type="button" class="k-btn sm" data-start="watch"><i class="ti ti-movie"></i><span>Watch together</span></button>' : '') +
-      (window.klabVoice?.state?.().enabled ? '<button type="button" class="k-btn sm" data-start="voice"><i class="ti ti-microphone"></i><span>Open voice</span></button>' : '');
-
     function progHTML(pos, dur) {
       if (pos == null || !dur) return '';
       return '<div class="tg-prog"><span class="tg-bar"><b style="transform:scaleX(' + Math.min(1, pos / dur).toFixed(4) + ')"></b></span>' +
@@ -129,7 +102,7 @@
     function cardHTML(c) {
       const faces = c.people.slice(0, 5).map(u => faceHTML(u)).join('');
       // A stream is watched, not joined: Watch stays, even for the streamer.
-      const inIt = c.kind !== 'live' && c.people.includes(me());
+      const inIt = c.people.includes(me());
       const art = c.art ? '<img src="' + esc(c.art) + '" alt="" loading="lazy" decoding="async" />'
         : '<b style="--st:' + esc(c.tint || 'var(--fill-hover)') + '">' + esc(c.mark || '') + '</b>';
       return '<div class="tg-card" role="listitem" data-kind="' + c.kind + '" data-id="' + esc(String(c.id)) + '">' +
@@ -158,13 +131,6 @@
     function cards() { return allCards().filter(together2); }
     function allCards() {
       const out = [];
-      // Live streams (js/45-live.js): the streamer and who's watching.
-      for (const l of data.live || []) out.push({
-        kind: 'live', id: l.username, icon: 'ti-broadcast', kindLabel: 'Live', title: l.title || l.username + ' is live', wide: true,
-        art: window.klabResolveUserAvatar?.(l.username) || '', tint: color(l.username), mark: initials(l.username),
-        sub: [l.username, l.game].filter(Boolean).join(' · '), people: [l.username, ...(l.people || [])],
-        who: l.viewers ? klabCount(l.viewers, 'viewer') : 'Just started', join: 'Watch',
-      });
       for (const w of data.watch || []) out.push({
         kind: 'watch', id: w.id, icon: 'ti-movie', kindLabel: 'Watch party', title: w.video.title, wide: true,
         art: w.video.posterSmall, sub: w.video.username ? 'from ' + w.video.username : '',
@@ -176,17 +142,6 @@
         art: ndArt(l.now.coverArt || l.now.songId, 120), sub: [l.now.artist, l.now.album].filter(Boolean).join(' · '),
         pos: posNow(l.now), dur: l.now.duration, people: l.people,
         who: names(l.people, 2), join: 'Listen along',
-      });
-      for (const t of data.tv || []) out.push({
-        kind: 'tv', id: t.id, icon: 'ti-device-tv', kindLabel: 'TV · Ch ' + t.number, title: t.onNow?.title || t.name, wide: true,
-        art: t.onNow?.posterSmall || (t.cover ? plCover(t.cover) : ''), tint: t.color, mark: String(t.number),
-        sub: t.name, people: t.people, who: names(t.people, 2), join: 'Tune in',
-      });
-      for (const r of data.radio || []) out.push({
-        kind: 'radio', id: r.id, icon: 'ti-radio', kindLabel: 'Radio · ' + Number(r.frequency).toFixed(1), title: r.track || r.name,
-        art: r.cover ? plCover(r.cover) : '', tint: r.color, mark: initials(r.name),
-        sub: (r.track ? r.name + ' · ' : '') + 'by ' + r.author, people: r.people,
-        who: names(r.people, 2), join: 'Tune in',
       });
       // Screen sharing: who's sharing, and Watch (Join to watch from outside:
       // only people in the channel can watch).
@@ -200,47 +155,26 @@
       }
       return out;
     }
-    function listenRowHTML(l) {
-      const n = l.now;
-      return '<div class="tg-row" role="listitem" data-u="' + esc(l.username) + '">' +
-        faceHTML(l.username, 'tg-row-face') +
-        '<button type="button" class="tg-row-tx" data-play-song data-silent title="Play this">' +
-          '<span class="tg-row-name" style="color:' + color(l.username) + '">' + esc(l.username) + '</span>' +
-          '<span class="tg-row-song"><span class="pz-eq"><i></i><i></i><i></i></span>' + esc(n.song) + (n.artist ? ' · ' + esc(n.artist) : '') + '</span></button>' +
-        '<button type="button" class="k-btn sm" data-along><i class="ti ti-headphones"></i><span>Listen along</span></button>' +
-      '</div>';
-    }
     function render() {
       if (!active) return;
       if (!data) {
         roomsEl.innerHTML = '';
-        emptyEl.hidden = false;
-        emptyEl.className = 'k-empty tg-empty';
-        emptyEl.innerHTML = '';
-        emptyEl.hidden = true;
         wrap.hidden = true; // nothing to say until there's a room to join
         return;
       }
       const cs = cards();
-      // "Listening now" (people on their own) isn't together: Home's Online has it.
-      const listening = [];
       // Redrawn only when something other than the running clocks changed.
-      const key = JSON.stringify([cs.map(c => [c.kind, c.id, c.title, c.sub, c.art, c.people, c.who, c.playing]), listening.map(l => [l.username, l.now.songId]), startHTML()]);
+      // ("Listening now", people on their own, isn't together: Home's Online has it.)
+      const key = JSON.stringify(cs.map(c => [c.kind, c.id, c.title, c.sub, c.art, c.people, c.who, c.playing]));
       if (key === lastKey) { step(); return; }
       lastKey = key;
       roomsEl.innerHTML = cs.map(cardHTML).join('');
       roomsEl.hidden = !cs.length;
       // Nothing together: nothing shown at all (no empty state, no "start
       // something" buttons: the owner didn't want them).
-      emptyEl.hidden = true;
-      startEl.innerHTML = '';
       wrap.hidden = !cs.length;
-      wrap.dispatchEvent(new CustomEvent('tg:shown', { bubbles: true }));
       const n = new Set(cs.flatMap(c => c.people)).size;
       countEl.textContent = cs.length ? klabCount(n, 'person', 'people') + ' in ' + klabCount(cs.length, 'room') : '';
-      listenEl.innerHTML = listening.map(listenRowHTML).join('');
-      listenEl.hidden = listenLabel.hidden = !listening.length;
-      paintSub();
     }
     // The running clocks, once a second while it shows (no redraw).
     function step() {
@@ -281,9 +215,6 @@
       if (!data) return null;
       if (kind === 'watch') return (data.watch || []).find(x => x.id === id);
       if (kind === 'listen') return (data.listen || []).find(x => x.host === id);
-      if (kind === 'tv') return (data.tv || []).find(x => x.id === id);
-      if (kind === 'live') return (data.live || []).find(x => x.username === id);
-      if (kind === 'radio') return (data.radio || []).find(x => x.id === id);
       if (kind === 'voice') return (data.voice || []).find(x => String(x.id) === id);
       return null;
     };
@@ -291,31 +222,18 @@
       SFX?.play('click');
       if (kind === 'watch') window.klabRooms?.join(id);
       else if (kind === 'listen') window.klabListenAlong?.(id);
-      else if (kind === 'tv') { setActiveTab('videos'); setTimeout(() => window.klabTv?.open(id), 60); }
-      else if (kind === 'live') window.klabLive?.open(id);
-      else if (kind === 'radio') {
-        await window.klabRadio?.tune(id);
-        if (window.klabRadio?.now() === id) showToast('Tuned in', 'ti-radio');
-      }
       else if (kind === 'voice') window.klabVoice?.join(+id, { watch: !!find('voice', id)?.sharing?.length });
       setTimeout(load, 1500);
     }
     wrap.addEventListener('click', e => {
-      const start = e.target.closest('[data-start]');
-      if (start) { startSomething(start.dataset.start, start); return; }
-      const face = e.target.closest('.tg-face[data-u], .tg-row-face[data-u]');
+      const face = e.target.closest('.tg-face[data-u]');
       if (face) { openProfileView(face.dataset.u); return; }
       const card = e.target.closest('.tg-card');
       if (card && e.target.closest('[data-join]')) { join(card.dataset.kind, card.dataset.id); return; }
-      if (card && e.target.closest('[data-watch]')) { SFX?.play('click'); window.klabVoice?.watch?.(); return; }
-      const row = e.target.closest('.tg-row');
-      if (!row) return;
-      const l = (data?.listening || []).find(x => x.username === row.dataset.u);
-      if (e.target.closest('[data-along]')) { SFX?.play('click'); window.klabListenAlong?.(row.dataset.u); setTimeout(load, 1500); }
-      else if (e.target.closest('[data-play-song]') && l) { const s = songOf(l.now); if (s) playSong(s); }
+      if (card && e.target.closest('[data-watch]')) { SFX?.play('click'); window.klabVoice?.watch?.(); }
     });
     wrap.addEventListener('contextmenu', e => {
-      const card = e.target.closest('.tg-card'), row = e.target.closest('.tg-row');
+      const card = e.target.closest('.tg-card');
       if (card) {
         const k = card.dataset.kind, x = find(k, card.dataset.id);
         if (!x) return;
@@ -328,54 +246,8 @@
           people.length ? '-' : null,
           ...people.slice(0, 8).map(u => ({ label: u, icon: 'ti-user-circle', action: () => openProfileView(u) })),
         ].filter(Boolean));
-        return;
-      }
-      if (row) {
-        const l = (data?.listening || []).find(x => x.username === row.dataset.u);
-        if (!l) return;
-        klabMenu(e, [
-          { header: l.username },
-          { label: 'Listen along', icon: 'ti-headphones', action: () => window.klabListenAlong?.(l.username) },
-          { label: 'Play this song', icon: 'ti-player-play', action: () => { const s = songOf(l.now); if (s) playSong(s); } },
-          '-',
-          { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(l.username) },
-          { label: 'Message', icon: 'ti-message-2-plus', action: () => messageUser(l.username) },
-        ]);
       }
     });
-
-    // Start something.
-    async function startSomething(kind, anchor) {
-      if (kind === 'listen') {
-        // A listening party is people listening along with you: play
-        // something and you're in Listening now for everyone.
-        if (playerState.currentSong && playerState.playing) showToast('You’re in Listening now. Anyone can listen along.', 'ti-headphones');
-        else { setActiveTab('music'); showToast('Play something and anyone can listen along', 'ti-headphones'); }
-        return;
-      }
-      if (kind === 'voice') {
-        const vs = window.klabVoice?.state?.();
-        const chans = window.klabVoice?.channels?.() || [];
-        if (!vs?.enabled) return;
-        if (!chans.length) { setActiveTab('chat'); return; }
-        klabMenu.at(anchor, [{ section: 'Voice channels' }, ...chans.map(c => ({ label: c.name, icon: 'ti-microphone', action: () => join('voice', String(c.id)) }))]);
-        return;
-      }
-      // Watch together: a video (the newest few) or a TV channel.
-      let vids = [], chs = [];
-      try {
-        const r = await fetchTimeout('/api/posts/videos?limit=8&sort=new', {}, 6000);
-        if (r.ok) vids = ((await r.json()).videos || []).filter(v => v.status === 'ready');
-      } catch (e) {}
-      try { chs = (await window.klabTv?.channels?.()) || []; } catch (e) {}
-      if (!vids.length && !chs.length) { setActiveTab('videos'); return; }
-      klabMenu.at(anchor, [
-        vids.length ? { section: 'A video' } : null,
-        ...vids.map(v => ({ label: v.title || 'Untitled', icon: 'ti-movie', hint: v.username, action: () => window.klabRooms?.start(v) })),
-        chs.length ? { section: 'A TV channel' } : null,
-        ...chs.slice(0, 8).map(c => ({ label: c.name, icon: 'ti-device-tv', hint: 'Ch ' + c.number, action: () => { setActiveTab('videos'); setTimeout(() => window.klabTv?.open(c.id), 60); } })),
-      ].filter(Boolean));
-    }
 
     // Your own room changing (joined, left) shows at once.
     window.addEventListener('klab:rooms', () => { if (active) setTimeout(load, 300); });
@@ -452,8 +324,8 @@
           sub: esc(l.by) + ' played ' + (l.kind === 'song' ? 'it' : 'them') + ' first; ' + esc(names(l.others)) + ' followed' };
         case 'repeat': return { main: '<b>' + esc(l.song) + '</b> · ' + esc(l.artist), sub: esc(l.username) + ', ' + plays(l.plays) };
         case 'reacted': return {
-          main: l.kind === 'video' ? '<b>' + esc(l.title || 'A video') + '</b>' : l.text ? '<b>' + esc(l.text) + '</b>' : '<b>' + esc(l.username) + '’s ' + (l.kind === 'photo' ? 'photo' : 'post') + '</b>',
-          sub: (l.kind === 'video' ? 'Video' : l.kind === 'photo' ? 'Photo' : 'Post') + ' by ' + esc(l.username) + ' · ' + klabCount(l.reactions, 'reaction') + ' ' + (l.emoji || []).map(klabReactHTML).join(' ') };
+          main: l.kind === 'video' ? '<b>' + esc(l.title || 'A video') + '</b>' : l.text ? '<b>' + esc(l.text) + '</b>' : '<b>' + esc(l.username) + '’s ' + (l.kind === 'photo' ? 'photo' : l.kind === 'screenshot' ? 'screenshot' : 'post') + '</b>',
+          sub: (l.kind === 'video' ? 'Video' : l.kind === 'photo' ? 'Photo' : l.kind === 'screenshot' ? 'Screenshot' : 'Post') + ' by ' + esc(l.username) + ' · ' + klabCount(l.reactions, 'reaction') + ' ' + (l.emoji || []).map(klabReactHTML).join(' ') };
         case 'videos': return { main: '<b>' + klabCount(l.count, 'video') + '</b>', sub: 'from ' + esc(names(l.people)) };
         case 'photos': return { main: '<b>' + klabCount(l.count, 'photo') + '</b>', sub: 'from ' + esc(names(l.people)) };
         case 'playlists': return { main: '<b>' + klabCount(l.count, 'playlist') + '</b> featured', sub: 'by ' + esc(names(l.people)) };
@@ -706,7 +578,7 @@
       }
       // The reacted post itself.
       const row = e.target.closest('.wk-line[data-line="reacted"] .wk-tx');
-      if (row) { const l = findLine('reacted'); if (!l) return; if (l.kind === 'video') window.klabOpenVideo?.(l.postId); else if (l.kind === 'photo') window.klabOpenPhoto?.(l.postId, l.photo); else window.klabFeedFocus?.(l.postId); }
+      if (row) { const l = findLine('reacted'); if (!l) return; if (l.kind === 'video') window.klabOpenVideo?.(l.postId); else if (l.kind === 'photo' || l.kind === 'screenshot') window.klabOpenPhoto?.(l.postId, l.photo, l.kind); else window.klabFeedFocus?.(l.postId); }
     });
     sec.addEventListener('contextmenu', e => {
       const el = e.target.closest('.wk-line');
@@ -739,117 +611,6 @@
     return { el: sec, load, render };
   })();
 
-  // ══ Unread messages ══ (from before; rows like a mail list)
-  const unread = (() => {
-    const head = label('Unread messages');
-    const el = document.createElement('div');
-    el.className = 'soc-unread';
-    el.setAttribute('role', 'list');
-    head.hidden = el.hidden = true;
-    el.addEventListener('click', e => {
-      const row = e.target.closest('[data-room]');
-      if (!row) return;
-      SFX?.play('nav');
-      openChatRoom(row.dataset.room);
-    });
-    let lastKey = '';
-    function render() {
-      const list = (window.klabChatUnread?.() || []).slice(0, 6);
-      const key = list.map(c => c.roomId + ':' + c.ts + ':' + c.text).join('|');
-      if (key === lastKey) { el.querySelectorAll('[data-t]').forEach(t => { t.textContent = klabRelativeTime(+t.dataset.t); }); return; }
-      lastKey = key;
-      head.hidden = el.hidden = !list.length;
-      el.innerHTML = list.map(c => {
-        const face = c.isDm && window.klabResolveUserAvatar?.(c.user);
-        const col = c.isDm ? color(c.user || c.name) : '';
-        const lead = c.isDm
-          ? '<span class="soc-unread-face" style="--c:' + col + '">' + (face ? '<img src="' + esc(face) + '" alt="" />' : esc((c.user || c.name || '?')[0].toUpperCase())) + '</span>'
-          : '<span class="soc-unread-face hash">#</span>';
-        return '<button type="button" class="soc-unread-row" role="listitem" data-room="' + esc(c.roomId) + '" data-silent>' + lead +
-          '<span class="soc-unread-tx"><span class="soc-unread-top"><span class="soc-unread-name"' + (col ? ' style="color:' + col + '"' : '') + '>' + esc(c.isDm ? (c.user || c.name) : c.name) + '</span>' +
-          (c.ts ? '<span class="soc-unread-when" data-t="' + c.ts + '">' + klabRelativeTime(c.ts) + '</span>' : '') + '</span>' +
-          '<span class="soc-unread-last">' + esc(c.text) + '</span></span></button>';
-      }).join('');
-    }
-    return { head, el, render };
-  })();
-  window.klabChatUnreadChanged = () => { if (active) unread.render(); };
-
-  // ══ From the feed ══ A few of the newest posts (Feed's own; no fetch).
-  const feed = (() => {
-    const N = 4;
-    const head = shelfHead('From the feed', () => setActiveTab('feed'));
-    const el = document.createElement('div');
-    el.className = 'soc-feed';
-    el.setAttribute('role', 'list');
-    const plain = t => String(t || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_~`>#|=]+/g, '').trim();
-    function cardHTML(p) {
-      const reacts = Object.values(p.reactions || {}).reduce((n, r) => n + (r.count || 0), 0);
-      const text = plain(p.text) || (p.image_mxc ? 'Posted a picture' : p.song ? 'Shared ' + (p.song.title || 'a song') : p.video ? 'Shared a video' : '');
-      return '<div class="soc-post" role="listitem" tabindex="0" data-post="' + p.id + '">' +
-        '<div class="soc-post-who">' + faceHTML(p.username, 'soc-post-av') +
-          '<span class="soc-post-name" style="color:' + color(p.username) + '">' + esc(p.username) + '</span>' +
-          '<span class="soc-post-when" data-t="' + apiTime(p.created) + '">' + klabRelativeTime(apiTime(p.created)) + '</span></div>' +
-        '<div class="soc-post-text">' + esc(text) + '</div>' +
-        '<div class="soc-post-meta">' +
-          (p.reply_count ? '<span><i class="ti ti-message-circle"></i>' + p.reply_count + '</span>' : '') +
-          (reacts ? '<span><i class="ti ti-mood-smile"></i>' + reacts + '</span>' : '') + '</div>' +
-      '</div>';
-    }
-    let lastKey = '';
-    function render(list) {
-      list = (list || window.klabFeedPosts?.(N) || []).slice(0, N);
-      const key = list.map(p => p.id + ':' + p.text + ':' + (p.reply_count || 0) + ':' + JSON.stringify(p.reactions || {}) + ':' + !!window.klabResolveUserAvatar?.(p.username)).join('|');
-      if (key === lastKey) { el.querySelectorAll('.soc-post-when[data-t]').forEach(t => { t.textContent = klabRelativeTime(+t.dataset.t); }); return; }
-      lastKey = key;
-      head.hidden = el.hidden = !list.length;
-      el.innerHTML = list.map(cardHTML).join('');
-    }
-    el.addEventListener('click', e => {
-      const face = e.target.closest('.soc-post-av[data-u]');
-      if (face) { openProfileView(face.dataset.u); return; }
-      const card = e.target.closest('.soc-post');
-      if (card) { SFX?.play('nav'); window.klabFeedFocus?.(+card.dataset.post); }
-    });
-    el.addEventListener('keydown', e => {
-      const card = e.target.closest('.soc-post');
-      if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); card.click(); }
-    });
-    el.addEventListener('contextmenu', e => {
-      const card = e.target.closest('.soc-post');
-      const p = card && (window.klabFeedPosts?.(N) || []).find(x => x.id === +card.dataset.post);
-      if (!p) return;
-      klabMenu(e, [
-        { header: p.username },
-        { label: 'Open in Feed', icon: 'ti-news', action: () => window.klabFeedFocus?.(p.id) },
-        { label: 'Copy text', icon: 'ti-copy', hidden: !p.text, action: () => klabCopy(p.text, 'Post') },
-        '-',
-        { label: 'View profile', icon: 'ti-user-circle', action: () => openProfileView(p.username) },
-        { label: 'Message', icon: 'ti-message-2-plus', hidden: p.username === me(), action: () => messageUser(p.username) },
-      ]);
-    });
-    head.hidden = el.hidden = true;
-    return { head, el, render, max: N, load: () => window.klabLoadFeed?.().then(() => render()) };
-  })();
-  // Feed tells Home when its posts change; Social's Browse listens in too.
-  const homeFeedChanged = window.klabHomeFeedChanged;
-  window.klabHomeFeedChanged = list => {
-    homeFeedChanged?.(list);
-    if (active) feed.render(window.klabFeedPosts?.(feed.max) || list);
-  };
-
-  // Where these show (2026-11-20, the owner: "def get rid of the browse
-  // tab on social", then Home made "minimal" with a purpose): Together on
-  // Home (js/33-plaza.js mounts klabTogether.el and says when it shows),
-  // This week in a sheet over the page (klabOpenWeek, the recap's rows).
-  // Unread messages and From the feed aren't shown anywhere; they're kept,
-  // built into a detached body, ready to be mounted again.
-  body.append(unread.head, unread.el, feed.head, feed.el);
-
-  function paintSub() {
-    const n = window.KLAB_ONLINE_USERNAMES?.size || 0;
-    sub.textContent = n ? n + ' online' : '';
-  }
   // Rooms change by the moment (every 5s while Home shows them); the week
   // more slowly. The running clocks tick once a second (no redraw; paused
   // with the window idle or hidden).
@@ -872,8 +633,6 @@
     }
   }
   window.klabTogether = { el: together.el, shown: on => { if (!!on !== homeOn) { homeOn = !!on; sync(); } }, count: together.count, load: together.load };
-  // Nothing calls this any more (Social has no Browse); kept harmless.
-  window.klabSocialTabChanged = () => {};
 
   // ── This week, as a sheet ──
   let weekSheet = null, popWeek = null;

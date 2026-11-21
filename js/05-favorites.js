@@ -393,9 +393,12 @@ function klabShuffleOrder(rebuild) {
     // was still to come stays to come. Before, everything between the old
     // place and the pick's place in the order was skipped.
     const cur = playerState.playlistIndex, last = playerState._shuffleCur;
+    // Only a pick from further on: one from before (Previous, which goes
+    // back through what was heard) stays where it is, or Previous then Next
+    // skipped the song you'd gone back from.
     if (last != null && last !== cur && o.includes(last)) {
       const a = o.indexOf(cur);
-      if (a >= 0) { o.splice(a, 1); o.splice(o.indexOf(last) + 1, 0, cur); }
+      if (a > o.indexOf(last) + 1) { o.splice(a, 1); o.splice(o.indexOf(last) + 1, 0, cur); }
     }
   }
   playerState._shuffleCur = playerState.playlistIndex;

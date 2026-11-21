@@ -229,9 +229,18 @@
 
   // Days arrive (first load, older posts, new ones) and the feed changes size.
   let rebuildQueued = false;
-  const queue = () => { if (!rebuildQueued) { rebuildQueued = true; requestAnimationFrame(() => { rebuildQueued = false; rebuild(); }); } };
+  // Only while the Feed shows (it used to rebuild on every change to the
+  // feed and to body's classes, on any page), and once on arriving there.
+  const showing = () => document.body.classList.contains('tab-feed-active');
+  let stale = true;
+  const queue = () => {
+    if (!showing()) { stale = true; return; }
+    if (!rebuildQueued) { rebuildQueued = true; requestAnimationFrame(() => { rebuildQueued = false; stale = false; rebuild(); }); }
+  };
   new MutationObserver(queue).observe(list, { childList: true, subtree: true, characterData: true });
   new ResizeObserver(queue).observe(panel);
-  new MutationObserver(queue).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  let wasShowing = showing();
+  new MutationObserver(() => { const now = showing(); if (now !== wasShowing) { wasShowing = now; if (now && stale) queue(); else if (!now) stale = true; } })
+    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
   queue();
 })();

@@ -449,7 +449,6 @@ document.addEventListener('contextmenu', e => {
 //  needing that whole action row (the player dock has no room for one).
 // ══════════════════════════════════════════
 // Built as a klabMenu (js/00-util.js), like every other right-click menu.
-function hideSongCtx() { klabMenu.close(); }
 // contextSongs (optional): the list `song` actually belongs to, for
 // setting up the right queue/playlist context on "Play" — defaults to the
 // picker's own pickerSongs since most callers open this from the main
@@ -637,7 +636,7 @@ async function loadMusicRequestsTab() {
   // Also called after an approve, a delete or a new request lands, by when
   // you may have gone to another section: that one isn't blanked.
   if (pickerTab !== 'requests') { await fetchMusicRequests(); return; }
-  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
+  pickerList.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
   await fetchMusicRequests();
   if (pickerTab !== 'requests') return;
   renderMusicRequestsList();

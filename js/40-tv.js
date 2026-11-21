@@ -272,7 +272,7 @@
   }
 
   // ── The guide ──
-  const LOADING = '<div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
+  const LOADING = '<div class="k-empty vid-empty" data-wait><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
   async function showGuide(opts) {
     const o = opts || {};
     if (o.mode) { mode = o.mode; try { localStorage.setItem('klabnet_tv_view', mode); } catch {} }

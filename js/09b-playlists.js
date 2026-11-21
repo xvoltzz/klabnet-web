@@ -650,7 +650,6 @@ async function plRenderPage(ctx, id) {
   window.addEventListener('klab:playlists', onList);
 }
 
-function plQueue(songs) { queueSongs(songs); }
 async function plSetFeatured(p, on) {
   try {
     const r = await plEdit(p.id, { featured: on });

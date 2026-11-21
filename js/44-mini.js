@@ -328,7 +328,12 @@
   // o: { el, video (for the fallback), width, height, title, keys(e), back(el) }
   // Resolves 'window' (Document PiP), 'video' (the browser's own) or ''.
   async function popOut(o) {
-    if (pip) { try { pip.win.focus(); } catch {} return 'window'; }
+    if (pip && pip.el === o.el) { try { pip.win.focus(); } catch {} return 'window'; }
+    // Another player in the window (TV popped out, then a video): that
+    // one's window closes (its pagehide hands it back to its owner) and
+    // this one opens. It used to say 'window' without moving anything, so
+    // the caller left its player on the page marked as popped out.
+    if (pip) { try { pip.win.close(); } catch {} }
     if (docPip()) {
       let win;
       try {
@@ -351,11 +356,14 @@
         if (was) o.video.play().catch(() => {});
         el.focus?.({ preventScroll: true });
         win.document.addEventListener('keydown', e => o.keys?.(e));
-        pip = { win, el, back: o.back, video: o.video };
+        const mine = pip = { win, el, back: o.back, video: o.video };
         win.addEventListener('pagehide', () => {
-          const p = pip;
-          pip = null;
-          if (!p) return;
+          // This window's own entry: an older window closing late must not
+          // take the newer one's player back out of it.
+          const p = mine;
+          if (pip === mine) pip = null;
+          if (p.done) return;
+          p.done = true;
           p.el.classList.remove('in-pip');
           // Back on this page (adopted here, so it keeps playing).
           const was = p.video && !p.video.paused && !p.video.ended;

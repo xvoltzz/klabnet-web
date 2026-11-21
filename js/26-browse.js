@@ -244,17 +244,28 @@ window.klabBrowse = (function() {
     vl.className = 'vsongs';
     vl.replaceChildren();
     if (!sorted.length) return { off() {}, row: () => null, rowH: 0 };
-    renderSongItem(sorted[0], vl);
     const GAP = 2; // .picker-list's gap
-    const rowH = vl.firstElementChild.offsetHeight + GAP;
-    vl.replaceChildren();
-    vl.style.height = (sorted.length * rowH - GAP) + 'px';
+    // Measured from a real row. Drawn while Music is hidden (a heart from
+    // another page redraws Favorites) a row has no height: measured again
+    // once it shows (the ResizeObserver), not laid out 2px apart.
+    let rowH = 0;
+    const measure = () => {
+      renderSongItem(sorted[0], vl);
+      const h = vl.lastElementChild.offsetHeight;
+      vl.lastElementChild.remove();
+      if (!h) return false;
+      rowH = h + GAP;
+      vl.style.height = (sorted.length * rowH - GAP) + 'px';
+      return true;
+    };
+    measure();
     const live = new Map();
     // Where the box starts inside the scrolling list (it may sit under a
     // head of its own, not straight in pickerList).
     const offset = () => vl.getBoundingClientRect().top - pickerList.getBoundingClientRect().top + pickerList.scrollTop;
     const draw = () => {
       if (!vl.isConnected) return;
+      if (!rowH && !measure()) return;
       const from = pickerList.scrollTop - offset(), h = pickerList.clientHeight;
       const first = Math.max(0, Math.floor(from / rowH) - 12);
       const last = Math.min(sorted.length - 1, Math.ceil((from + h) / rowH) + 12);
@@ -275,7 +286,7 @@ window.klabBrowse = (function() {
     const ro = new ResizeObserver(draw);
     ro.observe(pickerList);
     draw();
-    return { off: () => { pickerList.removeEventListener('scroll', onScroll); ro.disconnect(); }, row: i => { draw(); return live.get(i) || null; }, rowH };
+    return { off: () => { pickerList.removeEventListener('scroll', onScroll); ro.disconnect(); }, row: i => { draw(); return live.get(i) || null; }, get rowH() { return rowH; } };
   }
   window.klabVirtualSongs = virtualSongs;
 

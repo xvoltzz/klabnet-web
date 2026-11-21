@@ -39,7 +39,6 @@
   const showing = () => document.body.classList.contains('tab-videos-active');
   const panel = () => page.closest('.tab-panel');
   const sfx = n => { try { SFX && SFX.play(n); } catch (e) {} };
-  const motion = () => window.klabMotionOk?.() !== false;
 
   // ── Little things ──
   function long(s) {
@@ -160,7 +159,7 @@
   }
 
   // ── The list ──
-  const LOADING = '<div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
+  const LOADING = '<div class="k-empty vid-empty" data-wait><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
   function showList(opts) {
     const o = opts || {};
     if (!showing()) setActiveTab('videos');
@@ -299,7 +298,7 @@
         '<h1 class="vid-title lv-title">' + esc(s?.title || (s ? u + ' is live' : last?.title || u)) + '</h1>' +
         '<div class="vid-by">' +
           '<button type="button" class="vid-by-who" data-lv-act="profile">' + face(u) +
-            '<span><b>' + esc(u) + '</b><span>' + (s ? [s.game, '<span data-lv-since="' + s.started + '">' + esc(since(s)) + '</span>'].filter(Boolean).join(' · ')
+            '<span><b>' + esc(u) + '</b><span>' + (s ? [s.game && esc(s.game), '<span data-lv-since="' + s.started + '">' + esc(since(s)) + '</span>'].filter(Boolean).join(' · ')
               : last ? 'Last live ' + esc(day(last.started).toLowerCase() === 'today' ? 'today, ' + clock(last.started) : day(last.started)) + ' · ' + esc(length(last.length)) : 'Not live') + '</span></span></button>' +
           (s ? '<span class="lv-watching">' + (people.length ? '<span class="lv-faces">' + people.slice(0, 6).map(p => face(p, 'xs')).join('') + '</span>' : '') +
             esc(s.viewers ? klabCount(s.viewers, 'person', 'people') + ' watching' : 'Nobody else is watching yet') + '</span>' : '') +

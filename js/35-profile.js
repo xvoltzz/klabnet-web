@@ -123,7 +123,7 @@
         const j = await r.json().catch(() => null);
         // An API from before this answers a note's DELETE ?user= with a bare ok
         // and does nothing; the new one says what's left ("text").
-        if (!r.ok || !j || !('text' in j || 'bio' in j)) throw new Error(r.ok || r.status === 404 || r.status === 405 ? 'That needs the latest klabnet-api' : klabCap(j?.error) || 'Couldn’t change that');
+        if (!r.ok || !j || typeof j !== 'object' || !('text' in j || 'bio' in j)) throw new Error(r.ok || r.status === 404 || r.status === 405 ? 'That needs the latest klabnet-api' : klabCap(j?.error) || 'Couldn’t change that');
         await Promise.all([typeof fetchProfiles === 'function' ? fetchProfiles() : null, window.klabRefreshNotes?.()]);
         if (u === who && el?.classList.contains('open')) paint();
         SFX && SFX.play('click');
@@ -262,8 +262,10 @@
         <span class="pf-song-tx"><b>${esc(s.title || 'Unknown')}</b><span>${esc(s.artist || '')}</span>${s.lyric ? `<i>${esc(s.lyric)}</i>` : ''}</span>
         ${s.start > 0 ? `<span class="song-at"><i class="ti ti-clock"></i>${formatTime(s.start)}</span>` : ''}<i class="ti ti-player-play pf-song-play"></i></button>` : '';
     const reacts = Object.entries(p.reactions || {}).map(([k, v]) => `<span class="pf-react${v.mine ? ' mine' : ''}">${klabReactHTML(k)} ${v.count}</span>`).join('');
-    const meta = [ago(p.created), p.reply_count ? klabCount(p.reply_count, 'reply', 'replies') : '', gold && p.kind === 'photo' ? 'Photo' : ''].filter(Boolean).join(' · ');
-    return `<article class="pf-post${gold ? ' gold' : ''}"${p.kind === 'photo' ? '' : ` data-pf-post="${p.id}" tabindex="0" role="link"`}>
+    const meta = [ago(p.created), p.reply_count ? klabCount(p.reply_count, 'reply', 'replies') : '', gold && p.kind === 'photo' ? 'Photo' : gold && p.kind === 'screenshot' ? 'Screenshot' : gold && p.kind === 'video' ? 'Video' : ''].filter(Boolean).join(' · ');
+    // Only Feed posts open in the Feed: a photo, screenshot or video isn't there.
+    const inFeed = !p.kind || p.kind === 'post';
+    return `<article class="pf-post${gold ? ' gold' : ''}"${inFeed ? ` data-pf-post="${p.id}" tabindex="0" role="link"` : ''}>
       ${text ? `<div class="pf-post-text md">${text}</div>` : ''}
       ${img ? `<img class="pf-post-img" src="${esc(img)}" alt="" loading="lazy">` : ''}
       ${song}
@@ -272,7 +274,7 @@
   }
 
   function body() {
-    if (!data) return '<p class="pf-empty">Loading…</p>';
+    if (!data) return '<p class="pf-empty" data-wait>Loading…</p>';
     if (data.error) return `<p class="pf-empty">${data.error === 'old' ? 'Profiles need the latest klabnet-api' : data.error === 'none' ? 'Nothing from them here yet' : "Couldn't load their page"}</p>`;
     const d = data, L = d.listening || {};
     const tabs = [['posts', 'Posts', d.posts.length], ['photos', 'Photos', d.photos.length], ['videos', 'Videos', d.counts?.videos || 0], ...(window.klabClips ? [['clips', 'Clips', d.counts?.clips || 0]] : []), ['gold', 'Gold', d.gold.length], ['listening', 'Listening', (L.recent || []).length]];
@@ -287,13 +289,13 @@
         : '<p class="pf-empty">No photos yet</p>';
     } else if (pane === 'videos') {
       const list = vids && vids.who === who ? vids.list : null;
-      html += !list ? '<p class="pf-empty">Loading…</p>'
+      html += !list ? '<p class="pf-empty" data-wait>Loading…</p>'
         : list.length ? '<div class="pf-videos">' + list.map(v => window.klabVideoCardHTML?.(v, { noFace: true, noUser: true }) || '').join('') + '</div>' +
             (vids.total > list.length ? '<button type="button" class="k-btn pf-more" data-pf-channel>All ' + vids.total + ' videos</button>' : '')
           : '<p class="pf-empty">No videos yet</p>';
     } else if (pane === 'clips') {
       const list = clips && clips.who === who ? clips.list : null;
-      html += !list ? '<p class="pf-empty">Loading…</p>'
+      html += !list ? '<p class="pf-empty" data-wait>Loading…</p>'
         : list.length ? '<div class="pf-videos pf-clips">' + list.map(c => window.klabClips.cardHTML(c, { noUser: true })).join('') + '</div>' +
             (clips.total > list.length ? '<button type="button" class="k-btn pf-more" data-pf-clips>All ' + clips.total + ' clips</button>' : '')
           : '<p class="pf-empty">No clips yet</p>';

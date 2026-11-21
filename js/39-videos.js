@@ -165,7 +165,7 @@
     return '<div class="k-empty vid-empty"><i class="ti ti-movie"></i><div>' + esc(text) + '</div>' +
       (upload ? '<button type="button" class="k-btn" data-act="upload"><i class="ti ti-upload"></i><span>Upload a video</span></button>' : '') + '</div>';
   }
-  const LOADING = '<div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
+  const LOADING = '<div class="k-empty vid-empty" data-wait><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
 
   async function showList(v, opts) {
     leaveWatch();
@@ -447,7 +447,7 @@
           '<div class="vid-comments">' +
             '<div class="k-label vid-label" id="vidComCount">Comments</div>' +
             klabComments.formHTML({ formId: 'vidComForm', id: 'vidComInput' }) +
-            '<div class="k-com-list vid-com-list" id="vidComList"><div class="k-empty k-com-empty">Loading…</div></div>' +
+            '<div class="k-com-list vid-com-list" id="vidComList"><div class="k-empty k-com-empty" data-wait>Loading…</div></div>' +
           '</div>' +
         '</div>' +
         '<aside class="vid-watch-side"><div class="k-label vid-label">Up next</div><div class="vid-next" id="vidNext"></div></aside>' +
@@ -1105,6 +1105,10 @@
     const el = document.activeElement;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
     if (document.querySelector('.chat-modal-backdrop.open, .chat-modal.open')) return;
+    // Something over the page (Settings, a profile, a dialog, a clip in
+    // the viewer, the full player) has the keys: Space/k/f/m here played,
+    // paused or full-screened the video behind it.
+    if (window.klabLayers?.modal?.() || window.klabLayers?.covered?.()) return;
     const focused = player && player.contains(el);
     const k = e.key;
     // Space on a focused button or link outside the player presses that.
@@ -1455,17 +1459,26 @@
       x.open(method, url);
       if (body instanceof Blob) x.setRequestHeader('content-type', 'application/octet-stream');
       else if (body && !(body instanceof FormData)) { x.setRequestHeader('content-type', 'application/json'); body = JSON.stringify(body); }
-      if (onProgress) x.upload.onprogress = e => onProgress(e.loaded, e.lengthComputable ? e.total : 0);
+      // A link that goes quiet mid-request (no bytes up, no answer) left the
+      // upload sitting at its percentage forever: XHR has no deadline of
+      // its own. Two minutes without any progress counts as a dropped
+      // connection (retried like one), not as you pressing Stop.
+      let stalled = false, idleT = 0;
+      const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { stalled = true; try { x.abort(); } catch {} }, 120000); };
+      const done = v => { clearTimeout(idleT); res(v); };
+      x.upload.onprogress = e => { idle(); if (onProgress) onProgress(e.loaded, e.lengthComputable ? e.total : 0); };
+      x.onprogress = idle;
       x.onload = () => {
         let json = null;
         try { json = JSON.parse(x.responseText); } catch {}
         let away = false;
         try { away = !!x.responseURL && !new URL(x.responseURL, location.href).pathname.startsWith('/api/'); } catch {}
-        res({ status: x.status, json: away ? null : json, html: away || !json });
+        done({ status: x.status, json: away ? null : json, html: away || !json });
       };
-      x.onerror = () => res({ status: 0, net: true });
-      x.onabort = () => res({ status: 0, aborted: true });
+      x.onerror = () => done({ status: 0, net: true });
+      x.onabort = () => done(stalled ? { status: 0, net: true } : { status: 0, aborted: true });
       x.send(body ?? null);
+      idle();
     });
   }
   // Was that the sign-in running out? (A redirect to Authentik shows up
@@ -1708,6 +1721,8 @@
       cache.delete(v.id);
       list = list.filter(x => x.id !== v.id);
       showToast('Video deleted', 'ti-trash');
+      // Playing in the corner (or popped out): it goes too.
+      if (cur?.id === v.id && where !== 'page') window.klabMini?.close();
       // Back where you came from (its channel, a list); Your videos if there's nowhere.
       if (cur?.id === v.id || view.kind === 'watch') { if (!window.klabNav?.back()) showList({ kind: 'mine' }); }
       else showList(view, { quiet: true });

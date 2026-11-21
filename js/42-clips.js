@@ -161,7 +161,7 @@
     if (restoring) return;
     window.klabNav?.push({ tab: 'videos', kind: 'clips', view: { game: v.game || '', sort: v.sort, user: v.user || '' } });
   }
-  const LOADING = '<div class="k-empty vid-empty"><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
+  const LOADING = '<div class="k-empty vid-empty" data-wait><i class="ti ti-loader loading-spinner"></i><div>Loading…</div></div>';
   function emptyHTML(text, upload) {
     return '<div class="k-empty vid-empty"><i class="ti ti-scissors"></i><div>' + esc(text) + '</div>' +
       (upload ? '<button type="button" class="k-btn" data-cl="upload"><i class="ti ti-upload"></i><span>Upload clips</span></button>' : '') + '</div>';
@@ -604,7 +604,7 @@
       '<div class="clipv-comments">' +
         '<div class="k-label vid-label" id="clipComCount">Comments</div>' +
         klabComments.formHTML({ formId: 'clipComForm', id: 'clipComInput' }) +
-        '<div class="k-com-list" id="clipComList"><div class="k-empty k-com-empty">Loading…</div></div>' +
+        '<div class="k-com-list" id="clipComList"><div class="k-empty k-com-empty" data-wait>Loading…</div></div>' +
       '</div>';
   }
   function reactsHTML(c) {

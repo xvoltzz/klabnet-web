@@ -171,18 +171,9 @@ try {
   check('...and w back up', (await mRow()) === m0, await mRow());
   await ev(`setActiveTab('feed')`); await sleep(400);
 
-  // ── Social's home ──
-  await ev(`setActiveTab('social')`);
-  check('new photos in a collage', await until(`document.querySelectorAll('#socHomeBody .soc-collage .soc-tile:not(.off)').length > 0`, 8000));
-  check('the latest posts in a row', await until(`document.querySelectorAll('#socHomeBody .soc-post').length > 0`, 8000));
-  await sleep(800);
-  await shot('home');
-  const first = await ev(`+document.querySelector('#socHomeBody .soc-post').dataset.post`);
-  await ev(`document.querySelector('#socHomeBody .soc-post').click()`); await sleep(1200);
-  check('a post card opens it in Feed', (await at()) === 'feed' && await ev(`!!document.querySelector('#feedList .feed-post[data-post-id="${first}"]')`));
+  // ── Social's front is Chat (2026-11-21; Browse and its post/photo shelves are gone) ──
   await ev(`setActiveTab('social')`); await sleep(600);
-  await ev(`document.querySelector('#socHomeBody .soc-tile:not(.off)').click()`); await sleep(1200);
-  check('a photo\'s Open goes to it in Photos', (await at()) === 'photos');
+  check('Social lands on Chat', (await at()) === 'chat', await at());
 
   // ── A phone ──
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });

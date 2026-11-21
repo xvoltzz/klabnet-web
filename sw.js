@@ -133,8 +133,10 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(event.request);
+    // A copy that can't be kept (a 206 for a Range request, a full disk)
+    // still answers: cache.put rejecting used to turn it into no response.
     const network = fetch(event.request).then(async res => {
-      if (res && res.ok && res.type === 'basic') await cache.put(event.request, res.clone());
+      if (res && res.ok && res.status === 200 && res.type === 'basic') { try { await cache.put(event.request, res.clone()); } catch (e) {} }
       return res;
     }).catch(() => null);
     event.waitUntil(network);

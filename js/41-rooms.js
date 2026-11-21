@@ -85,6 +85,10 @@
     if (opening === r.video.id) return;
     opening = r.video.id;
     ready = false;
+    // An open that never lands (the video failed to load) mustn't stop
+    // the room's video being followed for good: let go after 15s.
+    const id = r.video.id;
+    setTimeout(() => { if (opening === id && !ready) opening = 0; }, 15000);
     quiet(4000);
     // From another page, Videos opens it as it arrives (its first arrival
     // would otherwise draw Browse over a video opened ahead of it).

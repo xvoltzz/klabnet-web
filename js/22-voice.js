@@ -362,8 +362,9 @@
   async function publishMic() {
     const r = room;
     if (!r || micPub()) return;
+    let track = null;
     try {
-      const track = pendingMic = await LK.createLocalAudioTrack(captureOpts());
+      track = pendingMic = await LK.createLocalAudioTrack(captureOpts());
       if (room !== r) { track.stop(); return; }
       // Published already muted when it should be (push to talk, or you
       // muted before joining), so not even a syllable goes out first.
@@ -376,14 +377,19 @@
       applyMic();
     } catch (e) {
       // The microphone was opened but never went out: close it again.
-      pendingMic?.stop();
+      // (This publish's own track: pendingMic may be a newer join's.)
+      try { track?.stop(); } catch (err) {}
       if (room !== r) return;
       micProblem = /NotFound|Overconstrained|DevicesNotFound/i.test(e?.name || '') ? 'missing' : 'blocked';
       showToast(micProblem === 'missing'
         ? 'No microphone found. You can still listen'
         : 'Your microphone is blocked. You can still listen; allow it for klabnet to talk', 'ti-microphone-off', 6000);
     }
-    finally { pendingMic = null; }
+    // Only our own: a publish on a room that's gone can settle long after a
+    // rejoin started publishing, and clearing the newer one left a mute
+    // pressed meanwhile with nothing to cut.
+    finally { if (pendingMic === track) pendingMic = null; }
+    if (room !== r) return;
     pushAttrs();
     render();
   }
@@ -641,7 +647,7 @@
       el.type = 'button';
       el.className = 'vs-tile';
       el.dataset.u = x.username;
-      el.innerHTML = '<video playsinline autoplay muted></video><span class="vs-tile-wait">Loading…</span>' +
+      el.innerHTML = '<video playsinline autoplay muted></video><span class="vs-tile-wait" data-wait>Loading…</span>' +
         '<span class="vs-name"><span class="vs-name-t"></span><i class="ti ti-volume" hidden></i></span>' +
         '<span class="vs-viewers" hidden></span>';
       t = { el, video: el.querySelector('video'), track: null };
@@ -937,6 +943,14 @@
     // is let go of now, not whenever that round trip settles: it may never
     // settle on a room that's gone, and the mic would stay open.
     try { pendingMic?.stop(); } catch (e) {}
+    // And what did go out (the microphone, a shared screen) is cut here
+    // too, not left to disconnect(): one that hangs or throws on a dead
+    // connection must not leave the microphone open.
+    try {
+      room?.localParticipant?.trackPublications?.forEach(pub => {
+        try { if (pub.track?.mediaStreamTrack) pub.track.mediaStreamTrack.enabled = false; pub.track?.stop(); } catch (e) {}
+      });
+    } catch (e) {}
     room = null; joined = null; phase = 'idle';
     pttHeld = false; deafened = false; micProblem = ''; needsClick = false;
     speaking = new Set(); volOpen = ''; lastAttrs = '';
@@ -989,7 +1003,9 @@
     r.on(E.Reconnecting, mine(() => { phase = 'reconnecting'; render(); }));
     // How good your own connection is, for the panel's line.
     r.on(E.ConnectionQualityChanged, mine((q, p) => { if (p === r.localParticipant && q !== quality) { quality = q; paintPanel(); } }));
-    r.on(E.Reconnected, mine(() => { phase = 'live'; lastAttrs = ''; pushAttrs(); syncSubs(); render(); }));
+    // (A full reconnect republishes the microphone: mute and push to talk
+    // are put back on it at once.)
+    r.on(E.Reconnected, mine(() => { phase = 'live'; lastAttrs = ''; applyMic(); pushAttrs(); syncSubs(); render(); }));
     r.on(E.AudioPlaybackStatusChanged, mine(() => { needsClick = !r.canPlaybackAudio; render(); }));
     r.on(E.MediaDevicesChanged, mine(() => { if (settingsOpen()) fillDevices(); }));
     // Only ever reached when it wasn't you who left: leave() lets go of
@@ -1260,7 +1276,9 @@
 
   $('vcInput').addEventListener('change', e => {
     S.input = e.target.value; save();
-    if (room) room.switchActiveDevice('audioinput', S.input || 'default').catch(() => showToast("Couldn't switch microphone", 'ti-microphone-off'));
+    // A new device is a new track, live by default: put mute or push to
+    // talk back on it straight away, whether the switch worked or not.
+    if (room) room.switchActiveDevice('audioinput', S.input || 'default').catch(() => showToast("Couldn't switch microphone", 'ti-microphone-off')).then(applyMic);
   });
   $('vcOutput').addEventListener('change', e => {
     S.output = e.target.value; save();
@@ -1302,7 +1320,7 @@
       S[key] = !S[key]; save();
       syncSettings();
       const track = micPub()?.audioTrack;
-      if (track) track.restartTrack(captureOpts()).then(applyMic).catch(() => {});
+      if (track) track.restartTrack(captureOpts()).catch(() => {}).then(applyMic);
     }, true);
   });
 

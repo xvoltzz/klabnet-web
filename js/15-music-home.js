@@ -384,11 +384,14 @@
   }
   // ── One card ──
   // Cover, name, a line under it. Over the cover on hover: ▶ (primary)
-  // bottom right, Add to queue beside it, ♥ top right (and it stays while
-  // it's on). The same recipe as the Albums grid, an artist's records and
-  // genre tiles (css "REFRESH: MUSIC").
+  // bottom right, Add to queue beside it. The same recipe as the Albums
+  // grid, an artist's records and genre tiles (css "REFRESH: MUSIC").
+  // No ♥ on covers (owner, 2026-11-21: "a little harsh"): albums and
+  // artists are hearted from their page, the right-click menu or the player.
+  // Artists' round pictures get no buttons at all (the circle cut the ▶ off).
   function cardActs(kind, id, { queue = true } = {}) {
-    return `<div class="card-acts">${kind ? klabHeartHTML(kind, id, 'k-card-heart') : ''}` +
+    if (kind === 'artist') return '';
+    return `<div class="card-acts">` +
       (queue ? '<button type="button" class="k-card-btn" data-card-queue title="Add to queue" aria-label="Add to queue"><i class="ti ti-playlist-add"></i></button>' : '') +
       '<button type="button" class="k-card-play" data-card-play title="Play" aria-label="Play"><i class="ti ti-player-play-filled"></i></button></div>';
   }
@@ -974,7 +977,7 @@
     };
     if (Array.isArray(songs)) fillWheel(songs);
     else {
-      wheelSlot.innerHTML = '<div class="picker-empty">Loading…</div>';
+      wheelSlot.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
       songs.then(fillWheel, () => { if (wheelSlot.isConnected) wheelSlot.innerHTML = '<div class="picker-empty">Couldn’t load shuffle picks</div>'; });
     }
     // Reshuffle swaps just the wheel for a fresh one; the rest of Home

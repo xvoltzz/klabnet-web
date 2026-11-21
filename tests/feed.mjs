@@ -68,7 +68,7 @@ try {
   const enter = async () => { for (const t of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type: t, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }); };
   // The 30s poll, now: coming back to the page fetches.
   const poll = () => ev(`document.dispatchEvent(new Event('visibilitychange'))`);
-  const replies = id => ev(`[...document.querySelectorAll('.feed-post[data-post-id="${id}"] .feed-post-reply-text')].map(e => e.textContent.trim())`);
+  const replies = id => ev(`[...document.querySelectorAll('.feed-post[data-post-id="${id}"] .k-com-body')].map(e => e.textContent.trim())`);
 
   for (const [u, t] of [['alice', 'feed test: one'], ['bob', 'feed test: two'], ['carol', 'feed test: three']]) await api(u, '/api/posts', { text: t });
 
@@ -101,13 +101,13 @@ try {
 
   // ── Replies that came in while you typed show once you send ──
   await type('nce'); await enter();
-  check('sending shows yours and the one sent meanwhile', await until(`(() => { const r = [...document.querySelectorAll('.feed-post[data-post-id="${top}"] .feed-post-reply-text')].map(e => e.textContent.trim()); return r.includes('carol replied meanwhile') && r.includes('half a sentence'); })()`, 5000), await replies(top));
+  check('sending shows yours and the one sent meanwhile', await until(`(() => { const r = [...document.querySelectorAll('.feed-post[data-post-id="${top}"] .k-com-body')].map(e => e.textContent.trim()); return r.includes('carol replied meanwhile') && r.includes('half a sentence'); })()`, 5000), await replies(top));
   check('...and you stay in the reply box', await ev(`document.activeElement?.classList.contains('feed-post-reply-input')`));
 
   // ── Sitting in an empty reply box doesn't hold replies back ──
   await api('bob', `/api/posts/${top}/replies`, { text: 'bob replied to your open box' });
   await poll();
-  check('a new reply shows while your empty box has focus', await until(`[...document.querySelectorAll('.feed-post[data-post-id="${top}"] .feed-post-reply-text')].some(e => e.textContent.includes('bob replied to your open box'))`, 5000), await replies(top));
+  check('a new reply shows while your empty box has focus', await until(`[...document.querySelectorAll('.feed-post[data-post-id="${top}"] .k-com-body')].some(e => e.textContent.includes('bob replied to your open box'))`, 5000), await replies(top));
   check('...and the box keeps the focus', await ev(`document.activeElement?.classList.contains('feed-post-reply-input') && document.activeElement.dataset.postId === '${top}'`));
   await shot('replies');
 

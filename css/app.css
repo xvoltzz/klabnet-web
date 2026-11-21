@@ -297,8 +297,6 @@
       transition: background-color 140ms ease, border-color 140ms ease;
     }
 
-
-
     /* Shared content-width scale — drives both .dash and the player dock so
        they widen together (and stay correct under the `zoom` tiers above;
        a plain px cap on the dock alone was getting shrunk by `zoom`,
@@ -750,7 +748,6 @@
        dock) but shouldn't be the first thing you see under each tab. */
     .dash-body { display: flex; align-items: flex-start; gap: 2.2rem; }
     .dash-main { flex: 1; min-width: 0; }
-
 
     /* "More below" hint — shown only while there's actually more to
        scroll to (see PRESENCE RAIL SCROLL BOUNDS), and hidden again once
@@ -1574,7 +1571,6 @@
     .img-view-backdrop.show-hint .img-view-hint { opacity: 1; }
     @media (max-width: 640px) { .img-view-hint { display: none; } }
 
-
     /* ══ CONTEXT MENU ══ */
 
     /* Header overflow ("more") menu — same look as .ctx-menu (background/
@@ -1969,7 +1965,6 @@
     .player-progress { background: none !important; flex-shrink: 1 !important; }
     .vol-slider { background: none !important; width: 72px; flex-shrink: 0; }
 
-
     /* Light: the dot is the ink (a white one vanished on the page). */
     [data-theme="light"] .slider-dot { background: var(--text); box-shadow: 0 1px 4px var(--shadow-30); }
     /* FS vol bar — use the slider-wrap system properly */
@@ -2044,8 +2039,8 @@
        editor's chat-color picker (.profile-modal-color-swatch), just under
        its own class since this one applies instantly on click rather than
        waiting on a form Save. */
-    .bg-palette-group { margin-bottom: 14px; }
-    .bg-palette-group:last-child { margin-bottom: 0; }
+
+    
     .bg-palette-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 6px; }
     .bg-palette-swatch {
       width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
@@ -2225,7 +2220,7 @@
     .lyrics-scroll::-webkit-scrollbar { display: none; }
 
     /* ── Lyric line colors — readable frosted white ── */
-    
+
     .lyric-line {
       font-size: 1.35rem;
       font-weight: 700;
@@ -2761,13 +2756,7 @@
     [data-theme="light"] .ap-hero-img-ph,
     [data-theme="light"] .ap-disc-card img,
     [data-theme="light"] .ap-track-art { box-shadow: 0 4px 16px rgba(120,108,92,0.14); }
-    [data-theme="light"] .ap-btn-play {
-      color: color-mix(in srgb, rgb(var(--accent-rgb)) 72%, var(--text) 28%);
-      background: rgba(var(--accent-rgb),0.12);
-      border-color: rgba(var(--accent-rgb),0.24);
-      border-top-color: rgba(255,255,255,0.85);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 3px 12px rgba(120,108,92,0.08);
-    }
+
     [data-theme="light"] .ap-track:hover {
       background: rgba(255,255,255,0.48);
       border-color: rgba(120,108,92,0.1);
@@ -2921,7 +2910,6 @@
     .type-badge.fulfilled { color: var(--success-color); border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.12); }
     .type-badge.dismissed { color: var(--text-faint); border-color: var(--tile-border); background: var(--tile-bg); }
     [data-theme="light"] .type-badge.fulfilled { color: #1a7a3e; border-color: rgba(26,122,62,0.35); background: rgba(26,122,62,0.1); }
-    .picker-action.fav-active { color: var(--danger-color); }
 
     .picker-empty {
       font-size: var(--fs-13); color: var(--text-dimmer);
@@ -2999,7 +2987,6 @@
       from { opacity: 0; transform: translateY(5px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-
 
     /* Desktop shows both chat panes at once, so there's nothing to go back
        to and the sidebar already names the room — the bar only exists
@@ -3221,7 +3208,6 @@
       html, body { overscroll-behavior-y: none; }
     }
 
-  
     /* ══ GLASS SURFACES ═══════════════════════════════════════════════
        Which elements opt into the liquid-glass layer defined near the top
        of this file. Deliberately at the very end: each of these already
@@ -4012,9 +3998,8 @@
     #musicShell .type-badge { display: none; }
     #musicShell .picker-item .picker-action { opacity: 0; transition: opacity .15s, color .15s, background-color .15s; }
     #musicShell .picker-item:hover .picker-action,
-    #musicShell .picker-item .picker-action:focus-visible,
-    #musicShell .picker-action.fav-active, #musicShell .picker-action.login-active { opacity: 1; }
-    #musicShell .picker-action.fav-active { color: var(--danger-color); }
+    #musicShell .picker-item .picker-action:focus-visible, #musicShell .picker-action.login-active { opacity: 1; }
+
     @media (hover: none) { #musicShell .picker-item .picker-action { opacity: 1; } }
     /* A narrow list (a narrow window keeps Music's sidebar beside it) left
        a song row's title 0px wide behind six buttons. Drop them as the list
@@ -4124,14 +4109,11 @@
     #musicShell .ap-hero-sub { font-size: var(--fs-13); color: var(--text-dim); margin-top: 6px; }
     #musicShell .ap-hero-sub:first-of-type { margin-top: 8px; }
     #musicShell .ap-actions { padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; }
-    #musicShell .ap-btn-play, #musicShell .ap-btn-queue {
-      height: 40px; padding: 0 18px; border-radius: 10px; gap: 8px;
-      font: 600 var(--fs-13) var(--font-ui); letter-spacing: 0; text-transform: none; box-shadow: none;
-    }
-    #musicShell .ap-btn-play { padding: 0 22px; background: var(--text); color: var(--bg); border: none; }
-    #musicShell .ap-btn-play:hover { background: var(--text); opacity: .88; }
-    #musicShell .ap-btn-queue { background: var(--glass-fill-h); color: var(--text); border: 1px solid var(--glass-border); }
-    #musicShell .ap-btn-queue:hover { border-color: var(--glass-border-h); }
+
+    
+
+    
+
     #musicShell .ap-sec-label { font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; color: var(--text-dimmer); padding: 22px 20px 8px; }
     #musicShell .ap-track { margin: 0 8px; }
     #musicShell .ap-track-num { width: 22px; text-align: center; font-size: var(--fs-12); color: var(--text-dimmer); }
@@ -4217,14 +4199,12 @@
     #musicShell .music-nav.has-pill .music-sidebar-group,
     #musicShell .music-nav.has-pill .picker-tabs { position: relative; z-index: 1; }
 
-
     /* Artwork fades in as it loads instead of popping (Music's covers:
        one .loaded rule in "REFRESH: MUSIC"). */
     .mh-cover img, .ph-thumb img { transition: opacity var(--m-slow) ease, transform .25s ease, filter .25s ease; }
     .mh-cover img:not(.loaded), .ph-thumb img:not(.loaded) { opacity: 0; }
     /* Photos: the photo that's leaving (a copy laid over the new one). */
     .ph-ghost { pointer-events: none; z-index: 2; }
-
 
 /* ═══ COMPONENTS: the house parts (refresh 2026-11-19) ═══
    The owner: "all buttons, sheets, menus, right click, all of it should
@@ -4304,8 +4284,8 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
 /* ── 1. Buttons ──
    Secondary by default (glass and a hairline), .primary filled with the
    text colour, .danger red, .ghost bare. 34px; .sm 28, .lg 40; .icon square. */
-.k-btn, .chat-connect-btn, .ap-btn-play, .ap-btn-queue, .feed-load-more, .app-btn, .chat-modal-row-btn,
-.chat-head-btn, .chat-hello-chip, .feed-post-more, .vid-btn, .act-along, .rd-pill, .radio-manage-btn, .radio-form-actions button {
+.k-btn, .chat-connect-btn, .feed-load-more, .app-btn, .chat-modal-row-btn,
+.chat-head-btn, .chat-hello-chip, .feed-post-more, .act-along, .rd-pill, .radio-manage-btn, .radio-form-actions button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none;
   height: var(--h-md); padding: 0 16px; box-sizing: border-box; margin: 0;
   border-radius: var(--r-md); cursor: pointer; white-space: nowrap;
@@ -4314,44 +4294,42 @@ html.klabnet-app[data-platform] :is(input, textarea, select, [contenteditable]):
   transition: background-color var(--m-fast) ease, border-color var(--m-fast) ease, color var(--m-fast) ease, opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease);
   -webkit-tap-highlight-color: transparent;
 }
-.k-btn i, .chat-connect-btn i, .ap-btn-play i, .ap-btn-queue i, .vid-btn i, .app-btn i { font-size: 15px; }
-.k-btn:hover:not(:disabled), .ap-btn-queue:hover:not(:disabled), .feed-load-more:hover:not(:disabled), .app-btn:hover:not(:disabled),
-.chat-modal-row-btn:hover:not(:disabled), .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover,
-.vid-btn:hover:not(:disabled), .act-along:hover:not(:disabled), .rd-pill:hover, .radio-manage-btn:hover, .radio-form-actions button:hover:not(:disabled) {
+.k-btn i, .chat-connect-btn i, .app-btn i { font-size: 15px; }
+.k-btn:hover:not(:disabled), .feed-load-more:hover:not(:disabled), .app-btn:hover:not(:disabled),
+.chat-modal-row-btn:hover:not(:disabled), .chat-head-btn:hover, .chat-hello-chip:hover, .feed-post-more:hover, .act-along:hover:not(:disabled), .rd-pill:hover, .radio-manage-btn:hover, .radio-form-actions button:hover:not(:disabled) {
   border-color: var(--line-strong); background: color-mix(in srgb, var(--fill-hover), var(--text) 5%); color: var(--text);
 }
 /* primary */
-.k-btn.primary, .chat-connect-btn, .ap-btn-play, .vid-btn.primary, .radio-form-actions .radio-save {
+.k-btn.primary, .chat-connect-btn, .radio-form-actions .radio-save {
   border-color: transparent; background: var(--text); color: var(--bg); box-shadow: var(--bloom-white);
 }
-.k-btn.primary:hover:not(:disabled), .chat-connect-btn:hover:not(:disabled), .ap-btn-play:hover:not(:disabled),
-.vid-btn.primary:hover:not(:disabled), .radio-form-actions .radio-save:hover:not(:disabled) {
+.k-btn.primary:hover:not(:disabled), .chat-connect-btn:hover:not(:disabled), .radio-form-actions .radio-save:hover:not(:disabled) {
   border-color: transparent; background: var(--text); color: var(--bg); opacity: .9;
 }
 /* danger (what can't be taken back) */
-.k-btn.danger, .chat-connect-btn.is-danger, .vid-btn.danger, .radio-form-actions .radio-del {
+.k-btn.danger, .chat-connect-btn.is-danger, .radio-form-actions .radio-del {
   border-color: var(--danger-line); background: var(--danger-fill); color: var(--danger); box-shadow: none;
 }
-.k-btn.danger:hover:not(:disabled), .chat-connect-btn.is-danger:hover:not(:disabled), .vid-btn.danger:hover:not(:disabled), .radio-form-actions .radio-del:hover:not(:disabled) {
+.k-btn.danger:hover:not(:disabled), .chat-connect-btn.is-danger:hover:not(:disabled), .radio-form-actions .radio-del:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); opacity: 1;
 }
 /* ghost */
 .k-btn.ghost { border-color: transparent; background: none; color: var(--text-dim); }
 .k-btn.ghost:hover:not(:disabled) { border-color: transparent; background: var(--fill); color: var(--text); }
 /* sizes */
-.k-btn.sm, .vid-btn.small, .act-along, .rd-pill, .radio-manage-btn {
+.k-btn.sm, .act-along, .rd-pill, .radio-manage-btn {
   height: var(--h-sm); padding: 0 11px; gap: 6px; border-radius: var(--r-sm); font-size: var(--fs-12);
 }
-.k-btn.sm i, .vid-btn.small i { font-size: 14px; }
+.k-btn.sm i { font-size: 14px; }
 .k-btn.lg { height: 40px; padding: 0 18px; border-radius: var(--r-lg); }
-.k-btn.icon, .vid-btn.icon { width: var(--h-md); padding: 0; }
+.k-btn.icon { width: var(--h-md); padding: 0; }
 .k-btn.sm.icon { width: var(--h-sm); }
 .k-btn.lg.icon { width: 40px; }
-.k-btn:disabled, .chat-connect-btn:disabled, .ap-btn-play:disabled, .ap-btn-queue:disabled, .app-btn:disabled, .vid-btn:disabled, .radio-form-actions button:disabled {
+.k-btn:disabled, .chat-connect-btn:disabled, .app-btn:disabled, .radio-form-actions button:disabled {
   opacity: .5; cursor: default; pointer-events: none;
 }
-.k-btn:active:not(:disabled), .chat-connect-btn:active:not(:disabled), .ap-btn-play:active:not(:disabled), .ap-btn-queue:active:not(:disabled),
-.feed-load-more:active, .app-btn:active:not(:disabled), .chat-modal-row-btn:active, .vid-btn:active:not(:disabled), .radio-form-actions button:active:not(:disabled) {
+.k-btn:active:not(:disabled), .chat-connect-btn:active:not(:disabled),
+.feed-load-more:active, .app-btn:active:not(:disabled), .chat-modal-row-btn:active, .radio-form-actions button:active:not(:disabled) {
   transform: scale(.97); transition-duration: var(--m-instant);
 }
 
@@ -4594,7 +4572,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
   :is(.add-app-backdrop, .settings-backdrop, .pf-backdrop, .img-crop-backdrop).open :is(.add-app-modal, .settings-modal, .pf, .img-crop-dialog) { transform: translateY(8px) scale(.985); opacity: 0; }
 }
 /* Titles are titles: 17px bold, sentence case. */
-.k-dialog-title, .add-app-title, .settings-title, .img-crop-title {
+.add-app-title, .settings-title, .img-crop-title {
   font: 700 var(--fs-17, 17px)/1.2 var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--text);
 }
 .add-app-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
@@ -4672,7 +4650,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        a light page, where there's nothing for light to spill onto. */
     :root { --bloom-white: 0 0 14px rgba(255,248,236,0.16), 0 0 38px rgba(255,248,236,0.07); }
     [data-theme="light"] { --bloom-white: 0 2px 10px var(--shadow-30); }
-    .mh-flow-actions .mh-flow-play, #musicShell .ap-btn-play, .ph-compose-submit:not(:disabled),
+    .mh-flow-actions .mh-flow-play, .ph-compose-submit:not(:disabled),
     .mh-card-play, #musicShell .picker-list.picker-list-grid .picker-item-actions .picker-action[title="Play"] {
       box-shadow: var(--bloom-white);
     }
@@ -4687,7 +4665,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .ph-thumb.sel { box-shadow: 0 0 0 2px var(--text), 0 0 18px rgba(255,248,236,0.22), 0 8px 24px var(--shadow-50); }
     .s-toggle.on { box-shadow: 0 0 12px rgba(var(--accent-rgb),0.35), 0 0 28px rgba(var(--accent-rgb),0.14); }
     .presence-card-online { box-shadow: 0 0 6px rgba(74,222,128,0.45), 0 0 14px rgba(74,222,128,0.18); }
-    #musicShell .picker-action.fav-active i { filter: drop-shadow(0 0 6px rgba(248,113,113,0.5)); }
+
     .mh-cover.center img { box-shadow: 0 18px 40px rgba(0,0,0,0.45), 0 0 60px rgba(255,248,236,0.06); }
 
     @media (prefers-reduced-motion: reduce) {
@@ -4811,7 +4789,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     /* Sideways scrollers keep the sideways gesture to themselves, so reaching
        the end of one doesn't also fire the browser's swipe-back. */
     .mh-row, .mh-flow, .ph-shell, #musicShell .music-nav, .tab-nav { overscroll-behavior-x: contain; }
-
 
     /* One box at a time: where a sliding highlight marks the active item,
        hovering only brightens an item's text. A hover box of its own fought
@@ -5896,7 +5873,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     html.app-headerbar .header-right .hdr-btn:active,
     html.app-headerbar .header-right .hdr-btn.active { background: var(--adw-active); }
 
-
     /* ══ Use the space ══
        Wide windows were framed in dead space: 3.5rem of side padding on
        every page, Music/Chat/Home capped at 96% of the window on top of
@@ -6078,7 +6054,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       html[data-fx="low"] #sideNav #tabNav .motion-pill { background: var(--sb-sel, color-mix(in srgb, var(--modal-bg) 82%, var(--text) 18%)) !important; }
     }
 
-
     /* ── Windows: a WinUI NavigationView ──
        The pane sits on the window's Mica/Acrylic, and the page is a layer
        above it with its own faint fill, a hairline edge and a rounded
@@ -6149,8 +6124,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
            secondary (glass with a hairline), 34px, 13px semibold, radius-md.
          · Dialog and panel titles are titles: 17px bold, not "// labels".
        ══════════════════════════════════════════════════════════════════ */
-
-
 
     /* (Labels, buttons, menus and titles: COMPONENTS.) .fb-type-btn and
        .music-req-type-btn are segments now ("5. Segmented control"). */
@@ -6658,7 +6631,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .ph-now #phSoundBtn span, .ph-now #phSoundBtn .s-toggle { display: none; }
     .ph-now #phSoundBtn[aria-pressed="false"] { color: var(--text-dimmer); }
 
-
     /* ══ @MENTION SUGGESTIONS (js/20-mentions.js) ══
        Under the cursor while typing @name: Music's panel (hairline,
        radius 10, glass) with a row per person. */
@@ -6682,7 +6654,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .mention-suggest-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--success-color); }
     .mention-suggest-dot.away { background: var(--away-color); }
 
-
     /* ══ AWAY (js/11-presence.js) ══
        klabnet's open but they haven't used their computer in 5 minutes, or
        it's locked: an amber dot where the green one was, and their face a
@@ -6694,7 +6665,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .chat-channel-online-dot.away { box-shadow: 0 0 0 2px var(--bg); }
     .presence-card.is-away .presence-card-avatar > :not(.presence-card-online) { opacity: .6; }
     .presence-card.is-away:not(.is-playing) .presence-card-track { color: color-mix(in srgb, var(--away-color) 75%, var(--text-dim)); }
-
 
     /* ══════════════════════════════════════════════════════════════════
        PHOTOS SLIDESHOW (js/19-slideshow.js)
@@ -6815,7 +6785,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     html[data-fx="low"] .ss-bar { background: rgba(24,22,20,.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
     html[data-fx="low"] .ss-img { filter: none; }
 
-
     /* ══════════════════════════════════════════════════════════════════
        STARS: anything can be starred (js/21-stars.js); five stars and it
        goes gold. Chat's gold bubble lives with the chat bubbles above.
@@ -6835,13 +6804,8 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     #dockStar.on, #fsStar.on { opacity: 1; }
     /* Row stars sit with the row's other hover actions, but stay out once
        anyone has starred the song. */
-    .ap-track-star {
-      height: 28px; min-width: 28px; padding: 0 6px; border-radius: var(--radius-sm); flex-shrink: 0;
-      background: none; border: none; cursor: pointer; font-size: var(--fs-12); color: var(--text-dim);
-      opacity: 0; transition: opacity .15s, background .15s, color .15s;
-    }
-    .ap-track:hover .ap-track-star, .ap-track-star.has { opacity: 1; }
-    .ap-track-star:hover { background: var(--glass-fill-h); color: var(--text); }
+
+    
 
     /* Gold rows: songs and albums in lists and on album pages. */
     .picker-item.gold, .ap-track.gold, .picker-item.gold:hover, .ap-track.gold:hover {
@@ -6890,7 +6854,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .ph-star i { font-size: 22px; }
     .ph-star.mine i { color: var(--gold); text-shadow: 0 0 12px var(--gold-dim); }
     .ph-stage.gold .ph-frame > img { box-shadow: 0 0 0 1px var(--gold-dim), var(--bloom-gold); }
-
 
     /* ══════════════════════════════════════════
        PLAYLISTS (js/09b-playlists.js)
@@ -6953,8 +6916,8 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       white-space: pre-line; overflow-wrap: anywhere;
     }
     #musicShell .pl-desc a { color: var(--text); }
-    #musicShell .ap-btn-queue.pl-on { border-color: var(--glass-border-h); box-shadow: var(--bloom-white); }
-    #musicShell .ap-btn-queue.pl-more { width: 40px; padding: 0; justify-content: center; }
+
+    
 
     /* A narrow desktop window keeps the sidebar, which leaves this page
        about 350px: beside a 200px cover, a name had room for two letters
@@ -7024,7 +6987,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       .pl-edit-top { flex-direction: column; align-items: center; }
       .pl-edit-fields { width: 100%; }
     }
-
 
     /* ══════════════════════════════════════════════════════════════════
        KLABNET FOR MAC: look and feel like a Mac app (macOS 27)
@@ -8002,7 +7964,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     body:has(#phShell.is-empty) :is(#socShell, #photosShell, #videosShell, #sideNav) .ph-now { display: none; }
     .soc-sidebar > .ph-now { margin-top: 0; }
 
-
     /* Chat's group: who's online always (it's presence, not chat); the
        channels and messages once chat is signed in, "Connect chat" until. */
     :is(#socShell, #photosShell, #videosShell, #sideNav) .chat-side { display: flex; flex-direction: column; min-height: auto; flex: none; }
@@ -8074,47 +8035,31 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     :is(#socShell, #photosShell, #videosShell) #chatApp .chat-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
 
     /* Social's home: Music Home's head, Cover Flow and rows. */
-    .soc-home { padding-bottom: 18px; }
+
     :is(#socShell, #photosShell, #videosShell) .music-view-head { display: flex; align-items: baseline; gap: 12px; padding: 2px 4px 14px; flex: none; }
     :is(#socShell, #photosShell, #videosShell) .music-view-head h2 {
       margin: 0; font: 700 30px/1.15 var(--font-ui); letter-spacing: -0.015em; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     :is(#socShell, #photosShell, #videosShell) .music-view-head span { font-size: var(--fs-13); color: var(--text-dimmer); white-space: nowrap; }
-    .soc-home-body { display: flex; flex-direction: column; }
+
     /* Music Home's labels exactly (#musicShell .picker-section-label): the
        same type, 4px in from the boxes' edge, the same room above and below. */
-    .soc-home-body > .picker-section-label, .hp-sec > .picker-section-label {
-      font-size: var(--fs-10); font-weight: 600; letter-spacing: .16em; color: var(--text-dimmer);
-      padding: 14px 4px 8px; margin: 0.5rem 0 0;
-    }
-    .soc-home-body > .picker-section-label:first-child, .hp-sec > .picker-section-label { padding-top: 0; margin-top: 0; }
+
+    
     /* Music's sections are 6px apart besides; here the labels carry it. */
-    .soc-home-body > .picker-section-label:not(:first-child) { margin-top: calc(0.5rem + 6px); }
+
     /* From the feed: a few posts as cards (js/25-social.js). */
-    .soc-post {
-      min-width: 0; min-height: 112px; display: flex; flex-direction: column; gap: 8px;
-      padding: 12px 14px; border-radius: 10px; cursor: pointer; scroll-snap-align: start;
-      border: 1px solid var(--glass-border); background: var(--glass-fill);
-      transition: border-color .15s, background .15s;
-    }
-    .soc-post:hover { border-color: var(--glass-border-h); background: var(--glass-fill-h); }
-    .soc-post-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .soc-post-av {
-      width: 24px; height: 24px; border-radius: 50%; flex: none; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--glass-fill-h); color: var(--text-dim); font: 600 11px var(--font-ui);
-    }
-    .soc-post-av img { width: 100%; height: 100%; object-fit: cover; }
-    .soc-post-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .soc-post-when { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); }
-    .soc-post-text {
-      font-size: var(--fs-13); line-height: 1.45; color: var(--text-dim);
-      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
-    }
-    .soc-post-meta { margin-top: auto; display: flex; gap: 12px; font-size: var(--fs-11); color: var(--text-dimmer); }
-    .soc-post-meta i { margin-right: 3px; }
-    .soc-home-empty { padding: 10px 4px; font-size: var(--fs-13); color: var(--text-dimmer); }
+
+    
+
+    
+
+    
+
+    
+
+    
 
     /* (Social's sidebar folded away: "A PAGE'S SIDEBAR, FOLDED" at the end.) */
 
@@ -8245,11 +8190,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .profile-view-avatar img,
     .side-me-av,
     .side-me-av img,
-    .soc-post-av,
-    .soc-post-av img,
-    .soc-unread-face,
-    .soc-unread-face img,
-    .tg-face, .tg-face img, .tg-row-face, .tg-row-face img, .room-face, .room-face img, .wk-art-face, .wk-art-face img,
+    .tg-face, .tg-face img, .room-face, .room-face img, .wk-art-face, .wk-art-face img,
     .vc-av,
     .vc-av img,
     .rd-av { border-radius: var(--av-radius) !important; }
@@ -8314,7 +8255,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     html.win-idle :is(.eq-ico b, .chat-head-eq i, .mh-eq i),
     html.win-idle .presence-card-online::after,
     html.win-idle :is(.pz-eq i, .ph-eq b, .feed-rec-disc) { animation-play-state: paused !important; }
-
 
     /* ══ The player bar, more solid (the owner's call, 2026-10-24) ══
        Mostly the page's own colour now, with a little blur still showing
@@ -8466,7 +8406,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
 
     /* Stars are off (KLAB_STARS in js/00-util.js): every star button and
        the song menu's Star go. The data and the API stay. */
-    html.no-stars :is(.klab-star, #songCtxStar, .chat-msg-star-btn, .feed-post-star, .ph-star) { display: none !important; }
 
     /* ── Albums and Songs: the filter bar and the A–Z rail (js/26-browse.js) ── */
     #musicShell .browse-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 4px 16px; flex: none; }
@@ -8686,7 +8625,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       body:not(.is-playing) #fsPlayer .fs-art { transform: none; }
     }
 
-
     /* ── Music's Activity page (js/27-activity.js): who's listening now,
        with a bar that runs live, this week's numbers, and a card a
        person. Cards like Music Home's; the accent is the one colour. ── */
@@ -8748,7 +8686,6 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
       .act-now { grid-template-columns: 84px minmax(0, 1fr); gap: 12px; }
     }
     @media (prefers-reduced-motion: reduce) { .act-fill { transition: none; } }
-
 
     /* ── Radio (js/28-radio.js): GTA's wheel, a pill over
        the dock while tuned in, and "Your stations". ── */
@@ -9287,7 +9224,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
        pages don't spend a row on their own heading. Feed's @ is in the
        title bar while it's up (js/07-tabnav.js). */
     .tab-panel[data-tab-panel="feed"] .sec[data-sec="feed"] > .sec-head { display: none; }
-    :is(#socShell, #photosShell, #videosShell) .music-view-head:has(#socHomeTitle) { display: none; }
+
     .header-right .feed-mentions-btn { position: relative; }
     .header-right .feed-mentions-btn:not(.is-active) { border-color: transparent; background: none; }
 
@@ -9573,7 +9510,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     html.klabnet-app[data-platform="darwin"] #sideNav .nav-sub .picker-tab > .soc-count {
       background: none; color: var(--text-dim); font: 400 13px/18px var(--mac-font); min-width: 0; padding: 0;
     }
-    .soc-home-body > [hidden] { display: none !important; }
+
     html.nav-tree body.tab-social-group #sideNav #socialUnreadBadge { display: none !important; }
     /* Sidebar hidden: ☰ carries a dot, or the count was nowhere on screen. */
     /* :where(): no weight, so the Mac's fixed spot beside the traffic lights still wins (an id here dragged ☰ to the middle of the title bar). */
@@ -9585,29 +9522,20 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     .tab-nav-btn[hidden] { display: none !important; }
     /* Social's home: unread messages first. Rows like a mail list, not
        cards: no box, a hairline under each, the red dot of an unread one. */
-    .soc-unread { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); column-gap: 24px; margin-bottom: 18px; }
-    .soc-unread[hidden] { display: none; }
-    .soc-unread-row {
-      display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 6px 10px 18px; position: relative;
-      border: 0; border-bottom: 1px solid var(--glass-border); border-radius: 0; background: none; color: var(--text);
-      text-align: left; cursor: pointer; font: inherit; transition: background-color .15s;
-    }
-    .soc-unread-row::before {
-      content: ''; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #ff453a;
-    }
-    .soc-unread-row:hover { background: var(--glass-fill); }
-    .soc-unread-row:focus-visible { outline: 1px solid var(--glass-border-h); outline-offset: -1px; }
-    .soc-unread-face {
-      width: 32px; height: 32px; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center;
-      background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, transparent); color: var(--c, var(--text-dim)); font: 700 13px var(--font-ui);
-    }
-    .soc-unread-face.hash { background: var(--glass-fill-h); color: var(--text-dim); font-size: 15px; }
-    .soc-unread-face img { width: 100%; height: 100%; object-fit: cover; }
-    .soc-unread-tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .soc-unread-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-    .soc-unread-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .soc-unread-when { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--text-dimmer); }
-    .soc-unread-last { font-size: var(--fs-13); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
 
     /* ══ FEED, FOR A DESK (2026-11-02) ══
        The owner: the Feed felt "designed for an iPad". It reads like a
@@ -9699,7 +9627,7 @@ input[type="checkbox"].k-check:focus-visible { outline: none; box-shadow: var(--
     /* (Focus and .dlg-actions: COMPONENTS.) */
     /* Requests' button, over its list. */
     .mr-actions { display: flex; margin: 0 0 12px; }
-    #musicShell .mr-actions .ap-btn-queue { height: var(--control-h); padding: 0 14px; }
+
     /* The Spin knob reads as a word, not a shout. */
     .mh-wheel-spin { letter-spacing: 0; text-indent: 0; font-weight: 700; }
     /* A conversation with a person: the open one is marked on their face,
@@ -10679,7 +10607,7 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
    by, playlists, genre tiles. */
 .card-acts { position: absolute; inset: 0; pointer-events: none; }
 .card-acts > * { pointer-events: auto; position: absolute; }
-.k-card-play, .k-card-btn, .k-card-heart {
+.k-card-play, .k-card-btn {
   display: grid; place-items: center; cursor: pointer; padding: 0; font-size: 16px;
   opacity: 0; transform: translateY(4px);
   transition: opacity var(--m-fast) ease, transform var(--m-fast) var(--m-ease), background-color var(--m-fast) ease, color var(--m-fast) ease;
@@ -10688,9 +10616,7 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 .k-card-play:hover { opacity: .92; }
 .k-card-btn { right: 50px; bottom: 8px; width: 36px; height: 36px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-pop); color: var(--text); box-shadow: var(--elev-1); }
 .k-card-btn:hover { background: color-mix(in srgb, var(--surface-pop), var(--text) 8%); }
-.k-card-heart { top: 8px; right: 8px; width: 32px; height: 32px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-pop); color: var(--text); box-shadow: var(--elev-1); font-size: 15px; }
-.k-card-heart.on { opacity: 1; transform: none; }
-.k-card-play:active, .k-card-btn:active, .k-card-heart:active { transform: scale(.92); }
+.k-card-play:active, .k-card-btn:active { transform: scale(.92); }
 :is(.mh-card, .ap-disc-card, #pickerList .picker-item, .genre-tile):hover .card-acts > *,
 .card-acts > :focus-visible { opacity: 1; transform: none; }
 @media (hover: none) { .card-acts > * { opacity: 1; transform: none; } .k-card-btn { display: none; } }
@@ -10702,14 +10628,10 @@ html[data-fx="low"] .np-eq i { animation: none !important; transform: scaleY(.7)
 #musicShell #pickerList:not(.picker-list-grid) > .picker-item:not(.genre-tile) > .card-acts > .k-card-play { order: 3; }
 /* Genre tiles: just ▶, bottom right. */
 #musicShell .genre-tile .card-acts .k-card-play { background: rgba(255,255,255,.94); color: #111; }
-/* Artists: round faces, names centred, ▶ and ♥ over the face. */
+/* Artists: round faces, names centred, no buttons (the circle cut them off). */
 .mh-card-art.round { border-radius: 50%; }
 .mh-card-art.round .artist-initials, .mh-card-art.round > .picker-item-art-ph { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; font-size: 34px; }
 .mh-artist .mh-card-t, .mh-artist .mh-card-a { text-align: center; }
-.mh-artist .k-card-play { right: 12%; bottom: 6%; }
-.mh-artist .k-card-heart { top: 6%; right: 12%; }
-#musicShell .picker-list.picker-list-grid > .artist-card .k-card-play { right: 12%; bottom: 6%; }
-#musicShell .picker-list.picker-list-grid > .artist-card .k-card-heart { top: 6%; right: 12%; }
 #musicShell .picker-list.picker-list-grid > .artist-card .picker-item-info { text-align: center; }
 /* Discography and "More by": the cover in a box the buttons sit on. */
 #musicShell .ap-disc-art { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: var(--glass-fill); box-shadow: 0 6px 18px var(--shadow-30); }
@@ -11057,7 +10979,6 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 .vid-up-bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--fill-hover); overflow: hidden; }
 .vid-up-bar b { display: block; height: 100%; background: var(--text); transform-origin: 0 50%; transition: transform 200ms linear; }
 
-
 /* ── Photos' chips: a like is a red heart, not the filled house chip ── */
 #phReacts { display: flex; gap: 6px; }
 #phReacts .k-chip { height: 28px; padding: 0 10px; gap: 6px; font-variant-numeric: tabular-nums; }
@@ -11117,25 +11038,12 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
    week as a tidy list of lines. No looping motion: the progress lines move
    once a second from JS (paused with the window idle), the eq bars are
    Home's own (.pz-eq, already in the idle and fx-low lists). */
-.soc-label { display: block; padding: 0 4px 8px; }
-.soc-home-body > * + .soc-label, .soc-home-body > * + .soc-shelf-head { margin-top: 28px; }
-.soc-home-body > [hidden] + .soc-label { margin-top: 28px; }
-.soc-shelf-head { display: flex; align-items: baseline; gap: 12px; padding: 0 4px 8px; }
-.soc-shelf-head[hidden] { display: none; }
-.soc-see-all {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; border: 0; border-radius: var(--r-sm);
-  background: none; color: var(--text-dimmer); font: 500 var(--fs-12) var(--font-ui); cursor: pointer;
-  transition: color var(--m-fast) ease, background-color var(--m-fast) ease;
-}
-.soc-see-all i { font-size: 14px; }
-.soc-see-all:hover { color: var(--text); background: var(--fill); }
+
 .tg-head { padding-bottom: 8px; min-height: 28px; }
-.tg-head .soc-start { margin-left: auto; display: flex; gap: 6px; }
-.tg-head .soc-start:empty { display: none; }
 
 /* Together: the rooms. */
 .tg-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
-.tg-rooms[hidden], .tg-empty[hidden], .tg-listen[hidden], .tg-listen-label[hidden] { display: none; }
+.tg-rooms[hidden] { display: none; }
 .tg-card {
   display: flex; gap: 14px; min-width: 0; padding: 12px; border-radius: var(--r-lg);
   border: 1px solid var(--line); background: var(--fill);
@@ -11173,27 +11081,8 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 .tg-who { flex: 1; min-width: 0; font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tg-here { flex: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-dimmer); }
 .tg-foot .k-btn { flex: none; }
-.tg-empty.k-empty { padding: 28px 20px 30px; border: 1px dashed var(--line); border-radius: var(--r-lg); }
-.tg-start { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.tg-empty .tg-start .k-btn { margin-top: 0; }
 
 /* Listening now: one line a person, under the rooms. */
-.tg-listen-label { margin-top: 22px; }
-.tg-listen { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); column-gap: 24px; }
-.tg-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 7px 4px; border-bottom: 1px solid var(--line); }
-.tg-row-face {
-  width: 28px; height: 28px; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: color-mix(in srgb, var(--c, var(--text-dim)) 22%, transparent); color: var(--c, var(--text-dim)); font: 700 12px var(--font-ui);
-}
-.tg-row-face img { width: 100%; height: 100%; object-fit: cover; }
-.tg-row-tx {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 0; border: 0; background: none;
-  text-align: left; font: inherit; color: inherit; cursor: pointer;
-}
-.tg-row-name { font: 600 var(--fs-13) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tg-row-song { font-size: var(--fs-12); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tg-row-tx:hover .tg-row-song { color: var(--text); }
-.tg-row .k-btn { flex: none; }
 
 /* This week on klabnet: a list of lines, each with its own replies. */
 .wk { margin-top: 30px; }
@@ -11256,10 +11145,6 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 .wk-empty.k-empty { padding: 26px 20px; }
 
 /* From the feed: one row of a few cards. */
-.soc-feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.soc-feed[hidden] { display: none; }
-.soc-feed .soc-post-text { -webkit-line-clamp: 3; }
-.soc-home { padding-bottom: 32px; }
 
 /* The watch party's bar, over the player (js/41-rooms.js). */
 .room-bar {
@@ -11283,14 +11168,14 @@ html[data-fx="low"] .q-pop { background: var(--modal-bg); -webkit-backdrop-filte
 
 @media (max-width: 760px) and (pointer: coarse) {
   .tg-head { flex-wrap: wrap; }
-  .tg-head .soc-start { margin-left: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+
   .tg-rooms { grid-template-columns: minmax(0, 1fr); }
   .tg-art { width: 72px; height: 72px; }
   .tg-art.wide { width: 112px; height: 63px; }
   .wk-row { flex-wrap: wrap; gap: 10px 12px; }
   .wk-acts { width: 100%; padding-left: 60px; margin-top: 0; }
   .wk-thread-in { padding-left: 4px; }
-  .soc-feed { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 78%; overflow-x: auto; scrollbar-width: none; }
+
   .room-bar .k-btn span { display: none; }
 }
 
@@ -12053,7 +11938,6 @@ html[data-fx="low"] .tv-g-prog.on { box-shadow: inset 0 0 0 1px rgba(255,255,255
 .vs-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .vs-tiles[data-mode="focus"] .vs-tile:not(.big) .vs-viewers { display: none; }
 
-
 /* You're sharing: a pill under the title bar, on every page. */
 .vs-pill {
   position: fixed; top: 62px; left: 50%; z-index: var(--z-panel, 300); transform: translateX(-50%);
@@ -12780,7 +12664,7 @@ html[data-fx="low"] .vp-card-i.pulse { animation: none; }
    parts throughout; nothing loops (the call's timer is text). */
 .ct-page { padding-bottom: 32px; }
 .ct-head .ct-views button:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; }
-.ct-missed { min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--danger); color: #fff; font: 700 10px/16px var(--font-ui); text-align: center; }
+
 .ct-find { margin: 0 0 10px; max-width: 520px; }
 .ct-label { margin: 18px 8px 6px; }
 .ct-list > .ct-label:first-child { margin-top: 8px; }
@@ -13092,6 +12976,10 @@ html[data-fx="low"] .hp-clock-now, html.oled .hp-clock-now { text-shadow: none; 
               opacity 200ms var(--m-ease), translate 220ms var(--m-ease), border-color var(--m-fast) ease;
 }
 .toast-item.visible { opacity: 1; }
+/* Arriving: drops in from just above where it'll sit. */
+.toast-item:not(.visible):not(.leaving) { translate: 0 -12px; }
+/* A finger's sideways swipe closes it (the browser would take it as a pan). */
+.toast-item { touch-action: pan-y; }
 .toast-item.leaving { opacity: 0 !important; translate: 24px 0; pointer-events: none; transition-duration: 340ms, 340ms, 160ms, 200ms; }
 .toast-item.swiped { translate: 110% 0 !important; }
 .toast-item.dragging { transition: transform 340ms cubic-bezier(.2, .8, .2, 1), height 340ms cubic-bezier(.2, .8, .2, 1); opacity: calc(1 - var(--drag, 0) * .6); cursor: grabbing; }
@@ -13178,7 +13066,6 @@ html[data-fx="low"] .toast-item { -webkit-backdrop-filter: none; backdrop-filter
 @media (max-width: 760px) and (pointer: coarse) {
   .toast-flyout { left: 8px; right: 8px; width: auto; }
 }
-
 
 /* ══ FOLDING CHAT'S LISTS (js/48-sidefold.js, 2026-11-21) ══
    Channels, Voice and People fold from their heading. Folded, a list keeps
@@ -13297,3 +13184,28 @@ html[data-fx="low"] .toast-item { -webkit-backdrop-filter: none; backdrop-filter
 #feedList .feed-post-replies:not(.replying) .feed-post-reply-composer { display: none; }
 #feedList .feed-post-replies.replying .feed-post-reply-composer { margin-top: 8px; }
 #feedList .feed-post-replies:not(.has-replies) .feed-post-reply-composer { margin-top: 0; }
+
+/* ══ SNAPPY (2026-11-21, the owner: "speed and snapiness is important too.
+   the site should never feel sluggish") ══
+   Long lists draw only what's on screen: Albums drew and laid out all 607
+   cards at once (55ms, a stutter on every press of Albums; 5ms like this).
+   The placeholder size is a card's real one, so the A–Z rail still lands
+   right; the clip margin keeps a hover glow from being cut off. */
+.picker-list-grid > .picker-item,
+.picker-list:not(.picker-list-grid):not(.vsongs) > .picker-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 208px;
+  overflow-clip-margin: 28px;
+}
+.picker-list:not(.picker-list-grid):not(.vsongs) > .picker-item { contain-intrinsic-size: auto 56px; }
+/* Music's title sat 4px right and 2px lower than every other page's (its
+   head was padded 2px 4px), so it twitched when you changed page. Now
+   it's where the house title (.k-page-title) is, with its tracking. */
+#musicViewHead.music-view-head { padding: 0 0 14px; }
+#musicViewTitle { letter-spacing: -0.02em; }
+
+/* A loading line only shows if the wait is noticeable: held back 300ms,
+   then faded in, so on the LAN a list that arrives at once never flashes
+   "Loading…" first (owner: "should never feel sluggish, especially on LAN"). */
+[data-wait] { animation: kWait 180ms ease 300ms both; }
+@keyframes kWait { from { opacity: 0; } }

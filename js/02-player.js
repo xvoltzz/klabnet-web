@@ -801,7 +801,7 @@ async function loadPickerTab(tab) {
   // A new search keeps the last results up, dimmed, until its own arrive:
   // blanking them at every pause in typing jumped the page back to the top.
   if (tab === 'search' && pickerQuery.trim() && pickerList.querySelector('.picker-item')) pickerList.classList.add('is-stale');
-  else pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
+  else pickerList.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
 
   let songs = [];
   try {
@@ -1161,6 +1161,10 @@ function toastHost() {
   return host;
 }
 function toastFan(on) {
+  // Folding away from a Reply that was never typed in: it goes back to
+  // being a card that times out (left replying, it was held for good,
+  // behind whatever came next).
+  if (!on) toastLive().forEach(t => { if (t.classList.contains('replying') && !t.querySelector('.tst-reply input')?.value.trim()) t.classList.remove('replying'); });
   _toast.open = on;
   _toast.host?.classList.toggle('open', on);
   toastLive().forEach(t => on ? toastHold(t) : toastResume(t));
@@ -1209,7 +1213,11 @@ function toastLayout() {
 // The time left, held while the stack is fanned out or something's typed.
 function toastArm(t, ms) {
   clearTimeout(t._hide); t._hide = 0;
-  if (t._sticky) { t.style.removeProperty('--tst-ms'); t.classList.add('sticky'); return; }
+  // setTimeout(f, Infinity) runs at once (it's clamped to 0): an endless
+  // time is sticky.
+  if (!Number.isFinite(ms)) t._sticky = true;
+  t.classList.toggle('sticky', !!t._sticky);
+  if (t._sticky) { t.style.removeProperty('--tst-ms'); return; }
   t._left = ms; t._since = performance.now();
   t.style.setProperty('--tst-ms', ms + 'ms');
   // Restart the hairline.
@@ -1278,6 +1286,7 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
     t._count++;
     t._at = Date.now();
     t._spec = spec;
+    t._sticky = !!opts.sticky;
     if (opts.onGone) t._onGone = opts.onGone;
     if (t.classList.contains('replying')) {
       // Don't lose what's being typed: just the words and the count.
@@ -1288,7 +1297,13 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
       if (!c) { c = document.createElement('span'); c.className = 'tst-count'; top?.after(c); }
       c.textContent = t._count;
     } else toastRender(t);
-    if (t !== toastLive()[0]) host.prepend(t);
+    if (t !== toastLive()[0]) {
+      // Moving it blurs a reply being typed in it: put the caret back.
+      const f = t.contains(document.activeElement) ? document.activeElement : null;
+      const sel = f && 'selectionStart' in f ? [f.selectionStart, f.selectionEnd] : null;
+      host.prepend(t);
+      if (f) { try { f.focus({ preventScroll: true }); if (sel) f.setSelectionRange(sel[0], sel[1]); } catch {} }
+    }
     t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump');
     toastArm(t, ms);
     requestAnimationFrame(toastLayout);
@@ -1309,13 +1324,14 @@ function showToast(msg, icon, durationMs, avatarUrl, onClick, opts) {
   // Too many: the oldest quick ones go first, then the oldest of any.
   let live = toastLive();
   while (live.length > TOAST_MAX) {
-    const old = [...live].reverse().find(x => !x.classList.contains('note') && !x._sticky) || live[live.length - 1];
+    // (Never the one just shown: a "Saved" over six notes went at once.)
+    const old = [...live].reverse().find(x => x !== t && !x.classList.contains('note') && !x._sticky) || live[live.length - 1];
     dismissToast(old);
     live = toastLive();
   }
   toastWire(t);
-  // Enter from where it'll sit, after a frame so the transition runs.
-  t.style.transform = 'translate3d(0, -10px, 0) scale(.98)';
+  // Enter: the card drops in (css .toast-item:not(.visible) .tst-card);
+  // the box itself is where toastLayout puts it from the start.
   toastLayout();
   requestAnimationFrame(() => requestAnimationFrame(() => { t.classList.add('visible'); toastLayout(); }));
   toastArm(t, ms);

@@ -65,7 +65,6 @@
   }
   const json = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const clone = x => JSON.parse(JSON.stringify(x));
-  const motion = () => (typeof klabMotionOk === 'function' ? klabMotionOk() : true);
   const domain = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
   const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -513,7 +512,6 @@
   new MutationObserver(() => { if (S && !page.querySelector('.st[data-st-id]')) leaveStudio(); }).observe(page, { childList: true });
 
   const map = () => makeMap(S.work.edit, S.D);
-  const editLen = () => map().len;
   function dirty() {
     if (!S) return false;
     const w = S.work, s = S.saved;
@@ -1230,7 +1228,7 @@
     }
   }
   function videoPicker(anchor, done) {
-    openChatModal('Choose a video', '<div class="st-vpick"><label class="k-field-box"><i class="ti ti-search"></i><input type="text" id="stVq" placeholder="Search videos" autocomplete="off" spellcheck="false"></label><div class="st-vres" id="stVres"><div class="k-empty">Loading…</div></div></div>' +
+    openChatModal('Choose a video', '<div class="st-vpick"><label class="k-field-box"><i class="ti ti-search"></i><input type="text" id="stVq" placeholder="Search videos" autocomplete="off" spellcheck="false"></label><div class="st-vres" id="stVres"><div class="k-empty" data-wait>Loading…</div></div></div>' +
       '<div class="dlg-actions"><button class="k-btn" data-dlg-cancel>Cancel</button></div>', null);
     document.querySelector('[data-dlg-cancel]')?.addEventListener('click', () => closeChatModal());
     let t = 0, seq = 0;

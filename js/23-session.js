@@ -706,8 +706,11 @@
   connect();
   // Back in front (a phone's browser drops the stream while it's away):
   // don't wait out the retry.
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && !es) { retryIn = 3000; connect(); } });
-  addEventListener('pageshow', e => { if (e.persisted && !es) connect(); });
+  // A stream the browser closed without an error event (a page frozen in
+  // the back/forward cache) counts as none, or nothing ever reopened it.
+  const dead = () => { if (es && es.readyState === EventSource.CLOSED) { es = null; connected = false; } return !es; };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && dead()) { retryIn = 3000; connect(); } });
+  addEventListener('pageshow', e => { if (e.persisted && dead()) connect(); });
 
   addEventListener('pagehide', e => {
     if (e.persisted) return;

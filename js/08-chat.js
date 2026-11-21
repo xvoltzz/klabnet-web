@@ -768,6 +768,8 @@ function renderChannelList() {
       const dl = document.getElementById('chatDmList');
       if (dl) dl.innerHTML = '';
     }
+    // Nobody to have a conversation with any more: People lists them again.
+    if (window.klabChatDmUsers?.().size) { const none = new Set(); window.klabChatDmUsers = () => none; window.dispatchEvent(new CustomEvent('klab:chat-rooms')); }
     _chatActiveRoomId = null;
     renderTimeline();
     return;
@@ -1031,15 +1033,7 @@ function chatConvMenu(e) {
   klabMenu(e, [
     { header: room.name || 'Conversation' },
     { label: invited ? 'Accept invite' : 'Open', icon: invited ? 'ti-mail-opened' : 'ti-message', action: () => row.click() },
-    { label: 'Mark as read', icon: 'ti-checks', hidden: !_chatUnreadRooms.has(room.roomId), action: () => {
-      markRoomRead(room.roomId);
-      updateChannelUnreadDots();
-      const last = lastReceiptable(room.getLiveTimeline().getEvents());
-      const client = MatrixChat.client;
-      if (last) client.sendReadReceipt(last).then(() => {
-        if (MatrixChat.client === client) _lastSentReadEventId.set(room.roomId, last.getId());
-      }).catch(() => {});
-    } },
+    { label: 'Mark as read', icon: 'ti-checks', hidden: !_chatUnreadRooms.has(room.roomId), action: () => chatMarkRoomRead(room.roomId) },
     { label: chatRoomMuted(room.roomId) ? 'Unmute' : 'Mute', icon: chatRoomMuted(room.roomId) ? 'ti-bell' : 'ti-bell-off', hidden: invited,
       action: () => setChatRoomMuted(room.roomId, !chatRoomMuted(room.roomId)) },
     '-',
@@ -2097,7 +2091,7 @@ function feedbackModalHTML() {
     <div class="chat-modal-error" id="fbError" hidden></div>
     <div class="dlg-actions"><button class="k-btn primary" id="fbSubmit">Post</button></div>
     <div class="fb-reported">Posted</div>
-    <div class="chat-modal-list" id="fbList"><div class="picker-empty">Loading…</div></div>
+    <div class="chat-modal-list" id="fbList"><div class="picker-empty" data-wait>Loading…</div></div>
   `;
 }
 
@@ -2376,7 +2370,7 @@ function openBrowseModal() {
   openChatModal('Browse channels', `
     <div class="chat-modal-search"><i class="ti ti-hash"></i><input type="text" id="chatJoinById" placeholder="Or paste a room ID / #alias:server" autocomplete="off" /><button class="chat-modal-row-btn" id="chatJoinByIdBtn">Join</button></div>
     <div class="chat-modal-search" style="margin-top:6px;"><i class="ti ti-search"></i><input type="text" id="chatBrowseSearch" placeholder="Search channels…" autocomplete="off" /></div>
-    <div class="chat-modal-list" id="chatBrowseList"><div class="picker-empty">Loading…</div></div>
+    <div class="chat-modal-list" id="chatBrowseList"><div class="picker-empty" data-wait>Loading…</div></div>
   `);
   const listEl   = document.getElementById('chatBrowseList');
   const searchEl = document.getElementById('chatBrowseSearch');
@@ -2440,7 +2434,7 @@ function openBrowseModal() {
   }
 
   async function load(term) {
-    listEl.innerHTML = '<div class="picker-empty">Loading…</div>';
+    listEl.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
     const ask = ++browseSeq;
     try {
       const res = await MatrixChat.client.publicRooms(term ? { limit: 50, filter: { generic_search_term: term } } : { limit: 50 });
@@ -3496,6 +3490,19 @@ function markRoomRead(roomId) {
   // Read here (or on another device): its pop-up has done its job.
   window.klabToasts?.dismissGroup('chat:' + roomId);
 }
+// "Mark read" from a menu or a pop-up: here, and a receipt so the server
+// (another device, the next reload's seedUnreadFromServer) agrees. Only
+// dropping it locally brought the room back unread on the next load.
+function chatMarkRoomRead(roomId) {
+  markRoomRead(roomId);
+  updateChannelUnreadDots();
+  const client = MatrixChat.client;
+  const room = client?.getRoom(roomId);
+  const last = room && lastReceiptable(room.getLiveTimeline().getEvents());
+  if (last) client.sendReadReceipt(last).then(() => {
+    if (MatrixChat.client === client) _lastSentReadEventId.set(roomId, last.getId());
+  }).catch(() => {});
+}
 
 // Toast for an incoming message the user isn't already looking at —
 // showToast() already plays the sitewide, user-customizable "notify" SFX
@@ -3585,13 +3592,13 @@ function notifyNewMessage(event, room) {
     // sparkle when a channel message mentions you.
     { sound: isDm ? 'dm' : (mentionsMe(body) ? 'mention' : 'message'), from: mxIdToUsername(senderId),
       group: 'chat:' + roomId, sticky: !!_settings.popSticky,
-      onReply: text => MatrixChat.client.sendMessage(roomId, {
+      onReply: text => !MatrixChat.client ? Promise.reject(new Error("Chat isn’t connected")) : MatrixChat.client.sendMessage(roomId, {
         msgtype: 'm.text', body: text,
         'm.relates_to': { 'm.in_reply_to': { event_id: event.getId() } },
-      }).then(() => { markRoomRead(roomId); updateChannelUnreadDots?.(); }),
-      actions: [{ label: 'Mark read', icon: 'ti-check', run: () => { markRoomRead(roomId); updateChannelUnreadDots?.(); } }],
+      }).then(() => { markRoomRead(roomId); updateChannelUnreadDots(); }),
+      actions: [{ label: 'Mark read', icon: 'ti-check', run: () => chatMarkRoomRead(roomId) }],
       menu: () => [
-        { label: 'Mark read', icon: 'ti-check', action: () => { markRoomRead(roomId); updateChannelUnreadDots?.(); } },
+        { label: 'Mark read', icon: 'ti-check', action: () => chatMarkRoomRead(roomId) },
         { label: isDm ? 'Mute this conversation' : 'Mute this channel', icon: 'ti-bell-off', action: () => { setChatRoomMuted(roomId, true); window.klabToasts?.dismissGroup('chat:' + roomId); showToast('Muted. Unmute it from its right-click menu in Chat', 'ti-bell-off', { silent: true }); } },
         { label: 'Turn off message pop-ups', icon: 'ti-message-off', action: () => { _settings.popMessages = false; saveSettings(); window.klabToasts?.dismissGroup('chat:' + roomId); showToast('Message pop-ups off. Turn them back on in Settings', 'ti-message-off', { silent: true }); } },
       ] });

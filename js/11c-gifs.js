@@ -159,7 +159,7 @@ window.klabGifPicker = (function() {
     const my = ++reqId;
     status.textContent = next ? '' : '…';
     try {
-      const res = await fetch('/api/gifs?q=' + encodeURIComponent(q) + '&offset=' + next);
+      const res = await fetchTimeout('/api/gifs?q=' + encodeURIComponent(q) + '&offset=' + next, {}, 10000); // a stall held `loading` for good
       if (my !== reqId) return;
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();

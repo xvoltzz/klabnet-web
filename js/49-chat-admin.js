@@ -32,7 +32,6 @@
   const ago = s => s ? (typeof klabRelativeTime === 'function' ? klabRelativeTime(s * 1000) : when(s)) : '';
   const roomName = r => r.name || r.alias || (r.kind === 'dm' ? 'Direct message' : 'Unnamed room');
   const JOIN = { public: 'Anyone on klab', invite: 'Invite only', knock: 'Ask to join' };
-  const HIST = { shared: 'Everything', invited: 'Since their invite', joined: 'Since they joined', world_readable: 'Everything' };
 
   // Who can see it, said plainly.
   function seesLine(r) {
@@ -193,17 +192,20 @@
         '<button type="submit" class="k-btn sm">Invite</button><datalist id="caPeople">' + (window.klabPeople?.() || []).map(u => '<option value="' + esc(u) + '"></option>').join('') + '</datalist></form>' +
       (detail ? '<div class="ca-people">' + (inside.map(personHTML).join('') || '<p class="ca-quiet">Nobody’s in it.</p>') + '</div>' +
         (waiting.length ? '<div class="k-label ca-label">Invited, asking or banned</div><div class="ca-people">' + waiting.map(personHTML).join('') + '</div>' : '')
-        : '<p class="ca-quiet">Loading…</p>');
+        : '<p class="ca-quiet" data-wait>Loading…</p>');
     main.classList.toggle('busy', busy);
   }
 
   async function change(body, okMsg) {
     if (busy) return;
     busy = true; paintMain();
+    // The room it's for: another row can be picked while this is out.
+    const id = sel;
     try {
-      detail = await api('/rooms/' + enc(sel), { method: 'PATCH', body });
-      const r = rooms.find(x => x.id === sel);
-      if (r) Object.assign(r, { joinRule: detail.joinRule, listed: detail.listed, history: detail.history, name: detail.name, members: detail.members });
+      const d = await api('/rooms/' + enc(id), { method: 'PATCH', body });
+      if (sel === id) detail = d;
+      const r = rooms.find(x => x.id === id);
+      if (r) Object.assign(r, { joinRule: d.joinRule, listed: d.listed, history: d.history, name: d.name, members: d.members });
       if (okMsg) showToast(okMsg, 'ti-check', { silent: true });
       paintList();
     } catch (e) { showToast(e.message, 'ti-alert-triangle'); }
@@ -212,9 +214,11 @@
   async function member(user, action, extra = {}) {
     if (busy) return;
     busy = true; paintMain();
+    const id = sel;
     try {
-      detail = await api('/rooms/' + enc(sel) + '/members', { method: 'POST', body: { user, action, ...extra } });
-      const r = rooms.find(x => x.id === sel); if (r) r.members = detail.members;
+      const d = await api('/rooms/' + enc(id) + '/members', { method: 'POST', body: { user, action, ...extra } });
+      if (sel === id) detail = d;
+      const r = rooms.find(x => x.id === id); if (r) r.members = d.members;
       paintList();
     } catch (e) { showToast(e.message, 'ti-alert-triangle'); }
     finally { busy = false; paintMain(); }
@@ -244,16 +248,19 @@
       else if (act === 'edit') editDialog();
       else if (act === 'claim') {
         busy = true; paintMain();
-        try { detail = await api('/rooms/' + enc(sel) + '/claim', { method: 'POST' }); showToast('You’re an admin in ' + roomName(detail), 'ti-shield', { silent: true }); }
+        const id = sel;
+        try { const d = await api('/rooms/' + enc(id) + '/claim', { method: 'POST' }); if (sel === id) detail = d; showToast('You’re an admin in ' + roomName(d), 'ti-shield', { silent: true }); }
         catch (err) { showToast(err.message, 'ti-alert-triangle'); }
         finally { busy = false; paintMain(); }
       } else if (act === 'delete') {
         const r = detail || rooms.find(x => x.id === sel) || {};
         if (!(await showConfirmDialog('Delete ' + roomName(r) + '?', 'Everyone is removed, its history is wiped from the server, and it can’t be brought back.', 'Delete'))) return;
         busy = true; paintMain();
+        const id = sel;
         try {
-          await api('/rooms/' + enc(sel), { method: 'DELETE', body: { purge: true } });
-          rooms = rooms.filter(x => x.id !== sel); sel = null; detail = null;
+          await api('/rooms/' + enc(id), { method: 'DELETE', body: { purge: true } });
+          rooms = rooms.filter(x => x.id !== id);
+          if (sel === id) { sel = null; detail = null; }
           showToast('Deleted ' + roomName(r), 'ti-trash', { silent: true });
           paintList();
         } catch (err) { showToast(err.message, 'ti-alert-triangle'); }
@@ -330,11 +337,16 @@
   document.getElementById('chatAdminBtn')?.addEventListener('click', e => { e.stopPropagation(); open(); });
   document.getElementById('chatAdminOpen')?.addEventListener('click', () => { document.getElementById('settingsBackdrop')?.classList.contains('open') && window.closeSettings?.(); open(); });
 
+  let tries = 0;
   async function check() {
+    let r = null;
     try {
-      const r = await fetchTimeout(API, {}, 8000);
+      r = await fetchTimeout(API, {}, 8000);
       on = r.ok && !!(await r.json()).enabled;
     } catch (e) { on = false; }
+    // No answer (offline at load) or a 5xx (the API restarting) isn't "not
+    // an admin": asked again a few times, a minute apart.
+    if ((!r || r.status >= 500) && ++tries < 10) setTimeout(check, 60000);
     paintBadge();
     if (on) load();
   }

@@ -136,6 +136,8 @@
       if (commits) paintChanges();
       paintFoot();
     }
+    // Already open (asked again): a second layer would be left behind.
+    if (sheet.classList.contains('open')) return;
     sheet.classList.add('open');
     SFX?.play('sheet');
     pop = window.klabLayers?.push(sheet, { kind: 'dialog', dim: true, close });

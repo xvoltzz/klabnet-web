@@ -337,7 +337,7 @@
   document.body.appendChild(wheel);
   klabLayers.watch(wheel, { kind: 'popover', open: el => !el.hidden && el.classList.contains('open'), close: () => closeWheel() });
   const slotsEl = wheel.querySelector('.radio-slots'), hub = wheel.querySelector('.radio-hub-in'), ring = wheel.querySelector('.radio-ring');
-  let sel = 0, hubTimer = 0;
+  let sel = 0, hubTimer = 0, wheelSeq = 0;
   const choices = () => [null, ...stations]; // the first is "off"
 
   async function openWheel() {
@@ -346,7 +346,10 @@
     requestAnimationFrame(() => wheel.classList.add('open'));
     SFX && SFX.play('open');
     renderWheel(true);
+    const my = ++wheelSeq;
     const got = await load();
+    // Let go of before the list came: no hub timer for a closed wheel.
+    if (my !== wheelSeq) return;
     if (got === null && !stations.length) hub.innerHTML = '<div class="radio-hub-name">Radio needs the latest klabnet-api</div>';
     else renderWheel(true);
     if (Date.now() - offsetAt > 10 * 60e3) syncClock();
@@ -355,6 +358,7 @@
   }
   function closeWheel(silent) {
     if (wheel.hidden) return;
+    wheelSeq++;
     wheel.classList.remove('open');
     clearInterval(hubTimer);
     if (!silent) SFX && SFX.play('close');
@@ -501,7 +505,7 @@
   async function openManage(openId) {
     manage.classList.add('open');
     SFX && SFX.play('sheet');
-    mBody.innerHTML = '<div class="picker-empty">Loading…</div>';
+    mBody.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
     await load(true);
     paintManage(openId);
   }
@@ -1139,7 +1143,12 @@
       else if (wasVisible) dialGone();
       wasVisible = vis;
     }
+    let setSeq = 0;
     async function set(yes, quiet) {
+      // Only the newest switch carries on past its waits: on, off and on
+      // again quickly ran two of these to the end, and the first one's
+      // interval was never cleared (beat() twice a second, for good).
+      const my = ++setSeq;
       mode = !!yes;
       try { localStorage.setItem(MODE_KEY, mode ? '1' : ''); } catch (e) {}
       dockEl.classList.toggle('radio-mode', mode);
@@ -1151,14 +1160,15 @@
       if (!mode) { if (power && !quiet) off(); dialGone(); paintNow(); return; }
       paintNow();
       await load();
-      if (!mode) return;
+      if (!mode || my !== setSeq) return;
       dialV.build();
       // Laid out first, so the dial can be scrolled to the needle.
       await new Promise(r => requestAnimationFrame(r));
-      if (!mode) return;
+      if (!mode || my !== setSeq) return;
       dialV.follow(dialFreq);
       if (!quiet) powerOn(); else needleAt(dialFreq, dialV, true);
       wasVisible = visible();
+      clearInterval(tick);
       tick = setInterval(beat, 1000);
     }
     return {

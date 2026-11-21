@@ -26,7 +26,6 @@
 
   const now = () => Date.now() / 1000;
   const t = iso => (Date.parse(iso) || 0) / 1000;
-  const me = () => window.KLAB_USER?.username;
   const names = list => {
     const n = (list || []).filter(Boolean);
     if (n.length <= 2) return n.map(esc).join(' and ');
@@ -99,7 +98,7 @@
       let html = '', sub = '';
       if (i.kind === 'reply') { html = who(i.who[0]) + (i.video ? ' commented on your video' : ' replied to your post'); sub = esc(i.text); }
       else if (i.kind === 'mention') { html = who(i.who[0]) + ' mentioned you' + (i.reply ? ' in a reply' : ''); sub = esc(i.text); }
-      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.photo ? 'to your photos' : i.video ? esc('to “' + (i.on || 'your video') + '”') : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
+      else if (i.kind === 'react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = i.screenshot ? 'to your screenshots' : i.photo ? 'to your photos' : i.video ? esc('to “' + (i.on || 'your video') + '”') : esc(i.on ? '“' + i.on + '”' : 'to your post'); }
       else if (i.kind === 'tag') { html = who(i.who[0]) + ' tagged you in photos'; sub = esc(i.text || ''); }
       // This week on klabnet (Social): a line about you, or a thread you're in.
       else if (i.kind === 'week-react') { html = names(i.who) + ' reacted ' + i.emoji.slice(0, 4).map(klabReactHTML).join(' '); sub = esc('to This week’s ' + (i.on || 'line')); }
@@ -108,7 +107,8 @@
       else if (i.kind === 'week-reply') { html = names(i.who) + ' replied to This week’s ' + esc(i.on || 'line'); sub = esc(i.text || ''); }
       else continue;
       if (i.kind.startsWith('week-')) { out.push({ at, html: row({ act: 'week', data: i.week + '|' + i.line, u: i.who[0], html, sub, at, fresh }) }); continue; }
-      out.push({ at, html: row({ act: i.video ? 'video' : i.kind === 'tag' || i.photo ? 'photo' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
+      // A screenshot is only found among the screenshots (Photos → Screenshots).
+      out.push({ at, html: row({ act: i.video ? 'video' : i.screenshot ? 'shot' : i.kind === 'tag' || i.photo ? 'photo' : 'post', data: i.postId, u: i.who[0], html, sub, at, fresh }) });
     }
     return out.sort((a, b) => b.at - a.at).map(r => r.html).join('');
   }
@@ -136,7 +136,7 @@
     if (!panel) return;
     const body = panel.querySelector('.rc-body');
     if (missing && !chats().length) { body.innerHTML = '<p class="rc-empty">The recap needs the latest klabnet-api.</p>'; return; }
-    if (!data && !chats().length) { body.innerHTML = '<p class="rc-empty">Loading…</p>'; return; }
+    if (!data && !chats().length) { body.innerHTML = '<p class="rc-empty" data-wait>Loading…</p>'; return; }
     const mine = forYouRows(), around = aroundRows();
     const since = data ? Math.min(seen, now() - DAY) : 0;
     panel.querySelector('.rc-since').textContent = since ? 'Since ' + (now() - since < DAY + 60 ? 'yesterday' : ago(since) + ' ago') : '';
@@ -150,7 +150,7 @@
     else if (act === 'post') window.klabFeedFocus?.(d);
     else if (act === 'feed') setActiveTab('feed');
     else if (act === 'photos') setActiveTab('photos');
-    else if (act === 'photo') { if (d && window.klabOpenPhoto) window.klabOpenPhoto(+d); else setActiveTab('photos'); }
+    else if (act === 'photo' || act === 'shot') { if (d && window.klabOpenPhoto) window.klabOpenPhoto(+d, null, act === 'shot' ? 'screenshot' : undefined); else setActiveTab('photos'); }
     else if (act === 'videos') setActiveTab('videos');
     else if (act === 'live') window.klabLive?.open(d);
     else if (act === 'video') window.klabOpenVideo?.(+d);

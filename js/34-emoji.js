@@ -64,6 +64,16 @@
     missAt = Date.now();
     refresh();
   }
+  // Each unknown name asks at most once every 5 minutes: text that only
+  // looks like one ("1:23:45", "10:30:00") made every redraw of Chat ask
+  // the list again, every 15s for as long as the page was open.
+  const askedFor = new Map();
+  function missName(name) {
+    const at = askedFor.get(name);
+    if (at && Date.now() - at < 300000) return;
+    askedFor.set(name, Date.now());
+    miss();
+  }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - missAt > 60000) { missAt = Date.now(); refresh(); } });
   // New ones show in what's already on screen; the picker redraws.
   function changed() {
@@ -117,7 +127,7 @@
           }
           // ":not:one:" — try again from the second colon. Without Unicode's
           // names yet, they're fetched and what's on screen drawn again.
-          if (!e) { if (!groups) wantNames(); else miss(); TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
+          if (!e) { if (!groups) wantNames(); else missName(m[1]); TOKEN_RE.lastIndex = m.index + m[0].length - 1; continue; }
           frag ||= document.createDocumentFragment();
           frag.append(t.slice(last, m.index), img(e));
           last = m.index + m[0].length;
@@ -137,14 +147,16 @@
   function emojiKey(key) {
     const m = /^:([a-z0-9_]{2,30}):$/.exec(key || '');
     const e = m && custom.get(m[1]);
-    if (m && !e) miss();
+    if (m && !e) missName(m[1]);
     return e ? imgHTML(e) : esc(key);
   }
 
   // ── Unicode's emoji ──
   let groups = null, dataP = null, uniBySlug = null, namesWanted = false;
   function loadData() {
-    return dataP ||= fetch(DATA_URL).then(r => r.json()).then(d => {
+    // A deadline (body included): a stalled download left dataP pending for
+    // good, and the picker on its spinner until a reload.
+    return dataP ||= fetchTimeout(DATA_URL, {}, 15000).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.json(); }).then(d => {
       groups = d.groups.map(([name, items], i) => ({
         id: 'g' + i, name, mark: GROUP_MARK[i] || items[0]?.[0],
         items: items.map(([e, slug, kw]) => ({ e, name: slug, kw: slug.replace(/_/g, ' ') + ' ' + kw })),
@@ -158,7 +170,8 @@
   function wantNames() {
     if (namesWanted) return;
     namesWanted = true;
-    loadData().then(() => { if (groups) changed(); else namesWanted = false; });
+    // Failed (offline): try again a minute on, not on every redraw.
+    loadData().then(() => { if (groups) changed(); else setTimeout(() => { namesWanted = false; }, 60000); });
   }
 
   // ── The picker ──
@@ -257,7 +270,7 @@
       if (groups) for (const g of groups) {
         rail.push([g.id, '<span class="emo-mark">' + g.mark + '</span>', g.name]);
         html += secHTML(g.id, g.name, g.items.map(it => cell(it, g.id)).join(''));
-      } else html += '<p class="emo-none">Loading…</p>';
+      } else html += '<p class="emo-none" data-wait>Loading…</p>';
     }
     scrollEl.innerHTML = html;
     railEl.innerHTML = rail.map(([id, icon, label]) => '<button type="button" data-sec="' + id + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + icon + '</button>').join('');

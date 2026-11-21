@@ -72,6 +72,17 @@ const SFX = (() => {
     return ctx;
   }
   let sleepT = 0;
+  // Opening the audio device is slow (~100ms on the main thread), and it
+  // used to happen inside the first press, so the first click after a load
+  // stalled the page. Built while the pointer first moves instead; it
+  // waits there suspended (and asleep) until a sound needs it.
+  function prewarm() {
+    if (ctx) return;
+    const go = () => { if (ctx || !(window.AudioContext || window.webkitAudioContext)) return; try { getCtx(); ctx.suspend?.().catch(() => {}); } catch (e) {} };
+    (window.requestIdleCallback || setTimeout)(go, { timeout: 1500 });
+  }
+  addEventListener('pointermove', prewarm, { once: true, passive: true });
+  addEventListener('keydown', prewarm, { once: true, passive: true });
 
   // Browsers only start audio inside a user gesture.
   let _unlocked = false;

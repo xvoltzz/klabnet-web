@@ -16,7 +16,6 @@ function klabPromptFor(key) {
 // intro typing animation below has finished, or by this animation itself
 // if it's still mid-typing at that point (e.g. a page load landing
 // directly on the #chat hash).
-const CHAT_PROMPT_TEXT = 'KLABNET/chat>'; // was klab.chat>_; every page is a directory now
 let typed = 0;
 const promptEl  = document.getElementById('promptText');
 const cursorEl  = document.getElementById('promptCursor');

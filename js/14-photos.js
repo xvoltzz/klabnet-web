@@ -288,7 +288,8 @@
   }
   window.klabOpenPhoto = function(postId, photoId, kind) {
     setActiveTab('photos');
-    if (kind === 'screenshot' && view !== 'screens') { pendingFocus = { postId, photoId }; game = ''; show('screens', 'posted', true); return; }
+    // Screenshots open on all games: one game's list may not have it.
+    if (kind === 'screenshot' && (view !== 'screens' || game) && !focusPhoto(postId, photoId)) { pendingFocus = { postId, photoId }; game = ''; show('screens', 'posted', true); return; }
     if (focusPhoto(postId, photoId)) return;
     pendingFocus = { postId, photoId };
     if (kind !== 'screenshot' && (view !== 'timeline' || order !== 'posted')) show('timeline', 'posted'); else fetchLatest();
@@ -1043,7 +1044,7 @@
     const list = $('phReplies');
     if (list.dataset.postId === String(post.id)) return;
     list.dataset.postId = String(post.id);
-    list.innerHTML = '<div class="k-com-empty">Loading…</div>';
+    list.innerHTML = '<div class="k-com-empty" data-wait>Loading…</div>';
     try {
       const r = await fetchTimeout(`/api/posts/${post.id}/replies`, {}, 8000);
       if (!r.ok) throw new Error();

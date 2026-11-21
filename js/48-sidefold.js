@@ -107,6 +107,7 @@
   };
   watch();
   repaint();
-  document.addEventListener('klab:chat-rooms', () => { watch(); repaint(); });
+  // js/08-chat.js fires this on window (a document listener never heard it).
+  window.addEventListener('klab:chat-rooms', () => { watch(); repaint(); });
   window.klabSideFold = { state: () => ({ ...fold }), set: (k, v) => { fold[k] = !!v; save(); repaint(); } };
 })();

@@ -218,15 +218,28 @@
 
   // ── Sounds ──
   let ringT = 0, backT = 0;
+  // The API ends an unanswered call at 30s. If its "ended" never arrives
+  // (a stream that died without a ping to tell, an API from before pings),
+  // the ringing stopped only with a reload: give up after a minute and ask
+  // the stream again, whose hello says what's really going on.
+  const RING_MAX = 60e3;
+  const ringOver = t0 => {
+    if (Date.now() - t0 < RING_MAX) return false;
+    stopSounds();
+    if (enabled) connect();
+    return true;
+  };
   function startRing() {
     if (ringT) return;
     sfx('ring');
-    ringT = setInterval(() => { if (!call || call.state !== 'ringing') return stopSounds(); sfx('ring'); }, 3200);
+    const t0 = Date.now();
+    ringT = setInterval(() => { if (!call || call.state !== 'ringing') return stopSounds(); if (ringOver(t0)) return; sfx('ring'); }, 3200);
   }
   function startRingback() {
     if (backT) return;
     sfx('ringback');
-    backT = setInterval(() => { if (!call || call.state !== 'ringing') return stopSounds(); sfx('ringback'); }, 3000);
+    const t0 = Date.now();
+    backT = setInterval(() => { if (!call || call.state !== 'ringing') return stopSounds(); if (ringOver(t0)) return; sfx('ringback'); }, 3000);
   }
   function stopSounds() { clearInterval(ringT); clearInterval(backT); ringT = backT = 0; }
 

@@ -60,7 +60,7 @@ async function loadAlbums() {
 // Artists keep for as long as albums do; every visit fetched them again.
 let _artistsCache = null, _artistsAt = 0;
 async function loadArtists() {
-  pickerList.innerHTML = '<div class="picker-empty">Loading…</div>';
+  pickerList.innerHTML = '<div class="picker-empty" data-wait>Loading…</div>';
   const t = _pickerLoadToken;
   try {
     if (!_artistsCache || Date.now() - _artistsAt > LIBRARY_TTL_MS) {
@@ -300,12 +300,7 @@ function renderArtistList(artists) {
       img.src = `${ND_URL}/rest/getCoverArt?id=${encodeURIComponent(artist.coverArt || 'ar-' + artist.id)}&size=${klabArtSize(Math.max(ph.offsetWidth, 160))}&${subsonicParams()}`;
     };
     if (_albumArtIO) _albumArtIO.observe(item); else item._loadArt();
-    item.querySelector('[data-card-play]').addEventListener('click', e => {
-      e.stopPropagation();
-      window.klabPlayArtist?.(artist);
-      SFX && SFX.play('click');
-    });
-    item.addEventListener('click', e => { if (!e.target.closest('.card-acts button')) loadArtistView(artist); });
+    item.addEventListener('click', () => loadArtistView(artist));
     frag.appendChild(item);
   });
   pickerList.appendChild(frag);

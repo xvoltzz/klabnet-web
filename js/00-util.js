@@ -494,6 +494,8 @@ const klabLayers = (() => {
     .some(el => el.checkVisibility ? el.checkVisibility() : el.offsetParent);
   addEventListener('keydown', e => {
     if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+    // A toast (its reply field, its buttons) has its own Escape (js/02-player.js).
+    if (e.target?.closest?.('#toastFlyout')) return;
     const t = top();
     if (!t || !t.close || suggesting()) return;
     if (t.onEscape && t.onEscape(e) === false) return; // it handled the key itself
