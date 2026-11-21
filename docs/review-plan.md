@@ -134,6 +134,8 @@ Count timers, intervals and listeners before and after visiting each page severa
 
 # Features to build next (after the reviews)
 
+Reviews A–C were run on 2026-11-20 as one pass (four parallel code reviews plus rig checks) and shipped as klabnet-web b8a2f64 and klabnet-api d9ca12c. The features below can start.
+
 The owner picked two of the ideas from 2026-11-20. Build them after reviews A to C, one at a time, the same way. Follow "How to work" above for the rig, drivers, load, commits and pushing to Gitea only. Then add a section to CLAUDE.md for each.
 
 ## Feature D: the dialer reaches channels
@@ -164,3 +166,64 @@ When a live stream ends, it lands in the streamer's Videos, so Clips' "Make a cl
 - **Short streams:** under 60 seconds aren't saved. Remove the file.
 - **Failure modes:** egress not running means streams still work and simply aren't saved (log it, show nothing broken). A disk that fills mid-stream stops the recording without stopping the stream.
 - **Tests:** the live harness from the Live pass (Ingress under bwrap and ffmpeg as OBS) plus Egress the same way if it can run there. If it can't, test the API side with a stubbed egress and say what's unverified.
+
+## Feature F: real desk phones on klabnet's extensions (SIP)
+
+The owner (2026-11-21): "whats the likelihood i could hook klabnet phone into my real desk phone?", then asked for the plan. **Before starting, ask the owner:**
+1. The phone's make and model, or whether it's analog.
+2. Whether Asterisk can run on the API host (192.168.0.37), next to LiveKit.
+3. Whether they want a real outside phone number now, or klabnet-only for now.
+
+**How it fits together:**
+
+```
+desk phone ──SIP──> Asterisk ──SIP trunk──> LiveKit SIP ──> LiveKit room <── browsers / apps
+  (or analog phone      (phone switchboard,      (turns phone audio into
+   + ATA adapter)        the phone logs in here)   a room participant)
+                                  ▲
+                         klabnet-api drives it: rings the phone,
+                         hears when the phone dials, matches extensions
+```
+
+- **LiveKit SIP** (`livekit/sip`, a separate container) turns a phone call into a participant in a room. It converts G.711/G.722 to the room's Opus, and keypad tones (DTMF) work. It's a trunk, not a registrar: a desk phone can't log into it directly.
+- **Asterisk** is what the desk phone logs into (registration, ringing, hold, voicemail later). FreePBX is Asterisk with a web admin, if the owner would rather click than edit config.
+- **klabnet-api** stays in charge of who's who. Extensions stay 100–799, and **a desk phone belongs to a person**: it's one more of their devices.
+
+**By phone type:**
+- IP phone (Yealink, Polycom, Grandstream, Cisco with SIP firmware): logs into Asterisk directly.
+- Analog phone: an ATA (Grandstream HT801/HT802, ~$40) logs in for it.
+- Cisco with SCCP firmware: flash SIP firmware first, or use another phone.
+- One IP phone only: possible without Asterisk (LiveKit's outbound trunk aimed at the phone's IP, the phone dials by IP). No hold, no voicemail, one phone. Prefer Asterisk.
+
+**Call flows:**
+- *klabnet → desk phone* (alice dials 100): `place()` rings the owner's pages over the existing stream *and* calls `CreateSIPParticipant` (LiveKit's SIP API) through the outbound trunk into the same `klabnet-call-<id>` room. First to answer wins, like now: answering in a browser removes the SIP participant (the desk phone stops ringing); answering on the desk phone sends the pages their "taken" event. Caller ID shows "alice 101".
+- *desk phone → klabnet* (pick up, dial 101): Asterisk sends the INVITE to LiveKit SIP; a dispatch rule gives each call its own room (prefix e.g. `klabnet-sip-`). A LiveKit webhook tells klabnet-api (participant joined, with the caller and the dialed number in the SIP participant's attributes). The API looks up 101, rings alice, and her answer joins her to that room. The webhook goes straight to the API on the same machine: no Caddy route, no forward_auth. Check the signature (LiveKit signs webhooks with the API key/secret).
+
+**Build, in phases:**
+1. **The pieces (~half a day, config).**
+   - klabnet-api `compose.yml`: a `phone` profile with `livekit/sip` and Asterisk, `network_mode: host` like `livekit`. LiveKit SIP uses the Redis that `live` already runs.
+   - Ports can't clash: Asterisk SIP 5060, LiveKit SIP 5070. Separate audio (RTP) ranges, e.g. 10000–10999 LiveKit SIP and 11000–11999 Asterisk.
+   - **Keep SIP on the LAN only. Never forward 5060 on the router** (SIP scanners hit open ports constantly).
+   - Asterisk config in the repo (`asterisk/pjsip.conf`, `extensions.conf`): one account per phone, one trunk to LiveKit SIP.
+   - Test: the phone registers, and Asterisk's echo test plays your voice back.
+2. **Connecting LiveKit (~an hour).** An inbound trunk that only accepts Asterisk's address, with a password. An outbound trunk pointing at Asterisk. An individual dispatch rule. Create them with the `lk` CLI, or have the API create them at startup, idempotently.
+3. **klabnet-api (~a day).**
+   - A `sip_phones` table: username, Asterisk account, label, enabled.
+   - `calls.py`: ring the desk phone in `place()`; first answer wins; hang-up on either side ends both; the log records which device answered; do not disturb doesn't ring the phone.
+   - The webhook route for calls that start on the desk phone.
+   - Presence says "In a call" while you're on the desk phone.
+4. **The site (small).** Settings → Voice gets a "Desk phone" row: connected or not, plus the server, username and password to type into the phone. The call card and log say "on desk phone". Contacts shows a phone icon for people who have one.
+5. **Docs.** README "Desk phones" (the profile, ports, `.env`, the LAN-only warning) and a CLAUDE.md section. The owner adds `phone` to `COMPOSE_PROFILES` in `.env` on the API host.
+
+**Optional, cheap once the rest works:**
+- **8xx from the desk phone joins a voice channel** (801 → Lounge): a dispatch rule or Asterisk route into the channel's room. This shares numbers with **Feature D**, so build D first or together.
+- **A real phone number:** a SIP provider (e.g. VoIP.ms, ~$1/month per number plus per-minute rates) into Asterisk. A separate decision: it puts the system on the public phone network.
+
+**Risks:**
+- **One-way audio** (one side can't hear) almost always means the RTP ranges or the advertised addresses are wrong. LAN-only avoids most of it. Don't set LiveKit SIP to advertise the external IP for a LAN phone.
+- **Unchecked assumptions.** The webhook's attribute names (`sip.phoneNumber`, `sip.trunkPhoneNumber`, `sip.callStatus`), `CreateSIPParticipant`'s fields (display name, wait-until-answered, ringing timeout) and Redis sharing were written from memory, not checked against LiveKit's current SIP docs. Check them first, then test on the homelab.
+- **Echo** is the desk phone's job (its own echo cancellation); the browsers already cancel theirs.
+
+**Tests:** the phone registers; echo test; klabnet → desk phone (answered on the phone, answered in a browser, declined, unanswered, DND); desk phone → klabnet by extension (answered, missed, the callee on two devices); hang up from each side; a wrong number ("Nothing on 857"); presence while on the desk phone; Asterisk or LiveKit SIP down (klabnet calls still work, the phone simply doesn't ring).
+
+**Rough size:** ~2 days.
